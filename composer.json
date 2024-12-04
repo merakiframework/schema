@@ -1,5 +1,5 @@
 {
-    "name": "meraki/form",
+    "name": "meraki/schema",
     "description": "A library that provides a flexible, UI-agnostic solution for defining, validating, and serializing form schemas that can be used across multiple rendering environments and formats.",
     "type": "library",
     "require-dev": {
@@ -8,12 +8,12 @@
     "license": "MIT",
     "autoload": {
         "psr-4": {
-            "Meraki\\Form\\": "src/"
+            "Meraki\\Schema\\": "src/"
         }
     },
 	"autoload-dev": {
 		"psr-4": {
-			"Meraki\\Form\\": "tests/"
+			"Meraki\\Schema\\": "tests/"
 		}
 	},
     "authors": [
@@ -23,7 +23,8 @@
         }
     ],
     "require": {
-		"php": "^8.2"
+		"php": "^8.2",
+        "brick/date-time": "^0.7.0"
 	},
 	"scripts": {
 		"test": "phpunit"
