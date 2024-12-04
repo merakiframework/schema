@@ -1,78 +1,99 @@
 <?php
 declare(strict_types=1);
 
-namespace Meraki\Form\Serializer;
+namespace Meraki\Schema\Serializer;
 
-use Meraki\Form\NameInflector;
-use Meraki\Form\SchemaSerializer;
-use Meraki\Form\Schema;
-use Meraki\Form\Field;
-use Meraki\Form\Constraint;
+use Meraki\Schema\Attribute;
+use Meraki\Schema\Rule\Condition;
+use Meraki\Schema\Rule\ConditionGroup;
+use Meraki\Schema\Outcome;
+use Meraki\Schema\Rule;
+use Meraki\Schema\SchemaSerializer;
+use Meraki\Schema\SchemaFacade;
+use Meraki\Schema\Field;
 
 final class Json implements SchemaSerializer
 {
-	private NameInflector $nameInflector;
-
-	public function __construct()
-	{
-		$this->nameInflector = new NameInflector();
-	}
-
-	public function serialize(Schema $schema): string
-	{
-		return $this->encodeSchema($schema);
-	}
-
-	private function encodeSchema(Schema $schema): string
+	public function serialize(SchemaFacade $schema): string
 	{
 		$encodedSchema = new \stdClass();
-		$encodedSchema->fields = $this->encodeFields($schema->fields);
+		$encodedSchema->name = $schema->name;
+		$encodedSchema->fields = $this->serializeFields($schema->fields);
+		$encodedSchema->rules = array_map(fn(Rule $rule): object => $this->serializeRule($rule), $schema->rules->__toArray());
 
 		return json_encode($encodedSchema, JSON_PRETTY_PRINT);
 	}
 
-	private function encodeFields(Field\Set $fields): array
+	private function serializeRule(Rule $rule): object
+	{
+		return (object)[
+			'when' => $this->serializeConditionGroup($rule->when),
+			'then' => array_map(fn(Outcome $outcome): object => $outcome->__toObject(), $rule->then)
+		];
+	}
+
+	private function serializeConditionGroup(ConditionGroup $group): object
+	{
+		return (object)[
+			'group' => $group->type,
+			'conditions' => array_map(fn(Condition|ConditionGroup $condition): object => $this->serializeCondition($condition), $group->conditions),
+		];
+	}
+
+	private function serializeCondition(Condition|ConditionGroup $condition): object
+	{
+		if ($condition instanceof ConditionGroup) {
+			return $this->serializeConditionGroup($condition);
+		}
+
+		return $condition->__toObject();
+	}
+
+	private function serializeOutcomes(array $outcomes): array
+	{
+		$encodedOutcomes = [];
+
+		foreach ($outcomes as $outcome) {
+			$encodedOutcomes[] = $outcome->__toObject();
+		}
+
+		return $encodedOutcomes;
+	}
+
+	private function serializeFields(Field\Set $fields): array
 	{
 		$encodedFields = [];
 
 		/** @var Field $field */
 		foreach ($fields as $field) {
-			$encodedFields[] = $this->encodeField($field);
+			$encodedFields[$field->name->value] = $this->serializeField($field);
 		}
 
 		return $encodedFields;
 	}
 
-	private function encodeField(Field $field): object
+	private function serializeField(Field $field): object
 	{
 		$encodedField = new \stdClass();
-		$encodedField->name = $field->name;
-		$encodedField->type = $field->type;
-		$encodedField->constraints = $this->encodeConstraints($field->constraints);
+
+		foreach ($field->attributes as $attribute) {
+			if ($attribute->name === 'name') {
+				continue;
+			}
+
+			$encodedField->{$attribute->name} = $this->serializeValue($attribute->value);
+		}
 
 		return $encodedField;
 	}
 
-	private function encodeConstraints(Constraint\Set $constraints): object
-	{
-		$encodedConstraints = new \stdClass();
-
-		/** @var Constraint $constraint */
-		foreach ($constraints as $constraint) {
-			$name = $this->nameInflector->inflectOn($constraint::class);
-			$encodedConstraints->{$name} = $this->encodeValue($constraint->value);
-		}
-
-		return $encodedConstraints;
-	}
-
-	private function encodeValue(mixed $value): mixed
+	private function serializeValue(mixed $value): mixed
 	{
 		if (is_bool($value)) {
 			return $value;
 		}
 
-		if (is_int($value)) {
+		if (is_int($value) || is_float($value)) {
 			return $value;
 		}
 
@@ -81,33 +102,33 @@ final class Json implements SchemaSerializer
 		}
 
 		if (is_array($value)) {
-			return $this->encodeArray($value);
+			return $this->serializeArray($value);
 		}
 
 		if (is_object($value)) {
-			return $this->encodeObject($value);
+			return $this->serializeObject($value);
 		}
 
 		return null;
 	}
 
-	private function encodeArray(array $array): array
+	private function serializeArray(array $array): array
 	{
 		$encodedArray = [];
 
 		foreach ($array as $key => $value) {
-			$encodedArray[$key] = $this->encodeValue($value);
+			$encodedArray[$key] = $this->serializeValue($value);
 		}
 
 		return $encodedArray;
 	}
 
-	private function encodeObject(object $object): object
+	private function serializeObject(object $object): object
 	{
 		$encodedObject = new \stdClass();
 
 		foreach ($object as $key => $value) {
-			$encodedObject->{$key} = $this->encodeValue($value);
+			$encodedObject->{$key} = $this->serializeValue($value);
 		}
 
 		return $encodedObject;
