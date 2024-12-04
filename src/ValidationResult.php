@@ -1,42 +1,29 @@
 <?php
 declare(strict_types=1);
 
-namespace Meraki\Form;
+namespace Meraki\Schema;
 
-use Meraki\Form\Field\ValidationResult as FieldValidationResult;
-
-class ValidationResult
+/**
+ * @property-read int $status
+ */
+interface ValidationResult
 {
-	public array $errors = [];
+	public const PASSED = 0;
+	public const SKIPPED = 1;
+	public const FAILED = 2;
 
-	public function __construct(public Schema $schema)
-	{
-	}
+	/**
+	 * Check if the validation result has passed.
+	 */
+	public function passed(): bool;
 
-	public function addFieldResult(FieldValidationResult $result): void
-	{
-		if (!isset($this->errors[$result->fieldName])) {
-			$this->errors[$result->fieldName] = [];
-		}
+	/**
+	 * Check if the validation result was was skipped.
+	 */
+	public function skipped(): bool;
 
-		if ($result->failed()) {
-			$this->errors[$result->fieldName] = array_merge($this->errors[$result->fieldName], $result->getErrors());
-		}
-	}
-
-	public function passed(): bool
-	{
-		$errorCount = 0;
-
-		foreach ($this->errors as $fieldName => $errors) {
-			$errorCount += count($errors);
-		}
-
-		return $errorCount === 0;
-	}
-
-	public function failed(): bool
-	{
-		return !$this->passed();
-	}
+	/**
+	 * Check if the validation result has failed.
+	 */
+	public function failed(): bool;
 }
