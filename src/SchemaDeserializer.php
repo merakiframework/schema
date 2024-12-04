@@ -1,11 +1,11 @@
 <?php
 declare(strict_types=1);
 
-namespace Meraki\Form;
+namespace Meraki\Schema;
 
-use Meraki\Form\Schema;
+use Meraki\Schema\SchemaFacade;
 
 interface SchemaDeserializer
 {
-	public function deserialize(string $serializedSchema): Schema;
+	public function deserialize(string $serializedSchema): SchemaFacade;
 }
