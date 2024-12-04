@@ -1,18 +1,18 @@
 <?php
 declare(strict_types=1);
 
-namespace Meraki\Form;
+namespace Meraki\Schema;
 
-use Meraki\Form\Constraint\ValidationResult;
+use Meraki\Schema\Validator;
+use Meraki\Schema\Attribute;
 
 /**
- * @property-read mixed $value
+ * An `Attribute` that is paired with a validator, is known as
+ * a `Constraint`. Attributes that can be validated must implement
+ * this interface.
  */
 interface Constraint
 {
-	public function validate(mixed $value): ValidationResult;
-
-	public function hasValueOf(mixed $value): bool;
-
-	public function equals(self $other): bool;
+	// public Validator $validator { get; }
+	// public function assign(Validator $validator): Attribute;
 }
