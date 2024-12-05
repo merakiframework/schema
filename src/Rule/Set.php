@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace Meraki\Schema\Rule;
 
 use Meraki\Schema\Rule;
+use Meraki\Schema\SchemaFacade;
 
 class Set implements \IteratorAggregate, \Countable
 {
@@ -23,6 +24,13 @@ class Set implements \IteratorAggregate, \Countable
 		}
 
 		return null;
+	}
+
+	public function apply(array $data, SchemaFacade $schema): void
+	{
+		foreach ($this->rules as $rule) {
+			$rule->apply($data, $schema);
+		}
 	}
 
 	public function first(): ?Rule
