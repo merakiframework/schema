@@ -1,0 +1,8 @@
+Rule:
+	Conditions:
+		all:
+			#/fields/contact_method/value equals phone
+
+	Outcomes:
+		action => require
+		target => #/fields/phone_number
