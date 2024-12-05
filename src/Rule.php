@@ -55,13 +55,7 @@ class Rule
 	public function then(Outcome $outcome, Outcome ...$outcomes): self
 	{
 		$copy = clone $this;
-		$group = $copy->outcomes;
-
-		foreach ([$outcome, ...$outcomes] as $outcome) {
-			$group = $copy->outcomes->add($outcome);
-		}
-
-		$copy->outcomes = $group;
+		$copy->outcomes = $copy->outcomes->add($outcome, ...$outcomes);
 
 		return $copy;
 	}
