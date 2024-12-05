@@ -3,7 +3,9 @@ declare(strict_types=1);
 
 namespace Meraki\Schema;
 
-class Attribute
+use Meraki\Schema\Property;
+
+class Attribute implements Property
 {
 	public function __construct(
 		public readonly string $name,
