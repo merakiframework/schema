@@ -1,0 +1,89 @@
+{
+	"name": "test",
+	"fields": {
+		"name": {
+			"type": "name",
+			"required": true
+		},
+		"contact_method": {
+			"type": "enum",
+			"required": true,
+			"one_of": [
+				"email",
+				"phone"
+			]
+		},
+		"message": {
+			"type": "text",
+			"required": true,
+			"min": 10,
+			"max": 500,
+			"multiline": true
+		},
+		"email_address": {
+			"type": "email_address"
+		},
+		"phone_number": {
+			"type": "phone_number"
+		}
+	},
+	"rules": [
+		{
+			"when": {
+				"group": "any",
+				"conditions": [
+					{
+						"type": "all",
+						"conditions": [
+							{
+								"target": "#/field_1/value",
+								"operator": "equals",
+								"expected": "value1"
+							},
+							{
+								"target": "#/field_2/value",
+								"operator": "equals",
+								"expected": "value2"
+							},
+							{
+								"type": "all",
+								"conditions": [
+									{
+										"target": "#/field_3/value",
+										"operator": "equals",
+										"expected": "value3"
+									},
+									{
+										"target": "#/field_4/value",
+										"operator": "notEquals",
+										"expected": "value4"
+									}
+								]
+							}
+						]
+					},
+					{
+						"type": "none",
+						"conditions": [
+							{
+								"target": "#/contact_method/value",
+								"operator": "equals",
+								"expected": "phone"
+							}
+						]
+					}
+				]
+			},
+			"then": [
+				{
+					"action": "doStuff",
+					"target": "#/a_field"
+				},
+				{
+					"action": "doOtherStuff",
+					"target": "#/another_field"
+				}
+			]
+		}
+	]
+}
