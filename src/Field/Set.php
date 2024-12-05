@@ -14,6 +14,15 @@ class Set implements \IteratorAggregate, \Countable
 		$this->mutableAdd(...$fields);
 	}
 
+	public function prefixNamesWith(string $prefix): self
+	{
+		foreach ($this->fields as $field) {
+			$field->attributes->getByName('name')->prefixWith($prefix);
+		}
+
+		return $this;
+	}
+
 	public function indexOf(Field $field): ?int
 	{
 		foreach ($this->fields as $index => $currentField) {
