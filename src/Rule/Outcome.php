@@ -5,6 +5,7 @@ namespace Meraki\Schema\Rule;
 
 use Meraki\Schema\Attribute;
 use Meraki\Schema\SchemaFacade;
+use Meraki\Schema\Field;
 
 class Outcome
 {
