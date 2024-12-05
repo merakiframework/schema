@@ -5,8 +5,9 @@ namespace Meraki\Schema\Deserializer;
 
 use Meraki\Schema\Rule\Condition;
 use Meraki\Schema\Rule\ConditionGroup;
-use Meraki\Schema\Outcome;
+use Meraki\Schema\Rule\Outcome;
 use Meraki\Schema\Rule;
+use Meraki\Schema\Rule\OutcomeGroup;
 use Meraki\Schema\SchemaDeserializer;
 use Meraki\Schema\SchemaFacade;
 use Meraki\Schema\Field;
@@ -76,12 +77,12 @@ final class Json implements SchemaDeserializer
 		return new Rule($this->decodeConditionGroup($ruleDefinition->when), $this->deserializeOutcomes($ruleDefinition));
 	}
 
-	private function deserializeOutcomes(object $ruleDefinition): array
+	private function deserializeOutcomes(object $ruleDefinition): OutcomeGroup
 	{
 		$this->assertPropertyExists($ruleDefinition, 'then');
 		$this->assertPropertyIsArray($ruleDefinition, 'then');
 
-		$decodedOutcomes = [];
+		$decodedOutcomes = new OutcomeGroup();
 
 		foreach ($ruleDefinition->then as $outcome) {
 			$this->assertIsObject($outcome);
@@ -91,7 +92,7 @@ final class Json implements SchemaDeserializer
 			$target = new Attribute('target', $outcome->target);
 			$action = new Attribute('action', $outcome->action);
 			$attrs = $this->deserializeAttributes($outcome, ['target', 'action']);
-			$decodedOutcomes[] = new Outcome($action, $target, ...$attrs);
+			$decodedOutcomes = $decodedOutcomes->add(new Outcome($action, $target, ...$attrs));
 		}
 
 		return $decodedOutcomes;
