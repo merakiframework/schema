@@ -6,8 +6,9 @@ namespace Meraki\Schema\Serializer;
 use Meraki\Schema\Attribute;
 use Meraki\Schema\Rule\Condition;
 use Meraki\Schema\Rule\ConditionGroup;
-use Meraki\Schema\Outcome;
+use Meraki\Schema\Rule\Outcome;
 use Meraki\Schema\Rule;
+use Meraki\Schema\Rule\OutcomeGroup;
 use Meraki\Schema\SchemaSerializer;
 use Meraki\Schema\SchemaFacade;
 use Meraki\Schema\Field;
@@ -19,16 +20,28 @@ final class Json implements SchemaSerializer
 		$encodedSchema = new \stdClass();
 		$encodedSchema->name = $schema->name;
 		$encodedSchema->fields = $this->serializeFields($schema->fields);
-		$encodedSchema->rules = array_map(fn(Rule $rule): object => $this->serializeRule($rule), $schema->rules->__toArray());
+		$encodedSchema->rules = $this->serializeRules($schema->rules);
 
 		return json_encode($encodedSchema, JSON_PRETTY_PRINT);
+	}
+
+	private function serializeRules(Rule\Set $rules): array
+	{
+		$serializedRules = [];
+
+		/** @var Rule $rule */
+		foreach ($rules as $rule) {
+			$serializedRules[] = $this->serializeRule($rule);
+		}
+
+		return $serializedRules;
 	}
 
 	private function serializeRule(Rule $rule): object
 	{
 		return (object)[
-			'when' => $this->serializeConditionGroup($rule->when),
-			'then' => array_map(fn(Outcome $outcome): object => $outcome->__toObject(), $rule->then)
+			'when' => $this->serializeConditionGroup($rule->conditions),
+			'then' => $this->serializeOutcomes($rule->outcomes),
 		];
 	}
 
@@ -49,15 +62,17 @@ final class Json implements SchemaSerializer
 		return $condition->__toObject();
 	}
 
-	private function serializeOutcomes(array $outcomes): array
+	private function serializeOutcomes(OutcomeGroup $outcomes): array
 	{
-		$encodedOutcomes = [];
+		$serializedOutcomes = [];
 
+		/** @var Outcome $outcome */
 		foreach ($outcomes as $outcome) {
-			$encodedOutcomes[] = $outcome->__toObject();
+			$serializedOutcomes[] = $outcome->__toObject();
+
 		}
 
-		return $encodedOutcomes;
+		return $serializedOutcomes;
 	}
 
 	private function serializeFields(Field\Set $fields): array
