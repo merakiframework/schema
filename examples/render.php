@@ -2,10 +2,6 @@
 
 require_once __DIR__ . '/../vendor/autoload.php';
 
-use Meraki\Schema\Rule;
-use Meraki\Schema\Rule\Condition;
-use Meraki\Schema\Outcome;
-
 $schema = new Meraki\Schema\SchemaFacade('editing_one');
 
 $schema->addUuidField('id')
