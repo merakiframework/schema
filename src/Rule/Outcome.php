@@ -18,17 +18,19 @@ class Outcome
 		$this->otherAttributes = $attrs;
 	}
 
-	public static function __callStatic(string $method, array $args): self
+	public static function require(string $target): self
 	{
-		$target = new Attribute('target', array_shift($args));
+		return new self(new Attribute('action', 'require'), new Attribute('target', $target));
+	}
 
-		if (is_array($args[0] ?? null)) {
-			$attributes = array_map(fn(string $attr) => new Attribute($method, $attr), $args);
-		} else {
-			$attributes = $args;
-		}
+	public static function set(string $target, mixed $to): self
+	{
+		return new self(new Attribute('action', 'set'), new Attribute('target', $target), new Attribute('to', $to));
+	}
 
-		return new self(new Attribute('action', $method), $target, ...$attributes);
+	public static function replace(string $target, mixed $with): self
+	{
+		return new self(new Attribute('action', 'replace'), new Attribute('target', $target), new Attribute('with', $with));
 	}
 
 	public function __toObject(): object
