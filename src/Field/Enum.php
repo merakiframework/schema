@@ -13,6 +13,10 @@ class Enum extends Field
 	public function __construct(Attribute\Name $name, Attribute\OneOf $oneOf, Attribute ...$attributes)
 	{
 		parent::__construct(new Attribute\Type('enum'), $name, $oneOf, ...$attributes);
+
+		$this->registerConstraints([
+			Attribute\OneOf::class => self::getValidatorForValue()
+		]);
 	}
 
 	public function oneOf(mixed ...$values): self
