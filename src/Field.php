@@ -148,6 +148,14 @@ class Field
 		return $optional !== null && $optional->hasValueOf(true);
 	}
 
+	/**
+ 	 * Check whether a field was given any input.
+   	 */
+	protected function valueNotGiven(Attribute\Value $value): bool
+	{
+		return $value->hasValueOf(null);
+	}
+
 	public function validate(): FieldValidationResult
 	{
 		/** @var Attribute\Optional|null */
@@ -163,7 +171,7 @@ class Field
 			$value = $value->defaultsTo($defaultValue);
 
 			// If optional, no value, no default value, then skip all validation.
-			if ($value->hasValueOf(null)) {
+			if ($this->valueNotGiven($value)) {
 				return new FieldValidationResult(
 					$this,
 					FieldValueValidationResult::skip($value),
