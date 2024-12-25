@@ -12,7 +12,7 @@ class CreditCard extends Field
 {
 	public function __construct(Attribute\Name $name, Attribute ...$attributes)
 	{
-		parent::__construct(new Attribute\Type('name'), $name, ...$attributes);
+		parent::__construct(new Attribute\Type('credit-card'), $name, ...$attributes);
 	}
 
 	public static function getSupportedAttributes(): array
