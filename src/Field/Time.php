@@ -108,6 +108,11 @@ class Time extends Field
 		return is_string($value) && preg_match(self::TYPE_PATTERN, $value) === 1;
 	}
 
+	protected function valueNotGiven(Attribute\Value $value): bool
+	{
+		return $value->hasValueOf(null) || $value->hasValueOf('');
+	}
+
 	private function getValidatorForMin(): Validator
 	{
 		return new class implements Validator {
