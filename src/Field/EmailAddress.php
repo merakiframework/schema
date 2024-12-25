@@ -12,7 +12,7 @@ class EmailAddress extends Field
 {
 	public function __construct(Attribute\Name $name, Attribute ...$attributes)
 	{
-		parent::__construct(new Attribute\Type('email-address'), $name, ...$attributes);
+		parent::__construct(new Attribute\Type('email_address'), $name, ...$attributes);
 
 		$this->registerConstraints([
 			Attribute\Min::class => new Validator\CheckMinCharCount(),
