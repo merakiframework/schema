@@ -22,6 +22,7 @@ class Boolean extends Field
 
 	protected function isCorrectType(mixed $value): bool
 	{
-		return is_bool($value);
+		return is_bool($value)
+			|| (is_string($value) && (strcasecmp($value, 'on') === 0 || strcasecmp($value, 'off') === 0));
 	}
 }
