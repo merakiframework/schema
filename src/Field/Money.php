@@ -12,7 +12,7 @@ class Money extends Field
 {
 	public function __construct(Attribute\Name $name, Attribute ...$attributes)
 	{
-		parent::__construct(new Attribute\Type('name'), $name, ...$attributes);
+		parent::__construct(new Attribute\Type('money'), $name, ...$attributes);
 	}
 
 	public static function getSupportedAttributes(): array
