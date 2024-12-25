@@ -38,13 +38,7 @@ class Enum extends Field
 		return new class() implements Validator {
 			public function validate(Attribute&Constraint $constraint, Field $field): bool
 			{
-				$oneOf = $field->attributes->findByName('one_of');
-
-				if ($oneOf !== null) {
-					return in_array($constraint->value, $oneOf->value, true);
-				}
-
-				return false;
+				return in_array($field->value, $constraint->value, true);
 			}
 		};
 	}
