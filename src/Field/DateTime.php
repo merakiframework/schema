@@ -12,7 +12,7 @@ class DateTime extends Field
 {
 	public function __construct(Attribute\Name $name, Attribute ...$attributes)
 	{
-		parent::__construct(new Attribute\Type('date-time'), $name, ...$attributes);
+		parent::__construct(new Attribute\Type('date_time'), $name, ...$attributes);
 	}
 
 	public static function getSupportedAttributes(): array
