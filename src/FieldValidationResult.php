@@ -3,51 +3,27 @@ declare(strict_types=1);
 
 namespace Meraki\Schema;
 
-use Meraki\Schema\ValidationResult;
+use Meraki\Schema\AggregatedValidationResults;
 
-final class FieldValidationResult implements ValidationResult
+final class FieldValidationResult extends AggregatedValidationResults
 {
-	public readonly int $status;
-
-	public function __construct(
-		public readonly Field $field,
-		public readonly FieldValueValidationResult $valueValidationResult,
-		public readonly AggregatedConstraintValidationResults $constraintValidationResults,
-	) {
-		$this->status = $this->calculateStatus();
-	}
-
 	public function failed(): bool
 	{
-		return $this->valueValidationResult->failed() || $this->constraintValidationResults->failed();
-	}
-
-	public function pending(): bool
-	{
-		return $this->valueValidationResult->pending() || $this->constraintValidationResults->pending();
+		return $this->anyFailed();
 	}
 
 	public function passed(): bool
 	{
-		return $this->valueValidationResult->passed()
-			&& $this->constraintValidationResults->passed();
+		return $this->allPassed();
 	}
 
 	public function skipped(): bool
 	{
-		return $this->valueValidationResult->skipped() && $this->constraintValidationResults->skipped();
+		return $this->allSkipped();
 	}
 
-	private function calculateStatus(): int
+	public function pending(): bool
 	{
-		if ($this->failed()) {
-			return self::FAILED;
-		}
-
-		if ($this->skipped()) {
-			return self::SKIPPED;
-		}
-
-		return self::PASSED;
+		return $this->isEmpty() || $this->anyPending();
 	}
 }

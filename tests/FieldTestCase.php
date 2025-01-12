@@ -215,7 +215,7 @@ abstract class FieldTestCase extends TestCase
 	abstract public function createInvalidConstraint(): Constraint;
 	abstract public function usesConstraints(): bool;
 
-	protected function toConstraintList(AggregatedConstraintValidationResults $results): array
+	protected function toConstraintList(FieldValidationResult $results): array
 	{
 		$constraints = [];
 
@@ -246,7 +246,7 @@ abstract class FieldTestCase extends TestCase
 		$this->assertHasResultForConstraint($field->validationResult->getFailures(), $fqcn);
 	}
 
-	protected function assertHasResultForConstraint(AggregatedConstraintValidationResults $results, string $fqcn): void
+	protected function assertHasResultForConstraint(FieldValidationResult $results, string $fqcn): void
 	{
 		$constraints = $this->toConstraintList($results);
 

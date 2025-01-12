@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 namespace Meraki\Schema;
 
-use Meraki\Schema\AggregatedValidationResults;
+use Meraki\Schema\FieldValidationResult;
 use Meraki\Schema\Attribute;
 use Meraki\Schema\Validator;
 use Meraki\Schema\ConstraintValidationResult;
@@ -19,7 +19,7 @@ class Field
 
 	public bool $inputGiven = false;
 
-	public AggregatedConstraintValidationResults $validationResult;
+	public FieldValidationResult $validationResult;
 
 	private bool $deferValidation = false;
 
@@ -41,7 +41,7 @@ class Field
 
 		$this->updateValueWithDefaultValue();
 
-		$this->validationResult = new AggregatedConstraintValidationResults();
+		$this->validationResult = new FieldValidationResult();
 	}
 
 	protected function updateValueWithDefaultValue(): void
@@ -175,7 +175,7 @@ class Field
 		return $value->hasValueOf(null);
 	}
 
-	public function validate(): AggregatedConstraintValidationResults
+	public function validate(): FieldValidationResult
 	{
 		/** @var Attribute\Optional|null */
 		$optional = $this->attributes->findByName('optional');
@@ -190,7 +190,7 @@ class Field
 
 			// If optional, no value, no default value, then skip all validation.
 			if ($this->valueNotGiven($value)) {
-				$results = new AggregatedConstraintValidationResults();
+				$results = new FieldValidationResult();
 
 				foreach ($this->attributes->getConstraints() as $constraint) {
 					$results = $results->add(ConstraintValidationResult::skip($constraint));
@@ -209,7 +209,7 @@ class Field
 
 	private function skipAllConstraints(?Attribute\Set $constraints = null): void
 	{
-		$results = new AggregatedConstraintValidationResults();
+		$results = new FieldValidationResult();
 
 		foreach (($constraints ?: $this->attributes->getConstraints()) as $constraint) {
 			$results = $results->add(ConstraintValidationResult::skip($constraint));
@@ -230,7 +230,7 @@ class Field
 
 	protected function validateConstraints(): void
 	{
-		$results = new AggregatedConstraintValidationResults();
+		$results = new FieldValidationResult();
 		$constraints = $this->attributes->getConstraints();
 
 		// validate type constraint first
