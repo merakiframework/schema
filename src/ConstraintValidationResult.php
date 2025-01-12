@@ -41,6 +41,11 @@ class ConstraintValidationResult implements ValidationResult
 		return $this->status === self::SKIPPED;
 	}
 
+	public function pending(): bool
+	{
+		return $this->status === self::PENDING;
+	}
+
 	public function passed(): bool
 	{
 		return $this->status === self::PASSED;

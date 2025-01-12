@@ -28,6 +28,10 @@ abstract class AggregatedValidationResults implements \IteratorAggregate, \Count
 			return self::SKIPPED;
 		}
 
+		if ($this->pending()) {
+			return self::PENDING;
+		}
+
 		return self::FAILED;
 	}
 
@@ -96,6 +100,16 @@ abstract class AggregatedValidationResults implements \IteratorAggregate, \Count
 		return $this->getSkipped()->count() > 0;
 	}
 
+	public function anyPending(): bool
+	{
+		return $this->getPending()->count() > 0;
+	}
+
+	public function allPending(): bool
+	{
+		return !$this->isEmpty() && ($this->count() === $this->getPending()->count());
+	}
+
 	public function allFailed(): bool
 	{
 		return !$this->isEmpty() && ($this->count() === $this->getFailures()->count());
@@ -106,11 +120,32 @@ abstract class AggregatedValidationResults implements \IteratorAggregate, \Count
 		return $this->getFailures()->count() > 0;
 	}
 
+	public function getFailed(): self
+	{
+		return $this->filter(fn(ValidationResult $result): bool => $result->failed());
+	}
+
+	/**
+	 * @deprecated @see self::getFailed()
+	 */
 	public function getFailures(): self
 	{
 		return $this->filter(fn(ValidationResult $result): bool => $result->failed());
 	}
 
+	public function getPending(): self
+	{
+		return $this->filter(fn(ValidationResult $result): bool => $result->pending());
+	}
+
+	public function getPassed(): self
+	{
+		return $this->filter(fn(ValidationResult $result): bool => $result->passed());
+	}
+
+	/**
+	 * @deprecated @see self::getPassed()
+	 */
 	public function getPasses(): static
 	{
 		return $this->filter(fn(ValidationResult $result): bool => $result->passed());

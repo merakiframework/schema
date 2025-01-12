@@ -15,9 +15,9 @@ class Uuid extends Field
 
 	public function __construct(Attribute\Name $name, Attribute ...$attributes)
 	{
-		$this->registerConstraint(Attribute\Version::class, self::getValidatorForVersion());
-
 		parent::__construct(new Attribute\Type('uuid'), $name, ...$attributes);
+
+		$this->registerConstraint(Attribute\Version::class, self::getValidatorForVersion());
 
 		$this->attributes = $this->attributes->add(new Version());
 	}
@@ -39,9 +39,17 @@ class Uuid extends Field
 		];
 	}
 
-	protected function isCorrectType(mixed $value): bool
+	protected static function getTypeConstraintValidator(): Validator
 	{
-		return is_string($value) && preg_match(self::TYPE_PATTERN, $value) === 1;
+		return new class(self::TYPE_PATTERN) implements Validator {
+			public function __construct(private string $pattern) {}
+			public function validate(Attribute&Constraint $constraint, Field $field): bool
+			{
+				$value = $field->value;
+
+				return is_string($value) && preg_match($this->pattern, $value) === 1;
+			}
+		};
 	}
 
 	private static function getValidatorForVersion(): Validator

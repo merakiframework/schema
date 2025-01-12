@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace Meraki\Schema;
 
 use Meraki\Schema\Field;
+use Meraki\Schema\Attribute;
 use PHPUnit\Framework\TestCase;
 use PHPUnit\Framework\Attributes\{Test, CoversClass};
 
@@ -16,7 +17,9 @@ abstract class FieldTestCase extends TestCase
 	#[Test]
 	public function it_is_a_field(): void
 	{
-		$field = $this->createFieldWithNoValueAndNoDefaultValue();
+		$field = $this->createField()
+			->prefill(null)
+			->input(null);
 
 		$this->assertInstanceOf(Field::class, $field);
 	}
@@ -25,246 +28,228 @@ abstract class FieldTestCase extends TestCase
 	public function it_has_correct_type(): void
 	{
 		$expectedType = $this->getExpectedType();
-		$field = $this->createFieldWithNoValueAndNoDefaultValue();
+
+		$field = $this->createField()
+			->prefill(null)
+			->input(null);
 
 		$this->assertEquals($expectedType, $field->type);
 	}
 
 	#[Test]
+	public function validation_is_in_pending_state_by_default(): void
+	{
+		$field = $this->createField();
+
+		$this->assertTrue($field->validationResult->pending());
+	}
+
+	#[Test]
 	public function validation_skipped_if_no_value_and_optional(): void
 	{
-		$field = $this->createFieldWithNoValueAndNoDefaultValue()->makeOptional();
+		$field = $this->createField()
+			->makeOptional()
+			->prefill(null)
+			->input(null);
 
-		$result = $field->validate();
-		$this->assertTrue($result->skipped());
-
-		$valueResult = $result->valueValidationResult;
-		$this->assertTrue($valueResult->skipped());
-
-		// $constraintResults = $result->constraintValidationResults;
-		// $this->assertTrue($constraintResults->allSkipped());
+		$this->assertTrue($field->validationResult->skipped());
+		$this->assertValidationSkippedForConstraint($field, Attribute\Type::class);
 	}
 
 	#[Test]
 	public function validation_passes_if_no_value_and_valid_default_value_and_optional(): void
 	{
-		$field = $this->createFieldWithNoValueAndValidDefaultValue()->makeOptional();
+		$field = $this->createField()
+			->makeOptional()
+			->prefill($this->getValidValue())
+			->input(null);
 
-		$result = $field->validate();
-		$this->assertTrue($result->passed());
-
-		$valueResult = $result->valueValidationResult;
-		$this->assertTrue($valueResult->passed());
-
-		// $constraintResults = $result->constraintValidationResults;
-		// $this->assertTrue($constraintResults->passed());
+		$this->assertTrue($field->validationResult->passed());
+		$this->assertValidationPassedForConstraint($field, Attribute\Type::class);
 	}
 
 	#[Test]
 	public function validation_fails_if_no_value_and_invalid_default_value(): void
 	{
-		$field = $this->createFieldWithNoValueAndInvalidDefaultValue();
+		$field = $this->createField()
+			->prefill($this->getInvalidValue())
+			->input(null);
 
-		$result = $field->validate();
-		$this->assertTrue($result->failed());
-
-		$valueResult = $result->valueValidationResult;
-		$this->assertTrue($valueResult->failed());
-
-		// $constraintResults = $result->constraintValidationResults;
-		// $this->assertTrue($constraintResults->failed());
+		$this->assertTrue($field->validationResult->failed());
+		$this->assertValidationFailedForConstraint($field, Attribute\Type::class);
 	}
 
 	#[Test]
 	public function passes_validation_with_valid_value(): void
 	{
-		$field = $this->createFieldWithValidValueAndNoDefaultValue();
+		$field = $this->createField()
+			->prefill(null)
+			->input($this->getValidValue());
 
-		$result = $field->validate();
-		$this->assertTrue($result->passed());
-
-		$valueResult = $result->valueValidationResult;
-		$this->assertTrue($valueResult->passed());
-
-		// $constraintResults = $result->constraintValidationResults;
-		// $this->assertTrue($constraintResults->allPassed());
+		$this->assertTrue($field->validationResult->passed());
+		$this->assertValidationPassedForConstraint($field, Attribute\Type::class);
 	}
 
 	#[Test]
 	public function fails_validation_with_invalid_value(): void
 	{
-		$field = $this->createFieldWithInvalidValueAndNoDefaultValue();
+		$field = $this->createField()
+			->prefill(null)
+			->input($this->getInvalidValue());
 
-		$result = $field->validate();
-		$this->assertTrue($result->failed());
-
-		$valueResult = $result->valueValidationResult;
-		$this->assertTrue($valueResult->failed());
-
-		// $constraintResults = $result->constraintValidationResults;
-		// $this->assertTrue($constraintResults->skipped());
+		$this->assertTrue($field->validationResult->failed());
+		$this->assertValidationFailedForConstraint($field, Attribute\Type::class);
 	}
 
 	#[Test]
 	public function validation_fails_if_not_optional_and_no_value(): void
 	{
-		$field = $this->createFieldWithNoValueAndNoDefaultValue();
+		$field = $this->createField()
+			->prefill(null)
+			->input(null);
 
-		$result = $field->validate();
-		$this->assertTrue($result->failed());
-
-		$valueResult = $result->valueValidationResult;
-		$this->assertTrue($valueResult->failed());
-
-		// $constraintResults = $result->constraintValidationResults;
-		// $this->assertTrue($constraintResults->skipped());
+		$this->assertTrue($field->validationResult->failed());
+		$this->assertValidationFailedForConstraint($field, Attribute\Type::class);
 	}
 
 	#[Test]
-	public function validation_fails_if_not_optional_and_no_value_and_invalid_default_value(): void
+	public function validation_fails_if_required_and_no_value_and_invalid_default_value(): void
 	{
-		$field = $this->createFieldWithNoValueAndInvalidDefaultValue();
+		$field = $this->createField()
+			->prefill($this->getInvalidValue())
+			->input(null);
 
-		$result = $field->validate();
-		$this->assertTrue($result->failed());
-
-		$valueResult = $result->valueValidationResult;
-		$this->assertTrue($valueResult->failed());
-
-		// $constraintResults = $result->constraintValidationResults;
-		// $this->assertTrue($constraintResults->skipped());
+		$this->assertTrue($field->validationResult->failed());
+		$this->assertValidationFailedForConstraint($field, Attribute\Type::class);
 	}
 
 	#[Test]
-	public function validation_fails_if_not_optional_and_no_value_and_valid_default_value(): void
+	public function validation_fails_if_required_and_no_value_and_valid_default_value(): void
 	{
-		$field = $this->createFieldWithNoValueAndValidDefaultValue();
+		$field = $this->createField()
+			->prefill($this->getValidValue())
+			->input(null);
 
-		$result = $field->validate();
-		$this->assertTrue($result->failed());
-
-		$valueResult = $result->valueValidationResult;
-		$this->assertTrue($valueResult->failed());
-
-		// $constraintResults = $result->constraintValidationResults;
-		// $this->assertTrue($constraintResults->skipped());
+		$this->assertTrue($field->validationResult->failed());
+		$this->assertValidationFailedForConstraint($field, Attribute\Type::class);
 	}
 
 	#[Test]
 	public function skips_constraint_validation_if_optional_with_no_value_and_no_default(): void
 	{
-		$constraint = $this->createValidConstraintForValidValue();
-
-		if ($constraint === null) {
+		if (!$this->usesConstraints()) {
 			$this->markTestSkipped('This class does not use any constraints.');
 			return;
 		}
 
-		$field = $this->createFieldWithNoValueAndNoDefaultValue()
+		$constraint = $this->createValidConstraint();
+		$field = $this->createField()
 			->makeOptional()
-			->constrain($constraint);
+			->constrain($constraint)
+			->prefill(null)
+			->input(null);
 
-		$constraintResults = $field->validate()->constraintValidationResults;
-		$this->assertTrue($constraintResults->skipped());
+		$this->assertTrue($field->validationResult->skipped());
+		$this->assertValidationSkippedForConstraint($field, $constraint::class);
 	}
 
 	#[Test]
 	public function skips_constraint_validation_if_value_is_invalid(): void
 	{
-		$constraint = $this->createValidConstraintForValidValue();
-
-		if ($constraint === null) {
+		if (!$this->usesConstraints()) {
 			$this->markTestSkipped('This class does not use any constraints.');
 			return;
 		}
 
-		$field = $this->createFieldWithInvalidValueAndNoDefaultValue()->constrain($constraint);
+		$constraint = $this->createValidConstraint();
+		$field = $this->createField()
+			->constrain($constraint)
+			->prefill(null)
+			->input($this->getInvalidValue());
 
-		$constraintResults = $field->validate()->constraintValidationResults;
-		$this->assertTrue($constraintResults->skipped());
+		$this->assertTrue($field->validationResult->failed());
+		$this->assertValidationSkippedForConstraint($field, $constraint::class);
 	}
 
 	#[Test]
 	public function passes_constraint_validation_with_valid_value_and_valid_constraints(): void
 	{
-		$constraint = $this->createValidConstraintForValidValue();
-
-		if ($constraint === null) {
+		if (!$this->usesConstraints()) {
 			$this->markTestSkipped('This class does not use any constraints.');
 			return;
 		}
 
-		$field = $this->createFieldWithValidValueAndNoDefaultValue()->constrain($constraint);
+		$constraint = $this->createValidConstraint();
+		$field = $this->createField()
+			->constrain($constraint)
+			->prefill(null)
+			->input($this->getValidValue());
 
-		$constraintResults = $field->validate()->constraintValidationResults;
-		$this->assertTrue($constraintResults->passed());
+		$this->assertTrue($field->validationResult->passed());
+		$this->assertValidationPassedForConstraint($field, $constraint::class);
 	}
 
 	#[Test]
 	public function fails_constraint_validation_with_valid_value_and_invalid_constraints(): void
 	{
-		$constraint = $this->createInvalidConstraintForValidValue();
-
-		if ($constraint === null) {
+		if (!$this->usesConstraints()) {
 			$this->markTestSkipped('This class does not use any constraints.');
 			return;
 		}
 
-		$field = $this->createFieldWithValidValueAndNoDefaultValue()->constrain($constraint);
+		$constraint = $this->createInvalidConstraint();
+		$field = $this->createField()
+			->constrain($constraint)
+			->prefill(null)
+			->input($this->getValidValue());
 
-		$constraintResults = $field->validate()->constraintValidationResults;
-		$this->assertTrue($constraintResults->failed());
+		$this->assertTrue($field->validationResult->failed());
+		$this->assertValidationFailedForConstraint($field, $constraint::class);
 	}
 
 	abstract public function createField(): Field;
 	abstract public function getExpectedType(): string;
 	abstract public function getValidValue(): mixed;
 	abstract public function getInvalidValue(): mixed;
-	abstract public function createValidConstraintForValidValue(): ?Constraint;
-	abstract public function createInvalidConstraintForValidValue(): ?Constraint;
+	abstract public function createValidConstraint(): Constraint;
+	abstract public function createInvalidConstraint(): Constraint;
+	abstract public function usesConstraints(): bool;
 
-	public function createFieldWithNoValueAndNoDefaultValue(): Field
+	protected function toConstraintList(AggregatedConstraintValidationResults $results): array
 	{
-		return $this->createField()->prefill(null)->input(null);
+		$constraints = [];
+
+		foreach ($results as $result) {
+			$constraints[] = $result->constraint::class;
+		}
+
+		return $constraints;
 	}
 
-	public function createFieldWithValidValueAndNoDefaultValue(): Field
+	protected function assertValidationPendingForConstraint(Field $field, string $fqcn): void
 	{
-		return $this->createField()->prefill(null)->input($this->getValidValue());
+		$this->assertHasResultForConstraint($field->validationResult->getPending(), $fqcn);
 	}
 
-	public function createFieldWithInvalidValueAndNoDefaultValue(): Field
+	protected function assertValidationSkippedForConstraint(Field $field, string $fqcn): void
 	{
-		return $this->createField()->prefill(null)->input($this->getInvalidValue());
+		$this->assertHasResultForConstraint($field->validationResult->getSkipped(), $fqcn);
 	}
 
-	public function createFieldWithNoValueAndInvalidDefaultValue(): Field
+	protected function assertValidationPassedForConstraint(Field $field, string $fqcn): void
 	{
-		return $this->createField()->prefill($this->getInvalidValue())->input(null);
+		$this->assertHasResultForConstraint($field->validationResult->getPasses(), $fqcn);
 	}
 
-	public function createFieldWithValidValueAndInvalidDefaultValue(): Field
+	protected function assertValidationFailedForConstraint(Field $field, string $fqcn): void
 	{
-		return $this->createField()->prefill($this->getInvalidValue())->input($this->getValidValue());
+		$this->assertHasResultForConstraint($field->validationResult->getFailures(), $fqcn);
 	}
 
-	public function createFieldWithInvalidValueAndInvalidDefaultValue(): Field
+	protected function assertHasResultForConstraint(AggregatedConstraintValidationResults $results, string $fqcn): void
 	{
-		return $this->createField()->prefill($this->getInvalidValue())->input($this->getInvalidValue());
-	}
+		$constraints = $this->toConstraintList($results);
 
-	public function createFieldWithNoValueAndValidDefaultValue(): Field
-	{
-		return $this->createField()->prefill($this->getValidValue())->input(null);
-	}
-
-	public function createFieldWithValidValueAndValidDefaultValue(): Field
-	{
-		return $this->createField()->prefill($this->getValidValue())->input($this->getValidValue());
-	}
-
-	public function createFieldWithInvalidValueAndValidDefaultValue(): Field
-	{
-		return $this->createField()->prefill($this->getValidValue())->input($this->getInvalidValue());
+		$this->assertContains($fqcn, $constraints);
 	}
 }

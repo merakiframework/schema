@@ -24,50 +24,40 @@ final class UrlTest extends FieldTestCase
 	#[DataProvider('validAbsoluteUrls')]
 	public function it_validates_valid_absolute_urls(string $url): void
 	{
-		$field = $this->createField();
-		$field->input($url);
+		$field = $this->createField()->input($url);
 
-		$result = $field->validate()->valueValidationResult;
-
-		$this->assertTrue($result->passed());
+		$this->assertTrue($field->validationResult->passed());
 	}
 
 	#[Test]
 	#[DataProvider('invalidAbsoluteUrls')]
 	public function it_does_not_validate_invalid_absolute_urls(mixed $url): void
 	{
-		$field = $this->createField();
-		$field->input($url);
+		$field = $this->createField()->input($url);
 
-		$result = $field->validate()->valueValidationResult;
-
-		$this->assertTrue($result->failed());
+		$this->assertTrue($field->validationResult->failed());
 	}
 
 	#[Test]
 	public function min_constraint_passes_when_met(): void
 	{
-		$field = $this->createField();
-		$field->input('https://example.com');
+		$field = $this->createField()
+			->minLengthOf(1)
+			->input('https://example.com');
 
-		$field->minLengthOf(1);
-
-		$result = $field->validate()->constraintValidationResults;
-
-		$this->assertTrue($result->allPassed());
+		$this->assertTrue($field->validationResult->passed());
+		$this->assertValidationPassedForConstraint($field, Attribute\Min::class);
 	}
 
 	#[Test]
 	public function max_constraint_fails_when_not_met(): void
 	{
-		$field = $this->createField();
-		$field->input('https://example.com');
+		$field = $this->createField()
+			->maxLengthOf(5)
+			->input('https://example.com');
 
-		$field->maxLengthOf(5);
-
-		$result = $field->validate()->constraintValidationResults;
-
-		$this->assertTrue($result->failed());
+		$this->assertTrue($field->validationResult->failed());
+		$this->assertValidationFailedForConstraint($field, Attribute\Max::class);
 	}
 
 	public function createField(): Url
@@ -90,12 +80,17 @@ final class UrlTest extends FieldTestCase
 		return false;
 	}
 
-	public function createValidConstraintForValidValue(): ?Constraint
+	public function usesConstraints(): bool
+	{
+		return true;
+	}
+
+	public function createValidConstraint(): Constraint
 	{
 		return new Attribute\Min(1);
 	}
 
-	public function createInvalidConstraintForValidValue(): ?Constraint
+	public function createInvalidConstraint(): Constraint
 	{
 		return new Attribute\Max(5);
 	}

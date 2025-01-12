@@ -15,7 +15,7 @@ class Enum extends Field
 		parent::__construct(new Attribute\Type('enum'), $name, $oneOf, ...$attributes);
 
 		$this->registerConstraints([
-			Attribute\OneOf::class => self::getValidatorForValue()
+			Attribute\OneOf::class => self::getOneOfConstraintValidator()
 		]);
 	}
 
@@ -33,7 +33,7 @@ class Enum extends Field
 		];
 	}
 
-	protected static function getValidatorForValue(): Validator
+	protected static function getOneOfConstraintValidator(): Validator
 	{
 		return new class() implements Validator {
 			public function validate(Attribute&Constraint $constraint, Field $field): bool

@@ -24,24 +24,18 @@ final class UuidTest extends FieldTestCase
 	#[DataProvider('validUuids')]
 	public function it_validates_valid_uuids_without_version_constraint(string $uuid): void
 	{
-		$field = $this->createField();
-		$field->input($uuid);
+		$field = $this->createField()->input($uuid);
 
-		$result = $field->validate()->valueValidationResult;
-
-		$this->assertTrue($result->passed());
+		$this->assertTrue($field->validationResult->passed());
 	}
 
 	#[Test]
 	#[DataProvider('invalidUuids')]
 	public function it_does_not_validate_invalid_uuids_without_version_constraint(string $uuid): void
 	{
-		$field = $this->createField();
-		$field->input($uuid);
+		$field = $this->createField()->input($uuid);
 
-		$result = $field->validate()->valueValidationResult;
-
-		$this->assertTrue($result->failed());
+		$this->assertTrue($field->validationResult->failed());
 	}
 
 	#[Test]
@@ -51,10 +45,8 @@ final class UuidTest extends FieldTestCase
 			->accept(1)
 			->input('C232AB00-9414-11EC-B3C8-9F6BDECED846');
 
-		$results = $field->validate()->constraintValidationResults;
-
-		$this->assertCount(1, $results);
-		$this->assertTrue($results->allPassed());
+		$this->assertTrue($field->validationResult->passed());
+		$this->assertValidationPassedForConstraint($field, Attribute\Version::class);
 	}
 
 	#[Test]
@@ -64,10 +56,8 @@ final class UuidTest extends FieldTestCase
 			->accept(1)
 			->input('d94e3f0e-1b3b-21ec-82a8-0242ac130003');
 
-		$results = $field->validate()->constraintValidationResults;
-
-		$this->assertCount(1, $results);
-		$this->assertTrue($results->failed());
+		$this->assertTrue($field->validationResult->failed());
+		$this->assertValidationFailedForConstraint($field, Attribute\Version::class);
 	}
 
 	#[Test]
@@ -77,10 +67,8 @@ final class UuidTest extends FieldTestCase
 			->accept(2)
 			->input('d94e3f0e-1b3b-21ec-82a8-0242ac130003');
 
-		$results = $field->validate()->constraintValidationResults;
-
-		$this->assertCount(1, $results);
-		$this->assertTrue($results->allPassed());
+		$this->assertTrue($field->validationResult->passed());
+		$this->assertValidationPassedForConstraint($field, Attribute\Version::class);
 	}
 
 	#[Test]
@@ -90,10 +78,8 @@ final class UuidTest extends FieldTestCase
 			->accept(2)
 			->input('C232AB00-9414-11EC-B3C8-9F6BDECED846');
 
-		$results = $field->validate()->constraintValidationResults;
-
-		$this->assertCount(1, $results);
-		$this->assertTrue($results->failed());
+		$this->assertTrue($field->validationResult->failed());
+		$this->assertValidationFailedForConstraint($field, Attribute\Version::class);
 	}
 
 	#[Test]
@@ -103,10 +89,8 @@ final class UuidTest extends FieldTestCase
 			->accept(3)
 			->input('5df41881-3aed-3515-88a7-2f4a814cf09e');
 
-		$results = $field->validate()->constraintValidationResults;
-
-		$this->assertCount(1, $results);
-		$this->assertTrue($results->allPassed());
+		$this->assertTrue($field->validationResult->passed());
+		$this->assertValidationPassedForConstraint($field, Attribute\Version::class);
 	}
 
 	#[Test]
@@ -116,10 +100,8 @@ final class UuidTest extends FieldTestCase
 			->accept(3)
 			->input('d94e3f0e-1b3b-21ec-82a8-0242ac130003');
 
-		$results = $field->validate()->constraintValidationResults;
-
-		$this->assertCount(1, $results);
-		$this->assertTrue($results->failed());
+		$this->assertTrue($field->validationResult->failed());
+		$this->assertValidationFailedForConstraint($field, Attribute\Version::class);
 	}
 
 	#[Test]
@@ -129,10 +111,8 @@ final class UuidTest extends FieldTestCase
 			->accept(4)
 			->input('919108f7-52d1-4320-9bac-f847db4148a8');
 
-		$results = $field->validate()->constraintValidationResults;
-
-		$this->assertCount(1, $results);
-		$this->assertTrue($results->allPassed());
+		$this->assertTrue($field->validationResult->allPassed());
+		$this->assertValidationPassedForConstraint($field, Attribute\Version::class);
 	}
 
 	#[Test]
@@ -142,10 +122,8 @@ final class UuidTest extends FieldTestCase
 			->accept(4)
 			->input('d94e3f0e-1b3b-21ec-82a8-0242ac130003');
 
-		$results = $field->validate()->constraintValidationResults;
-
-		$this->assertCount(1, $results);
-		$this->assertTrue($results->failed());
+		$this->assertTrue($field->validationResult->failed());
+		$this->assertValidationFailedForConstraint($field, Attribute\Version::class);
 	}
 
 	#[Test]
@@ -155,10 +133,8 @@ final class UuidTest extends FieldTestCase
 			->accept(5)
 			->input('2ed6657d-e927-568b-95e1-2665a8aea6a2');
 
-		$results = $field->validate()->constraintValidationResults;
-
-		$this->assertCount(1, $results);
-		$this->assertTrue($results->allPassed());
+		$this->assertTrue($field->validationResult->allPassed());
+		$this->assertValidationPassedForConstraint($field, Attribute\Version::class);
 	}
 
 	#[Test]
@@ -168,10 +144,8 @@ final class UuidTest extends FieldTestCase
 			->accept(5)
 			->input('d94e3f0e-1b3b-21ec-82a8-0242ac130003');
 
-		$results = $field->validate()->constraintValidationResults;
-
-		$this->assertCount(1, $results);
-		$this->assertTrue($results->failed());
+		$this->assertTrue($field->validationResult->failed());
+		$this->assertValidationFailedForConstraint($field, Attribute\Version::class);
 	}
 
 	#[Test]
@@ -181,10 +155,8 @@ final class UuidTest extends FieldTestCase
 			->accept(6)
 			->input('1EC9414C-232A-6B00-B3C8-9F6BDECED846');
 
-		$results = $field->validate()->constraintValidationResults;
-
-		$this->assertCount(1, $results);
-		$this->assertTrue($results->allPassed());
+		$this->assertTrue($field->validationResult->allPassed());
+		$this->assertValidationPassedForConstraint($field, Attribute\Version::class);
 	}
 
 	#[Test]
@@ -194,10 +166,8 @@ final class UuidTest extends FieldTestCase
 			->accept(6)
 			->input('d94e3f0e-1b3b-21ec-82a8-0242ac130003');
 
-		$results = $field->validate()->constraintValidationResults;
-
-		$this->assertCount(1, $results);
-		$this->assertTrue($results->failed());
+		$this->assertTrue($field->validationResult->failed());
+		$this->assertValidationFailedForConstraint($field, Attribute\Version::class);
 	}
 
 	#[Test]
@@ -207,10 +177,8 @@ final class UuidTest extends FieldTestCase
 			->accept(7)
 			->input('017F22E2-79B0-7CC3-98C4-DC0C0C07398F');
 
-		$results = $field->validate()->constraintValidationResults;
-
-		$this->assertCount(1, $results);
-		$this->assertTrue($results->allPassed());
+		$this->assertTrue($field->validationResult->allPassed());
+		$this->assertValidationPassedForConstraint($field, Attribute\Version::class);
 	}
 
 	#[Test]
@@ -220,10 +188,8 @@ final class UuidTest extends FieldTestCase
 			->accept(7)
 			->input('d94e3f0e-1b3b-21ec-82a8-0242ac130003');
 
-		$results = $field->validate()->constraintValidationResults;
-
-		$this->assertCount(1, $results);
-		$this->assertTrue($results->failed());
+		$this->assertTrue($field->validationResult->failed());
+		$this->assertValidationFailedForConstraint($field, Attribute\Version::class);
 	}
 
 	#[Test]
@@ -233,10 +199,8 @@ final class UuidTest extends FieldTestCase
 			->accept(8)
 			->input('2489E9AD-2EE2-8E00-8EC9-32D5F69181C0');
 
-		$results = $field->validate()->constraintValidationResults;
-
-		$this->assertCount(1, $results);
-		$this->assertTrue($results->allPassed());
+		$this->assertTrue($field->validationResult->allPassed());
+		$this->assertValidationPassedForConstraint($field, Attribute\Version::class);
 	}
 
 	#[Test]
@@ -246,10 +210,8 @@ final class UuidTest extends FieldTestCase
 			->accept(8)
 			->input('d94e3f0e-1b3b-21ec-82a8-0242ac130003');
 
-		$results = $field->validate()->constraintValidationResults;
-
-		$this->assertCount(1, $results);
-		$this->assertTrue($results->failed());
+		$this->assertTrue($field->validationResult->failed());
+		$this->assertValidationFailedForConstraint($field, Attribute\Version::class);
 	}
 
 	#[Test]
@@ -257,37 +219,30 @@ final class UuidTest extends FieldTestCase
 	{
 		$field = $this->createField()->accept(4)->accept(7);
 
-		$v4Results = $field->input('919108f7-52d1-4320-9bac-f847db4148a8')
-			->validate()
-			->constraintValidationResults;
+		// version 4 test
+		$field->input('919108f7-52d1-4320-9bac-f847db4148a8');
+		$this->assertTrue($field->validationResult->passed());
+		$this->assertValidationPassedForConstraint($field, Attribute\Version::class);
 
-		$this->assertCount(1, $v4Results);
-		$this->assertTrue($v4Results->allPassed());
+		// version 7 test
+		$field->input('017F22E2-79B0-7CC3-98C4-DC0C0C07398F');
+		$this->assertTrue($field->validationResult->passed());
+		$this->assertValidationPassedForConstraint($field, Attribute\Version::class);
 
-		$v7Results = $field->input('017F22E2-79B0-7CC3-98C4-DC0C0C07398F')
-			->validate()
-			->constraintValidationResults;
-
-		$this->assertCount(1, $v7Results);
-		$this->assertTrue($v7Results->allPassed());
-
-		$v3Results = $field->input('5df41881-3aed-3515-88a7-2f4a814cf09e')
-			->validate()
-			->constraintValidationResults;
-
-		$this->assertCount(1, $v3Results);
-		$this->assertTrue($v3Results->failed());
+		// version 3 test
+		$field->input('5df41881-3aed-3515-88a7-2f4a814cf09e');
+		$this->assertTrue($field->validationResult->failed());
+		$this->assertValidationFailedForConstraint($field, Attribute\Version::class);
 	}
 
 	#[Test]
 	public function it_allows_any_version_when_no_version_constraint_is_set(): void
 	{
-		$field = $this->createField()->input('d94e3f0e-1b3b-21ec-82a8-0242ac130003');
+		$field = $this->createField()
+			->input('d94e3f0e-1b3b-21ec-82a8-0242ac130003');
 
-		$results = $field->validate()->constraintValidationResults;
-
-		$this->assertCount(1, $results);
-		$this->assertTrue($results->allPassed());
+		$this->assertTrue($field->validationResult->passed());
+		$this->assertValidationPassedForConstraint($field, Attribute\Version::class);
 	}
 
 	public function createField(): Uuid
@@ -310,12 +265,17 @@ final class UuidTest extends FieldTestCase
 		return '123';
 	}
 
-	public function createValidConstraintForValidValue(): ?Constraint
+	public function usesConstraints(): bool
+	{
+		return true;
+	}
+
+	public function createValidConstraint(): Constraint
 	{
 		return new Attribute\Version();
 	}
 
-	public function createInvalidConstraintForValidValue(): ?Constraint
+	public function createInvalidConstraint(): Constraint
 	{
 		return new Attribute\Version([7]);
 	}

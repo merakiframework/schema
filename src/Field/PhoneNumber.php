@@ -31,8 +31,16 @@ class PhoneNumber extends Field
 		return Attribute\Set::ALLOW_ALWAYS_SUPPORTED_ONLY;
 	}
 
-	protected function isCorrectType(mixed $value): bool
+	protected static function getTypeConstraintValidator(): Validator
 	{
-		return is_string($value) && preg_match(self::TYPE_PATTERN, $value) === 1;
+		return new class(self::TYPE_PATTERN) implements Validator {
+			public function __construct(private string $pattern) {}
+			public function validate(Attribute&Constraint $constraint, Field $field): bool
+			{
+				$value = $field->value;
+
+				return is_string($value) && preg_match($this->pattern, $value) === 1;
+			}
+		};
 	}
 }

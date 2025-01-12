@@ -17,6 +17,11 @@ class FieldValueValidationResult implements ValidationResult
 		$this->value = clone $value;
 	}
 
+	public function pending(): bool
+	{
+		return $this->status === self::PENDING;
+	}
+
 	public function skipped(): bool
 	{
 		return $this->status === self::SKIPPED;

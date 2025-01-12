@@ -41,13 +41,18 @@ final class NameTest extends FieldTestCase
 		return '123';
 	}
 
-	public function createValidConstraintForValidValue(): ?Constraint
+	public function usesConstraints(): bool
 	{
-		return new Attribute\Min(3);
+		return true;
 	}
 
-	public function createInvalidConstraintForValidValue(): ?Constraint
+	public function createInvalidConstraint(): Constraint
 	{
 		return new Attribute\Max(2);
+	}
+
+	public function createValidConstraint(): Constraint
+	{
+		return new Attribute\Min(3);
 	}
 }

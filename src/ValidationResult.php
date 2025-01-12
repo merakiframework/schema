@@ -12,6 +12,8 @@ interface ValidationResult
 	public const SKIPPED = 1;
 	public const FAILED = 2;
 
+	public const PENDING = 3;
+
 	/**
 	 * Check if the validation result has passed.
 	 */
@@ -26,4 +28,9 @@ interface ValidationResult
 	 * Check if the validation result has failed.
 	 */
 	public function failed(): bool;
+
+	/**
+	 * Check if the validation result is pending.
+	 */
+	public function pending(): bool;
 }

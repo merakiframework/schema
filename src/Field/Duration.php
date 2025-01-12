@@ -52,22 +52,26 @@ class Duration extends Field
 		];
 	}
 
-	protected function isCorrectType(mixed $value): bool
+	protected static function getTypeConstraintValidator(): Validator
 	{
-		if (!is_string($value)) {
-			return false;
-		}
+		return new class() implements Validator {
+			public function validate(Attribute&Constraint $constraint, Field $field): bool
+			{
+				$value = $field->value;
 
-		$parsed = false;
+				if (!is_string($value)) {
+					return false;
+				}
 
-		try {
-			DateTime\Duration::parse($value);
-			$parsed = true;
-		} catch (\Exception $e) {
-			$parsed = false;
-		}
+				try {
+					DateTime\Duration::parse($value);
 
-		return is_string($value) && $parsed;
+					return true;
+				} catch (\Exception $e) {
+					return false;
+				}
+			}
+		};
 	}
 
 	private function getMinConstraintValidator(): Validator

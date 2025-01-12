@@ -20,8 +20,13 @@ class Passphrase extends Field
 		return Attribute\Set::ALLOW_ANY;
 	}
 
-	protected function isCorrectType(mixed $value): bool
+	protected static function getTypeConstraintValidator(): Validator
 	{
-		return is_string($value);
+		return new class() implements Validator {
+			public function validate(Attribute&Constraint $constraint, Field $field): bool
+			{
+				return is_string($field->value);
+			}
+		};
 	}
 }

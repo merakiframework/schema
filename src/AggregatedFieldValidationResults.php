@@ -21,4 +21,9 @@ final class AggregatedFieldValidationResults extends AggregatedValidationResults
 	{
 		return $this->allSkipped();
 	}
+
+	public function pending(): bool
+	{
+		return $this->isEmpty() || $this->anyPending();
+	}
 }

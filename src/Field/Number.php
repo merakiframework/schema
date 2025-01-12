@@ -67,8 +67,13 @@ class Number extends Field
 		];
 	}
 
-	protected function isCorrectType(mixed $value): bool
+	protected static function getTypeConstraintValidator(): Validator
 	{
-		return is_integer($value) || is_float($value);
+		return new class() implements Validator {
+			public function validate(Attribute&Constraint $constraint, Field $field): bool
+			{
+				return is_integer($field->value) || is_float($field->value);
+			}
+		};
 	}
 }

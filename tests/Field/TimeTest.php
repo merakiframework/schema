@@ -24,102 +24,86 @@ final class TimeTest extends FieldTestCase
 	#[DataProvider('validTimes')]
 	public function it_validates_valid_times(string $time): void
 	{
-		$field = $this->createField();
-		$field->input($time);
+		$field = $this->createField()->input($time);
 
-		$result = $field->validate();
-
-		$this->assertTrue($result->valueValidationResult->passed());
+		$this->assertTrue($field->validationResult->passed());
+		$this->assertValidationPassedForConstraint($field, Attribute\Type::class);
 	}
 
 	#[Test]
 	#[DataProvider('invalidTimes')]
 	public function it_does_not_validate_invalid_times(string $time): void
 	{
-		$field = $this->createField();
-		$field->input($time);
+		$field = $this->createField()->input($time);
 
-		$result = $field->validate();
-
-		$this->assertTrue($result->valueValidationResult->failed());
+		$this->assertTrue($field->validationResult->failed());
+		$this->assertValidationFailedForConstraint($field, Attribute\Type::class);
 	}
 
 	#[Test]
 	public function min_constraint_passes_when_met(): void
 	{
-		$field = $this->createField();
-		$field->input('12:34:56');
+		$field = $this->createField()
+			->minOf('10:00:00')
+			->input('12:34:56');
 
-		$field->minOf('10:00:00');
-
-		$result = $field->validate()->constraintValidationResults;
-
-		$this->assertTrue($result->allPassed());
+		$this->assertTrue($field->validationResult->passed());
+		$this->assertValidationPassedForConstraint($field, Attribute\Min::class);
 	}
 
 	#[Test]
 	public function min_constraint_fails_when_not_met(): void
 	{
-		$field = $this->createField();
-		$field->input('12:34:56');
+		$field = $this->createField()
+			->minOf('13:00:00')
+			->input('12:34:56');
 
-		$field->minOf('13:00:00');
-
-		$result = $field->validate()->constraintValidationResults;
-
-		$this->assertTrue($result->failed());
+		$this->assertTrue($field->validationResult->failed());
+		$this->assertValidationFailedForConstraint($field, Attribute\Min::class);
 	}
 
 	#[Test]
 	public function max_constraint_passes_when_met(): void
 	{
-		$field = $this->createField();
-		$field->input('12:34:56');
+		$field = $this->createField()
+			->maxOf('13:00:00')
+			->input('12:34:56');
 
-		$field->maxOf('13:00:00');
-
-		$result = $field->validate()->constraintValidationResults;
-
-		$this->assertTrue($result->allPassed());
+		$this->assertTrue($field->validationResult->passed());
+		$this->assertValidationPassedForConstraint($field, Attribute\Max::class);
 	}
 
 	#[Test]
 	public function max_constraint_fails_when_not_met(): void
 	{
-		$field = $this->createField();
-		$field->input('12:34:56');
+		$field = $this->createField()
+			->maxOf('12:00:00')
+			->input('12:34:56');
 
-		$field->maxOf('12:00:00');
-
-		$result = $field->validate()->constraintValidationResults;
-
-		$this->assertTrue($result->failed());
+		$this->assertTrue($field->validationResult->failed());
+		$this->assertValidationFailedForConstraint($field, Attribute\Max::class);
 	}
 
 	#[Test]
 	public function step_constraint_passes_when_met(): void
 	{
-		$field = $this->createField();
-		$field->input('12:34:56');
+		$field = $this->createField()
+			->inIncrementsOf('PT1S')
+			->input('12:34:56');
 
-		$field->inIncrementsOf('PT1S');
-
-		$result = $field->validate()->constraintValidationResults;
-
-		$this->assertTrue($result->allPassed());
+		$this->assertTrue($field->validationResult->passed());
+		$this->assertValidationPassedForConstraint($field, Attribute\Step::class);
 	}
 
 	#[Test]
 	public function step_constraint_fails_when_not_met(): void
 	{
-		$field = $this->createField();
-		$field->input('12:34:56');
+		$field = $this->createField()
+			->inIncrementsOf('PT30S')
+			->input('12:34:56');
 
-		$field->inIncrementsOf('PT30S');
-
-		$result = $field->validate()->constraintValidationResults;
-
-		$this->assertTrue($result->failed());
+		$this->assertTrue($field->validationResult->failed());
+		$this->assertValidationFailedForConstraint($field, Attribute\Step::class);
 	}
 
 	public function getExpectedType(): string
@@ -142,14 +126,19 @@ final class TimeTest extends FieldTestCase
 		return '25:34:56';
 	}
 
-	public function createValidConstraintForValidValue(): ?Constraint
+	public function createValidConstraint(): Constraint
 	{
 		return new Attribute\Min('10:00:00');
 	}
 
-	public function createInvalidConstraintForValidValue(): ?Constraint
+	public function createInvalidConstraint(): Constraint
 	{
 		return new Attribute\Max('12:00:00');
+	}
+
+	public function usesConstraints(): bool
+	{
+		return true;
 	}
 
 	public static function validTimes(): array

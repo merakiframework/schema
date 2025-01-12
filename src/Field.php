@@ -19,6 +19,10 @@ class Field
 
 	public bool $inputGiven = false;
 
+	public AggregatedConstraintValidationResults $validationResult;
+
+	private bool $deferValidation = false;
+
 	public function __construct(
 		public Attribute\Type $type,
 		public Attribute\Name $name,
@@ -33,7 +37,11 @@ class Field
 
 		$this->attributes = $this->attributes->add(new Attribute\Value(null));
 
+		$this->registerConstraint(Attribute\Type::class, static::getTypeConstraintValidator());
+
 		$this->updateValueWithDefaultValue();
+
+		$this->validationResult = new AggregatedConstraintValidationResults();
 	}
 
 	protected function updateValueWithDefaultValue(): void
@@ -117,12 +125,23 @@ class Field
 		return $this;
 	}
 
+	public function deferValidation(): static
+	{
+		$this->deferValidation = true;
+
+		return $this;
+	}
+
 	public function input(mixed $value): static
 	{
 		$this->inputGiven = true;
 		$this->attributes = $this->attributes->set(new Attribute\Value($value));
 
 		$this->updateValueWithDefaultValue();
+
+		if (!$this->deferValidation) {
+			$this->validate();
+		}
 
 		return $this;
 	}
@@ -156,7 +175,7 @@ class Field
 		return $value->hasValueOf(null);
 	}
 
-	public function validate(): FieldValidationResult
+	public function validate(): AggregatedConstraintValidationResults
 	{
 		/** @var Attribute\Optional|null */
 		$optional = $this->attributes->findByName('optional');
@@ -164,7 +183,6 @@ class Field
 		$value = $this->attributes->getByName('value');
 		/** @var Attribute\DefaultValue */
 		$defaultValue = $this->attributes->getByName('default_value');
-
 		$isOptional = $optional !== null && $optional->hasValueOf(true);
 
 		if ($isOptional) {
@@ -172,69 +190,35 @@ class Field
 
 			// If optional, no value, no default value, then skip all validation.
 			if ($this->valueNotGiven($value)) {
-				return new FieldValidationResult(
-					$this,
-					FieldValueValidationResult::skip($value),
-					$this->skipAllConstraints(),
-				);
+				$results = new AggregatedConstraintValidationResults();
+
+				foreach ($this->attributes->getConstraints() as $constraint) {
+					$results = $results->add(ConstraintValidationResult::skip($constraint));
+				}
+
+				$this->validationResult = $results;
+
+				return $this->validationResult;
 			}
 		}
 
-		$valueResult = $this->validateValue($value);
+		$this->validateConstraints();
 
-		if ($valueResult->failed()) {
-			return new FieldValidationResult($this, $valueResult, $this->skipAllConstraints());
-		}
-
-		return new FieldValidationResult($this, $valueResult, $this->validateConstraints());
+		return $this->validationResult;
 	}
 
-	private function skipAllConstraints(): AggregatedConstraintValidationResults
+	private function skipAllConstraints(?Attribute\Set $constraints = null): void
 	{
 		$results = new AggregatedConstraintValidationResults();
 
-		foreach ($this->attributes->getConstraints() as $constraint) {
+		foreach (($constraints ?: $this->attributes->getConstraints()) as $constraint) {
 			$results = $results->add(ConstraintValidationResult::skip($constraint));
 		}
 
-		return $results;
+		$this->validationResult = $results;
 	}
 
-	protected function validateValue(Attribute\Value $value): FieldValueValidationResult
-	{
-		if ($value->value !== null && $this->isCorrectType($value->value)) {
-			return FieldValueValidationResult::pass($value);
-		}
-
-		// no value or incorrect type
-		return FieldValueValidationResult::fail($value);
-	}
-
-	protected function isCorrectType(mixed $value): bool
-	{
-		return true;
-	}
-
-	protected function validateConstraints(): AggregatedConstraintValidationResults
-	{
-		$results = new AggregatedConstraintValidationResults();
-		$constraints = $this->attributes->getConstraints();
-
-		foreach ($constraints as $constraint) {
-			$validator = $this->validators[$constraint::class];
-
-			if ($validator === null) {
-				throw new \RuntimeException("No validator found for constraint '{$constraint->name}'.");
-			}
-
-			$constraintResult = ConstraintValidationResult::guess($validator->validate($constraint, $this), $constraint);
-			$results = $results->add($constraintResult);
-		}
-
-		return $results;
-	}
-
-	protected static function getValidatorForValue(): Validator
+	protected static function getTypeConstraintValidator(): Validator
 	{
 		return new class() implements Validator {
 			public function validate(Attribute&Constraint $constraint, Field $field): bool
@@ -242,6 +226,56 @@ class Field
 				return true;
 			}
 		};
+	}
+
+	protected function validateConstraints(): void
+	{
+		$results = new AggregatedConstraintValidationResults();
+		$constraints = $this->attributes->getConstraints();
+
+		// validate type constraint first
+		$typeConstraint = $constraints->getByName('type');
+
+		$this->assertValidatorExistsForConstraint($typeConstraint);
+
+		$validatorForTypeConstraint = $this->validators[$typeConstraint::class];
+		$typeConstraintResult = ConstraintValidationResult::guess(
+			$validatorForTypeConstraint->validate($typeConstraint, $this),
+			$typeConstraint
+		);
+		$results = $results->add($typeConstraintResult);
+
+		// filter out type constraint
+		$constraints = $constraints->filter(fn($constraint): bool => $constraint !== $typeConstraint);
+
+		// if type constraint failed, skip validation of other constraints
+		if ($typeConstraintResult->failed()) {
+			foreach ($constraints as $constraint) {
+				$results = $results->add(ConstraintValidationResult::skip($constraint));
+			}
+
+			$this->validationResult = $results;
+			return;
+		}
+
+		// validate other constraints
+		foreach ($constraints as $constraint) {
+			$this->assertValidatorExistsForConstraint($constraint);
+
+			$validator = $this->validators[$constraint::class];
+
+			$constraintResult = ConstraintValidationResult::guess($validator->validate($constraint, $this), $constraint);
+			$results = $results->add($constraintResult);
+		}
+
+		$this->validationResult = $results;
+	}
+
+	private function assertValidatorExistsForConstraint(Attribute&Constraint $constraint): void
+	{
+		if (!array_key_exists($constraint::class, $this->validators)) {
+			throw new \RuntimeException("No validator found for constraint '{$constraint->name}'.");
+		}
 	}
 
 	public function __isset($name): bool

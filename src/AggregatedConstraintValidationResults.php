@@ -14,11 +14,16 @@ final class AggregatedConstraintValidationResults extends AggregatedValidationRe
 
 	public function passed(): bool
 	{
-		return $this->isEmpty() || $this->allPassed();
+		return $this->allPassed();
 	}
 
 	public function skipped(): bool
 	{
-		return $this->isEmpty() || $this->allSkipped();
+		return $this->allSkipped();
+	}
+
+	public function pending(): bool
+	{
+		return $this->isEmpty() || $this->anyPending();
 	}
 }

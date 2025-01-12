@@ -16,7 +16,7 @@ final class DurationTest extends FieldTestCase
 	#[Test]
 	public function it_exists(): void
 	{
-		$duration = $this->createFieldWithNoValueAndNoDefaultValue();
+		$duration = $this->createField();
 
 		$this->assertInstanceOf(Duration::class, $duration);
 	}
@@ -28,7 +28,8 @@ final class DurationTest extends FieldTestCase
 			->minOf('PT1H')
 			->input('PT2H');
 
-		$this->assertTrue($duration->validate()->constraintValidationResults->allPassed());
+		$this->assertTrue($duration->validationResult->passed());
+		$this->assertValidationPassedForConstraint($duration, Attribute\Min::class);
 	}
 
 	#[Test]
@@ -38,7 +39,8 @@ final class DurationTest extends FieldTestCase
 			->minOf('PT1H')
 			->input('PT30M');
 
-		$this->assertTrue($duration->validate()->constraintValidationResults->allFailed());
+		$this->assertTrue($duration->validationResult->failed());
+		$this->assertValidationFailedForConstraint($duration, Attribute\Min::class);
 	}
 
 	#[Test]
@@ -48,7 +50,8 @@ final class DurationTest extends FieldTestCase
 			->maxOf('PT1H')
 			->input('PT30M');
 
-		$this->assertTrue($duration->validate()->constraintValidationResults->allPassed());
+		$this->assertTrue($duration->validationResult->passed());
+		$this->assertValidationPassedForConstraint($duration, Attribute\Max::class);
 	}
 
 	#[Test]
@@ -58,7 +61,8 @@ final class DurationTest extends FieldTestCase
 			->maxOf('PT1H')
 			->input('PT2H');
 
-		$this->assertTrue($duration->validate()->constraintValidationResults->allFailed());
+		$this->assertTrue($duration->validationResult->failed());
+		$this->assertValidationFailedForConstraint($duration, Attribute\Max::class);
 	}
 
 	#[Test]
@@ -68,7 +72,8 @@ final class DurationTest extends FieldTestCase
 			->inIncrementsOf('PT1H')
 			->input('PT4H');
 
-		$this->assertTrue($duration->validate()->constraintValidationResults->allPassed());
+		$this->assertTrue($duration->validationResult->passed());
+		$this->assertValidationPassedForConstraint($duration, Attribute\Step::class);
 	}
 
 	#[Test]
@@ -78,12 +83,18 @@ final class DurationTest extends FieldTestCase
 			->inIncrementsOf('PT30M')
 			->input('PT1H15M');
 
-		$this->assertTrue($duration->validate()->constraintValidationResults->allFailed());
+		$this->assertTrue($duration->validationResult->failed());
+		$this->assertValidationFailedForConstraint($duration, Attribute\Step::class);
 	}
 
 	public function createField(): Duration
 	{
 		return new Duration(new Attribute\Name('duration'));
+	}
+
+	public function usesConstraints(): bool
+	{
+		return true;
 	}
 
 	public function getExpectedType(): string
@@ -101,12 +112,12 @@ final class DurationTest extends FieldTestCase
 		return '1 hour';
 	}
 
-	public function createValidConstraintForValidValue(): ?Constraint
+	public function createValidConstraint(): Constraint
 	{
 		return new Attribute\Max('PT1H');
 	}
 
-	public function createInvalidConstraintForValidValue(): ?Constraint
+	public function createInvalidConstraint(): Constraint
 	{
 		return new Attribute\Max('PT30M');
 	}

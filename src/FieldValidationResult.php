@@ -22,6 +22,11 @@ final class FieldValidationResult implements ValidationResult
 		return $this->valueValidationResult->failed() || $this->constraintValidationResults->failed();
 	}
 
+	public function pending(): bool
+	{
+		return $this->valueValidationResult->pending() || $this->constraintValidationResults->pending();
+	}
+
 	public function passed(): bool
 	{
 		return $this->valueValidationResult->passed()
