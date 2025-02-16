@@ -25,10 +25,7 @@ class Boolean extends Field
 		return new class() implements Validator {
 			public function validate(Attribute&Constraint $constraint, Field $field): bool
 			{
-				$value = $field->value;
-
-				return is_bool($value)
-					|| (is_string($value) && (strcasecmp($value, 'on') === 0 || strcasecmp($value, 'off') === 0));
+				return $field->value === true || $field->value === false;
 			}
 		};
 	}
