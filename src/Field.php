@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace Meraki\Schema;
 
 use Meraki\Schema\FieldValidationResult;
+use Meraki\Schema\FieldSanitizer;
 use Meraki\Schema\Attribute;
 use Meraki\Schema\Validator;
 use Meraki\Schema\ConstraintValidationResult;
@@ -173,6 +174,22 @@ class Field
 	protected function valueNotGiven(Attribute\Value $value): bool
 	{
 		return $value->hasValueOf(null);
+	}
+
+	public function sanitize(FieldSanitizer $sanitizer): static
+	{
+		/** @var Attribute\Value */
+		$value = $this->attributes->getByName('value');
+
+		if ($this->valueNotGiven($value)) {
+			return $this;
+		}
+
+		$value = $value->sanitize($sanitizer);
+
+		$this->attributes = $this->attributes->set($value);
+
+		return $this;
 	}
 
 	public function validate(): FieldValidationResult

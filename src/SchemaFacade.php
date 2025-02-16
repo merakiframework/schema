@@ -24,6 +24,19 @@ final class SchemaFacade
 		return ($deserializer ?? new Deserializer\Json())->deserialize($data);
 	}
 
+	public function sanitizeField(Attribute\Type $fieldType, callable $sanitizer): self
+	{
+		$this->fieldFactory->addSanitizer($fieldType, $sanitizer);
+
+		foreach ($this->fields as $field) {
+			if ($field->type->equals($fieldType)) {
+				$field->sanitize($sanitizer);
+			}
+		}
+
+		return $this;
+	}
+
 	public function addField(Field $field): self
 	{
 		$this->fields = $this->fields->add($field);
