@@ -23,6 +23,7 @@ class Field
 	public FieldValidationResult $validationResult;
 
 	private bool $deferValidation = false;
+	protected array $sanitizers = [];
 
 	public function __construct(
 		public Attribute\Type $type,
@@ -136,7 +137,8 @@ class Field
 	public function input(mixed $value): static
 	{
 		$this->inputGiven = true;
-		$this->attributes = $this->attributes->set(new Attribute\Value($value));
+		$value = $this->applySanitizers(new Attribute\Value($value));
+		$this->attributes = $this->attributes->set($value);
 
 		$this->updateValueWithDefaultValue();
 
@@ -178,18 +180,21 @@ class Field
 
 	public function sanitize(FieldSanitizer $sanitizer): static
 	{
-		/** @var Attribute\Value */
-		$value = $this->attributes->getByName('value');
-
-		if ($this->valueNotGiven($value)) {
-			return $this;
+		if (!in_array($sanitizer, $this->sanitizers, true)) {
+			$this->sanitizers[] = $sanitizer;
 		}
 
-		$value = $value->sanitize($sanitizer);
-
-		$this->attributes = $this->attributes->set($value);
-
 		return $this;
+	}
+
+	protected function applySanitizers(Attribute\Value $value): Attribute\Value
+	{
+		/** @var FieldSanitizer $sanitizer */
+		foreach ($this->sanitizers as $sanitizer) {
+			$value = $sanitizer->sanitize($value);
+		}
+
+		return $value;
 	}
 
 	public function validate(): FieldValidationResult
