@@ -8,7 +8,7 @@ use Meraki\Schema\Field\Name;
 use Meraki\Schema\Attribute;
 use Meraki\Schema\Constraint;
 use Meraki\Schema\FieldTestCase;
-use PHPUnit\Framework\Attributes\{Test, CoversClass};
+use PHPUnit\Framework\Attributes\{Test, CoversClass, DataProvider};
 
 #[CoversClass(Name::class)]
 final class NameTest extends FieldTestCase
@@ -19,6 +19,31 @@ final class NameTest extends FieldTestCase
 		$name = $this->createField();
 
 		$this->assertInstanceOf(Name::class, $name);
+	}
+
+	#[Test]
+	#[DataProvider('validNames')]
+	public function it_validates_valid_names(string $name): void
+	{
+		$field = $this->createField()
+			->input($name);
+
+		$this->assertTrue($field->validationResult->passed());
+		$this->assertValidationPassedForConstraint($field, Attribute\Type::class);
+	}
+
+	public static function validNames(): array
+	{
+		return [
+			'just first name' => ['John'],
+			'first and last name' => ['John Doe'],
+			'first, middle, and last name' => ['John Michael Doe'],
+			'with hyphen' => ['John-Michael Doe'],
+			'with apostrophe' => ['John O\'Doe'],
+			'with period' => ['John M. Doe'],
+			'with comma' => ['John, Doe'],
+			'with numerals' => ['John Doe III'],
+		];
 	}
 
 	public function createField(): Name
