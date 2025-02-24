@@ -27,13 +27,12 @@ use Meraki\Schema\Validator;
 class Name extends Field
 {
 	/**
-	 * - allow unicode letters, spaces, apostrophes, periods, and dashes
+	 * - allow unicode letters, spaces, apostrophes, periods, commas, and dashes
 	 * - allow an empty string
 	 * - all "words" must be separated by one or more spaces
 	 * - each "word" must be at least one character long
-	 * - do not allow just spaces, apostrophes, periods, or dashes, or any combination of them
 	 */
-	private const TYPE_PATTERN = "/^(?![\ \.\'\-]+$)[\p{L}\.\'\ \-]*$/u";
+	private const TYPE_PATTERN = "/^(?![\ \.\,\'\-]+$)[\p{L}\.\,\'\ \-]*$/u";
 
 	public function __construct(Attribute\Name $name, Attribute ...$attributes)
 	{
