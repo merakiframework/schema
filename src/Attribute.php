@@ -27,7 +27,9 @@ class Attribute implements Property
 
 	public function hasNameOf(string $name): bool
 	{
-		return $this->name === $name;
+		return $this->name === $name
+			// check the class name of the attribute
+			|| $this::class === $name;
 	}
 
 	public function hasValueOf(mixed $value): bool
