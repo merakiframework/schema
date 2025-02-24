@@ -7,6 +7,7 @@ use Meraki\Schema\Field;
 use Meraki\Schema\Attribute;
 use Meraki\Schema\Constraint;
 use Meraki\Schema\Validator;
+use Meraki\Schema\Sanitizer;
 
 /**
  * A "phone number" field is used to represent an international or national phone number.
@@ -19,11 +20,14 @@ use Meraki\Schema\Validator;
  */
 class PhoneNumber extends Field
 {
-	private const TYPE_PATTERN = '/^\+(\d{1,3})[\s\-().]*((\d[\s\-().]*){7,14})$/';
+	private const TYPE_PATTERN = '/^\+[ ]?(?:\d[ ]?){2,15}$/';
+	private const CHARS_TO_REMOVE = [' ', '-', '.', '(', ')'];
 
 	public function __construct(Attribute\Name $name, Attribute ...$attributes)
 	{
 		parent::__construct(new Attribute\Type('phone_number'), $name, ...$attributes);
+
+		$this->sanitize(new Sanitizer\RemoveCharacters(self::CHARS_TO_REMOVE));
 	}
 
 	public static function getSupportedAttributes(): array
