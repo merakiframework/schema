@@ -39,16 +39,12 @@ class Number extends Field
 
 	public function minOf(int $minValue): self
 	{
-		$this->attributes = $this->attributes->set(new Attribute\Min($minValue));
-
-		return $this;
+		return $this->constrain(new Attribute\Min($minValue));
 	}
 
 	public function maxOf(int $maxValue): self
 	{
-		$this->attributes = $this->attributes->set(new Attribute\Max($maxValue));
-
-		return $this;
+		return $this->constrain(new Attribute\Max($maxValue));
 	}
 
 	public function inIncrementsOf(int $step): self
