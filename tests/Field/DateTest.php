@@ -128,7 +128,7 @@ final class DateTest extends FieldTestCase
 	{
 		return [
 			'period of 1 day' => ['2025-02-20', 'P1D', '2025-02-21'],
-			'period of multiple days' => ['2025-02-20', 'P7D', '2025-02-28'],
+			'period of multiple days' => ['2025-02-20', 'P7D', '2025-02-27'],
 		];
 	}
 
@@ -136,7 +136,7 @@ final class DateTest extends FieldTestCase
 	{
 		return [
 			'same day' => ['2025-02-20', 'P1D', '2025-02-20'],
-			'less than right amount of days' => ['2025-02-20', 'P7D', '2025-02-27'],
+			'less than right amount of days' => ['2025-02-20', 'P7D', '2025-02-26'],
 			'more than right amount of days' => ['2025-02-20', 'P7D', '2025-03-01'],
 		];
 	}

@@ -112,16 +112,9 @@ class Date extends Field
 				$min = LocalDate::parse($min->value);
 				$step = Period::parse($constraint->value);
 				$value = LocalDate::parse($field->value);
+				$period = Period::between($min, $value);
 
-				while ($min->isBefore($value)) {
-					if ($min->isEqualTo($value->minusDays(1))) {
-						return true;
-					}
-
-					$min = $min->plusPeriod($step);
-				}
-
-				return false;
+				return $period->isEqualTo($step);
 			}
 		};
 	}
