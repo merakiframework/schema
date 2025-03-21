@@ -4,6 +4,8 @@ declare(strict_types=1);
 namespace Meraki\Schema\Field;
 
 use Brick\DateTime\Duration;
+use Brick\DateTime\LocalDate;
+use Brick\DateTime\TimeZone;
 use Meraki\Schema\Field;
 use Meraki\Schema\Attribute;
 use Meraki\Schema\Constraint;
@@ -73,14 +75,14 @@ class Time extends Field
 		]);
 	}
 
-	public function minOf(string $value): self
+	public function from(string $value): self
 	{
 		$this->attributes = $this->attributes->add(new Attribute\Min($value));
 
 		return $this;
 	}
 
-	public function maxOf(string $value): self
+	public function until(string $value): self
 	{
 		$this->attributes = $this->attributes->add(new Attribute\Max($value));
 
@@ -150,10 +152,23 @@ class Time extends Field
 		return new class implements Validator {
 			public function validate(Attribute&Constraint $constraint, Field $field): bool
 			{
-				$step = Duration::parse($constraint->value);
-				$actualValue = LocalTime::parse($field->value);
+				$min = $field->attributes->findByName(Attribute\Min::class);
 
-				return $actualValue->getSecond() % $step->getSeconds() === 0;
+				// the step constraint must be relative to a minimum date
+				// so check for min constraint
+				if ($min === null) {
+					return false;
+				}
+
+				$min = LocalTime::parse($min->value)->withNano(0);
+				$step = Duration::parse($constraint->value);
+				$value = LocalTime::parse($field->value)->withNano(0);
+				$duration = Duration::between(
+					$min->atDate(LocalDate::now(TimeZone::utc()))->atTimeZone(TimeZone::utc())->getInstant(),
+					$value->atDate(LocalDate::now(TimeZone::utc()))->atTimeZone(TimeZone::utc())->getInstant()
+				);
+
+				return $duration->isEqualTo($step);
 			}
 		};
 	}

@@ -44,7 +44,7 @@ final class TimeTest extends FieldTestCase
 	public function min_constraint_passes_when_met(): void
 	{
 		$field = $this->createField()
-			->minOf('10:00:00')
+			->from('10:00:00')
 			->input('12:34:56');
 
 		$this->assertTrue($field->validationResult->passed());
@@ -55,7 +55,7 @@ final class TimeTest extends FieldTestCase
 	public function min_constraint_fails_when_not_met(): void
 	{
 		$field = $this->createField()
-			->minOf('13:00:00')
+			->from('13:00:00')
 			->input('12:34:56');
 
 		$this->assertTrue($field->validationResult->failed());
@@ -66,7 +66,7 @@ final class TimeTest extends FieldTestCase
 	public function max_constraint_passes_when_met(): void
 	{
 		$field = $this->createField()
-			->maxOf('13:00:00')
+			->until('13:00:00')
 			->input('12:34:56');
 
 		$this->assertTrue($field->validationResult->passed());
@@ -77,7 +77,7 @@ final class TimeTest extends FieldTestCase
 	public function max_constraint_fails_when_not_met(): void
 	{
 		$field = $this->createField()
-			->maxOf('12:00:00')
+			->until('12:00:00')
 			->input('12:34:56');
 
 		$this->assertTrue($field->validationResult->failed());
@@ -85,25 +85,59 @@ final class TimeTest extends FieldTestCase
 	}
 
 	#[Test]
-	public function step_constraint_passes_when_met(): void
+	public function step_constraint_fails_if_no_min_constraint_set(): void
 	{
 		$field = $this->createField()
-			->inIncrementsOf('PT1S')
+			->inIncrementsOf('PT1H')
 			->input('12:34:56');
+
+		$this->assertTrue($field->validationResult->failed());
+		$this->assertValidationFailedForConstraint($field, Attribute\Step::class);
+	}
+
+	#[Test]
+	#[DataProvider('validIncrements')]
+	public function step_constraint_passes_when_met(string $min, string $duration, string $value): void
+	{
+		$field = $this->createField()
+			->from($min)
+			->inIncrementsOf($duration)
+			->input($value);
 
 		$this->assertTrue($field->validationResult->passed());
 		$this->assertValidationPassedForConstraint($field, Attribute\Step::class);
 	}
 
+	public static function validIncrements(): array
+	{
+		return [
+			'1 second' => ['12:34:56', 'PT1S', '12:34:57'],
+			'60 seconds' => ['12:34:56', 'PT1M', '12:35:56'],
+			'1 minute' => ['12:35:56', 'PT1M', '12:36:56'],
+			'60 minutes' => ['12:34:56', 'PT1H', '13:34:56'],
+			'1 hour' => ['13:34:56', 'PT1H', '14:34:56'],
+		];
+	}
+
 	#[Test]
-	public function step_constraint_fails_when_not_met(): void
+	#[DataProvider('invalidIncrements')]
+	public function step_constraint_fails_when_not_met(string $min, string $duration, string $value): void
 	{
 		$field = $this->createField()
-			->inIncrementsOf('PT30S')
-			->input('12:34:56');
+			->from($min)
+			->inIncrementsOf($duration)
+			->input($value);
 
 		$this->assertTrue($field->validationResult->failed());
 		$this->assertValidationFailedForConstraint($field, Attribute\Step::class);
+	}
+
+	public static function invalidIncrements(): array
+	{
+		return [
+			'seconds not increased in multiples of minute' => ['12:35:30', 'PT1M', '12:35:32'],
+			'minutes not increased in multiples of hour' => ['13:34:56', 'PT1H', '13:40:56'],
+		];
 	}
 
 	public function getExpectedType(): string
