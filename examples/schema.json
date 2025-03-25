@@ -38,6 +38,7 @@
 		},
 		"credit_card": {
 			"type": "credit_card",
+			"name": "credit_card",
 			"optional": false,
 			"inputs": [
 				{
