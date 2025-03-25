@@ -47,7 +47,7 @@ class Number extends Field
 		return $this->constrain(new Attribute\Max($maxValue));
 	}
 
-	public function inIncrementsOf(int $step): self
+	public function inIncrementsOf(float $step): self
 	{
 		$this->attributes = $this->attributes->set(new Attribute\Step($step));
 
