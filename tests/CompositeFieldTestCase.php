@@ -5,28 +5,27 @@ namespace Meraki\Schema;
 
 use Meraki\Schema\CompositeField;
 use Meraki\Schema\Field;
-use PHPUnit\Framework\TestCase;
 use PHPUnit\Framework\Attributes\{Test, CoversClass};
 
 #[CoversClass(CompositeField::class)]
-final class CompositeFieldTest extends TestCase
+abstract class CompositeFieldTestCase extends FieldTestCase
 {
 	#[Test]
-	public function it_exists(): void
+	public function it_is_a_composite_field(): void
 	{
-		$this->assertTrue(class_exists(CompositeField::class));
+		$this->assertInstanceOf(Field::class, $this->createField());
 	}
 
-	#[Test]
-	public function it_is_a_field(): void
-	{
-		$compositeField = new CompositeField(
-			new Attribute\Type('address'),
-			new Attribute\Name('address'),
-		);
+	// #[Test]
+	// public function it_is_a_field(): void
+	// {
+	// 	$compositeField = new CompositeField(
+	// 		new Attribute\Type('address'),
+	// 		new Attribute\Name('address'),
+	// 	);
 
-		$this->assertInstanceOf(Field::class, $compositeField);
-	}
+	// 	$this->assertInstanceOf(Field::class, $compositeField);
+	// }
 
 	#[Test]
 	public function naming_a_composite_field_will_prefix_all_its_sub_fields(): void
