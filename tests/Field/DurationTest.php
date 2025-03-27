@@ -22,6 +22,15 @@ final class DurationTest extends FieldTestCase
 	}
 
 	#[Test]
+	public function an_empty_string_fails_type_validation(): void
+	{
+		$duration = $this->createField()->input('');
+
+		$this->assertTrue($duration->validationResult->failed());
+		$this->assertValidationFailedForConstraint($duration, Attribute\Type::class);
+	}
+
+	#[Test]
 	public function it_validates_against_min_constraint_pass(): void
 	{
 		$duration = $this->createField()
