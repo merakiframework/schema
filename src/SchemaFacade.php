@@ -196,6 +196,25 @@ final class SchemaFacade
 		return $uuidField;
 	}
 
+	public function input(array|object $data): self
+	{
+		$data = is_object($data) ? get_object_vars($data) : $data;
+
+		// input data
+		foreach ($this->fields as $field) {
+			$field->input($data[(string) $field->name] ?? null);
+		}
+
+		$this->rules->apply($data, $this);
+
+		// re-input data
+		// foreach ($this->fields as $field) {
+		// 	$field->input($data[(string) $field->name] ?? null);
+		// }
+
+		return $this;
+	}
+
 	public function validate(array|object $data): AggregatedValidationResults
 	{
 		return (new SchemaValidator($this))->validate($data);
