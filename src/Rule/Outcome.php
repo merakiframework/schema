@@ -108,5 +108,10 @@ class Outcome
 			default:
 				throw new \RuntimeException('Unknown action: ' . $action->value);
 		}
+
+		// revalidate the target field
+		if ($target instanceof Field) {
+			$target->validate();
+		}
 	}
 }
