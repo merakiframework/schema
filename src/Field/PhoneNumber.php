@@ -20,7 +20,7 @@ use Meraki\Schema\Validator;
  */
 class PhoneNumber extends Field
 {
-	private const TYPE_PATTERN = '/^\+\d{2,3}[ -.\(\)]*(?:\d[ -.\(\)]*){2,15}$/';
+	private const TYPE_PATTERN = '/^\+\d{1,3}[\ \-\.\(\)]*(?:\d[\ \-\.\(\)]*)*$/';
 	private const CHARS_TO_REMOVE = [' ', '-', '.', '(', ')'];
 
 	public function __construct(Attribute\Name $name, Attribute ...$attributes)
@@ -40,10 +40,12 @@ class PhoneNumber extends Field
 			public function validate(Attribute&Constraint $constraint, Field $field): bool
 			{
 				$value = $field->value;
+				$valueWithoutFormattingChars = preg_replace('/[\+\ \-\.\(\)]/', '', $value);
 
-
-
-				return is_string($value) && preg_match($this->pattern, $value) === 1;
+				return is_string($value)
+					&& preg_match($this->pattern, $value) === 1
+					&& mb_strlen($valueWithoutFormattingChars) >= 2
+					&& mb_strlen($valueWithoutFormattingChars) <= 15;
 			}
 		};
 	}
