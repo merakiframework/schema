@@ -70,6 +70,8 @@ final class PhoneNumberTest extends FieldTestCase
 			'too long' => ['+6131234567890123'],
 			'with invalid separators' => ['+61/3/1234/5678'],
 			'too long with separators' => ['+61 (3) 1234 5678 90123'],
+			'contains formatting characters proceeding country code' => ['+ 61 3 1234 5678'],
+			'contains formatting characters around country code' => ['+(61) 3 1234 5678'],
 		];
 	}
 
