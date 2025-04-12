@@ -40,7 +40,7 @@ class PhoneNumber extends Field
 			public function validate(Attribute&Constraint $constraint, Field $field): bool
 			{
 				$value = $field->value;
-				$valueWithoutFormattingChars = preg_replace('/[\+\ \-\.\(\)]/', '', $value);
+				$valueWithoutFormattingChars = preg_replace('/[\+\ \-\.\(\)]/', '', $value ?? '');
 
 				return is_string($value)
 					&& preg_match($this->pattern, $value) === 1
