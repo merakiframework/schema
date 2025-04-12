@@ -6,7 +6,6 @@ namespace Meraki\Schema\Field;
 use Meraki\Schema\CompositeField;
 use Meraki\Schema\Field;
 use Meraki\Schema\Attribute;
-use Meraki\Schema\Constraint;
 use Meraki\Schema\Validator;
 
 class Money extends CompositeField
@@ -25,6 +24,11 @@ class Money extends CompositeField
 				$acceptedCurrencies
 			)
 		);
+
+		$this->registerConstraints([
+			Attribute\Min::class => new Validator\CheckMinValue(),
+			Attribute\Max::class => new Validator\CheckMaxValue(),
+		]);
 	}
 
 	public static function getSupportedAttributes(): array
