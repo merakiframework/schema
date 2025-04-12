@@ -89,7 +89,7 @@ final class MoneyTest extends CompositeFieldTestCase
 
 	public function usesConstraints(): bool
 	{
-		return true;
+		return false;
 	}
 
 	public function getExpectedType(): string

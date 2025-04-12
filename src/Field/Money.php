@@ -24,11 +24,6 @@ class Money extends CompositeField
 				$acceptedCurrencies
 			)
 		);
-
-		$this->registerConstraints([
-			Attribute\Min::class => new Validator\CheckMinValue(),
-			Attribute\Max::class => new Validator\CheckMaxValue(),
-		]);
 	}
 
 	public static function getSupportedAttributes(): array
