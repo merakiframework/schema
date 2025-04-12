@@ -4,7 +4,6 @@ declare(strict_types=1);
 namespace Meraki\Schema;
 
 use Meraki\Schema\FieldValidationResult;
-use Meraki\Schema\FieldSanitizer;
 use Meraki\Schema\Attribute;
 use Meraki\Schema\Validator;
 use Meraki\Schema\Field;
@@ -24,7 +23,6 @@ class SimpleField extends Field
 	public FieldValidationResult $validationResult;
 
 	private bool $deferValidation = false;
-	protected array $sanitizers = [];
 
 	public function __construct(
 		public Attribute\Type $type,
@@ -138,7 +136,6 @@ class SimpleField extends Field
 	public function input(mixed $value): static
 	{
 		$this->inputGiven = true;
-		$value = $this->applySanitizers(new Attribute\Value($value));
 		$this->attributes = $this->attributes->set($value);
 
 		$this->updateValueWithDefaultValue();
@@ -177,25 +174,6 @@ class SimpleField extends Field
 	protected function valueNotGiven(Attribute\Value $value): bool
 	{
 		return $value->hasValueOf(null);
-	}
-
-	public function sanitize(FieldSanitizer $sanitizer): static
-	{
-		if (!in_array($sanitizer, $this->sanitizers, true)) {
-			$this->sanitizers[] = $sanitizer;
-		}
-
-		return $this;
-	}
-
-	protected function applySanitizers(Attribute\Value $value): Attribute\Value
-	{
-		/** @var FieldSanitizer $sanitizer */
-		foreach ($this->sanitizers as $sanitizer) {
-			$value = $sanitizer->sanitize($value);
-		}
-
-		return $value;
 	}
 
 	public function validate(): FieldValidationResult

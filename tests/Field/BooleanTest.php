@@ -7,7 +7,6 @@ namespace Meraki\Schema\Field;
 use Meraki\Schema\Field\Boolean;
 use Meraki\Schema\Attribute;
 use Meraki\Schema\Constraint;
-use Meraki\Schema\Sanitizer\ConvertOnOffToBoolean;
 use Meraki\Schema\FieldTestCase;
 use PHPUnit\Framework\Attributes\{Test, CoversClass};
 
@@ -20,26 +19,6 @@ final class BooleanTest extends FieldTestCase
 		$boolean = $this->createField();
 
 		$this->assertInstanceOf(Boolean::class, $boolean);
-	}
-
-	#[Test]
-	public function can_sanitize_html_checkbox_value_on(): void
-	{
-		$boolean = $this->createField()
-			->sanitize(new ConvertOnOffToBoolean())
-			->input('on');
-
-		$this->assertTrue($boolean->value);
-	}
-
-	#[Test]
-	public function can_sanitize_html_checkbox_value_off(): void
-	{
-		$boolean = $this->createField()
-			->sanitize(new ConvertOnOffToBoolean())
-			->input('off');
-
-		$this->assertFalse($boolean->value);
 	}
 
 	public function createField(): Boolean
