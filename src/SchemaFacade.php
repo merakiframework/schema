@@ -202,6 +202,17 @@ final class SchemaFacade
 		return $this;
 	}
 
+	public function prefill(array|object $data): self
+	{
+		$data = is_object($data) ? get_object_vars($data) : $data;
+
+		foreach ($this->fields as $field) {
+			$field->prefill($data[(string) $field->name] ?? null);
+		}
+
+		return $this;
+	}
+
 	public function validate(array|object $data): AggregatedValidationResults
 	{
 		return (new SchemaValidator($this))->validate($data);
