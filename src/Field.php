@@ -31,7 +31,7 @@ class Field
 		$this->attributes = new Attribute\Set(static::getSupportedAttributes(), $type, $name, ...$attributes);
 		$this->attributes = $this->attributes->add(new Attribute\DefaultValue(null));
 
-		if ($this->attributes->findByName('value') !== null) {
+		if ($this->attributes->findByName(Attribute\Value::class) !== null) {
 			$this->inputGiven = true;
 		}
 
@@ -46,15 +46,13 @@ class Field
 
 	protected function updateValueWithDefaultValue(): void
 	{
-		/** @var Attribute\Value */
-		$value = $this->attributes->getByName('value');
-		/** @var Attribute\DefaultValue */
-		$defaultValue = $this->attributes->getByName('default_value');
-
+		$value = $this->attributes->getByName(Attribute\Value::class);
+		$defaultValue = $this->attributes->getByName(Attribute\DefaultValue::class);
 		$value = $value->defaultsTo($defaultValue);
+		$optional = $this->attributes->findByName(Attribute\Optional::class);
 
 		// only update the value if no input was given and the field is optional
-		if ($this->attributes->findByName('optional') !== null && $this->attributes->getByName('optional')->hasValueOf(true)) {
+		if ($optional !== null && $optional->hasValueOf(true)) {
 			$this->attributes = $this->attributes->set($value);
 		}
 	}
@@ -162,7 +160,7 @@ class Field
 
 	public function isOptional(): bool
 	{
-		$optional = $this->attributes->findByName('optional');
+		$optional = $this->attributes->findByName(Attribute\Optional::class);
 
 		return $optional !== null && $optional->hasValueOf(true);
 	}
@@ -177,12 +175,9 @@ class Field
 
 	public function validate(): FieldValidationResult
 	{
-		/** @var Attribute\Optional|null */
-		$optional = $this->attributes->findByName('optional');
-		/** @var Attribute\Value */
-		$value = $this->attributes->getByName('value');
-		/** @var Attribute\DefaultValue */
-		$defaultValue = $this->attributes->getByName('default_value');
+		$optional = $this->attributes->findByName(Attribute\Optional::class);
+		$value = $this->attributes->getByName(Attribute\Value::class);
+		$defaultValue = $this->attributes->getByName(Attribute\DefaultValue::class);
 		$isOptional = $optional !== null && $optional->hasValueOf(true);
 
 		if ($isOptional) {
@@ -234,7 +229,7 @@ class Field
 		$constraints = $this->attributes->getConstraints();
 
 		// validate type constraint first
-		$typeConstraint = $constraints->getByName('type');
+		$typeConstraint = $constraints->getByName(Attribute\Type::class);
 
 		$this->assertValidatorExistsForConstraint($typeConstraint);
 
