@@ -32,11 +32,11 @@ final class ValueTest extends AttributeTestCase
 	#[Test]
 	public function can_get_new_instance_from_default_value(): void
 	{
-		$defaultValue = new DefaultValue('hello');
+		$defaultValue = 'hello';
 		$value = Value::of(null)->defaultsTo($defaultValue);
 
 		$this->assertInstanceOf(Value::class, $value);
-		$this->assertEquals($value->value, $defaultValue->value);
+		$this->assertEquals($defaultValue, $value->defaultValue);
 	}
 
 	public function getExpectedName(): string
