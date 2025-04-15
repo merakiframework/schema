@@ -33,8 +33,12 @@ class Field
 		Attribute ...$attributes,
 	) {
 		$this->attributes = new Attribute\Set(static::getSupportedAttributes(), $type, $name, ...$attributes);
+		$defaultValue = $this->attributes->findByName(Attribute\DefaultValue::class);
+		$value = $this->attributes->findByName(Attribute\Value::class) ?? Attribute\Value::of(null, null);
 
-		$value = $this->attributes->findByName(Attribute\Value::class);
+		if ($defaultValue !== null) {
+			$value = $value->defaultsTo($defaultValue->value);
+		}
 
 		$this->registerConstraint(Attribute\Type::class, static::getTypeConstraintValidator());
 
@@ -42,9 +46,6 @@ class Field
 		if ($value !== null) {
 			$this->prefill($value->defaultValue);
 			$this->input($value->value);
-		// provide a default value of null so value can always be accessed from $attributes
-		} else {
-			$this->attributes = $this->attributes->set(new Attribute\Value(null, null));
 		}
 
 		$this->validationResult = new FieldValidationResult();
