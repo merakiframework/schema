@@ -12,24 +12,50 @@ use Meraki\Schema\Attribute;
  */
 class Value extends Attribute
 {
-	public function __construct(mixed $value)
+	/** @readonly */
+	public mixed $defaultValue;
+
+	/** @readonly */
+	public bool $isUsingDefaultValue = false;
+
+	/** @readonly */
+	public bool $resolved = false;
+
+	public function __construct(mixed $value, mixed $defaultValue = null)
 	{
 		parent::__construct('value', $value);
+
+		$this->defaultValue = $defaultValue;
 	}
 
-	public static function of(mixed $value): self
+	public static function of(mixed $value, mixed $defaultValue = null): self
 	{
-		return new self($value);
+		return new self($value, $defaultValue);
 	}
 
-	public function defaultsTo(Attribute\DefaultValue $value): self
+	public function defaultsTo(mixed $value): self
 	{
-		$copy = clone $this;
+		return new self($this->value, $value);
+	}
 
-		if ($copy->value === null) {
-			$copy->value = $value->value;
+	public function resolve(): Attribute\Value
+	{
+		if ($this->resolved) {
+			return $this;
 		}
 
-		return $copy;
+		if ($this->value === null) {
+			$instance = new self($this->defaultValue, $this->defaultValue);
+			$instance->isUsingDefaultValue = true;
+			$instance->resolved = true;
+
+			return $instance;
+		}
+
+		$instance = new self($this->value, $defaultValue ?? $this->defaultValue);
+		$instance->isUsingDefaultValue = false;
+		$instance->resolved = true;
+
+		return $instance;
 	}
 }

@@ -96,7 +96,7 @@ final class Set implements \Countable, \IteratorAggregate
 	}
 
 	/**
-	 * @template U of Attribute
+	 * @template U of T
 	 * @param class-string<U> $name Fully qualified class name of the attribute
 	 * @return U The attribute instance if found
 	 * @throws \InvalidArgumentException if not found

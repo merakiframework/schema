@@ -11,17 +11,21 @@ use Meraki\Schema\ConstraintValidationResult;
 /**
  * It is important to remember that a field is required by default. If you want
  * to make a field optional, you must add the `optional` attribute to it.
+ *
+ * @property-read Attribute\Type $type
+ * @property-read Attribute\Name $name
+ * @property-read Attribute\Value $value
  */
 class Field
 {
-	private array $validators = [];
+	protected array $validators = [];
 	public Attribute\Set $attributes;
 
 	public bool $inputGiven = false;
 
 	public FieldValidationResult $validationResult;
 
-	private bool $deferValidation = false;
+	protected bool $deferValidation = false;
 
 	public function __construct(
 		public Attribute\Type $type,
@@ -29,32 +33,21 @@ class Field
 		Attribute ...$attributes,
 	) {
 		$this->attributes = new Attribute\Set(static::getSupportedAttributes(), $type, $name, ...$attributes);
-		$this->attributes = $this->attributes->add(new Attribute\DefaultValue(null));
 
-		if ($this->attributes->findByName(Attribute\Value::class) !== null) {
-			$this->inputGiven = true;
-		}
-
-		$this->attributes = $this->attributes->add(new Attribute\Value(null));
+		$value = $this->attributes->findByName(Attribute\Value::class);
 
 		$this->registerConstraint(Attribute\Type::class, static::getTypeConstraintValidator());
 
-		$this->updateValueWithDefaultValue();
+		// if a value attribute is given then input was given
+		if ($value !== null) {
+			$this->prefill($value->defaultValue);
+			$this->input($value->value);
+		// provide a default value of null so value can always be accessed from $attributes
+		} else {
+			$this->attributes = $this->attributes->set(new Attribute\Value(null, null));
+		}
 
 		$this->validationResult = new FieldValidationResult();
-	}
-
-	protected function updateValueWithDefaultValue(): void
-	{
-		$value = $this->attributes->getByName(Attribute\Value::class);
-		$defaultValue = $this->attributes->getByName(Attribute\DefaultValue::class);
-		$value = $value->defaultsTo($defaultValue);
-		$optional = $this->attributes->findByName(Attribute\Optional::class);
-
-		// only update the value if no input was given and the field is optional
-		if ($optional !== null && $optional->hasValueOf(true)) {
-			$this->attributes = $this->attributes->set($value);
-		}
 	}
 
 	public function addAttribute(Attribute $attributes): static
@@ -133,9 +126,10 @@ class Field
 	public function input(mixed $value): static
 	{
 		$this->inputGiven = true;
-		$this->attributes = $this->attributes->set(new Attribute\Value($value));
-
-		$this->updateValueWithDefaultValue();
+		$originalValue = $this->attributes->getByName(Attribute\Value::class);
+		$this->attributes = $this->attributes->set(
+			Attribute\Value::of($value, $originalValue->defaultValue)->resolve()
+		);
 
 		if (!$this->deferValidation) {
 			$this->validate();
@@ -144,11 +138,10 @@ class Field
 		return $this;
 	}
 
-	public function prefill(mixed $value): static
+	public function prefill(mixed $defaultValue): static
 	{
-		$this->attributes = $this->attributes->set(new Attribute\DefaultValue($value));
-
-		$this->updateValueWithDefaultValue();
+		$value = $this->attributes->getByName(Attribute\Value::class);
+		$this->attributes = $this->attributes->set($value->defaultsTo($defaultValue));
 
 		return $this;
 	}
@@ -167,7 +160,9 @@ class Field
 
 	/**
  	 * Check whether a field was given any input.
-   	 */
+	 *
+	 * This value has been 'resolved' with either the input value or the default value.
+	 */
 	protected function valueNotGiven(Attribute\Value $value): bool
 	{
 		return $value->hasValueOf(null);
@@ -175,26 +170,20 @@ class Field
 
 	public function validate(): FieldValidationResult
 	{
-		$optional = $this->attributes->findByName(Attribute\Optional::class);
-		$value = $this->attributes->getByName(Attribute\Value::class);
-		$defaultValue = $this->attributes->getByName(Attribute\DefaultValue::class);
-		$isOptional = $optional !== null && $optional->hasValueOf(true);
+		$value = $this->attributes->getByName(Attribute\Value::class)->resolve();
+		$this->attributes = $this->attributes->set($value);
 
-		if ($isOptional) {
-			$value = $value->defaultsTo($defaultValue);
+		// If optional, no value and no default value, then skip all validation.
+		if ($this->isOptional() && $this->valueNotGiven($value)) {
+			$results = new FieldValidationResult();
 
-			// If optional, no value, no default value, then skip all validation.
-			if ($this->valueNotGiven($value)) {
-				$results = new FieldValidationResult();
-
-				foreach ($this->attributes->getConstraints() as $constraint) {
-					$results = $results->add(ConstraintValidationResult::skip($constraint));
-				}
-
-				$this->validationResult = $results;
-
-				return $this->validationResult;
+			foreach ($this->attributes->getConstraints() as $constraint) {
+				$results = $results->add(ConstraintValidationResult::skip($constraint));
 			}
+
+			$this->validationResult = $results;
+
+			return $this->validationResult;
 		}
 
 		$this->validateConstraints();
@@ -269,10 +258,15 @@ class Field
 	private function assertValidatorExistsForConstraint(Attribute&Constraint $constraint): void
 	{
 		if (!array_key_exists($constraint::class, $this->validators)) {
-			throw new \RuntimeException("No validator found for constraint '{$constraint->name}'.");
+			$fqcn = $constraint::class;
+			throw new \RuntimeException("No validator found for constraint '{$fqcn}'.");
 		}
 	}
 
+	/**
+	 * @template T of Attribute
+	 * @param class-string<T> $name Fully qualified class name of the attribute
+	 */
 	public function __isset($name): bool
 	{
 		return $this->attributes->findByName($name) !== null;

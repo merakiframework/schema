@@ -124,14 +124,14 @@ abstract class FieldTestCase extends TestCase
 	}
 
 	#[Test]
-	public function validation_fails_if_required_and_no_value_and_valid_default_value(): void
+	public function validation_passes_if_required_and_no_input_and_valid_default_value(): void
 	{
 		$field = $this->createField()
 			->prefill($this->getValidValue())
 			->input(null);
 
-		$this->assertTrue($field->validationResult->failed());
-		$this->assertValidationFailedForConstraint($field, Attribute\Type::class);
+		$this->assertTrue($field->validationResult->passed());
+		$this->assertValidationPassedForConstraint($field, Attribute\Type::class);
 	}
 
 	#[Test]
