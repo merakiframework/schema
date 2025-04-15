@@ -33,19 +33,17 @@ class Field
 		Attribute ...$attributes,
 	) {
 		$this->attributes = new Attribute\Set(static::getSupportedAttributes(), $type, $name, ...$attributes);
-		$defaultValue = $this->attributes->findByName(Attribute\DefaultValue::class);
-		$value = $this->attributes->findByName(Attribute\Value::class) ?? Attribute\Value::of(null, null);
-
-		if ($defaultValue !== null) {
-			$value = $value->defaultsTo($defaultValue->value);
-		}
+		$defaultValue = $this->attributes->findByName(Attribute\DefaultValue::class)?->value ?? null;
+		$value = $this->attributes->findByName(Attribute\Value::class);
 
 		$this->registerConstraint(Attribute\Type::class, static::getTypeConstraintValidator());
 
 		// if a value attribute is given then input was given
 		if ($value !== null) {
-			$this->prefill($value->defaultValue);
+			$this->prefill($value->defaultValue ?? $defaultValue);
 			$this->input($value->value);
+		} else {
+			$this->attributes = $this->attributes->set(Attribute\Value::of(null, $defaultValue));
 		}
 
 		$this->validationResult = new FieldValidationResult();
