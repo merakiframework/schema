@@ -12,6 +12,8 @@ use Meraki\Schema\Constraint;
  * A version attribute can be used to restrict the value of a field to a specific
  * version or range of versions. An empty array indicates that the field is not
  * restricted to any version.
+ *
+ * @property-read list<int> $value
  */
 final class Version extends Attribute implements Constraint
 {
