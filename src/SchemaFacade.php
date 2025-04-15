@@ -194,11 +194,6 @@ final class SchemaFacade
 
 		$this->rules->apply($data, $this);
 
-		// re-input data
-		// foreach ($this->fields as $field) {
-		// 	$field->input($data[(string) $field->name] ?? null);
-		// }
-
 		return $this;
 	}
 
