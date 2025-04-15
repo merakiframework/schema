@@ -4,7 +4,7 @@ declare(strict_types=1);
 namespace Meraki\Schema;
 
 /**
- * @property-read int $status
+ * @property-read ValidationStatus $status
  */
 interface ValidationResult
 {
