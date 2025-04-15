@@ -25,8 +25,6 @@ class Field
 
 	public FieldValidationResult $validationResult;
 
-	protected bool $deferValidation = false;
-
 	public function __construct(
 		public Attribute\Type $type,
 		public Attribute\Name $name,
@@ -115,13 +113,6 @@ class Field
 		return $this;
 	}
 
-	public function deferValidation(): static
-	{
-		$this->deferValidation = true;
-
-		return $this;
-	}
-
 	public function input(mixed $value): static
 	{
 		$this->inputGiven = true;
@@ -130,9 +121,7 @@ class Field
 			Attribute\Value::of($value, $originalValue->defaultValue)->resolve()
 		);
 
-		if (!$this->deferValidation) {
-			$this->validate();
-		}
+		$this->validate();
 
 		return $this;
 	}
