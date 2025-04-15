@@ -5,7 +5,6 @@ namespace Meraki\Schema;
 
 use Meraki\Schema\AttributeTestCase;
 use Meraki\Schema\Attribute\Value;
-use Meraki\Schema\Attribute\DefaultValue;
 use PHPUnit\Framework\Attributes\{Test, CoversClass};
 
 #[CoversClass(Value::class)]
