@@ -15,5 +15,5 @@ interface Validator
 	/**
 	 * @throws InvalidArgumentException when the value is the incorrect type for the validator
 	 */
-	public function validate(FieldValue $value, Field $field): bool;
+	public function validate(Field $field): bool;
 }
