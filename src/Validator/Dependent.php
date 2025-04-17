@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 
-namespace Meraki\Schema;
+namespace Meraki\Schema\Validator;
 
 interface Dependent extends Validator
 {
