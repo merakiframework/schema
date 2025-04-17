@@ -3,6 +3,8 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Validator;
 
+use Meraki\Schema\Validator;
+
 interface Dependent extends Validator
 {
 	/**
