@@ -33,25 +33,6 @@ abstract class ValidatorTestCase extends TestCase
 		$this->assertInstanceOf(ValidatorName::class, $name);
 	}
 
-	#[Test]
-	public function depends_on_returns_list_of_validator_class_names(): void
-	{
-		$validator = $this->createValidator();
-		$fqcn = $validator::class;
-		$dependencies = $validator->dependsOn();
-
-		if ($dependencies === []) {
-			$this->markTestSkipped("Validator '{$fqcn}' has no dependencies.");
-		}
-
-		foreach ($dependencies as $dependency) {
-			$this->assertTrue(
-				is_subclass_of($dependency, Validator::class),
-				"'{$dependency}' is not a subclass of Validator"
-			);
-		}
-	}
-
 	protected function createFieldMock(): Field
 	{
 		return $this->createMock(Field::class);

@@ -16,11 +16,4 @@ interface Validator
 	 * @throws InvalidArgumentException when the value is the incorrect type for the validator
 	 */
 	public function validate(FieldValue $value, Field $field): bool;
-
-	/**
-	 * Returns a list of FQCNs of validators this one depends on.
-	 *
-	 * @return list<class-string<Validator>>
-	 */
-	public function dependsOn(): array;
 }
