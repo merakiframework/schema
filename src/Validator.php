@@ -4,10 +4,23 @@ declare(strict_types=1);
 namespace Meraki\Schema;
 
 use Meraki\Schema\Field;
-use Meraki\Schema\Attribute;
-use Meraki\Schema\Constraint;
+use Meraki\Schema\ValidatorName;
+use InvalidArgumentException;
 
+/**
+ * @property-read ValidatorName $name
+ */
 interface Validator
 {
-	public function validate(Attribute&Constraint $constraint, Field $field): bool;
+	/**
+	 * @throws InvalidArgumentException when the value is the incorrect type for the validator
+	 */
+	public function validate(FieldValue $value, Field $field): bool;
+
+	/**
+	 * Returns a list of FQCNs of validators this one depends on.
+	 *
+	 * @return list<class-string<Validator>>
+	 */
+	public function dependsOn(): array;
 }
