@@ -10,7 +10,8 @@ interface Dependent extends Validator
 	/**
 	 * Returns a list of other validators that this validator depends on.
 	 *
-	 * @return list<string> A list of fully qualified class names of dependent validators.
+	 * @template T of Validator
+	 * @return list<class-string<T>> A list of fully qualified class names of dependent validators.
 	 */
 	public function dependsOn(): array;
 }

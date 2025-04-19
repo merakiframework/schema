@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Validator;
 
-use Meraki\Schema\Dependent;
+use Meraki\Schema\Validator\Dependent;
 use Meraki\Schema\Validator;
 use Meraki\Schema\ValidatorTestCase;
 use PHPUnit\Framework\Attributes\Group;
@@ -14,6 +14,8 @@ use PHPUnit\Framework\Attributes\Test;
 #[CoversClass(Dependent::class)]
 abstract class DependentTestCase extends ValidatorTestCase
 {
+	abstract public function createValidator(): Dependent;
+
 	#[Test]
 	public function depends_on_returns_list_of_validator_class_names(): void
 	{
