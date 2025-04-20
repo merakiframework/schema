@@ -124,7 +124,7 @@ final class Set
 				$cyclePath = array_slice($path, $cycleStartIndex);
 				$cyclePath[] = $class; // to close the loop like [A, B, A]
 
-				throw new Exception\CircularDependenciesFound($validator, $cyclePath);
+				throw new Exception\CircularDependenciesFound($cyclePath);
 			}
 
 			$tempMark[$class] = true;
