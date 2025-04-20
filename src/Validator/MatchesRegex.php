@@ -4,14 +4,23 @@ declare(strict_types=1);
 namespace Meraki\Schema\Validator;
 
 use Meraki\Schema\Field;
-use Meraki\Schema\Constraint;
-use Meraki\Schema\Attribute;
 use Meraki\Schema\Validator;
+use Meraki\Schema\ValidatorName;
 
+/**
+ * @property-read ValidatorName $name
+ */
 final class MatchesRegex implements Validator
 {
-	public function validate(Attribute&Constraint $constraint, Field $field): bool
+	public readonly ValidatorName $name;
+
+	public function __construct(public readonly string $value)
 	{
-		return is_string($field->value) && preg_match($constraint->value, $field->value) === 1;
+		$this->name = new ValidatorName('pattern');
+	}
+
+	public function validate(Field $field): bool
+	{
+		return is_string($field->value->unwrap()) && preg_match($field->value->unwrap(), $this->value) === 1;
 	}
 }

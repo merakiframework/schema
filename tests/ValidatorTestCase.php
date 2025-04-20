@@ -14,6 +14,9 @@ use PHPUnit\Framework\Attributes\Test;
 #[CoversClass(Validator::class)]
 abstract class ValidatorTestCase extends TestCase
 {
+	/**
+	 * @template T of Validator
+	 */
 	abstract public function createValidator(): Validator;
 
 	#[Test]
@@ -33,7 +36,10 @@ abstract class ValidatorTestCase extends TestCase
 		$this->assertInstanceOf(ValidatorName::class, $name);
 	}
 
-	protected function createFieldMock(): Field
+	#[Test]
+	abstract public function it_has_the_correct_name(): void;
+
+	protected function mockField(): Field
 	{
 		return $this->createMock(Field::class);
 	}
