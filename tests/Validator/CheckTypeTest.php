@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Validator;
 
-use Meraki\Schema\FieldType;
+use Meraki\Schema\Field\Type as FieldType;
 use Meraki\Schema\Validator;
 use Meraki\Schema\ValidatorName;
 use Meraki\Schema\ValidatorTestCase;
@@ -15,7 +15,7 @@ use PHPUnit\Framework\Attributes\CoversClass;
 #[CoversClass(CheckType::class)]
 final class CheckTypeTest extends ValidatorTestCase
 {
-	public function createValidator(): Validator
+	public function createValidator(): CheckType
 	{
 		return new CheckType($this->mockFieldType('text', true));
 	}

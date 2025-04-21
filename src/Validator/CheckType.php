@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Validator;
 
-use Meraki\Schema\FieldType;
+use Meraki\Schema\Field\Type;
 use Meraki\Schema\Validator;
 use Meraki\Schema\ValidatorName;
 use Meraki\Schema\Field;
@@ -15,7 +15,7 @@ final class CheckType implements Validator
 {
 	public readonly ValidatorName $name;
 
-	public function __construct(private readonly FieldType $type)
+	public function __construct(public readonly Type $type)
 	{
 		$this->name = new ValidatorName('type');
 	}
