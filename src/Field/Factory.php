@@ -29,7 +29,6 @@ final class Factory
 		$this->register('date_time', fn(): Type\DateTime => new Type\DateTime());
 		$this->register('duration', fn(): Type\Duration => new Type\Duration());
 		$this->register('email_address', fn(): Type\EmailAddress => new Type\EmailAddress());
-		$this->register('enum', fn(): Type\Enum => new Type\Enum());
 		$this->register('file', fn(): Type\File => new Type\File());
 		$this->register('money', fn(): Type\Money => new Type\Money());
 		$this->register('name', fn(): Type\Name => new Type\Name());
@@ -74,11 +73,6 @@ final class Factory
 	public function createName(string $name): Field
 	{
 		return $this->createOfType('name', $name);
-	}
-
-	public function createEnum(string $name, array $allowedValues): Field
-	{
-		return $this->createOfType('enum', $name);
 	}
 
 	public function createText(string $name): Field
