@@ -1,17 +1,18 @@
 <?php
 declare(strict_types=1);
 
-namespace Meraki\Schema\Field;
+namespace Meraki\Schema\Field\Type;
 
 
-use Meraki\Schema\Field\PhoneNumber;
+use Meraki\Schema\Field\Type\PhoneNumber;
 use Meraki\Schema\Attribute;
 use Meraki\Schema\Constraint;
 use Meraki\Schema\FieldTestCase;
+use PHPUnit\Framework\TestCase;
 use PHPUnit\Framework\Attributes\{Test, CoversClass, DataProvider};
 
 #[CoversClass(PhoneNumber::class)]
-final class PhoneNumberTest extends FieldTestCase
+final class PhoneNumberTest extends TestCase
 {
 	#[Test]
 	public function it_exists(): void

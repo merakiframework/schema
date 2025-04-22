@@ -1,16 +1,17 @@
 <?php
 declare(strict_types=1);
 
-namespace Meraki\Schema\Field;
+namespace Meraki\Schema\Field\Type;
 
-use Meraki\Schema\Field\Money;
+use Meraki\Schema\Field\Type\Money;
 use Meraki\Schema\Attribute;
 use Meraki\Schema\CompositeFieldTestCase;
 use Meraki\Schema\Constraint;
+use PHPUnit\Framework\TestCase;
 use PHPUnit\Framework\Attributes\{Test, CoversClass, DataProvider};
 
 #[CoversClass(Money::class)]
-final class MoneyTest extends CompositeFieldTestCase
+final class MoneyTest extends TestCase
 {
 	#[Test]
 	public function it_exists(): void

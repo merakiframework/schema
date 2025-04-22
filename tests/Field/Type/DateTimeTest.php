@@ -1,18 +1,19 @@
 <?php
 declare(strict_types=1);
 
-namespace Meraki\Schema\Field;
+namespace Meraki\Schema\Field\Type;
 
 
-use Meraki\Schema\Field\DateTime;
+use Meraki\Schema\Field\Type\DateTime;
 use Meraki\Schema\Attribute;
 use Meraki\Schema\Constraint;
 use Meraki\Schema\FieldTestCase;
 use Brick\DateTime\LocalDateTime;
+use PHPUnit\Framework\TestCase;
 use PHPUnit\Framework\Attributes\{Test, CoversClass, DataProvider};
 
 #[CoversClass(DateTime::class)]
-final class DateTimeTest extends FieldTestCase
+final class DateTimeTest extends TestCase
 {
 	#[Test]
 	public function it_exists(): void

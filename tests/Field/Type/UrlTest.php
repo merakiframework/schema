@@ -1,16 +1,17 @@
 <?php
 declare(strict_types=1);
 
-namespace Meraki\Schema\Field;
+namespace Meraki\Schema\Field\Type;
 
-use Meraki\Schema\Field\Url;
+use Meraki\Schema\Field\Type\Url;
 use Meraki\Schema\Attribute;
 use Meraki\Schema\Constraint;
 use Meraki\Schema\FieldTestCase;
+use PHPUnit\Framework\TestCase;
 use PHPUnit\Framework\Attributes\{Test, CoversClass, DataProvider};
 
 #[CoversClass(Url::class)]
-final class UrlTest extends FieldTestCase
+final class UrlTest extends TestCase
 {
 	#[Test]
 	public function it_exists(): void

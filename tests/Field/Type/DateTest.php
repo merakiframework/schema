@@ -1,18 +1,22 @@
 <?php
 declare(strict_types=1);
 
-namespace Meraki\Schema\Field;
+namespace Meraki\Schema\Field\Type;
 
-
-use Meraki\Schema\Field\Date;
+use Meraki\Schema\Field\Type\Date;
 use Meraki\Schema\Attribute;
 use Meraki\Schema\Constraint;
-use Meraki\Schema\FieldTestCase;
+use Meraki\Schema\Field\TypeTestCase;
 use PHPUnit\Framework\Attributes\{Test, CoversClass, DataProvider};
 
 #[CoversClass(Date::class)]
-final class DateTest extends FieldTestCase
+final class DateTest extends TypeTestCase
 {
+	protected function createType(): Date
+	{
+		return new Date();
+	}
+
 	#[Test]
 	public function it_exists(): void
 	{

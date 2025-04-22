@@ -1,16 +1,17 @@
 <?php
 declare(strict_types=1);
 
-namespace Meraki\Schema\Field;
+namespace Meraki\Schema\Field\Type;
 
-use Meraki\Schema\Field\Time;
+use Meraki\Schema\Field\Type\Time;
 use Meraki\Schema\Attribute;
 use Meraki\Schema\Constraint;
 use Meraki\Schema\FieldTestCase;
+use PHPUnit\Framework\TestCase;
 use PHPUnit\Framework\Attributes\{Test, CoversClass, DataProvider};
 
 #[CoversClass(Time::class)]
-final class TimeTest extends FieldTestCase
+final class TimeTest extends TestCase
 {
 	#[Test]
 	public function it_exists(): void

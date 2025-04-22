@@ -1,16 +1,17 @@
 <?php
 declare(strict_types=1);
 
-namespace Meraki\Schema\Field;
+namespace Meraki\Schema\Field\Type;
 
-use Meraki\Schema\Field\Number;
+use Meraki\Schema\Field\Type\Number;
 use Meraki\Schema\Attribute;
 use Meraki\Schema\Constraint;
 use Meraki\Schema\FieldTestCase;
+use PHPUnit\Framework\TestCase;
 use PHPUnit\Framework\Attributes\{Test, CoversClass, DataProvider};
 
 #[CoversClass(Number::class)]
-final class NumberTest extends FieldTestCase
+final class NumberTest extends TestCase
 {
 	#[Test]
 	public function it_exists(): void
