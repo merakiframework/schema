@@ -5,14 +5,12 @@ require_once __DIR__ . '/../vendor/autoload.php';
 $schema = new Meraki\Schema\SchemaFacade('contact_form');
 
 $schema->addTextField('username')
-	->require()
-	->matches('/^[a-zA-Z0-9_]+$/')
-	->minLengthOf(3);
+	->addValidator(new Meraki\Schema\Validator\MatchesRegex('/^[a-zA-Z0-9_]+$/'))
+	->addValidator(new Meraki\Schema\Validator\HasMinCharCountOf(3));
 
 $schema->addNumberField('age')
-	->require()
-	->minOf(18)
-	->maxOf(120);
+	->addValidator(new Meraki\Schema\Validator\HasMinValueOf(18))
+	->addValidator(new Meraki\Schema\Validator\HasMaxValueOf(120));
 
 $validUserData = [
 	'username' => 'johndoe',
@@ -25,23 +23,15 @@ $invalidUserData = [
 ];
 
 $userData = isset($_GET['pass']) ? $validUserData : $invalidUserData;
-$result = $schema->validate($userData);
+$schemaResult = $schema->validate($userData);
 
 echo '<pre>';
-if ($result->allPassed()) {
+if ($schemaResult->allPassed()) {
 	echo 'The data is valid.';
 } else {
-	foreach ($result->getFailures() as $fieldFailures) {
-		if ($fieldFailures->valueValidationResult->passed()) {
-			echo "Field '{$fieldFailures->field->name}' passed." . PHP_EOL;
-			echo "Validating constraints..." . PHP_EOL;
-
-			foreach ($fieldFailures->constraintValidationResults as $constraintFailure) {
-				echo "'{$constraintFailure->constraint->name}' constraint failed." . PHP_EOL;
-			}
-		} else {
-			echo "Field '{$fieldFailures->field->name}' failed." . PHP_EOL;
-			echo "Skipping constraint validation..." . PHP_EOL;
+	foreach ($schemaResult->getFailed() as $fieldResult) {
+		foreach ($fieldResult->getFailed() as $failure) {
+			echo '"' . $failure->validator->name . '" validator failed for "' . $fieldResult->field->name . '" field.' . PHP_EOL;
 		}
 
 		echo PHP_EOL;
