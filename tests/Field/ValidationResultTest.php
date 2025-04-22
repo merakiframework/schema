@@ -6,8 +6,6 @@ namespace Meraki\Schema\Field;
 use Meraki\Schema\AggregatedValidationResultTestCase;
 use Meraki\Schema\Field;
 use Meraki\Schema\Field\ValidationResult;
-use Meraki\Schema\AggregatedValidationResult;
-use Meraki\Schema\ValidationResult as ValidationResultInterface;
 use Meraki\Schema\ValidationStatus;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\Attributes\CoversClass;
