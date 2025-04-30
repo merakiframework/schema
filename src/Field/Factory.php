@@ -4,155 +4,97 @@ declare(strict_types=1);
 namespace Meraki\Schema\Field;
 
 use Meraki\Schema\Field;
-use Meraki\Schema\Field\Type;
+use Meraki\Schema\Property;
 
-final class Factory
+class Factory
 {
-	private static $registeredTypes = [];
-
-	public function __construct(
-		array $registeredTypes = []
-	) {
-		$this->registerDefault();
-
-		foreach ($registeredTypes as $name => $class) {
-			$this->register($name, $class);
-		}
+	public function createAddress(string $name): Field\Address
+	{
+		return new Field\Address(new Property\Name($name));
 	}
 
-	private function registerDefault(): void
+	public function createBoolean(string $name): Field\Boolean
 	{
-		$this->register('address', fn(): Type\Address => new Type\Address());
-		$this->register('boolean', fn(): Type\Boolean => new Type\Boolean());
-		$this->register('credit_card', fn(): Type\CreditCard => new Type\CreditCard());
-		$this->register('date', fn(): Type\Date => new Type\Date());
-		$this->register('date_time', fn(): Type\DateTime => new Type\DateTime());
-		$this->register('duration', fn(): Type\Duration => new Type\Duration());
-		$this->register('email_address', fn(): Type\EmailAddress => new Type\EmailAddress());
-		$this->register('file', fn(): Type\File => new Type\File());
-		$this->register('money', fn(): Type\Money => new Type\Money());
-		$this->register('name', fn(): Type\Name => new Type\Name());
-		$this->register('number', fn(): Type\Number => new Type\Number());
-		$this->register('passphrase', fn(): Type\Passphrase => new Type\Passphrase());
-		$this->register('password', fn(): Type\Password => new Type\Password());
-		$this->register('phone_number', fn(): Type\PhoneNumber => new Type\PhoneNumber());
-		$this->register('text', fn(): Type\Text => new Type\Text());
-		$this->register('time', fn(): Type\Time => new Type\Time());
-		$this->register('uuid', fn(): Type\Uuid => new Type\Uuid());
+		return new Field\Boolean(new Property\Name($name));
 	}
 
-	/**
-	 * Registers a new field type and the class that represents it.
-	 *
-	 * @param string $typeName The name of the field type, as used in the schema.
-	 * @param callable(): Type $factory The fully-qualified class name that represents the field.
-	 */
-	public function register(string $typeName, callable $factory): void
+	public function createCreditCard(string $name): Field\CreditCard
 	{
-		self::$registeredTypes[$typeName] = $factory;
+		return new Field\CreditCard(new Property\Name($name));
 	}
 
-	/**
-	 * Create a new field of the given type. This will only
-	 */
-	public function create(string $type, string $name): Field
+	public function createDate(string $name): Field\Date
 	{
-		return $this->createOfType($type, $name);
+		return new Field\Date(new Property\Name($name));
 	}
 
-	public function createUuid(string $name): Field
+	public function createDateTime(string $name): Field\DateTime
 	{
-		return $this->createOfType('uuid', $name);
+		return new Field\DateTime(new Property\Name($name));
 	}
 
-	public function createDuration(string $name): Field
+	public function createDuration(string $name): Field\Duration
 	{
-		return $this->createOfType('duration', $name);
+		return new Field\Duration(new Property\Name($name));
 	}
 
-	public function createName(string $name): Field
+	public function createEmailAddress(string $name): Field\EmailAddress
 	{
-		return $this->createOfType('name', $name);
+		return new Field\EmailAddress(new Property\Name($name));
 	}
 
-	public function createText(string $name): Field
+	public function createFile(string $name): Field\File
 	{
-		return $this->createOfType('text', $name);
+		return new Field\File(new Property\Name($name));
 	}
 
-	public function createEmailAddress(string $name): Field
+	public function createMoney(string $name): Field\Money
 	{
-		return $this->createOfType('email_address', $name);
+		return new Field\Money(new Property\Name($name));
 	}
 
-	public function createPhoneNumber(string $name): Field
+	public function createName(string $name): Field\Name
 	{
-		return $this->createOfType('phone_number', $name);
+		return new Field\Name(new Property\Name($name));
 	}
 
-	public function createNumber(string $name): Field
+	public function createNumber(string $name): Field\Number
 	{
-		return $this->createOfType('number', $name);
+		return new Field\Number(new Property\Name($name));
 	}
 
-	public function createAddress(string $name): Field
+	public function createPassphrase(string $name): Field\Passphrase
 	{
-		return $this->createOfType('address', $name);
+		return new Field\Passphrase(new Property\Name($name));
 	}
 
-	public function createPassword(string $name): Field
+	public function createPassword(string $name): Field\Password
 	{
-		return $this->createOfType('password', $name);
+		return new Field\Password(new Property\Name($name));
 	}
 
-	public function createPassphrase(string $name): Field
+	public function createPhoneNumber(string $name): Field\PhoneNumber
 	{
-		return $this->createOfType('passphrase', $name);
+		return new Field\PhoneNumber(new Property\Name($name));
 	}
 
-	public function createDate(string $name): Field
+	public function createText(string $name): Field\Text
 	{
-		return $this->createOfType('date', $name);
+		return new Field\Text(new Property\Name($name));
 	}
 
-	public function createDateTime(string $name): Field
+	public function createTime(string $name): Field\Time
 	{
-		return $this->createOfType('date_time', $name);
+		return new Field\Time(new Property\Name($name));
 	}
 
-	public function createTime(string $name): Field
+	public function createUrl(string $name): Field\Url
 	{
-		return $this->createOfType('time', $name);
+		return new Field\Url(new Property\Name($name));
 	}
 
-	public function createFile(string $name): Field
+	public function createUuid(string $name): Field\Uuid
 	{
-		return $this->createOfType('file', $name);
-	}
-
-	public function createCreditCard(string $name): Field
-	{
-		return $this->createOfType('credit_card', $name);
-	}
-
-	public function createBoolean(string $name): Field
-	{
-		return $this->createOfType('boolean', $name);
-	}
-
-	public function createMoney(string $name): Field
-	{
-		return $this->createOfType('money', $name);
-	}
-
-	public function createOfType(string $type, string $name): Field
-	{
-		if (!array_key_exists($type, self::$registeredTypes)) {
-			throw new \InvalidArgumentException("Could not create field of type '{$type}': no class registered.");
-		}
-
-		$factory = self::$registeredTypes[$type];
-
-		return new Field($factory(), new Name($name));
+		return new Field\Uuid(new Property\Name($name));
 	}
 }
