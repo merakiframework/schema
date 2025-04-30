@@ -5,22 +5,28 @@ namespace Meraki\Schema;
 
 use Meraki\Schema\Property;
 use PHPUnit\Framework\TestCase;
-use PHPUnit\Framework\Attributes\{Test, CoversClass};
+use PHPUnit\Framework\Attributes\Test;
+use PHPUnit\Framework\Attributes\CoversClass;
 
 #[CoversClass(Property::class)]
 abstract class PropertyTestCase extends TestCase
 {
+	abstract public function createProperty(): Property;
+
 	#[Test]
-	public function has_a_name(): void
+	public function it_has_a_name(): void
 	{
-		$this->assertObjectHasProperty('name', $this->createProperty());
+		$property = $this->createProperty();
+
+		$this->assertObjectHasProperty('name', $property);
+		$this->assertIsString($property->name);
 	}
 
 	#[Test]
-	public function has_a_value(): void
+	public function it_has_a_value(): void
 	{
-		$this->assertObjectHasProperty('value', $this->createProperty());
-	}
+		$property = $this->createProperty();
 
-	abstract protected function createProperty(): Property;
+		$this->assertObjectHasProperty('value', $property);
+	}
 }
