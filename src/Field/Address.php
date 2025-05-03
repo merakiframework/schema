@@ -17,7 +17,7 @@ final class Address extends CompositeField
 		parent::__construct(new Property\Type('address'), $name, $value, $defaultValue, $optional);
 	}
 
-	protected function cast(string $value): mixed
+	protected function cast(mixed $value): mixed
 	{
 		return $value;
 	}
