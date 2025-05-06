@@ -3,23 +3,47 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Field;
 
+
 use Meraki\Schema\Field\Name;
-use PHPUnit\Framework\TestCase;
-use PHPUnit\Framework\Attributes\Test;
+use Meraki\Schema\Property\Name as FieldName;
+use Meraki\Schema\FieldTestCase;
 use PHPUnit\Framework\Attributes\Group;
+use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 
 #[Group('field')]
 #[CoversClass(Name::class)]
-final class NameTest extends TestCase
+final class NameTest extends FieldTestCase
 {
-	#[Test]
-	public function it_sets_the_value_correctly(): void
+	public function createField(): Name
 	{
-		$expectedName = 'field_name';
+		return new Name(new FieldName('name'));
+	}
 
-		$actualName = new Name($expectedName);
+	#[Test]
+	#[DataProvider('validNames')]
+	public function it_validates_valid_names(string $name): void
+	{
+		$type = $this->createField()
+			->input($name);
 
-		$this->assertSame($expectedName, $actualName->value);
+		$result = $type->validate();
+
+		$this->assertConstraintValidationResultPassed('type', $result);
+	}
+
+	public static function validNames(): array
+	{
+		return [
+			'just first name' => ['John'],
+			'first and last name' => ['John Doe'],
+			'first, middle, and last name' => ['John Michael Doe'],
+			'with hyphen' => ['John-Michael Doe'],
+			'with apostrophe' => ['John O\'Doe'],
+			'with period' => ['John M. Doe'],
+			'with comma' => ['John, Doe'],
+			'with numerals' => ['John Doe III'],
+		];
 	}
 }
