@@ -18,14 +18,26 @@ final class PassphrasePolicy implements Policy
 		],
 	];
 
+	private const SCHEMA = [
+		'entropy' => ['type' => 'int'],
+		'method' => ['type' => 'string', 'default' => 'standard'],
+		'dictionary' => ['type' => 'string', 'default' => 'none'],
+	];
+
 	public readonly string $name;
 
 	public function __construct(
-		public readonly int $entropy = 72,
-		public readonly string $method = 'standard',
+		public readonly int $entropy,
+		public readonly string $method,
 		public readonly string $dictionary = 'none',
+		private ?PolicyParser $parser = null,
 	) {
 		$this->name = 'passphrase_policy';
+		$this->parser = $parser ?? new PolicyParser(self::SCHEMA, [
+			'entropy' => $entropy,
+			'method' => $method,
+			'dictionary' => $dictionary,
+		]);
 
 		if ($entropy < 1) {
 			throw new InvalidArgumentException('Entropy must be a positive integer.');
@@ -34,24 +46,14 @@ final class PassphrasePolicy implements Policy
 
 	public static function parse(string $spec): self
 	{
-		$parts = explode(';', $spec);
-		$values = ['entropy' => null, 'method' => 'standard', 'dictionary' => 'none'];
+		$parser = PolicyParser::parse($spec, self::SCHEMA);
 
-		foreach ($parts as $part) {
-			[$key, $value] = explode(':', $part, 2) + [1 => null];
-
-			if (!array_key_exists($key, $values)) {
-				throw new InvalidArgumentException("Unknown key in policy: $key");
-			}
-
-			$values[$key] = $key === 'entropy' ? (int) $value : $value;
-		}
-
-		if ($values['entropy'] === null) {
-			throw new InvalidArgumentException('Entropy value is required.');
-		}
-
-		return new self((int)$values['entropy'], $values['method'], $values['dictionary']);
+		return new self(
+			entropy: $parser->get('entropy'),
+			method: $parser->get('method'),
+			dictionary: $parser->get('dictionary'),
+			parser: $parser,
+		);
 	}
 
 	public function matches(string $value): bool
@@ -101,11 +103,7 @@ final class PassphrasePolicy implements Policy
 
 	public function __toString(): string
 	{
-		return implode(';', [
-			'entropy:' . $this->entropy,
-			'method:' . $this->method,
-			'dictionary:' . $this->dictionary,
-		]);
+		return (string)$this->parser;
 	}
 
 	/**
