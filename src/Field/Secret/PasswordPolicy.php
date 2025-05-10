@@ -19,7 +19,18 @@ final class PasswordPolicy implements Policy
 		'anyof',
 	];
 
+	private const SCHEMA = [
+		'length' => ['type' => 'range', 'default' => []],
+		'lowercase' => ['type' => 'range', 'default' => []],
+		'uppercase' => ['type' => 'range', 'default' => []],
+		'digits' => ['type' => 'range', 'default' => []],
+		'symbols' => ['type' => 'range', 'default' => []],
+		'anyof' => ['type' => 'list', 'item_type' => 'string', 'default' => []],
+	];
+
 	public readonly string $name;
+
+	private PolicyParser $parser;
 
 	public function __construct(
 		public readonly array $length = [],
@@ -28,8 +39,17 @@ final class PasswordPolicy implements Policy
 		public readonly array $digits = [],
 		public readonly array $symbols = [],
 		public readonly array $anyof = [],
+		?PolicyParser $parser = null,
 	) {
 		$this->name = 'password_policy';
+		$this->parser = $parser ?? new PolicyParser(self::SCHEMA, [
+			'length' => $length,
+			'uppercase' => $uppercase,
+			'lowercase' => $lowercase,
+			'digits' => $digits,
+			'symbols' => $symbols,
+			'anyof' => $anyof,
+		]);
 
 		foreach (['length', 'uppercase', 'lowercase', 'digits', 'symbols'] as $key) {
 			$this->validateTuple($this->$key);
@@ -40,34 +60,16 @@ final class PasswordPolicy implements Policy
 
 	public static function parse(string $policy): self
 	{
-		$rules = array_fill_keys(self::ALLOWED_CONSTRAINTS, []);
-
-		foreach (explode(';', $policy) as $constraint) {
-			[$key, $range] = explode(':', $constraint, 2) + [1 => []];
-
-			if (!isset($rules[$key]) || $range === []) {
-				continue;
-			}
-
-			if ($key === 'anyof') {
-				$rules[$key] = explode(',', $range);
-				continue;
-			}
-
-			[$min, $max] = explode(',', $range, 2) + [1 => ''];
-			$rules[$key] = [
-				$min !== '' ? (int)$min : self::UNRESTRICTED,
-				$max !== '' ? (int)$max : self::UNRESTRICTED,
-			];
-		}
+		$parser = PolicyParser::parse($policy, self::SCHEMA);
 
 		return new self(
-			length: $rules['length'],
-			uppercase: $rules['uppercase'],
-			lowercase: $rules['lowercase'],
-			digits: $rules['digits'],
-			symbols: $rules['symbols'],
-			anyof: $rules['anyof'],
+			length: $parser->get('length'),
+			uppercase: $parser->get('uppercase'),
+			lowercase: $parser->get('lowercase'),
+			digits: $parser->get('digits'),
+			symbols: $parser->get('symbols'),
+			anyof: $parser->get('anyof'),
+			parser: $parser,
 		);
 	}
 
@@ -124,22 +126,7 @@ final class PasswordPolicy implements Policy
 
 	public function __toString(): string
 	{
-		$rules = [];
-
-		foreach (self::ALLOWED_CONSTRAINTS as $key) {
-			$value = $this->$key;
-
-			if ($key === 'anyof') {
-				$rules[] = sprintf('%s:%s', $key, implode(',', $value));
-				continue;
-			}
-
-			if ($value !== []) {
-				$rules[] = $this->formatRule($key, $value);
-			}
-		}
-
-		return implode(';', $rules);
+		return $this->parser->__toString();
 	}
 
 	private function validateTuple(array $tuple): void
@@ -166,18 +153,6 @@ final class PasswordPolicy implements Policy
 		if ($min !== self::UNRESTRICTED && $max !== self::UNRESTRICTED && $min > $max) {
 			throw new InvalidArgumentException('Min cannot be greater than max.');
 		}
-	}
-
-	private function formatRule(string $name, array $range): string
-	{
-		[$min, $max] = $range;
-
-		return sprintf(
-			'%s:%s,%s',
-			$name,
-			$min !== self::UNRESTRICTED ? $min : '',
-			$max !== self::UNRESTRICTED ? $max : '',
-		);
 	}
 
 	private function inRange(int $count, array $range): bool

@@ -61,7 +61,7 @@ final class PasswordPolicyTest extends PolicyTestCase
 	#[Test]
 	public function it_can_parse_simple_policy(): void
 	{
-		$policy = PasswordPolicy::parse('length:8,20;digits:1,;symbols:1,;');
+		$policy = PasswordPolicy::parse('length:8,20;digits:1,;symbols:1,');
 
 		$this->assertEquals([8,20], $policy->length);
 		$this->assertEquals([1, $policy::UNRESTRICTED], $policy->digits);

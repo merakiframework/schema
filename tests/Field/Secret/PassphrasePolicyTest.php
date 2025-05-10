@@ -17,7 +17,7 @@ final class PassphrasePolicyTest extends PolicyTestCase
 {
 	public function createPolicy(): PassphrasePolicy
 	{
-		return new PassphrasePolicy();
+		return new PassphrasePolicy(72, 'standard', 'none');
 	}
 
 	#[Test]
@@ -25,7 +25,7 @@ final class PassphrasePolicyTest extends PolicyTestCase
 	{
 		$this->expectException(InvalidArgumentException::class);
 
-		new PassphrasePolicy(0);
+		new PassphrasePolicy(0, 'standard', 'none');
 	}
 
 	#[Test]
@@ -91,7 +91,7 @@ final class PassphrasePolicyTest extends PolicyTestCase
 		int $requiredEntropy,
 		bool $expectedResult
 	): void {
-		$policy = new PassphrasePolicy($requiredEntropy);
+		$policy = new PassphrasePolicy($requiredEntropy, 'standard', 'none');
 
 		$this->assertEquals($expectedResult, $policy->matches($passphrase), "Failed for: {$passphrase}");
 	}
