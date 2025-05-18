@@ -12,6 +12,7 @@ use Meraki\Schema\Property;
  */
 final class Name implements Property
 {
+	public const PREFIX_SEPARATOR = '.';
 	public readonly string $name;
 	public string $prefix = '';
 
@@ -21,22 +22,28 @@ final class Name implements Property
 		// parent::__construct('name', $value);
 	}
 
-	public function prefixWith(string $prefix): self
+	public function prefixWith(string|self $prefix): self
 	{
-		$this->removePrefix();
+		if ($prefix instanceof self) {
+			$prefix = $prefix->value;
+		}
 
-		$this->prefix = $prefix;
-		$this->value = $this->prefix . $this->value;
+		$self = new self($prefix . self::PREFIX_SEPARATOR . $this->value);
+		$self->prefix = $prefix;
 
-		return $this;
+		return $self;
 	}
 
 	public function removePrefix(): self
 	{
-		$this->value = substr($this->value, strlen($this->prefix));
-		$this->prefix = '';
+		if ($this->prefix === '') {
+			return $this;
+		}
 
-		return $this;
+		$self = new self(substr($this->value, strlen($this->prefix . self::PREFIX_SEPARATOR)));
+		$self->prefix = '';
+
+		return $self;
 	}
 
 	public function __toString(): string
