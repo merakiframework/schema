@@ -143,22 +143,10 @@ final class TimeTest extends FieldTestCase
 	public static function validTimes(): array
 	{
 		return [
-			'midnight/start of day (no tz info)' => ['00:00:00'],
-			'1 second before midnight (no tz info)' => ['23:59:59'],
-			'1 second after midnight (no tz info)' => ['00:00:01'],
-			// '1 second before midnight (with tz offset at utc)' => ['23:59:59+00:00'],
-			// 'early morning (with tz offset)' => ['03:33:03+10:30'],
-			// 'UTC with "Z"' => ['12:34:56Z'],
-			// 'midnight with "Z"' => ['00:00:00Z'],
-			// 'fractional seconds with UTC "Z"' => ['18:45:12.123456Z'],
-			// 'fractional seconds with timezone offset' => ['12:00:00.999999+05:30'],
-			// 'early morning with timezone identifier' => ['05:45:30+05:30[Asia/Kolkata]'],
-			// 'fractional seconds with positive timezone offset and identifier' => ['23:59:59.123+02:00[Europe/Berlin]'],
-			// 'fractional seconds with negative timezone offset and identifier' => ['15:30:45.678-08:00[America/Los_Angeles]'],
-			// 'standard time with positive offset and identifier' => ['14:25:59+02:00[Africa/Cairo]'],
-			// 'standard time with negative offset and identifier' => ['06:59:01-04:00[America/New_York]'],
-			// 'midnight with positive offset and identifier' => ['00:00:00+03:00[Europe/Moscow]'],
-			// 'midday with negative offset and identifier' => ['12:00:00-07:00[America/Denver]'],
+			'midnight/start of day' => ['00:00:00'],
+			'1 second before midnight' => ['23:59:59'],
+			'1 second after midnight' => ['00:00:01'],
+			'only has hours and minutes' => ['11:23'],
 		];
 	}
 
@@ -170,7 +158,6 @@ final class TimeTest extends FieldTestCase
 			'more than 24 hours' => ['24:53:01'],
 			'exactly 60 seconds' => ['00:00:60'],
 			'more than 60 seconds' => ['00:00:61'],
-			'only has minutes/seconds or hours/minutes (ambiguous format)' => ['00:00'],
 			'more than 60 minutes' => ['00:61:00'],
 			'exactly 60 minutes' => ['00:60:00'],
 			'negative hour' => ['-01:00:00'],
