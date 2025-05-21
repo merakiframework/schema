@@ -3,8 +3,13 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Field;
 
+use Brick\Math\RoundingMode;
 use Meraki\Schema\Field\Atomic as AtomicField;
 use Meraki\Schema\Property;
+use Brick\Math\BigDecimal;
+use Brick\Math\Exception\MathException;
+use TypeError;
+
 
 /**
  * Represents a number input field.
@@ -18,61 +23,76 @@ use Meraki\Schema\Property;
  *
  * Use the constraint attributes to set the number type if you need
  * to restrict the type of number allowed. For example:
- *	- to only allow integers, set the 'step' attribute to 1
- *	- to only allow positive numbers, set the 'min' attribute to 0
- *	- to only allow negative numbers, set the 'max' attribute to 0
- *	- to force floats, set the step attribute to a decimal value (e.g. 0.1)
+ *	- to only allow integers, set the 'scale' property to 0
+ *	- to only allow positive numbers, set the 'min' property to 0
+ *	- to only allow negative numbers, set the 'max' property to 0
+ *	- to force decimals, set the scale property to more than 0
+ *	- exponent notation is always converted to canonical decimal form (if safe to do so)
  */
 final class Number extends AtomicField
 {
-	public float $min = (-PHP_FLOAT_MAX);
+	public BigDecimal $min;
 
-	public float $max = PHP_FLOAT_MAX;
+	public BigDecimal $max;
 
-	public float $step = 1.0;
+	public BigDecimal $step;
 
 	public function __construct(
 		Property\Name $name,
 		Property\Value $value = null,
 		Property\Value $defaultValue = null,
 		bool $optional = false,
+		public readonly ?int $scale = null,
 	) {
 		parent::__construct(new Property\Type('number'), $name, $value, $defaultValue, $optional);
+
+		$this->min = BigDecimal::of(-PHP_FLOAT_MAX);
+		$this->max = BigDecimal::of(PHP_FLOAT_MAX);
+		$this->step = BigDecimal::one();
 	}
 
-	public function minOf(float|int $minValue): self
+	public function minOf(float|int|string $minValue): self
 	{
-		$this->min = (float)$minValue;
+		$this->min = $this->cast($minValue);
 
 		return $this;
 	}
 
-	public function maxOf(float|int $maxValue): self
+	public function maxOf(float|int|string $maxValue): self
 	{
-		$this->max = (float)$maxValue;
+		$this->max = $this->cast($maxValue);
 
 		return $this;
 	}
 
-	public function inIncrementsOf(float|int $step): self
+	public function inIncrementsOf(float|int|string $step): self
 	{
-		$this->step = (float)$step;
+		$this->step = $this->cast($step);
 
 		return $this;
 	}
 
-	protected function cast(string $value): int|float
+	protected function cast(mixed $value): BigDecimal
 	{
-		if (ctype_digit($value)) {
-			return (integer)$value;
+		$value = BigDecimal::of($value);
+
+		if ($this->scale !== null) {
+			$value = $value->toScale($this->scale, RoundingMode::UNNECESSARY);
 		}
 
-		return (float)$value;
+		return $value;
 	}
 
 	protected function validateType(mixed $value): bool
 	{
-		return is_int($value) || is_float($value);
+		try {
+			$this->cast($value);
+			return true;
+		} catch (MathException) {
+			return false;
+		} catch (TypeError) {
+			return false;
+		}
 	}
 
 	protected function getConstraints(): array
@@ -86,23 +106,38 @@ final class Number extends AtomicField
 
 	private function validateMin(mixed $value): bool
 	{
-		return $value >= $this->min;
+		return $this->cast($value)->isGreaterThanOrEqualTo($this->min);
 	}
 
 	private function validateMax(mixed $value): bool
 	{
-		return $value <= $this->max;
+		return $this->cast($value)->isLessThanOrEqualTo($this->max);
 	}
 
 	private function validateStep(mixed $value): bool
 	{
-		if ($this->step === 0) {
+		if ($this->step->isZero()) {
 			return true;
 		}
 
-		$diff = $value - $this->min;
-		$quotient = $diff / $this->step;
+		if ($this->step->isNegative()) {
+			return false;
+		}
 
-		return abs($quotient - round($quotient)) < 1e-8;
+		try {
+			$value = $this->cast($value);
+			$diff = $value->minus($this->min);
+
+			return $diff->remainder($this->step)->isZero();
+		} catch (MathException $e) {
+			return false;
+		}
+
+
+
+		// $diff = $value - $this->min;
+		// $quotient = $diff / $this->step;
+
+		// return abs($quotient - round($quotient)) < 1e-8;
 	}
 }
