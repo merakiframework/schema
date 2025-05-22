@@ -14,21 +14,25 @@ use PHPUnit\Framework\Attributes\Group;
 #[CoversClass(ValidationResult::class)]
 abstract class ValidationResultTestCase extends TestCase
 {
+	/**
+	 * The class under test.
+	 */
+	abstract public function createSubject(ValidationResult ...$results): ValidationResult;
+
 	#[Test]
 	public function it_is_a_validation_result(): void
 	{
-		$result = $this->createValidationResult();
+		$sut = $this->createSubject();
 
-		$this->assertInstanceOf(ValidationResult::class, $result);
+		$this->assertInstanceOf(ValidationResult::class, $sut);
 	}
 
 	#[Test]
 	public function it_has_a_status(): void
 	{
-		$result = $this->createValidationResult();
+		$sut = $this->createSubject();
 
-		$this->assertInstanceOf(ValidationStatus::class, $result->status);
+		$this->assertObjectHasProperty('status', $sut);
+		$this->assertInstanceOf(ValidationStatus::class, $sut->status);
 	}
-
-	abstract public function createValidationResult(): ValidationResult;
 }
