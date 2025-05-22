@@ -4,9 +4,16 @@ declare(strict_types=1);
 namespace Meraki\Schema\Field;
 
 use Meraki\Schema\Field;
+use Meraki\Schema\Property;
+use IteratorAggregate;
+use Countable;
 
-class Set implements \IteratorAggregate, \Countable
+/**
+ * @implements IteratorAggregate<Field>
+ */
+class Set implements IteratorAggregate, Countable
 {
+	/** @var list<Field> $fields */
 	private array $fields = [];
 
 	public function __construct(Field ...$fields)
@@ -14,10 +21,10 @@ class Set implements \IteratorAggregate, \Countable
 		$this->mutableAdd(...$fields);
 	}
 
-	public function prefixNamesWith(string $prefix): self
+	public function prefixNamesWith(Property\Name $prefix): self
 	{
 		foreach ($this->fields as $field) {
-			$field->attributes->getByName('name')->prefixWith($prefix);
+			$field->rename($field->name->prefixWith($prefix));
 		}
 
 		return $this;
@@ -25,8 +32,8 @@ class Set implements \IteratorAggregate, \Countable
 
 	public function indexOf(Field $field): ?int
 	{
-		foreach ($this->fields as $index => $currentField) {
-			if ($currentField->hasNameOf($field->name)) {
+		foreach ($this->fields as $index => $storedField) {
+			if ($storedField->name->equals($field->name)) {
 				return $index;
 			}
 		}
@@ -34,10 +41,14 @@ class Set implements \IteratorAggregate, \Countable
 		return null;
 	}
 
-	public function findByName(string $name): ?Field
+	public function findByName(string|Property\Name $name): ?Field
 	{
+		if (is_string($name)) {
+			$name = new Property\Name($name);
+		}
+
 		foreach ($this->fields as $field) {
-			if ($field->hasNameOf($name)) {
+			if ($field->name->equals($name)) {
 				return $field;
 			}
 		}
@@ -72,6 +83,9 @@ class Set implements \IteratorAggregate, \Countable
 		return $clone;
 	}
 
+	/**
+	 * @return \ArrayIterator<Field>
+	 */
 	public function getIterator(): \ArrayIterator
 	{
 		return new \ArrayIterator($this->fields);
@@ -82,6 +96,9 @@ class Set implements \IteratorAggregate, \Countable
 		return count($this->fields);
 	}
 
+	/**
+	 * @return list<Field>
+	 */
 	public function __toArray(): array
 	{
 		return $this->fields;
