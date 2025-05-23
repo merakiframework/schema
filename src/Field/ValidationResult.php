@@ -50,4 +50,15 @@ final class ValidationResult extends AggregatedValidationResult
 	{
 		$this->field = clone $this->field;
 	}
+
+	public function get(string $constraintName): ?ConstraintValidationResult
+	{
+		foreach ($this->results as $result) {
+			if ((string)$result->name === $constraintName) {
+				return $result;
+			}
+		}
+
+		return null;
+	}
 }
