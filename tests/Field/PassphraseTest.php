@@ -93,4 +93,20 @@ final class PassphraseTest extends FieldTestCase
 			['correct horse battery staple', 180, ValidationStatus::Failed],
 		];
 	}
+
+	#[Test]
+	public function it_has_no_value_by_default(): void
+	{
+		$field = $this->createField();
+
+		$this->assertNull($field->value->unwrap());
+	}
+
+	#[Test]
+	public function it_has_no_default_value_by_default(): void
+	{
+		$field = $this->createField();
+
+		$this->assertNull($field->defaultValue->unwrap());
+	}
 }
