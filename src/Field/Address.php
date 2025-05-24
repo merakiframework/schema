@@ -3,28 +3,49 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Field;
 
+use Meraki\Schema\Field;
 use Meraki\Schema\Field\Composite as CompositeField;
 use Meraki\Schema\Property;
 
+/**
+ * @property-read Field\Text $street
+ * @property-read Field\Text $city
+ * @property-read Field\Text $state
+ * @property-read Field\Text $postalCode
+ * @property-read Field\Enum $country
+ */
 final class Address extends CompositeField
 {
+	private const DEFAULT_FIELD_NAMES = [
+		'street',
+		'city',
+		'state',
+		'postal_code',
+		'country',
+	];
+
 	public function __construct(
 		Property\Name $name,
-		Property\Value $value = null,
-		Property\Value $defaultValue = null,
-		bool $optional = false,
 	) {
-		parent::__construct(new Property\Type('address'), $name, $value, $defaultValue, $optional);
-	}
+		parent::__construct(
+			new Property\Type('address', $this->validateType(...)),
+			$name,
+			new Field\Text(new Property\Name('street')),
+			new Field\Text(new Property\Name('city')),
+			new Field\Text(new Property\Name('state')),
+			new Field\Text(new Property\Name('postal_code')),
+			new Field\Text(new Property\Name('country')),
+		);
 
-	protected function cast(mixed $value): mixed
-	{
-		return $value;
-	}
+		$default = [];
 
-	protected function validateType(mixed $value): bool
-	{
-		return is_string($value);
+		foreach (self::DEFAULT_FIELD_NAMES as $fieldName) {
+			$fieldName = (new Property\Name($fieldName))->prefixWith($name)->__toString();
+			$default[$fieldName] = null;
+		}
+
+		$this->defaultValue = new Property\Value($default);
+		$this->value = new Property\Value($default);
 	}
 
 	protected function getConstraints(): array

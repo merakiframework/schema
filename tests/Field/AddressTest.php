@@ -15,6 +15,11 @@ use PHPUnit\Framework\Attributes\Group;
 #[CoversClass(Address::class)]
 final class AddressTest extends FieldTestCase
 {
+	public function createSubject(): Address
+	{
+		return new Address(new Property\Name('test'));
+	}
+
 	public function createField(): Address
 	{
 		return new Address(new Property\Name('test'));
@@ -25,7 +30,7 @@ final class AddressTest extends FieldTestCase
 	{
 		$field = $this->createField();
 
-		$this->assertSame('address', $field->type->value);
+		$this->assertSame('address', (string)$field->type);
 	}
 
 	#[Test]
@@ -42,5 +47,43 @@ final class AddressTest extends FieldTestCase
 		$field = $this->createField();
 
 		$this->assertInstanceOf(Composite::class, $field);
+	}
+
+	#[Test]
+	public function it_has_no_value_by_default(): void
+	{
+		$field = $this->createSubject();
+
+		$this->assertEquals([
+			'test.street' => null,
+			'test.city' => null,
+			'test.state' => null,
+			'test.postal_code' => null,
+			'test.country' => null,
+		], $field->value->unwrap());
+		$this->assertEquals(null, $field->street->value->unwrap());
+		$this->assertEquals(null, $field->city->value->unwrap());
+		$this->assertEquals(null, $field->state->value->unwrap());
+		$this->assertEquals(null, $field->postalCode->value->unwrap());
+		$this->assertEquals(null, $field->country->value->unwrap());
+	}
+
+	#[Test]
+	public function it_has_no_default_value_by_default(): void
+	{
+		$field = $this->createSubject();
+
+		$this->assertEquals([
+			'test.street' => null,
+			'test.city' => null,
+			'test.state' => null,
+			'test.postal_code' => null,
+			'test.country' => null,
+		], $field->defaultValue->unwrap());
+		$this->assertEquals(null, $field->street->value->unwrap());
+		$this->assertEquals(null, $field->city->value->unwrap());
+		$this->assertEquals(null, $field->state->value->unwrap());
+		$this->assertEquals(null, $field->postalCode->value->unwrap());
+		$this->assertEquals(null, $field->country->value->unwrap());
 	}
 }
