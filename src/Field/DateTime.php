@@ -28,7 +28,7 @@ final class DateTime extends AtomicField
 		public readonly TimePrecision $precision = TimePrecision::Minutes,
 		private DateTimePrecisionCaster $caster = new TruncateDateTimePrecision(),
 	) {
-		parent::__construct(new Property\Type('date_time'), $name, $value, $defaultValue, $optional);
+		parent::__construct(new Property\Type('date_time', $this->validateType(...)), $name, $value, $defaultValue, $optional);
 
 		$this->from = LocalDateTime::min();
 		$this->until = LocalDateTime::max();

@@ -34,7 +34,7 @@ final class File extends AtomicMultiValueField
 		Property\Value $defaultValue = null,
 		bool $optional = false,
 	) {
-		parent::__construct(new Property\Type('file'), $name, $value, $defaultValue, $optional);
+		parent::__construct(new Property\Type('file', $this->validateType(...)), $name, $value, $defaultValue, $optional);
 	}
 
 	public function atLeast(int $minFiles): self

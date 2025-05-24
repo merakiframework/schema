@@ -14,7 +14,7 @@ final class Boolean extends AtomicField
 		Property\Value $defaultValue = null,
 		bool $optional = false,
 	) {
-		parent::__construct(new Property\Type('boolean'), $name, $value, $defaultValue, $optional);
+		parent::__construct(new Property\Type('boolean', $this->validateType(...)), $name, $value, $defaultValue, $optional);
 	}
 
 	protected function cast(mixed $value): bool

@@ -21,7 +21,7 @@ final class Text extends AtomicField
 		Property\Value $defaultValue = null,
 		bool $optional = false,
 	) {
-		parent::__construct(new Property\Type('text'), $name, $value, $defaultValue, $optional);
+		parent::__construct(new Property\Type('text', $this->validateType(...)), $name, $value, $defaultValue, $optional);
 	}
 
 	public function minLengthOf(int $minChars): self

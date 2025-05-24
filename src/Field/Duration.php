@@ -22,7 +22,7 @@ final class Duration extends AtomicField
 		Property\Value $defaultValue = null,
 		bool $optional = false,
 	) {
-		parent::__construct(new Property\Type('duration'), $name, $value, $defaultValue, $optional);
+		parent::__construct(new Property\Type('duration', $this->validateType(...)), $name, $value, $defaultValue, $optional);
 
 		$this->min = DateTime\Duration::zero();
 		$this->max = DateTime\Duration::ofDays(1);

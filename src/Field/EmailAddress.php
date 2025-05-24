@@ -38,7 +38,7 @@ final class EmailAddress extends AtomicMultiValueField
 		bool $optional = false,
 		public EmailFormat $format = EmailFormat::Basic,
 	) {
-		parent::__construct(new Property\Type('email_address'), $name, $value, $defaultValue, $optional);
+		parent::__construct(new Property\Type('email_address', $this->validateType(...)), $name, $value, $defaultValue, $optional);
 
 		$this->min = $this->format->getAllowableMinLengthTotal();
 		$this->max = $this->format->getAllowableMaxLengthTotal();

@@ -31,7 +31,7 @@ final class Password extends AtomicField
 		Property\Value $defaultValue = null,
 		bool $optional = false,
 	) {
-		parent::__construct(new Property\Type('password'), $name, $value, $defaultValue, $optional);
+		parent::__construct(new Property\Type('password', $this->validateType(...)), $name, $value, $defaultValue, $optional);
 
 		$this->length = Range::unrestricted();
 		$this->lowercase = Range::unrestricted();

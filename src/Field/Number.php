@@ -44,7 +44,7 @@ final class Number extends AtomicField
 		bool $optional = false,
 		public readonly ?int $scale = null,
 	) {
-		parent::__construct(new Property\Type('number'), $name, $value, $defaultValue, $optional);
+		parent::__construct(new Property\Type('number', $this->validateType(...)), $name, $value, $defaultValue, $optional);
 
 		$this->min = BigDecimal::of(-PHP_FLOAT_MAX);
 		$this->max = BigDecimal::of(PHP_FLOAT_MAX);
@@ -132,12 +132,5 @@ final class Number extends AtomicField
 		} catch (MathException $e) {
 			return false;
 		}
-
-
-
-		// $diff = $value - $this->min;
-		// $quotient = $diff / $this->step;
-
-		// return abs($quotient - round($quotient)) < 1e-8;
 	}
 }

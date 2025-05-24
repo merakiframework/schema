@@ -22,7 +22,7 @@ final class Enum extends AtomicField
 		Property\Value $defaultValue = null,
 		bool $optional = false,
 	) {
-		parent::__construct(new Property\Type('enum'), $name, $value, $defaultValue, $optional);
+		parent::__construct(new Property\Type('enum', $this->validateType(...)), $name, $value, $defaultValue, $optional);
 	}
 
 	public function allow(mixed $value): self

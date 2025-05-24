@@ -35,7 +35,7 @@ final class Name extends AtomicField
 		Property\Value $defaultValue = null,
 		bool $optional = false,
 	) {
-		parent::__construct(new Property\Type('name'), $name, $value, $defaultValue, $optional);
+		parent::__construct(new Property\Type('name', $this->validateType(...)), $name, $value, $defaultValue, $optional);
 	}
 
 	public function minLengthOf(int $minChars): self

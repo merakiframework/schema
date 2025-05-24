@@ -36,7 +36,7 @@ final class Passphrase extends AtomicField
 		Property\Value $defaultValue = null,
 		bool $optional = false,
 	) {
-		parent::__construct(new Property\Type('passphrase'), $name, $value, $defaultValue, $optional);
+		parent::__construct(new Property\Type('passphrase', $this->validateType(...)), $name, $value, $defaultValue, $optional);
 
 		if ($entropy < 1) {
 			throw new InvalidArgumentException('Entropy must be a positive integer.');
