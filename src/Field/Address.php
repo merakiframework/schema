@@ -8,6 +8,10 @@ use Meraki\Schema\Field\Composite as CompositeField;
 use Meraki\Schema\Property;
 
 /**
+ * A field representing an address.
+ *
+ * @todo Maybe add line1 (person) and line2 (company) fields
+ *
  * @property-read Field\Text $street
  * @property-read Field\Text $city
  * @property-read Field\Text $state
