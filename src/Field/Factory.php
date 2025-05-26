@@ -43,6 +43,11 @@ class Factory
 		return new Field\EmailAddress(new Property\Name($name));
 	}
 
+	public function createEnum(string $name, array $options): Field\Enum
+	{
+		return new Field\Enum(new Property\Name($name), $options);
+	}
+
 	public function createFile(string $name): Field\File
 	{
 		return new Field\File(new Property\Name($name));
@@ -88,9 +93,9 @@ class Factory
 		return new Field\Time(new Property\Name($name));
 	}
 
-	public function createUrl(string $name): Field\Url
+	public function createUri(string $name): Field\Uri
 	{
-		return new Field\Url(new Property\Name($name));
+		return new Field\Uri(new Property\Name($name));
 	}
 
 	public function createUuid(string $name): Field\Uuid
