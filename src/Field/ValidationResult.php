@@ -30,7 +30,7 @@ final class ValidationResult extends AggregatedValidationResult
 			return ValidationStatus::Pending;
 		}
 
-		if ($this->allFailed()) {
+		if ($this->anyFailed()) {
 			return ValidationStatus::Failed;
 		}
 
