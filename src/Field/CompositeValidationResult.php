@@ -15,7 +15,7 @@ final class CompositeValidationResult extends AggregatedValidationResult
 	public readonly ValidationStatus $status;
 
 	public function __construct(
-		public Composite $composite,
+		public Composite|Variant $composite,
 		FieldValidationResult ...$fieldResults
 	) {
 		parent::__construct(...$fieldResults);
