@@ -70,7 +70,8 @@ final class Money extends CompositeField
 
 	private function validateScale(array $value): bool
 	{
-		$currency = strtoupper($value[(new Property\Name('currency'))->prefixWith($this->name)->__toString()]);
+		$currencyName = (new Property\Name('currency'))->prefixWith($this->name)->__toString();
+		$currency = strtoupper($value[$currencyName] ?? '');
 		$amount = $value[(new Property\Name('amount'))->prefixWith($this->name)->__toString()];
 
 		if (!isset($this->currencyScales[$currency])) {
