@@ -48,24 +48,6 @@ final class CreditCard extends CompositeField
 		]);
 	}
 
-	/** @param array $value */
-	public function prefill($value): static
-	{
-		$value = $this->addDayToExpiry($value);
-		$value = $this->removeWhitespaceFromNumber($value);
-
-		return parent::prefill($value);
-	}
-
-	/** @param array $value */
-	public function input($value): static
-	{
-		$value = $this->addDayToExpiry($value);
-		$value = $this->removeWhitespaceFromNumber($value);
-
-		return parent::input($value);
-	}
-
 	protected function cast(mixed $value): mixed
 	{
 		return $value;
@@ -74,43 +56,6 @@ final class CreditCard extends CompositeField
 	protected function getConstraints(): array
 	{
 		return [];
-	}
-
-	private function removeWhitespaceFromNumber(array $value): array
-	{
-		$name = (string)(new Property\Name('number'))->prefixWith($this->name);
-
-		if (is_array($value) && isset($value[$name])) {
-			$number = $value[$name];
-
-			// Remove all whitespace from the number
-			if (is_string($number)) {
-				$value[$name] = preg_replace('/\s+/', '', $number);
-			}
-		}
-
-		return $value;
-	}
-
-	private function addDayToExpiry(array $value): array
-	{
-		$name = (string)(new Property\Name('expiry'))->prefixWith($this->name);
-
-		if (is_array($value) && isset($value[$name])) {
-			$expiry = $value[$name];
-
-			// Add the last day of the month to the expiry date
-			if (is_string($expiry) && preg_match('/^\d{4}-\d{2}$/', $expiry)) {
-				$expiryDate = DateTimeImmutable::createFromFormat('Y-m', $expiry);
-
-				if ($expiryDate !== false) {
-					$expiryDate = $expiryDate->modify('last day of this month');
-					$value[$name] = $expiryDate->format('Y-m-d');
-				}
-			}
-		}
-
-		return $value;
 	}
 
 	private function createHolderField(): Field\Name
@@ -140,5 +85,46 @@ final class CreditCard extends CompositeField
 			->minLengthOf(3)
 			->maxLengthOf(4)
 			->matches('/^\d+$/');
+	}
+
+	protected function process($value): Property\Value
+	{
+		$value = parent::process($value);
+		$value = $this->addDayToExpiry($value);
+		$value = $this->removeWhitespaceFromNumber($value);
+
+		return $value;
+	}
+
+	private function addDayToExpiry(Property\Value $value): Property\Value
+	{
+		$name = (string)(new Property\Name('expiry'))->prefixWith($this->name);
+		$value = $value->unwrap();
+		$expiry = $value[$name];
+
+		// Add the last day of the month to the expiry date
+		if (is_string($expiry) && preg_match('/^\d{4}-\d{2}$/', $expiry)) {
+			$expiryDate = DateTimeImmutable::createFromFormat('Y-m', $expiry);
+
+			if ($expiryDate !== false) {
+				$expiryDate = $expiryDate->modify('last day of this month');
+				$value[$name] = $expiryDate->format('Y-m-d');
+			}
+		}
+
+		return new Property\Value($value);
+	}
+
+	private function removeWhitespaceFromNumber(Property\Value $value): Property\Value
+	{
+		$name = (string) (new Property\Name('number'))->prefixWith($this->name);
+		$value = $value->unwrap();
+		$number = $value[$name];
+
+		if (is_string($number)) {
+			$value[$name] = preg_replace('/\s+/', '', $number);
+		}
+
+		return new Property\Value($value);
 	}
 }
