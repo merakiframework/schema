@@ -33,6 +33,10 @@ final class CompositeValidationResult extends AggregatedValidationResult
 			return ValidationStatus::Failed;
 		}
 
+		if ($this->allSkipped()) {
+			return ValidationStatus::Skipped;
+		}
+
 		return ValidationStatus::Passed;
 	}
 
