@@ -30,6 +30,15 @@ class Set implements IteratorAggregate, Countable
 		return $this;
 	}
 
+	/**
+	 * Gets the names of all fields in the set.
+	 * @return string[]
+	 */
+	public function listFieldNames(): array
+	{
+		return array_map(fn(Field $field): string => (string)$field->name, $this->fields);
+	}
+
 	public function indexOf(Field $field): ?int
 	{
 		foreach ($this->fields as $index => $storedField) {
@@ -75,6 +84,21 @@ class Set implements IteratorAggregate, Countable
 		}
 	}
 
+	public function containsDuplicateFieldTypes(): bool
+	{
+		$types = [];
+
+		foreach ($this->fields as $field) {
+			if (in_array((string)$field->type, $types, true)) {
+				return true;
+			}
+
+			$types[] = (string)$field->type;
+		}
+
+		return false;
+	}
+
 	public function add(Field ...$fields): self
 	{
 		$clone = clone $this;
@@ -107,15 +131,5 @@ class Set implements IteratorAggregate, Countable
 	public function isEmpty(): bool
 	{
 		return count($this->fields) === 0;
-	}
-
-	public function __isset(string $name): bool
-	{
-		return $this->findByName($name) !== null;
-	}
-
-	public function __get(string $name): ?Field
-	{
-		return $this->findByName($name);
 	}
 }
