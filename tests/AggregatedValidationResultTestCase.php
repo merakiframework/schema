@@ -106,9 +106,8 @@ abstract class AggregatedValidationResultTestCase extends ValidationResultTestCa
 	public function it_reports_all_passed_correctly(): void
 	{
 		$pass1 = $this->createPassedResult();
-		$pass2 = $this->createPassedResult();
 
-		$sut = $this->createSubject($pass1, $pass2);
+		$sut = $this->createSubject($pass1);
 
 		$this->assertTrue($sut->allPassed());
 	}
