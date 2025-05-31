@@ -25,22 +25,22 @@ final class ValidationResultTest extends AggregatedValidationResultTestCase
 
 	public function createPassedResult(): ConstraintValidationResult
 	{
-		return ConstraintValidationResult::pass('type');
+		return ConstraintValidationResult::pass('type_passed');
 	}
 
 	public function createFailedResult(): ConstraintValidationResult
 	{
-		return ConstraintValidationResult::fail('type');
+		return ConstraintValidationResult::fail('type_failed');
 	}
 
 	public function createSkippedResult(): ConstraintValidationResult
 	{
-		return ConstraintValidationResult::skip('type');
+		return ConstraintValidationResult::skip('type_skipped');
 	}
 
 	public function createPendingResult(): ConstraintValidationResult
 	{
-		return new ConstraintValidationResult(ValidationStatus::Pending, 'type');
+		return new ConstraintValidationResult(ValidationStatus::Pending, 'type_pending');
 	}
 
 	#[Test]
@@ -69,9 +69,9 @@ final class ValidationResultTest extends AggregatedValidationResultTestCase
 	public function it_is_in_pending_state_when_any_result_is_pending(): void
 	{
 		$sut = $this->createSubject(
-			$this->createPassedResult(),
-			$this->createPendingResult(),
-			$this->createFailedResult()
+			ConstraintValidationResult::pass('type'),
+			new ConstraintValidationResult(ValidationStatus::Pending, 'min'),
+			ConstraintValidationResult::skip('max')
 		);
 
 		$this->assertEquals(ValidationStatus::Pending, $sut->status);
@@ -81,9 +81,9 @@ final class ValidationResultTest extends AggregatedValidationResultTestCase
 	public function it_is_in_failed_state_when_any_result_failed_and_none_pending(): void
 	{
 		$sut = $this->createSubject(
-			$this->createPassedResult(),
-			$this->createFailedResult(),
-			$this->createSkippedResult()
+			ConstraintValidationResult::pass('type'),
+			ConstraintValidationResult::fail('min'),
+			ConstraintValidationResult::skip('max')
 		);
 
 		$this->assertEquals(ValidationStatus::Failed, $sut->status);
@@ -118,7 +118,7 @@ final class ValidationResultTest extends AggregatedValidationResultTestCase
 	{
 		$sut = $this->createSubject(
 			$this->createPassedResult(),
-			$this->createSkippedResult(),
+			ConstraintValidationResult::skip('min'),
 			ConstraintValidationResult::pass('max')
 		);
 
