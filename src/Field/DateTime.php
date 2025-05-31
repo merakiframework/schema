@@ -5,8 +5,8 @@ namespace Meraki\Schema\Field;
 
 use Meraki\Schema\Field\Atomic as AtomicField;
 use Meraki\Schema\Field\Modifier\TimePrecision;
-use Meraki\Schema\Field\ValueCaster\TruncateDateTimePrecision;
-use Meraki\Schema\Field\ValueCaster\DateTimePrecisionCaster;
+use Meraki\Schema\Field\DateTime\PrecisionCaster;
+use Meraki\Schema\Field\DateTime\TruncatePrecision;
 use Meraki\Schema\Property;
 use Brick\DateTime\TimeZone;
 use Brick\DateTime\DateTimeException;
@@ -26,7 +26,7 @@ final class DateTime extends AtomicField
 		Property\Value $defaultValue = null,
 		bool $optional = false,
 		public readonly TimePrecision $precision = TimePrecision::Minutes,
-		private DateTimePrecisionCaster $caster = new TruncateDateTimePrecision(),
+		private PrecisionCaster $caster = new TruncatePrecision(),
 	) {
 		parent::__construct(new Property\Type('date_time', $this->validateType(...)), $name, $value, $defaultValue, $optional);
 
