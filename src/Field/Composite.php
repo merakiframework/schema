@@ -12,17 +12,20 @@ use IteratorAggregate;
 use Countable;
 use InvalidArgumentException;
 
+/**
+ * @template AcceptedType of mixed
+ */
 abstract class Composite extends Field implements IteratorAggregate, Countable
 {
 	public Field\Set $fields;
 
 	public function __construct(Property\Type $type, Property\Name $name, AtomicField ...$fields)
 	{
-		parent::__construct($type, $name, new Property\Value([]), new Property\Value([]));
-
 		$this->fields = new Field\Set(...$fields);
 
-		$this->rename($name);
+		parent::__construct($type, $name);
+
+		$this->fields->prefixNamesWith($name);
 	}
 
 	public function rename(Property\Name $name): static
@@ -33,42 +36,24 @@ abstract class Composite extends Field implements IteratorAggregate, Countable
 		return $this;
 	}
 
-	/** @param array $value */
+	/** @param AcceptedType $value */
 	public function prefill($value): static
 	{
-		if (!is_array($value)) {
-			throw new InvalidArgumentException('Input value must be an array.');
-		}
-
 		parent::prefill($value);
 
 		foreach ($this->fields as $field) {
-			// Skip pre-filling if the field is not present in the value array
-			// This allows for partial pre-filling of fields
-			if (!isset($value[(string)$field->name])) {
-				continue;
-			}
-
 			$field->prefill($value[(string)$field->name]);
 		}
 
 		return $this;
 	}
 
-	/** @param array $value */
+	/** @param AcceptedType|null $value */
 	public function input($value): static
 	{
-		if (!is_array($value)) {
-			throw new InvalidArgumentException('Input value must be an array.');
-		}
-
 		parent::input($value);
 
 		foreach ($this->fields as $field) {
-			if (!isset($value[(string)$field->name])) {
-				continue;
-			}
-
 			$field->input($value[(string)$field->name]);
 		}
 
@@ -90,6 +75,22 @@ abstract class Composite extends Field implements IteratorAggregate, Countable
 		}
 
 		return true;
+	}
+
+	protected function valueProvided(Property\Value $value): bool
+	{
+		if (!is_array($value->unwrap())) {
+			return false;
+		}
+
+		// For composite fields, we consider the value provided if at least one subfield has a value other than null.
+		foreach ($this->fields as $field) {
+			if (isset($value->unwrap()[(string)$field->name]) && $value->unwrap()[(string)$field->name] !== null) {
+				return true;
+			}
+		}
+
+		return false;
 	}
 
 	public function validate(): CompositeValidationResult
@@ -247,5 +248,31 @@ abstract class Composite extends Field implements IteratorAggregate, Countable
 	private static function camelCaseToSnakeCase(string $input): string
 	{
 		return strtolower(preg_replace('/[A-Z]/', '_$0', lcfirst($input)));
+	}
+
+	/**
+	 * @param AcceptedType|null $value
+	 */
+	protected function process($value): Property\Value
+	{
+		if ($value === null) {
+			$value = [];
+		}
+
+		if (!is_array($value)) {
+			throw new InvalidArgumentException('Input value must be an array or null.');
+		}
+
+		$processedValue = [];
+
+		foreach ($this->fields as $field) {
+			$fieldName = (string)$field->name;
+
+			if (!isset($value[$fieldName])) {
+				$processedValue[$fieldName] = null;
+			}
+		}
+
+		return new Property\Value($processedValue);
 	}
 }
