@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Field;
 
+use InvalidArgumentException;
 use Meraki\Schema\Field;
 use Meraki\Schema\Field\ConstraintValidationResult;
 use Meraki\Schema\ValidationStatus;
@@ -20,6 +21,8 @@ final class ValidationResult extends AggregatedValidationResult
 		ConstraintValidationResult ...$results
 	) {
 		parent::__construct(...$results);
+
+		$this->assertResultsAreUnique();
 
 		$this->status = $this->calculateStatus();
 	}
@@ -53,6 +56,10 @@ final class ValidationResult extends AggregatedValidationResult
 
 	public function get(string $constraintName): ?ConstraintValidationResult
 	{
+		if ($constraintName === '') {
+			throw new InvalidArgumentException('Constraint name cannot be empty');
+		}
+
 		foreach ($this->results as $result) {
 			if ((string)$result->name === $constraintName) {
 				return $result;
@@ -60,5 +67,18 @@ final class ValidationResult extends AggregatedValidationResult
 		}
 
 		return null;
+	}
+
+	private function assertResultsAreUnique(): void
+	{
+		$names = [];
+
+		foreach ($this->results as $result) {
+			if (isset($names[$result->name])) {
+				throw new InvalidArgumentException("Duplicate constraint name: {$result->name}");
+			}
+
+			$names[$result->name] = true;
+		}
 	}
 }
