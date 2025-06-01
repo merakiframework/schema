@@ -22,10 +22,9 @@ abstract class Composite extends Field implements IteratorAggregate, Countable
 	public function __construct(Property\Type $type, Property\Name $name, AtomicField ...$fields)
 	{
 		$this->fields = new Field\Set(...$fields);
+		$this->fields->prefixNamesWith($name);
 
 		parent::__construct($type, $name);
-
-		$this->fields->prefixNamesWith($name);
 	}
 
 	public function rename(Property\Name $name): static
