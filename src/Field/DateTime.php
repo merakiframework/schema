@@ -36,31 +36,19 @@ final class DateTime extends AtomicField
 		};
 	}
 
-	public static function withSecondPrecision(
-		Property\Name $name,
-		Property\Value $value = null,
-		Property\Value $defaultValue = null,
-		bool $optional = false,
-	): self {
-		return new self($name, $value, $defaultValue, $optional, TimePrecision::Seconds);
+	public static function withSecondPrecision(Property\Name $name): self
+	{
+		return new self($name, TimePrecision::Seconds);
 	}
 
-	public static function withNanosecondPrecision(
-		Property\Name $name,
-		Property\Value $value = null,
-		Property\Value $defaultValue = null,
-		bool $optional = false,
-	): self {
-		return new self($name, $value, $defaultValue, $optional, TimePrecision::Nanoseconds);
+	public static function withNanosecondPrecision(Property\Name $name): self
+	{
+		return new self($name, TimePrecision::Nanoseconds);
 	}
 
-	public static function withMinutePrecision(
-		Property\Name $name,
-		Property\Value $value = null,
-		Property\Value $defaultValue = null,
-		bool $optional = false,
-	): self {
-		return new self($name, $value, $defaultValue, $optional, TimePrecision::Minutes);
+	public static function withMinutePrecision(Property\Name $name): self
+	{
+		return new self($name, TimePrecision::Minutes);
 	}
 
 	/**
