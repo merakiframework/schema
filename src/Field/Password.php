@@ -4,7 +4,7 @@ declare(strict_types=1);
 namespace Meraki\Schema\Field;
 
 use Meraki\Schema\Field\Atomic as AtomicField;
-use Meraki\Schema\Field\Value\Range;
+use Meraki\Schema\Field\Password\Range;
 use Meraki\Schema\Property;
 use InvalidArgumentException;
 
