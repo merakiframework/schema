@@ -45,31 +45,19 @@ final class Time extends AtomicField
 		};
 	}
 
-	public static function withSecondPrecision(
-		Property\Name $name,
-		Property\Value $value = null,
-		Property\Value $defaultValue = null,
-		bool $optional = false,
-	): self {
-		return new self($name, $value, $defaultValue, $optional, Precision::Seconds);
+	public static function withSecondPrecision(Property\Name $name): self
+	{
+		return new self($name, Precision::Seconds);
 	}
 
-	public static function withNanosecondPrecision(
-		Property\Name $name,
-		Property\Value $value = null,
-		Property\Value $defaultValue = null,
-		bool $optional = false,
-	): self {
-		return new self($name, $value, $defaultValue, $optional, Precision::Nanoseconds);
+	public static function withNanosecondPrecision(Property\Name $name): self
+	{
+		return new self($name, Precision::Nanoseconds);
 	}
 
-	public static function withMinutePrecision(
-		Property\Name $name,
-		Property\Value $value = null,
-		Property\Value $defaultValue = null,
-		bool $optional = false,
-	): self {
-		return new self($name, $value, $defaultValue, $optional, Precision::Minutes);
+	public static function withMinutePrecision(Property\Name $name): self
+	{
+		return new self($name, Precision::Minutes);
 	}
 
 	/**
