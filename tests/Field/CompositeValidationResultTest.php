@@ -14,7 +14,6 @@ use Meraki\Schema\Property;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\Attributes\Group;
-use PHPUnit\Framework\Attributes\DataProvider;
 
 #[Group('validation')]
 #[CoversClass(CompositeValidationResult::class)]
@@ -76,11 +75,15 @@ class CompositeValidationResultTest extends AggregatedValidationResultTestCase
 	{
 		return new class extends CompositeField {
 			public function __construct() {
-				parent::__construct(new Property\Type('mock'), new Property\Name('mock'));
+				parent::__construct(new Property\Type('mock', $this->validateMockType(...)), new Property\Name('mock'));
 			}
 
 			public function getConstraints(): array {
 				return [];
+			}
+
+			private function validateMockType(): bool {
+				return true;
 			}
 		};
 	}
