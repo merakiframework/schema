@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Field;
 
-use Meraki\Schema\Field\Modifier\TimePrecision;
+use Meraki\Schema\Field\DateTime\TimePrecision;
 use Meraki\Schema\FieldTestCase;
 use Meraki\Schema\Field\DateTime;
 use Meraki\Schema\Property\Name;
