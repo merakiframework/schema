@@ -6,7 +6,7 @@ namespace Meraki\Schema\Field;
 use Brick\DateTime\DateTimeException;
 use Meraki\Schema\Field\Atomic as AtomicField;
 use Meraki\Schema\Field\Time\PrecisionCaster;
-use Meraki\Schema\Field\Modifier\TimePrecision;
+use Meraki\Schema\Field\Time\Precision;
 use Meraki\Schema\Field\Time\TruncatePrecision;
 use Meraki\Schema\Property;
 use Brick\DateTime\Duration;
@@ -31,7 +31,7 @@ final class Time extends AtomicField
 
 	public function __construct(
 		Property\Name $name,
-		public readonly TimePrecision $precision = TimePrecision::Minutes,
+		public readonly Precision $precision = Precision::Minutes,
 		private PrecisionCaster $caster = new TruncatePrecision(),
 	) {
 		parent::__construct(new Property\Type('time', $this->validateType(...)), $name);
@@ -39,8 +39,8 @@ final class Time extends AtomicField
 		$this->from = LocalTime::min();
 		$this->until = LocalTime::max();
 		$this->step = match ($precision) {
-			TimePrecision::Minutes => Duration::ofMinutes(1),
-			TimePrecision::Seconds => Duration::ofSeconds(1),
+			Precision::Minutes => Duration::ofMinutes(1),
+			Precision::Seconds => Duration::ofSeconds(1),
 			default => Duration::ofNanos(1),
 		};
 	}
@@ -51,7 +51,7 @@ final class Time extends AtomicField
 		Property\Value $defaultValue = null,
 		bool $optional = false,
 	): self {
-		return new self($name, $value, $defaultValue, $optional, TimePrecision::Seconds);
+		return new self($name, $value, $defaultValue, $optional, Precision::Seconds);
 	}
 
 	public static function withNanosecondPrecision(
@@ -60,7 +60,7 @@ final class Time extends AtomicField
 		Property\Value $defaultValue = null,
 		bool $optional = false,
 	): self {
-		return new self($name, $value, $defaultValue, $optional, TimePrecision::Nanoseconds);
+		return new self($name, $value, $defaultValue, $optional, Precision::Nanoseconds);
 	}
 
 	public static function withMinutePrecision(
@@ -69,7 +69,7 @@ final class Time extends AtomicField
 		Property\Value $defaultValue = null,
 		bool $optional = false,
 	): self {
-		return new self($name, $value, $defaultValue, $optional, TimePrecision::Minutes);
+		return new self($name, $value, $defaultValue, $optional, Precision::Minutes);
 	}
 
 	/**
@@ -93,11 +93,11 @@ final class Time extends AtomicField
 		$hasSeconds = $duration->toSecondsPart() !== 0;
 		$hasNanos = $duration->toNanosPart() !== 0;
 
-		if ($this->precision === TimePrecision::Minutes && ($hasSeconds || $hasNanos)) {
+		if ($this->precision === Precision::Minutes && ($hasSeconds || $hasNanos)) {
 			throw new InvalidArgumentException('Cannot step in seconds or nanoseconds when precision is in minutes.');
 		}
 
-		if ($this->precision === TimePrecision::Seconds && $hasNanos) {
+		if ($this->precision === Precision::Seconds && $hasNanos) {
 			throw new InvalidArgumentException('Cannot step in nanoseconds when precision is in seconds.');
 		}
 
