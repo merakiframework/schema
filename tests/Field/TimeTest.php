@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Field;
 
-use Meraki\Schema\Field\Modifier\TimePrecision;
+use Meraki\Schema\Field\Time\Precision;
 use Meraki\Schema\Field\Time;
 use Meraki\Schema\Property\Name;
 use Meraki\Schema\FieldTestCase;
@@ -93,7 +93,7 @@ final class TimeTest extends FieldTestCase
 
 	#[Test]
 	#[DataProvider('validIncrements')]
-	public function step_constraint_passes_when_met(TimePrecision $precision, string $min, string $duration, string $value): void
+	public function step_constraint_passes_when_met(Precision $precision, string $min, string $duration, string $value): void
 	{
 		$type = (new Time(new Name('time'), precision: $precision))
 			->from($min)
@@ -107,7 +107,7 @@ final class TimeTest extends FieldTestCase
 
 	#[Test]
 	#[DataProvider('invalidIncrements')]
-	public function step_constraint_fails_when_not_met(TimePrecision $precision, string $min, string $duration, string $value): void
+	public function step_constraint_fails_when_not_met(Precision $precision, string $min, string $duration, string $value): void
 	{
 		$type = (new Time(new Name('time'), precision: $precision))
 			->from($min)
@@ -122,21 +122,21 @@ final class TimeTest extends FieldTestCase
 	public static function validIncrements(): array
 	{
 		return [
-			'same as from (seconds)' => [TimePrecision::Seconds, '12:34:56', 'PT1S', '12:34:56'],
-			'1 second' => [TimePrecision::Seconds, '12:34:56', 'PT1S', '12:34:57'],
-			'5 seconds' => [TimePrecision::Seconds, '12:34:56', 'PT5S', '12:35:01'],
-			'60 seconds' => [TimePrecision::Seconds, '12:34:56', 'PT1M', '12:35:56'],
-			'1 minute' => [TimePrecision::Minutes, '12:35:56', 'PT1M', '12:36:56'],
-			'60 minutes' => [TimePrecision::Minutes, '12:34:56', 'PT1H', '13:34:56'],
-			'1 hour' => [TimePrecision::Nanoseconds, '13:34:56', 'PT1H', '14:34:56'],
+			'same as from (seconds)' => [Precision::Seconds, '12:34:56', 'PT1S', '12:34:56'],
+			'1 second' => [Precision::Seconds, '12:34:56', 'PT1S', '12:34:57'],
+			'5 seconds' => [Precision::Seconds, '12:34:56', 'PT5S', '12:35:01'],
+			'60 seconds' => [Precision::Seconds, '12:34:56', 'PT1M', '12:35:56'],
+			'1 minute' => [Precision::Minutes, '12:35:56', 'PT1M', '12:36:56'],
+			'60 minutes' => [Precision::Minutes, '12:34:56', 'PT1H', '13:34:56'],
+			'1 hour' => [Precision::Nanoseconds, '13:34:56', 'PT1H', '14:34:56'],
 		];
 	}
 
 	public static function invalidIncrements(): array
 	{
 		return [
-			'seconds not increased in multiples of minute' => [TimePrecision::Seconds, '12:35:30', 'PT1M', '12:35:32'],
-			'minutes not increased in multiples of hour' => [TimePrecision::Minutes, '13:34:56', 'PT1H', '13:40:56'],
+			'seconds not increased in multiples of minute' => [Precision::Seconds, '12:35:30', 'PT1M', '12:35:32'],
+			'minutes not increased in multiples of hour' => [Precision::Minutes, '13:34:56', 'PT1H', '13:40:56'],
 		];
 	}
 
