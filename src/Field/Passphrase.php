@@ -219,7 +219,7 @@ final class Passphrase extends AtomicField
 
 	private function isInCustomDictionary(string $value): bool
 	{
-
+		return true; // Placeholder for actual dictionary check logic
 	}
 
 	private static function getDefaultEntropy(string $level, string $method): int
