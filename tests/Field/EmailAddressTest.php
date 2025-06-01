@@ -5,7 +5,7 @@ namespace Meraki\Schema\Field;
 
 use Meraki\Schema\Field\EmailAddress;
 use Meraki\Schema\ValidationStatus;
-use Meraki\Schema\Field\Modifier\EmailFormat;
+use Meraki\Schema\Field\EmailAddress\Format;
 use Meraki\Schema\Property\Name;
 use Meraki\Schema\FieldTestCase;
 use PHPUnit\Framework\Attributes\Group;
@@ -26,7 +26,7 @@ final class EmailAddressTest extends FieldTestCase
 	#[DataProvider('emailAddressesForBasicFormat')]
 	public function it_meet_expectations_for_basic_format(mixed $emailAddress, ValidationStatus $expectedStatus): void
 	{
-		$field = new EmailAddress(new Name('email_address'), format: EmailFormat::Basic);
+		$field = new EmailAddress(new Name('email_address'), format: Format::Basic);
 		$field->input($emailAddress);
 
 		$result = $field->validate();
@@ -56,7 +56,7 @@ final class EmailAddressTest extends FieldTestCase
 
 	#[Test]
 	#[DataProvider('supportedEmailFormats')]
-	public function a_default_minimum_length_is_set(EmailFormat $emailFormat): void
+	public function a_default_minimum_length_is_set(Format $emailFormat): void
 	{
 		$field = $this->createField();
 
@@ -65,7 +65,7 @@ final class EmailAddressTest extends FieldTestCase
 
 	#[Test]
 	#[DataProvider('supportedEmailFormats')]
-	public function a_default_maximum_length_is_set(EmailFormat $emailFormat): void
+	public function a_default_maximum_length_is_set(Format $emailFormat): void
 	{
 		$field = $this->createField();
 
@@ -75,10 +75,10 @@ final class EmailAddressTest extends FieldTestCase
 	public static function supportedEmailFormats(): array
 	{
 		return [
-			'Basic' => [EmailFormat::Basic],
-			'HTML' => [EmailFormat::Html],
-			'RFC' => [EmailFormat::Rfc],
-			'SMTP' => [EmailFormat::Smtp],
+			'Basic' => [Format::Basic],
+			'HTML' => [Format::Html],
+			'RFC' => [Format::Rfc],
+			'SMTP' => [Format::Smtp],
 		];
 	}
 
