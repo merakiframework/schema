@@ -15,11 +15,8 @@ final class Uuid extends AtomicField
 
 	public function __construct(
 		Property\Name $name,
-		Property\Value $value = null,
-		Property\Value $defaultValue = null,
-		bool $optional = false,
 	) {
-		parent::__construct(new Property\Type('uuid', $this->validateType(...)), $name, $value, $defaultValue, $optional);
+		parent::__construct(new Property\Type('uuid', $this->validateType(...)), $name);
 	}
 
 	/**

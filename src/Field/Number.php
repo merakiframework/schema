@@ -39,12 +39,9 @@ final class Number extends AtomicField
 
 	public function __construct(
 		Property\Name $name,
-		Property\Value $value = null,
-		Property\Value $defaultValue = null,
-		bool $optional = false,
 		public readonly ?int $scale = null,
 	) {
-		parent::__construct(new Property\Type('number', $this->validateType(...)), $name, $value, $defaultValue, $optional);
+		parent::__construct(new Property\Type('number', $this->validateType(...)), $name);
 
 		$this->min = BigDecimal::of(-PHP_FLOAT_MAX);
 		$this->max = BigDecimal::of(PHP_FLOAT_MAX);

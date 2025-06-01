@@ -31,13 +31,10 @@ final class Time extends AtomicField
 
 	public function __construct(
 		Property\Name $name,
-		Property\Value $value = null,
-		Property\Value $defaultValue = null,
-		bool $optional = false,
 		public readonly TimePrecision $precision = TimePrecision::Minutes,
 		private PrecisionCaster $caster = new TruncatePrecision(),
 	) {
-		parent::__construct(new Property\Type('time', $this->validateType(...)), $name, $value, $defaultValue, $optional);
+		parent::__construct(new Property\Type('time', $this->validateType(...)), $name);
 
 		$this->from = LocalTime::min();
 		$this->until = LocalTime::max();

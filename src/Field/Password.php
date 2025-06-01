@@ -27,11 +27,8 @@ final class Password extends AtomicField
 
 	public function __construct(
 		Property\Name $name,
-		Property\Value $value = null,
-		Property\Value $defaultValue = null,
-		bool $optional = false,
 	) {
-		parent::__construct(new Property\Type('password', $this->validateType(...)), $name, $value, $defaultValue, $optional);
+		parent::__construct(new Property\Type('password', $this->validateType(...)), $name);
 
 		$this->length = Range::unrestricted();
 		$this->lowercase = Range::unrestricted();
@@ -42,11 +39,8 @@ final class Password extends AtomicField
 
 	public static function strong(
 		Property\Name $name,
-		Property\Value $value = null,
-		Property\Value $defaultValue = null,
-		bool $optional = false,
 	): self {
-		return (new self($name, $value, $defaultValue, $optional))
+		return (new self($name))
 			->minLengthOf(12)
 			->minNumberOfLowercase(2)
 			->minNumberOfUppercase(2)
@@ -56,11 +50,8 @@ final class Password extends AtomicField
 
 	public static function moderate(
 		Property\Name $name,
-		Property\Value $value = null,
-		Property\Value $defaultValue = null,
-		bool $optional = false,
 	): self {
-		return (new self($name, $value, $defaultValue, $optional))
+		return (new self($name))
 			->minLengthOf(8)
 			->minNumberOfLowercase(1)
 			->minNumberOfUppercase(1)
@@ -70,11 +61,8 @@ final class Password extends AtomicField
 
 	public static function common(
 		Property\Name $name,
-		Property\Value $value = null,
-		Property\Value $defaultValue = null,
-		bool $optional = false,
 	): self {
-		return (new self($name, $value, $defaultValue, $optional))
+		return (new self($name))
 			->minLengthOf(6)
 			->minNumberOfLowercase(1)
 			->minNumberOfUppercase(1)
@@ -85,20 +73,14 @@ final class Password extends AtomicField
 
 	public static function weak(
 		Property\Name $name,
-		Property\Value $value = null,
-		Property\Value $defaultValue = null,
-		bool $optional = false,
 	): self {
-		return (new self($name, $value, $defaultValue, $optional))->minLengthOf(8);
+		return (new self($name))->minLengthOf(8);
 	}
 
 	public static function none(
 		Property\Name $name,
-		Property\Value $value = null,
-		Property\Value $defaultValue = null,
-		bool $optional = false,
 	): self {
-		return new self($name, $value, $defaultValue, $optional);
+		return new self($name);
 	}
 
 	public function minLengthOf(?int $min): self

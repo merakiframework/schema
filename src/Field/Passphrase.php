@@ -32,11 +32,8 @@ final class Passphrase extends AtomicField
 		public int $entropy = 72,
 		public string $method = 'standard',
 		public string $dictionary = 'none',
-		Property\Value $value = null,
-		Property\Value $defaultValue = null,
-		bool $optional = false,
 	) {
-		parent::__construct(new Property\Type('passphrase', $this->validateType(...)), $name, $value, $defaultValue, $optional);
+		parent::__construct(new Property\Type('passphrase', $this->validateType(...)), $name);
 
 		if ($entropy < 1) {
 			throw new InvalidArgumentException('Entropy must be a positive integer.');
@@ -61,9 +58,6 @@ final class Passphrase extends AtomicField
 	 */
 	public static function complacent(
 		Property\Name $name,
-		Property\Value $value = null,
-		Property\Value $defaultValue = null,
-		bool $optional = false,
 		string $method = 'standard',
 		string $dictionary = 'none',
 	): self {
@@ -72,9 +66,6 @@ final class Passphrase extends AtomicField
 			self::getDefaultEntropy('complacent', $method),
 			$method,
 			$dictionary,
-			$value,
-			$defaultValue,
-			$optional,
 		);
 	}
 
@@ -87,9 +78,6 @@ final class Passphrase extends AtomicField
 	 */
 	public static function weak(
 		Property\Name $name,
-		Property\Value $value = null,
-		Property\Value $defaultValue = null,
-		bool $optional = false,
 		string $method = 'standard',
 		string $dictionary = 'none',
 	): self {
@@ -98,9 +86,6 @@ final class Passphrase extends AtomicField
 			self::getDefaultEntropy('weak', $method),
 			$method,
 			$dictionary,
-			$value,
-			$defaultValue,
-			$optional,
 		);
 	}
 
@@ -113,9 +98,6 @@ final class Passphrase extends AtomicField
 	 */
 	public static function moderate(
 		Property\Name $name,
-		Property\Value $value = null,
-		Property\Value $defaultValue = null,
-		bool $optional = false,
 		string $method = 'standard',
 		string $dictionary = 'none',
 	): self {
@@ -124,9 +106,6 @@ final class Passphrase extends AtomicField
 			self::getDefaultEntropy('moderate', $method),
 			$method,
 			$dictionary,
-			$value,
-			$defaultValue,
-			$optional,
 		);
 	}
 
@@ -139,9 +118,6 @@ final class Passphrase extends AtomicField
 	 */
 	public static function strong(
 		Property\Name $name,
-		Property\Value $value = null,
-		Property\Value $defaultValue = null,
-		bool $optional = false,
 		string $method = 'standard',
 		string $dictionary = 'none',
 	): self {
@@ -150,9 +126,6 @@ final class Passphrase extends AtomicField
 			self::getDefaultEntropy('strong', $method),
 			$method,
 			$dictionary,
-			$value,
-			$defaultValue,
-			$optional,
 		);
 	}
 
@@ -166,9 +139,6 @@ final class Passphrase extends AtomicField
 	 */
 	public static function paranoid(
 		Property\Name $name,
-		Property\Value $value = null,
-		Property\Value $defaultValue = null,
-		bool $optional = false,
 		string $method = 'standard',
 		string $dictionary = 'none',
 	): self {
@@ -177,9 +147,6 @@ final class Passphrase extends AtomicField
 			self::getDefaultEntropy('paranoid', $method),
 			$method,
 			$dictionary,
-			$value,
-			$defaultValue,
-			$optional,
 		);
 	}
 

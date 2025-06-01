@@ -23,11 +23,8 @@ final class PhoneNumber extends AtomicField
 
 	public function __construct(
 		Property\Name $name,
-		Property\Value $value = null,
-		Property\Value $defaultValue = null,
-		bool $optional = false,
 	) {
-		parent::__construct(new Property\Type('phone_number', $this->validateType(...)), $name, $value, $defaultValue, $optional);
+		parent::__construct(new Property\Type('phone_number', $this->validateType(...)), $name);
 	}
 
 	protected function cast(string $value): mixed

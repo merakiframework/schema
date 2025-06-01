@@ -18,11 +18,8 @@ final class Enum extends AtomicField
 		 * @param list<T> $oneOf
 		 */
 		public array $oneOf,
-		Property\Value $value = null,
-		Property\Value $defaultValue = null,
-		bool $optional = false,
 	) {
-		parent::__construct(new Property\Type('enum', $this->validateType(...)), $name, $value, $defaultValue, $optional);
+		parent::__construct(new Property\Type('enum', $this->validateType(...)), $name);
 	}
 
 	public function allow(mixed $value): self

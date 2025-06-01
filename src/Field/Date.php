@@ -17,11 +17,8 @@ final class Date extends AtomicField
 
 	public function __construct(
 		Property\Name $name,
-		Property\Value $value = null,
-		Property\Value $defaultValue = null,
-		bool $optional = false,
 	) {
-		parent::__construct(new Property\Type('date', $this->validateType(...)), $name, $value, $defaultValue, $optional);
+		parent::__construct(new Property\Type('date', $this->validateType(...)), $name);
 
 		$this->from = LocalDate::min();
 		$this->until = LocalDate::max();

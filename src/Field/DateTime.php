@@ -22,13 +22,10 @@ final class DateTime extends AtomicField
 
 	public function __construct(
 		Property\Name $name,
-		Property\Value $value = null,
-		Property\Value $defaultValue = null,
-		bool $optional = false,
 		public readonly TimePrecision $precision = TimePrecision::Minutes,
 		private PrecisionCaster $caster = new TruncatePrecision(),
 	) {
-		parent::__construct(new Property\Type('date_time', $this->validateType(...)), $name, $value, $defaultValue, $optional);
+		parent::__construct(new Property\Type('date_time', $this->validateType(...)), $name);
 
 		$this->from = LocalDateTime::min();
 		$this->until = LocalDateTime::max();
