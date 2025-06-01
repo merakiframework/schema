@@ -4,7 +4,7 @@ declare(strict_types=1);
 namespace Meraki\Schema\Field;
 
 use Meraki\Schema\Field\AtomicMultiValue as AtomicMultiValueField;
-use Meraki\Schema\Field\Modifier\EmailFormat;
+use Meraki\Schema\Field\EmailAddress\Format;
 use Meraki\Schema\Property;
 use InvalidArgumentException;
 
@@ -33,7 +33,7 @@ final class EmailAddress extends AtomicMultiValueField
 
 	public function __construct(
 		Property\Name $name,
-		public EmailFormat $format = EmailFormat::Basic,
+		public Format $format = Format::Basic,
 	) {
 		parent::__construct(new Property\Type('email_address', $this->validateType(...)), $name);
 
