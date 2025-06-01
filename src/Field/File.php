@@ -4,7 +4,7 @@ declare(strict_types=1);
 namespace Meraki\Schema\Field;
 
 use Meraki\Schema\Field\AtomicMultiValue as AtomicMultiValueField;
-use Meraki\Schema\Field\Value\FileMetadata;
+use Meraki\Schema\Field\File\Metadata;
 use Meraki\Schema\Property;
 use InvalidArgumentException;
 
@@ -144,7 +144,7 @@ final class File extends AtomicMultiValueField
 	}
 
 	/**
-	 * @return FileMetadata[]
+	 * @return Metadata[]
 	 */
 	protected function cast(mixed $value): array
 	{
@@ -162,7 +162,7 @@ final class File extends AtomicMultiValueField
 		}
 
 		return array_map(
-			fn(array $file): FileMetadata => new FileMetadata($file['name'], $file['type'], $file['size'], $file['source']),
+			fn(array $file): Metadata => new Metadata($file['name'], $file['type'], $file['size'], $file['source']),
 			$value,
 		);
 	}
