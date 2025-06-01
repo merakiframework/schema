@@ -17,6 +17,7 @@ final class Text extends AtomicField
 
 	public function __construct(
 		Property\Name $name,
+		public array $strip = [],	// Characters to strip from the text input
 	) {
 		parent::__construct(new Property\Type('text', $this->validateType(...)), $name);
 	}
@@ -62,6 +63,19 @@ final class Text extends AtomicField
 		return $this;
 	}
 
+	public function strip(string ...$chars): self
+	{
+		foreach ($chars as $char) {
+			if (mb_strlen($char) !== 1) {
+				throw new InvalidArgumentException('Each character to strip must be a single character.');
+			}
+		}
+
+		$this->strip = array_merge($this->strip, $chars);
+
+		return $this;
+	}
+
 	protected function cast(string $value): mixed
 	{
 		return $value;
@@ -94,5 +108,16 @@ final class Text extends AtomicField
 	private function validatePattern(mixed $value): bool
 	{
 		return preg_match($this->pattern, $value) === 1;
+	}
+
+	protected function process(mixed $value): Property\Value
+	{
+		if (is_string($value)) {
+			foreach ($this->strip as $char) {
+				$value = str_replace($char, '', $value);
+			}
+		}
+
+		return new Property\Value($value);
 	}
 }
