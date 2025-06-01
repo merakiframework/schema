@@ -29,23 +29,6 @@ final class CreditCard extends CompositeField
 			$this->createExpiryField(),
 			$this->createSecurityCodeField(),
 		);
-
-		$holderName = (new Property\Name('holder'))->prefixWith($name)->__toString();
-		$numberName = (new Property\Name('number'))->prefixWith($name)->__toString();
-		$expiryName = (new Property\Name('expiry'))->prefixWith($name)->__toString();
-		$securityCodeName = (new Property\Name('security_code'))->prefixWith($name)->__toString();
-		$this->defaultValue = new Property\Value([
-			$holderName => null,
-			$numberName => null,
-			$expiryName => null,
-			$securityCodeName => null,
-		]);
-		$this->value = new Property\Value([
-			$holderName => null,
-			$numberName => null,
-			$expiryName => null,
-			$securityCodeName => null,
-		]);
 	}
 
 	protected function cast(mixed $value): mixed
@@ -66,6 +49,7 @@ final class CreditCard extends CompositeField
 	private function createNumberField(): Field\Text
 	{
 		return (new Field\Text(new Property\Name('number')))
+			->strip(' ')
 			->minLengthOf(13)
 			->maxLengthOf(19)
 			->matches('/^\d+$/');
