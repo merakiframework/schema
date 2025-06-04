@@ -49,7 +49,6 @@ final class CreditCard extends CompositeField
 	private function createNumberField(): Field\Text
 	{
 		return (new Field\Text(new Property\Name('number')))
-			->strip(' ')
 			->minLengthOf(13)
 			->maxLengthOf(19)
 			->matches('/^\d+$/');
