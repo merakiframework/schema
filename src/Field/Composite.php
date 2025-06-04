@@ -39,6 +39,7 @@ abstract class Composite extends Field implements IteratorAggregate, Countable
 	public function prefill($value): static
 	{
 		parent::prefill($value);
+		$value = $this->defaultValue->unwrap();
 
 		foreach ($this->fields as $field) {
 			$field->prefill($value[(string)$field->name]);
@@ -51,29 +52,13 @@ abstract class Composite extends Field implements IteratorAggregate, Countable
 	public function input($value): static
 	{
 		parent::input($value);
+		$value = $this->resolvedValue->unwrap();
 
 		foreach ($this->fields as $field) {
 			$field->input($value[(string)$field->name]);
 		}
 
 		return $this;
-	}
-
-	private static function valueNotProvided(Composite $field): bool
-	{
-		$value = $field->resolvedValue->unwrap();
-
-		if ($value === []) {
-			return true;
-		}
-
-		foreach ($field->fields->listFieldNames() as $fieldName) {
-			if (isset($value[$fieldName]) && $value[$fieldName] !== null) {
-				return false;
-			}
-		}
-
-		return true;
 	}
 
 	protected function valueProvided(Property\Value $value): bool
@@ -103,7 +88,7 @@ abstract class Composite extends Field implements IteratorAggregate, Countable
 
 		// skip validation of all fields if the type validation fails
 		// or if the value is not provided and field is optional
-		if (($this->optional && self::valueNotProvided($this)) || !($this->type->validator)($value->unwrap())) {
+		if (($this->optional && !$this->valueProvided($value)) || !($this->type->validator)($value->unwrap())) {
 			return $this->skipValidationOfAllFields();
 		}
 
@@ -134,7 +119,7 @@ abstract class Composite extends Field implements IteratorAggregate, Countable
 			$field = $fieldValidationResult->field;
 
 			// Skip constraint if the field failed/skipped type validation
-			if (isset($fieldsToSkip[$fieldName]) || ($field->optional && self::valueNotProvided($field))) {
+			if (isset($fieldsToSkip[$fieldName]) || ($field->optional && !$this->valueProvided($field->resolvedValue))) {
 				$fieldResults[$fieldName] = $fieldValidationResult->add(new ConstraintValidationResult(ValidationStatus::Skipped, $constraintName));
 				continue;
 			}
@@ -160,7 +145,7 @@ abstract class Composite extends Field implements IteratorAggregate, Countable
 
 			// Validate each field's constraints
 			foreach ($field->getConstraints() as $constraintName => $constraintValidator) {
-				if (isset($fieldsToSkip[$fieldName]) || ($field->optional && self::valueNotProvided($field))) {
+				if (isset($fieldsToSkip[$fieldName]) || ($field->optional && !$this->valueProvided($field->resolvedValue))) {
 					$fieldResults[$fieldName] = $fieldResults[$fieldName]->add(new ConstraintValidationResult(ValidationStatus::Skipped, $constraintName));
 					continue;
 				}
@@ -254,6 +239,8 @@ abstract class Composite extends Field implements IteratorAggregate, Countable
 	 */
 	protected function process($value): Property\Value
 	{
+		$value = parent::process($value)->unwrap();
+
 		if ($value === null) {
 			$value = [];
 		}
@@ -262,16 +249,14 @@ abstract class Composite extends Field implements IteratorAggregate, Countable
 			throw new InvalidArgumentException('Input value must be an array or null.');
 		}
 
-		$processedValue = [];
-
 		foreach ($this->fields as $field) {
 			$fieldName = (string)$field->name;
 
 			if (!isset($value[$fieldName])) {
-				$processedValue[$fieldName] = null;
+				$value[$fieldName] = null;
 			}
 		}
 
-		return new Property\Value($processedValue);
+		return new Property\Value($value);
 	}
 }
