@@ -33,12 +33,6 @@ final class Money extends CompositeField
 		foreach ($allowedCurrencies as $currency => $scale) {
 			$this->addCurrencyScale($currency, $scale);
 		}
-
-		$currencyName = (new Property\Name('currency'))->prefixWith($name)->__toString();
-		$amountName = (new Property\Name('amount'))->prefixWith($name)->__toString();
-
-		$this->defaultValue = new Property\Value([$currencyName => null, $amountName => null]);
-		$this->value = new Property\Value([$currencyName => null, $amountName => null]);
 	}
 
 	public function allow(string $currency, int $scale): self
