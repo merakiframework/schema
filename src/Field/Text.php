@@ -9,11 +9,13 @@ use InvalidArgumentException;
 
 final class Text extends AtomicField
 {
+	public const SKIP_MATCHING = null;
+
 	private int $min = 0;
 
 	private int $max = PHP_INT_MAX;
 
-	private string $pattern = '';
+	private ?string $pattern = self::SKIP_MATCHING;
 
 	public function __construct(
 		Property\Name $name,
@@ -56,11 +58,24 @@ final class Text extends AtomicField
 		return $this;
 	}
 
-	public function matches(string $regex): self
+	public function matches(?string $regex): self
 	{
+		$this->assertValidRegex($regex);
+
 		$this->pattern = $regex;
 
 		return $this;
+	}
+
+	private function assertValidRegex(?string $regex): void
+	{
+		if ($regex === null) {
+			return; // Skip validation if no pattern is set
+		}
+
+		if (@preg_match($regex, '') === false) {
+			throw new InvalidArgumentException('Invalid regular expression provided.');
+		}
 	}
 
 	public function strip(string ...$chars): self
@@ -105,8 +120,12 @@ final class Text extends AtomicField
 		return mb_strlen($value) <= $this->max;
 	}
 
-	private function validatePattern(mixed $value): bool
+	private function validatePattern(mixed $value): ?bool
 	{
+		if ($this->pattern === self::SKIP_MATCHING) {
+			return null; // Skip validation if no pattern is set
+		}
+
 		return preg_match($this->pattern, $value) === 1;
 	}
 

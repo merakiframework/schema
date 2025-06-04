@@ -68,6 +68,17 @@ final class TextTest extends FieldTestCase
 	}
 
 	#[Test]
+	public function pattern_constraint_is_skipped_when_not_set(): void
+	{
+		$type = $this->createField()
+			->input('abc123');
+
+		$result = $type->validate();
+
+		$this->assertConstraintValidationResultSkipped('pattern', $result);
+	}
+
+	#[Test]
 	public function pattern_constraint_passes_when_met(): void
 	{
 		$type = $this->createField()
@@ -89,6 +100,15 @@ final class TextTest extends FieldTestCase
 		$result = $type->validate();
 
 		$this->assertConstraintValidationResultFailed('pattern', $result);
+	}
+
+	#[Test]
+	public function throws_exception_when_pattern_is_invalid(): void
+	{
+		$this->expectException(\InvalidArgumentException::class);
+		$this->expectExceptionMessage('Invalid regular expression provided.');
+
+		$this->createField()->matches('[');
 	}
 
 	#[Test]
