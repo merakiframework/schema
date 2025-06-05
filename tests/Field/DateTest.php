@@ -262,4 +262,34 @@ final class DateTest extends FieldTestCase
 
 		$this->assertNull($field->defaultValue->unwrap());
 	}
+
+	#[Test]
+	public function it_serializes_and_deserializes(): void
+	{
+		$sut = $this->createField()
+			->from('2025-02-23')
+			->until('2025-02-28')
+			->atIntervalsOf('P1D')
+			->prefill('2025-02-25');
+
+		$serialized = $sut->serialize();
+
+		$this->assertEquals('date', $serialized->type);
+		$this->assertEquals('date', $serialized->name);
+		$this->assertFalse($serialized->optional);
+		$this->assertEquals('2025-02-23', $serialized->from);
+		$this->assertEquals('2025-02-28', $serialized->until);
+		$this->assertEquals('P1D', $serialized->interval);
+		$this->assertEquals('2025-02-25', $serialized->value);
+
+		$deserialized = Date::deserialize($serialized);
+
+		$this->assertEquals('date', $deserialized->type->value);
+		$this->assertEquals('date', $deserialized->name->value);
+		$this->assertFalse($deserialized->optional);
+		$this->assertEquals('2025-02-23', $deserialized->from->__toString());
+		$this->assertEquals('2025-02-28', $deserialized->until->__toString());
+		$this->assertEquals('P1D', $deserialized->interval->__toString());
+		$this->assertEquals('2025-02-25', $deserialized->defaultValue->unwrap());
+	}
 }

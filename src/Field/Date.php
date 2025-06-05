@@ -4,11 +4,26 @@ declare(strict_types=1);
 namespace Meraki\Schema\Field;
 
 use Meraki\Schema\Field\Atomic as AtomicField;
+use Meraki\Schema\Field\Serialized;
 use Meraki\Schema\Property;
 use Brick\DateTime\DateTimeException;
 use Brick\DateTime\Period;
 use Brick\DateTime\LocalDate;
 
+/**
+ * @extends Serialized<string|null>
+ * @property-read string $from
+ * @property-read string $until
+ * @property-read string $interval
+ * @internal
+ */
+interface SerializedDate extends Serialized
+{
+}
+
+/**
+ * @extends AtomicField<string|null, SerializedDate>
+ */
 final class Date extends AtomicField
 {
 	public LocalDate $from;
@@ -104,5 +119,52 @@ final class Date extends AtomicField
 	{
 		$period = Period::between($this->from, $this->cast($value));
 		return $period->isEqualTo($this->interval) || $period->isZero();
+	}
+
+	public function serialize(): SerializedDate
+	{
+		return new class(
+			type: $this->type->value,
+			name: $this->name->value,
+			optional: $this->optional,
+			value: $this->defaultValue->unwrap(),
+			from: $this->from->__toString(),
+			until: $this->until->__toString(),
+			interval: $this->interval->__toString(),
+		) implements SerializedDate {
+			public function __construct(
+				public readonly string $type,
+				public readonly string $name,
+				public readonly bool $optional,
+				public readonly ?string $value,
+				public readonly string $from,
+				public readonly string $until,
+				public readonly string $interval,
+			) {}
+
+			public function getConstraints(): array
+			{
+				return ['from', 'until', 'interval'];
+			}
+		};
+	}
+
+	/**
+	 * @param SerializedDate $serialized
+	 */
+	public static function deserialize(Serialized $serialized): static
+	{
+		if ($serialized->type !== 'date') {
+			throw new \InvalidArgumentException('Invalid type for Date field: ' . $serialized->type);
+		}
+
+		$field = new self(new Property\Name($serialized->name));
+		$field->optional = $serialized->optional;
+		$field->prefill($serialized->value);
+		$field->from($serialized->from);
+		$field->until($serialized->until);
+		$field->atIntervalsOf($serialized->interval);
+
+		return $field;
 	}
 }
