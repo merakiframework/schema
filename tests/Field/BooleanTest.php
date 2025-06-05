@@ -22,6 +22,26 @@ final class BooleanTest extends FieldTestCase
 	}
 
 	#[Test]
+	public function it_serializes_and_deserializes(): void
+	{
+		$sut = $this->createField();
+
+		$serialized = $sut->serialize();
+
+		$this->assertEquals('boolean', $serialized->type);
+		$this->assertEquals('test', $serialized->name);
+		$this->assertFalse($serialized->optional);
+		$this->assertNull($serialized->value);
+
+		$deserialized = Boolean::deserialize($serialized);
+
+		$this->assertEquals('boolean', $deserialized->type->value);
+		$this->assertEquals('test', $deserialized->name->value);
+		$this->assertFalse($deserialized->optional);
+		$this->assertNull($deserialized->defaultValue->unwrap());
+	}
+
+	#[Test]
 	public function it_has_the_correct_type(): void
 	{
 		$field = $this->createField();
