@@ -77,7 +77,7 @@ final class DateTimeTest extends FieldTestCase
 
 		$result = $field->validate();
 
-		$this->assertConstraintValidationResultHasStatusOf($expectedStatus, 'step', $result);
+		$this->assertConstraintValidationResultHasStatusOf($expectedStatus, 'interval', $result);
 	}
 
 	public static function stepConstraintExpectationsForMinutePrecision(): array
@@ -125,7 +125,7 @@ final class DateTimeTest extends FieldTestCase
 
 		$result = $field->validate();
 
-		$this->assertConstraintValidationResultHasStatusOf($expectedStatus, 'step', $result);
+		$this->assertConstraintValidationResultHasStatusOf($expectedStatus, 'interval', $result);
 	}
 
 	public static function stepConstraintExpectationsForNanosecondPrecision(): array
@@ -188,5 +188,39 @@ final class DateTimeTest extends FieldTestCase
 		$field = $this->createField();
 
 		$this->assertNull($field->defaultValue->unwrap());
+	}
+
+	#[Test]
+	public function it_serializes_and_deserializes(): void
+	{
+		$sut = $this->createField()
+			->from('2025-02-23T10:00:00')
+			->until('2025-02-28T10:00:00')
+			->inIncrementsOf('PT1H')
+			->prefill('2025-02-25T11:00:00');
+
+		$serialized = $sut->serialize();
+
+		$this->assertEquals('date_time', $serialized->type);
+		$this->assertEquals('date_time', $serialized->name);
+		$this->assertFalse($serialized->optional);
+		$this->assertEquals('2025-02-23T10:00', $serialized->from);
+		$this->assertEquals('2025-02-28T10:00', $serialized->until);
+		$this->assertEquals('PT1H', $serialized->interval);
+		$this->assertEquals('2025-02-25T11:00:00', $serialized->value);
+		$this->assertEquals('minutes', $serialized->precisionUnit);
+		$this->assertEquals('truncate', $serialized->precisionMode);
+
+		$deserialized = DateTime::deserialize($serialized);
+
+		$this->assertEquals('date_time', $deserialized->type->value);
+		$this->assertEquals('date_time', $deserialized->name->value);
+		$this->assertFalse($deserialized->optional);
+		$this->assertEquals('2025-02-23T10:00', $deserialized->from->__toString());
+		$this->assertEquals('2025-02-28T10:00', $deserialized->until->__toString());
+		$this->assertEquals('PT1H', $deserialized->interval->__toString());
+		$this->assertEquals('2025-02-25T11:00:00', $deserialized->defaultValue->unwrap());
+		$this->assertEquals(TimePrecision::Minutes, $deserialized->precision);
+		// $this->assertInstanceOf(DateTime\TruncatePrecision::class, $deserialized->caster);
 	}
 }
