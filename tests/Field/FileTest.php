@@ -247,4 +247,51 @@ final class FileTest extends FieldTestCase
 
 		$this->assertNull($field->defaultValue->unwrap());
 	}
+
+	#[Test]
+	public function it_serializes_and_deserializes(): void
+	{
+		$files = [[
+			'name' => 'example.txt',
+			'type' => 'text/plain',
+			'size' => 1234,
+			'source' => 'file:///tmp/example.txt',
+		]];
+		$sut = $this->createField()
+			->atLeast(1)
+			->atMost(3)
+			->allowDocuments()
+			->disallowScripts()
+			->minFileSizeOf(16)
+			->maxFileSizeOf(2048)
+			->prefill($files);
+		$allowedTypes = $sut->allowedTypes;
+		$disallowedTypes = $sut->disallowedTypes;
+
+		$serialized = $sut->serialize();
+
+		$this->assertEquals('file', $serialized->type);
+		$this->assertEquals('file', $serialized->name);
+		$this->assertFalse($serialized->optional);
+		$this->assertEquals(1, $serialized->minCount);
+		$this->assertEquals(3, $serialized->maxCount);
+		$this->assertEquals(16, $serialized->minSize);
+		$this->assertEquals(2048, $serialized->maxSize);
+		$this->assertEquals($allowedTypes, $serialized->allowedTypes);
+		$this->assertEquals($disallowedTypes, $serialized->disallowedTypes);
+		$this->assertEquals($files, $serialized->value);
+
+		$deserialized = File::deserialize($serialized);
+
+		$this->assertEquals('file', $deserialized->type->value);
+		$this->assertEquals('file', $deserialized->name->value);
+		$this->assertFalse($deserialized->optional);
+		$this->assertEquals(1, $deserialized->minCount);
+		$this->assertEquals(3, $deserialized->maxCount);
+		$this->assertEquals(16, $deserialized->minSize);
+		$this->assertEquals(2048, $deserialized->maxSize);
+		$this->assertEquals($allowedTypes, $deserialized->allowedTypes);
+		$this->assertEquals($disallowedTypes, $deserialized->disallowedTypes);
+		$this->assertEquals($files, $deserialized->defaultValue->unwrap());
+	}
 }

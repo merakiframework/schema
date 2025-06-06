@@ -8,6 +8,37 @@ use Meraki\Schema\Field\File\Metadata;
 use Meraki\Schema\Property;
 use InvalidArgumentException;
 
+/**
+ * @psalm-type FileMetadata = array{
+ *	name: string,
+ *	type: string,
+ *	size: int,
+ *	source: string,
+ * }
+ * @extends Serialized<list<FileMetadata>|null>
+ * @property-read int $minCount
+ * @property-read int $maxCount
+ * @property-read int $minSize
+ * @property-read int $maxSize
+ * @property-read list<string> $allowedTypes
+ * @property-read list<string> $disallowedTypes
+ * @property-read list<string> $allowedSources
+ * @property-read list<string> $disallowedSources
+ * @internal
+ */
+interface SerializedFile extends Serialized
+{
+}
+
+/**
+ * @psalm-type FileMetadata = array{
+ *	name: string,
+ *	type: string,
+ *	size: int,
+ *	source: string,
+ * }
+ * @extends AtomicMultiValueField<list<FileMetadata>|null, SerializedFile>
+ */
 final class File extends AtomicMultiValueField
 {
 	public const UNLIMITED = -1;
@@ -20,12 +51,24 @@ final class File extends AtomicMultiValueField
 
 	public int $maxSize = self::UNLIMITED; // in bytes
 
+	/**
+	 * @var list<string>
+	 */
 	public array $allowedTypes = [];
 
+	/**
+	 * @var list<string>
+	 */
 	public array $disallowedTypes = [];
 
+	/**
+	 * @var list<string>
+	 */
 	public array $allowedSources = [];
 
+	/**
+	 * @var list<string>
+	 */
 	public array $disallowedSources = [];
 
 	public function __construct(
@@ -86,48 +129,64 @@ final class File extends AtomicMultiValueField
 		return $this;
 	}
 
+	public function allowTypes(string ...$types): self
+	{
+		foreach ($types as $additionalType) {
+			if (!in_array($additionalType, $this->allowedTypes, true)) {
+				$this->allowedTypes[] = $additionalType;
+			}
+		}
+
+		return $this;
+	}
+
+	public function disallowTypes(string ...$types): self
+	{
+		foreach ($types as $additionalType) {
+			if (!in_array($additionalType, $this->disallowedTypes, true)) {
+				$this->disallowedTypes[] = $additionalType;
+			}
+		}
+
+		return $this;
+	}
+
 	public function allowImages(array $additionalImageTypes = []): self
 	{
-		$this->allowedTypes = array_merge($this->allowedTypes, [
+		return $this->allowTypes(
 			'image/jpeg',
 			'image/png',
 			'image/gif',
 			'image/webp',
 			'image/svg+xml',
-		], $additionalImageTypes);
-
-		return $this;
+		);
 	}
 
 	public function allowVideos(array $additionalVideoTypes = []): self
 	{
-		$this->allowedTypes = array_merge($this->allowedTypes, [
+		return $this->allowTypes(
 			'video/mp4',
 			'video/webm',
 			'video/ogg',
 			'video/quicktime',
-		], $additionalVideoTypes);
-
-		return $this;
+		);
 	}
 
 	public function disallowScripts(array $additionalScriptTypes = []): self
 	{
-		$this->disallowedTypes = array_merge($this->disallowedTypes, [
+		return $this->disallowTypes(
 			'application/x-javascript',
 			'application/javascript',
 			'text/javascript',
 			'application/x-php',
 			'text/html',
 			'application/x-sh',
-		], $additionalScriptTypes);
-
-		return $this;
+		);
 	}
 
 	public function allowDocuments(array $additionalDocumentTypes = []): self
 	{
-		$this->allowedTypes = array_merge($this->allowedTypes, [
+		return $this->allowTypes(
 			'application/pdf',
 			'application/msword',
 			'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
@@ -138,9 +197,7 @@ final class File extends AtomicMultiValueField
 			'text/plain',
 			'text/csv',
 			'application/rtf',
-		], $additionalDocumentTypes);
-
-		return $this;
+		);
 	}
 
 	/**
@@ -278,5 +335,80 @@ final class File extends AtomicMultiValueField
 		}
 
 		return true;
+	}
+
+	public function serialize(): SerializedFile
+	{
+		return new class(
+			type: $this->type->value,
+			name: $this->name->value,
+			optional: $this->optional,
+			value: $this->defaultValue->unwrap(),
+			minCount: $this->minCount,
+			maxCount: $this->maxCount,
+			minSize: $this->minSize,
+			maxSize: $this->maxSize,
+			allowedTypes: $this->allowedTypes,
+			disallowedTypes: $this->disallowedTypes,
+			allowedSources: $this->allowedSources,
+			disallowedSources: $this->disallowedSources
+		) implements SerializedFile {
+			public function __construct(
+				public readonly string $type,
+				public readonly string $name,
+				public readonly bool $optional,
+				/** @param list<FileMetadata>|null $value */
+				public readonly array|null $value,
+				public readonly int $minCount,
+				public readonly int $maxCount,
+				public readonly int $minSize,
+				public readonly int $maxSize,
+				/** @param list<string> $allowedTypes */
+				public readonly array $allowedTypes,
+				/** @param list<string> $disallowedTypes */
+				public readonly array $disallowedTypes,
+				/** @param list<string> $allowedSources */
+				public readonly array $allowedSources,
+				/** @param list<string> $disallowedSources */
+				public readonly array $disallowedSources,
+			) {
+			}
+			public function getConstraints(): array
+			{
+				return [
+					'min_count',
+					'max_count',
+					'min_size',
+					'max_size',
+					'allowed_types',
+					'disallowed_types',
+					'allowed_sources',
+					'disallowed_sources',
+				];
+			}
+		};
+	}
+
+	/**
+	 * @param SerializedFile $serialized
+	 */
+	public static function deserialize(Serialized $serialized): static
+	{
+		if ($serialized->type !== 'file' || !($serialized instanceof SerializedFile)) {
+			throw new InvalidArgumentException('Invalid serialized data for File.');
+		}
+
+		$fileField = new self(new Property\Name($serialized->name));
+		$fileField->optional = $serialized->optional;
+		$fileField->allowedSources = $serialized->allowedSources;
+		$fileField->disallowedSources = $serialized->disallowedSources;
+
+		return $fileField->atLeast($serialized->minCount)
+			->atMost($serialized->maxCount)
+			->minFileSizeOf($serialized->minSize)
+			->maxFileSizeOf($serialized->maxSize)
+			->allowTypes(...$serialized->allowedTypes)
+			->disallowTypes(...$serialized->disallowedTypes)
+			->prefill($serialized->value);
 	}
 }
