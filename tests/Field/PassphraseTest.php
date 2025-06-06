@@ -109,4 +109,31 @@ final class PassphraseTest extends FieldTestCase
 
 		$this->assertNull($field->defaultValue->unwrap());
 	}
+
+	#[Test]
+	public function it_serializes_and_deserializes(): void
+	{
+		$sut = Passphrase::moderate(new Name('sut'))
+			->prefill('correct * horse battery 234 staple');
+
+		$serialized = $sut->serialize();
+
+		$this->assertEquals('passphrase', $serialized->type);
+		$this->assertEquals('sut', $serialized->name);
+		$this->assertFalse($serialized->optional);
+		$this->assertEquals(72, $serialized->entropy);
+		$this->assertEquals('standard', $serialized->method);
+		$this->assertEquals('none', $serialized->dictionary);
+		$this->assertEquals('correct * horse battery 234 staple', $serialized->value);
+
+		$deserialized = Passphrase::deserialize($serialized);
+
+		$this->assertEquals('passphrase', $deserialized->type->value);
+		$this->assertEquals('sut', $deserialized->name->value);
+		$this->assertFalse($deserialized->optional);
+		$this->assertEquals(72, $deserialized->entropy);
+		$this->assertEquals('standard', $deserialized->method);
+		$this->assertEquals('none', $deserialized->dictionary);
+		$this->assertEquals('correct * horse battery 234 staple', $deserialized->defaultValue->unwrap());
+	}
 }

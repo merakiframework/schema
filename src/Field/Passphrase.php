@@ -4,9 +4,24 @@ declare(strict_types=1);
 namespace Meraki\Schema\Field;
 
 use Meraki\Schema\Field\Atomic as AtomicField;
+use Meraki\Schema\Field\Serialized;
 use Meraki\Schema\Property;
 use InvalidArgumentException;
 
+/**
+ * @extends Serialized<string|null>
+ * @property-read int $entropy
+ * @property-read string $method
+ * @property-read string $dictionary
+ * @internal
+ */
+interface SerializedPassphrase extends Serialized
+{
+}
+
+/**
+ * @extends AtomicField<string|null, SerializedPassphrase>
+ */
 final class Passphrase extends AtomicField
 {
 	private const DEFAULT_ENTROPY = [
@@ -226,5 +241,49 @@ final class Passphrase extends AtomicField
 	{
 		return self::DEFAULT_ENTROPY[$method][$level]
 			?? throw new InvalidArgumentException("No default entropy defined for method: $method and level: $level");
+	}
+
+	public function serialize(): SerializedPassphrase
+	{
+		return new class(
+			type: $this->type->value,
+			name: $this->name->value,
+			optional: $this->optional,
+			entropy: $this->entropy,
+			method: $this->method,
+			dictionary: $this->dictionary,
+			value: $this->defaultValue->unwrap(),
+		) implements SerializedPassphrase {
+			public function __construct(
+				public readonly string $type,
+				public readonly string $name,
+				public readonly bool $optional,
+				public readonly int $entropy,
+				public readonly string $method,
+				public readonly string $dictionary,
+				public readonly ?string $value,
+			) {}
+			public function getConstraints(): array
+			{
+				return ['entropy', 'dictionary'];
+			}
+		};
+	}
+
+	/**
+	 * @param SerializedPassphrase $serialized
+	 */
+	public static function deserialize(Serialized $serialized): static
+	{
+		if (!($serialized instanceof SerializedPassphrase) || $serialized->type !== 'passphrase') {
+			throw new InvalidArgumentException('Invalid serialized data for Passphrase.');
+		}
+
+		return (new self(
+			new Property\Name($serialized->name),
+			$serialized->entropy,
+			$serialized->method,
+			$serialized->dictionary,
+		))->prefill($serialized->value);
 	}
 }
