@@ -114,4 +114,27 @@ final class PhoneNumberTest extends FieldTestCase
 
 		$this->assertNull($field->defaultValue->unwrap());
 	}
+
+	#[Test]
+	public function it_serializes_and_deserializes(): void
+	{
+		$sut = $this->createField()
+			->makeOptional()
+			->prefill('+61 3 1234 5678');
+
+		$serialized = $sut->serialize();
+
+		// serializing normalises the phone number
+		$this->assertEquals('phone_number', $serialized->type);
+		$this->assertEquals('test', $serialized->name);
+		$this->assertTrue($serialized->optional);
+		$this->assertEquals('+61312345678', $serialized->value);
+
+		$deserialized = PhoneNumber::deserialize($serialized);
+
+		$this->assertEquals('phone_number', $deserialized->type->value);
+		$this->assertEquals('test', $deserialized->name->value);
+		$this->assertTrue($deserialized->optional);
+		$this->assertEquals('+61312345678', $deserialized->defaultValue->unwrap());
+	}
 }
