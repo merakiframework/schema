@@ -9,12 +9,25 @@ use Meraki\Schema\Property;
 use InvalidArgumentException;
 
 /**
+ * @extends Serialized<array|string|null>
+ * @property-read string $format
+ * @property-read int $min
+ * @property-read int $max
+ * @property-read string[] $allowedDomains
+ * @property-read string[] $disallowedDomains
+ * @internal
+ */
+interface SerializedEmailAddress extends Serialized
+{
+}
+
+/**
  * Represents an email address field.
  *
  * Validates the email address format according to the HTML specification,
  * which is a subset (and saner version) of the format specified in RFC 5322.
  *
- * @extends AtomicMultiValueField<array|string|null>
+ * @extends AtomicMultiValueField<array|string|null, SerializedEmailAddress>
  * @see https://html.spec.whatwg.org/multipage/input.html#valid-e-mail-address
  */
 final class EmailAddress extends AtomicMultiValueField
@@ -81,16 +94,16 @@ final class EmailAddress extends AtomicMultiValueField
 		return $this;
 	}
 
-	public function allowDomain(string $domain): self
+	public function allowDomain(string ...$domains): self
 	{
-		$this->allowedDomains[] = $domain;
+		$this->allowedDomains = array_merge($this->allowedDomains, $domains);
 
 		return $this;
 	}
 
-	public function disallowDomain(string $domain): self
+	public function disallowDomain(string ...$domains): self
 	{
-		$this->disallowedDomains[] = $domain;
+		$this->disallowedDomains = array_merge($this->disallowedDomains, $domains);
 
 		return $this;
 	}
@@ -204,5 +217,59 @@ final class EmailAddress extends AtomicMultiValueField
 		$regex = '/^' . str_replace('\*', '[^.]+', $escapedPattern) . '$/i';
 
 		return (bool)preg_match($regex, $domain);
+	}
+
+	public function serialize(): SerializedEmailAddress
+	{
+		return new class(
+			type: $this->type->value,
+			name: $this->name->value,
+			format: $this->format->value,
+			optional: $this->optional,
+			value: $this->defaultValue->unwrap(),
+			min: $this->min,
+			max: $this->max,
+			allowedDomains: $this->allowedDomains,
+			disallowedDomains: $this->disallowedDomains
+		) implements SerializedEmailAddress {
+			public function __construct(
+				public readonly string $type,
+				public readonly string $name,
+				public readonly bool $optional,
+				public readonly array|string|null $value,
+				public readonly string $format,
+				public readonly int $min,
+				public readonly int $max,
+				public readonly array $allowedDomains,
+				public readonly array $disallowedDomains
+			) {}
+			public function getConstraints(): array
+			{
+				return ['min', 'max', 'allowed_domains', 'disallowed_domains'];
+			}
+		};
+	}
+
+	/**
+	 * @param SerializedEmailAddress $serialized
+	 */
+	public static function deserialize(Serialized $serialized): static
+	{
+		if ($serialized->type !== 'email_address' || !($serialized instanceof SerializedEmailAddress)) {
+			throw new InvalidArgumentException('Invalid serialized data for EmailAddress.');
+		}
+
+		$emailField = new self(
+			new Property\Name($serialized->name),
+			Format::from($serialized->format)
+		);
+
+		$emailField->optional = $serialized->optional;
+
+		return $emailField->minLengthOf($serialized->min)
+			->maxLengthOf($serialized->max)
+			->allowDomain(...$serialized->allowedDomains)
+			->disallowDomain(...$serialized->disallowedDomains)
+			->prefill($serialized->value);
 	}
 }

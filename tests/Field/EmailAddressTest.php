@@ -209,4 +209,39 @@ final class EmailAddressTest extends FieldTestCase
 
 		$this->assertNull($field->defaultValue->unwrap());
 	}
+
+	#[Test]
+	public function it_serializes_and_deserializes(): void
+	{
+		$sut = $this->createField()
+			->minLengthOf(5)
+			->maxLengthOf(128)
+			->allowDomain('example.org')
+			->disallowDomain('example.com')
+			->prefill('postmaster@example.org');
+
+		$serialized = $sut->serialize();
+
+		$this->assertEquals('email_address', $serialized->type);
+		$this->assertEquals('email_address', $serialized->name);
+		$this->assertFalse($serialized->optional);
+		$this->assertEquals('basic', $serialized->format);
+		$this->assertEquals(5, $serialized->min);
+		$this->assertEquals(128, $serialized->max);
+		$this->assertEquals(['example.org'], $serialized->allowedDomains);
+		$this->assertEquals(['example.com'], $serialized->disallowedDomains);
+		$this->assertEquals('postmaster@example.org', $serialized->value);
+
+		$deserialized = EmailAddress::deserialize($serialized);
+
+		$this->assertEquals('email_address', $deserialized->type->value);
+		$this->assertEquals('email_address', $deserialized->name->value);
+		$this->assertFalse($deserialized->optional);
+		$this->assertEquals('basic', $deserialized->format->value);
+		$this->assertEquals(5, $deserialized->min);
+		$this->assertEquals(128, $deserialized->max);
+		$this->assertEquals(['example.org'], $deserialized->allowedDomains);
+		$this->assertEquals(['example.com'], $deserialized->disallowedDomains);
+		$this->assertEquals('postmaster@example.org', $deserialized->defaultValue->unwrap());
+	}
 }
