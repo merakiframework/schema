@@ -90,4 +90,27 @@ final class EnumTest extends FieldTestCase
 
 		$this->assertNull($field->defaultValue->unwrap());
 	}
+
+	#[Test]
+	public function it_serializes_and_deserializes(): void
+	{
+		$sut = (new Enum(new Name('currency'), ['GBP', 'AUD', 'EUR']))
+			->prefill('AUD');
+
+		$serialized = $sut->serialize();
+
+		$this->assertEquals('enum', $serialized->type);
+		$this->assertEquals('currency', $serialized->name);
+		$this->assertFalse($serialized->optional);
+		$this->assertEquals(['GBP', 'AUD', 'EUR'], $serialized->oneOf);
+		$this->assertEquals('AUD', $serialized->value);
+
+		$deserialized = Enum::deserialize($serialized);
+
+		$this->assertEquals('enum', $deserialized->type->value);
+		$this->assertEquals('currency', $deserialized->name->value);
+		$this->assertFalse($deserialized->optional);
+		$this->assertEquals(['GBP', 'AUD', 'EUR'], $deserialized->oneOf);
+		$this->assertEquals('AUD', $deserialized->defaultValue->unwrap());
+	}
 }
