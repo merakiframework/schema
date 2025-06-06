@@ -7,6 +7,7 @@ use Brick\DateTime\DateTimeException;
 use Meraki\Schema\Field\Atomic as AtomicField;
 use Meraki\Schema\Field\Time\PrecisionCaster;
 use Meraki\Schema\Field\Time\Precision;
+use Meraki\Schema\Field\Time\PreservePrecision;
 use Meraki\Schema\Field\Time\TruncatePrecision;
 use Meraki\Schema\Property;
 use Brick\DateTime\Duration;
@@ -16,10 +17,26 @@ use Brick\DateTime\TimeZone;
 use InvalidArgumentException;
 
 /**
+ * @extends Serialized<string|null>
+ * @property-read string $from
+ * @property-read string $until
+ * @property-read string $step
+ * @property-read string $precisionUnit
+ * @property-read string $precisionMode
+ * @internal
+ */
+interface SerializedTime extends Serialized
+{
+}
+
+
+/**
  * A `time` value as close to ISO 8601, RFC 3339/9557, and HTML standards.
  *
  * The HTML standard does not have any time formats that have exact intersections
  * with the ISO 8601 and RFC 3339/9557 standards.
+ *
+ * @extends AtomicField<string|null, SerializedTime>
  */
 final class Time extends AtomicField
 {
@@ -159,5 +176,78 @@ final class Time extends AtomicField
 		}
 
 		return ($inputNanos - $fromNanos) % $stepNanos === 0;
+	}
+
+	public function serialize(): SerializedTime
+	{
+		return new class(
+			type: $this->type->value,
+			name: $this->name->value,
+			optional: $this->optional,
+			from: $this->from->__toString(),
+			until: $this->until->__toString(),
+			step: $this->step->__toString(),
+			precisionUnit: $this->precision->value,
+			precisionMode: self::getPrecisionModeFromCaster($this->caster),
+			value: $this->defaultValue->unwrap() !== null ? $this->cast($this->defaultValue->unwrap())->__toString() : null,
+		) implements SerializedTime {
+			public function __construct(
+				public readonly string $type,
+				public readonly string $name,
+				public readonly bool $optional,
+				public readonly string $from,
+				public readonly string $until,
+				public readonly string $step,
+				public readonly string $precisionUnit,
+				public readonly string $precisionMode,
+				public ?string $value
+			) {}
+			public function getConstraints(): array
+			{
+				return ['from', 'until', 'step'];
+			}
+		};
+	}
+
+	/**
+	 * @param SerializedTime $serialized
+	 */
+	public static function deserialize(Serialized $serialized): static
+	{
+		if ($serialized->type !== 'time') {
+			throw new InvalidArgumentException('Invalid serialized type for Time field.');
+		}
+
+		$instance = new self(
+			new Property\Name($serialized->name),
+			Precision::from($serialized->precisionUnit),
+			self::getCasterFromPrecisionMode($serialized->precisionMode)
+		);
+
+		$instance->optional = $serialized->optional;
+
+		return $instance
+			->from($serialized->from)
+			->until($serialized->until)
+			->inIncrementsOf($serialized->step)
+			->prefill($serialized->value);
+	}
+
+	private static function getPrecisionModeFromCaster(PrecisionCaster $caster): string
+	{
+		return match (get_class($caster)) {
+			TruncatePrecision::class => 'truncate',
+			PreservePrecision::class => 'preserve',
+			default => throw new InvalidArgumentException('Unsupported precision caster.'),
+		};
+	}
+
+	private static function getCasterFromPrecisionMode(string $mode): PrecisionCaster
+	{
+		return match ($mode) {
+			'truncate' => new TruncatePrecision(),
+			'preserve' => new PreservePrecision(),
+			default => throw new InvalidArgumentException('Unsupported precision mode.'),
+		};
 	}
 }

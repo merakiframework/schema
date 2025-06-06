@@ -200,4 +200,40 @@ final class TimeTest extends FieldTestCase
 
 		$this->assertNull($field->defaultValue->unwrap());
 	}
+
+	#[Test]
+	public function it_serializes_and_deserializes(): void
+	{
+		$sut = $this->createField()
+			->makeOptional()
+			->from('10:00:00')
+			->until('20:00:00')
+			->inIncrementsOf('PT1H')
+			->prefill('12:00:00');
+
+		$serialized = $sut->serialize();
+
+		// serializing normalises time strings
+		$this->assertEquals('time', $serialized->type);
+		$this->assertEquals('time', $serialized->name);
+		$this->assertTrue($serialized->optional);
+		$this->assertEquals('10:00', $serialized->from);
+		$this->assertEquals('20:00', $serialized->until);
+		$this->assertEquals('PT1H', $serialized->step);
+		$this->assertEquals('minutes', $serialized->precisionUnit);
+		$this->assertEquals('truncate', $serialized->precisionMode);
+		$this->assertEquals('12:00', $serialized->value);
+
+		$deserialized = Time::deserialize($serialized);
+
+		$this->assertEquals('time', $deserialized->type->value);
+		$this->assertEquals('time', $deserialized->name->value);
+		$this->assertTrue($deserialized->optional);
+		$this->assertEquals('10:00', $deserialized->from);
+		$this->assertEquals('20:00', $deserialized->until);
+		$this->assertEquals('PT1H', $deserialized->step);
+		$this->assertEquals('minutes', $deserialized->precision->value);
+		// $this->assertEquals('truncate', $deserialized->caster->value);
+		$this->assertEquals('12:00', $deserialized->defaultValue->unwrap());
+	}
 }
