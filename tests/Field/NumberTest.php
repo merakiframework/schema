@@ -272,4 +272,37 @@ final class NumberTest extends FieldTestCase
 
 		$this->assertNull($field->defaultValue->unwrap());
 	}
+
+	#[Test]
+	public function it_serializes_and_deserializes(): void
+	{
+		$sut = $this->createField()
+			->minOf(9)
+			->maxOf(81)
+			->inIncrementsOf(9)
+			->prefill(27);
+
+		$serialized = $sut->serialize();
+
+		// serialization converts integers and floats to strings
+		$this->assertEquals('number', $serialized->type);
+		$this->assertEquals('number', $serialized->name);
+		$this->assertFalse($serialized->optional);
+		$this->assertEquals('9', $serialized->min);
+		$this->assertEquals('81', $serialized->max);
+		$this->assertEquals('9', $serialized->step);
+		$this->assertNull($serialized->scale);
+		$this->assertEquals('27', $serialized->value);
+
+		$deserialized = Number::deserialize($serialized);
+
+		$this->assertEquals('number', $deserialized->type->value);
+		$this->assertEquals('number', $deserialized->name->value);
+		$this->assertFalse($deserialized->optional);
+		$this->assertEquals('9', $deserialized->min);
+		$this->assertEquals('81', $deserialized->max);
+		$this->assertEquals('9', $deserialized->step);
+		$this->assertNull($deserialized->scale);
+		$this->assertEquals('27', $deserialized->defaultValue->unwrap());
+	}
 }
