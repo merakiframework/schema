@@ -8,6 +8,20 @@ use Meraki\Schema\Property;
 use Brick\DateTime;
 use Brick\DateTime\DateTimeException;
 
+/**
+ * @extends Serialized<string|null>
+ * @property-read string $min
+ * @property-read string $max
+ * @property-read string $step
+ * @internal
+ */
+interface SerializedDuration extends Serialized
+{
+}
+
+/**
+ * @extends AtomicField<string|null, SerializedDuration>
+ */
 final class Duration extends AtomicField
 {
 	public DateTime\Duration $min;
@@ -96,5 +110,52 @@ final class Duration extends AtomicField
 		}
 
 		return ($value - $min) % $step === 0;
+	}
+
+	public function serialize(): SerializedDuration
+	{
+		return new class(
+			type: $this->type->value,
+			name: $this->name->value,
+			optional: $this->optional,
+			value: $this->defaultValue->unwrap(),
+			min: $this->min->__toString(),
+			max: $this->max->__toString(),
+			step: $this->step->__toString(),
+		) implements SerializedDuration {
+			public function __construct(
+				public readonly string $type,
+				public readonly string $name,
+				public readonly bool $optional,
+				public readonly ?string $value,
+				public readonly string $min,
+				public readonly string $max,
+				public readonly string $step,
+			) {}
+
+			public function getConstraints(): array
+			{
+				return ['min', 'max', 'step'];
+			}
+		};
+	}
+
+	/**
+	 * @param SerializedDuration $serialized
+	 */
+	public static function deserialize(Serialized $serialized): static
+	{
+		if ($serialized->type !== 'duration') {
+			throw new \InvalidArgumentException('Invalid type for Duration field: ' . $serialized->type);
+		}
+
+		$field = new self(new Property\Name($serialized->name));
+		$field->optional = $serialized->optional;
+		$field->prefill($serialized->value);
+		$field->minOf($serialized->min);
+		$field->maxOf($serialized->max);
+		$field->inIncrementsOf($serialized->step);
+
+		return $field;
 	}
 }
