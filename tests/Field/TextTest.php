@@ -126,4 +126,36 @@ final class TextTest extends FieldTestCase
 
 		$this->assertNull($field->defaultValue->unwrap());
 	}
+
+	#[Test]
+	public function it_serializes_and_deserializes(): void
+	{
+		$sut = $this->createField()
+			->makeOptional()
+			->matches('/[a-zA-Z_][a-zA-Z0-9_]/')
+			->minLengthOf(5)
+			->maxLengthOf(24)
+			->prefill('doStuff');
+
+		$serialized = $sut->serialize();
+
+		// serializing normalises the phone number
+		$this->assertEquals('text', $serialized->type);
+		$this->assertEquals('text', $serialized->name);
+		$this->assertTrue($serialized->optional);
+		$this->assertEquals(5, $serialized->min);
+		$this->assertEquals(24, $serialized->max);
+		$this->assertEquals('/[a-zA-Z_][a-zA-Z0-9_]/', $serialized->pattern);
+		$this->assertEquals('doStuff', $serialized->value);
+
+		$deserialized = Text::deserialize($serialized);
+
+		$this->assertEquals('text', $deserialized->type->value);
+		$this->assertEquals('text', $deserialized->name->value);
+		$this->assertTrue($deserialized->optional);
+		$this->assertEquals(5, $deserialized->min);
+		$this->assertEquals(24, $deserialized->max);
+		$this->assertEquals('/[a-zA-Z_][a-zA-Z0-9_]/', $deserialized->pattern);
+		$this->assertEquals('doStuff', $deserialized->defaultValue->unwrap());
+	}
 }

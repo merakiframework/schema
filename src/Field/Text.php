@@ -7,19 +7,32 @@ use Meraki\Schema\Field\Atomic as AtomicField;
 use Meraki\Schema\Property;
 use InvalidArgumentException;
 
+/**
+ * @extends Serialized<string|null>
+ * @property-read int $min
+ * @property-read int $max
+ * @property-read string|null $pattern
+ * @internal
+ */
+interface SerializedText extends Serialized
+{
+}
+
+/**
+ * @extends AtomicField<string|null, SerializedText>
+ */
 final class Text extends AtomicField
 {
 	public const SKIP_MATCHING = null;
 
-	private int $min = 0;
+	public int $min = 0;
 
-	private int $max = PHP_INT_MAX;
+	public int $max = PHP_INT_MAX;
 
-	private ?string $pattern = self::SKIP_MATCHING;
+	public ?string $pattern = self::SKIP_MATCHING;
 
 	public function __construct(
 		Property\Name $name,
-		public array $strip = [],	// Characters to strip from the text input
 	) {
 		parent::__construct(new Property\Type('text', $this->validateType(...)), $name);
 	}
@@ -78,19 +91,6 @@ final class Text extends AtomicField
 		}
 	}
 
-	public function strip(string ...$chars): self
-	{
-		foreach ($chars as $char) {
-			if (mb_strlen($char) !== 1) {
-				throw new InvalidArgumentException('Each character to strip must be a single character.');
-			}
-		}
-
-		$this->strip = array_merge($this->strip, $chars);
-
-		return $this;
-	}
-
 	protected function cast(string $value): mixed
 	{
 		return $value;
@@ -129,14 +129,49 @@ final class Text extends AtomicField
 		return preg_match($this->pattern, $value) === 1;
 	}
 
-	protected function process(mixed $value): Property\Value
+	public function serialize(): SerializedText
 	{
-		if (is_string($value)) {
-			foreach ($this->strip as $char) {
-				$value = str_replace($char, '', $value);
+		return new class(
+			type: $this->type->value,
+			name: $this->name->value,
+			optional: $this->optional,
+			min: $this->min,
+			max: $this->max,
+			pattern: $this->pattern,
+			value: $this->defaultValue->unwrap(),
+		) implements SerializedText {
+			public function __construct(
+				public readonly string $type,
+				public readonly string $name,
+				public readonly bool $optional,
+				public readonly int $min,
+				public readonly int $max,
+				public readonly ?string $pattern,
+				public ?string $value,
+			) {}
+
+			public function getConstraints(): array
+			{
+				return ['min', 'max', 'pattern'];
 			}
+		};
+	}
+
+	/**
+	 * @param SerializedText $data
+	 */
+	public static function deserialize(Serialized $data): static
+	{
+		if ($data->type !== 'text') {
+			throw new InvalidArgumentException('Invalid type for Text field.');
 		}
 
-		return new Property\Value($value);
+		$field = new static(new Property\Name($data->name));
+		$field->optional = $data->optional;
+
+		return $field->minLengthOf($data->min)
+			->maxLengthOf($data->max)
+			->matches($data->pattern)
+			->prefill($data->value);
 	}
 }
