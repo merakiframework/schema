@@ -161,4 +161,9 @@ final class Range
 	{
 		return new self($this->min, self::UNRESTRICTED);
 	}
+
+	public function equals(self $other): bool
+	{
+		return ($this->min === $other->min) && ($this->max === $other->max);
+	}
 }

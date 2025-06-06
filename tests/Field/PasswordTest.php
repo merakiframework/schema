@@ -251,4 +251,48 @@ final class PasswordTest extends FieldTestCase
 
 		$this->assertNull($field->defaultValue->unwrap());
 	}
+
+	#[Test]
+	public function it_serializes_and_deserializes(): void
+	{
+		$sut = (new Password(new Name('sut')))
+			->minLengthOf(8)
+			->maxLengthOf(24)
+			->minNumberOfLowercase(1)
+			->maxNumberOfLowercase(4)
+			->minNumberOfUppercase(1)
+			->maxNumberOfUppercase(4)
+			->minNumberOfDigits(1)
+			->maxNumberOfDigits(4)
+			->minNumberOfSymbols(2)
+			->maxNumberOfSymbols(2)
+			->satisfyAnyOf('digits', 'symbols')
+			->prefill('test^1234^CAPS');
+
+		$serialized = $sut->serialize();
+
+		$this->assertEquals('password', $serialized->type);
+		$this->assertEquals('sut', $serialized->name);
+		$this->assertFalse($serialized->optional);
+		$this->assertEquals([8, 24], $serialized->length);
+		$this->assertEquals([1, 4], $serialized->lowercase);
+		$this->assertEquals([1, 4], $serialized->uppercase);
+		$this->assertEquals([1, 4], $serialized->digits);
+		$this->assertEquals([2, 2], $serialized->symbols);
+		$this->assertEquals(['digits', 'symbols'], $serialized->anyOf);
+		$this->assertEquals('test^1234^CAPS', $serialized->value);
+
+		$deserialized = Password::deserialize($serialized);
+
+		$this->assertEquals('password', $deserialized->type->value);
+		$this->assertEquals('sut', $deserialized->name->value);
+		$this->assertFalse($deserialized->optional);
+		$this->assertTrue($deserialized->length->equals(new Password\Range(8, 24)));
+		$this->assertTrue($deserialized->lowercase->equals(new Password\Range(1, 4)));
+		$this->assertTrue($deserialized->uppercase->equals(new Password\Range(1, 4)));
+		$this->assertTrue($deserialized->digits->equals(new Password\Range(1, 4)));
+		$this->assertTrue($deserialized->symbols->equals(new Password\Range(2, 2)));
+		$this->assertEquals(['digits', 'symbols'], $deserialized->anyOf);
+		$this->assertEquals('test^1234^CAPS', $deserialized->defaultValue->unwrap());
+	}
 }
