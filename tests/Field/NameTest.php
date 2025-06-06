@@ -62,4 +62,31 @@ final class NameTest extends FieldTestCase
 
 		$this->assertNull($field->defaultValue->unwrap());
 	}
+
+	#[Test]
+	public function it_serializes_and_deserializes(): void
+	{
+		$sut = $this->createField()
+			->minLengthOf(5)
+			->maxLengthOf(128)
+			->prefill('John Doe');
+
+		$serialized = $sut->serialize();
+
+		$this->assertEquals('name', $serialized->type);
+		$this->assertEquals('name', $serialized->name);
+		$this->assertFalse($serialized->optional);
+		$this->assertEquals(5, $serialized->min);
+		$this->assertEquals(128, $serialized->max);
+		$this->assertEquals('John Doe', $serialized->value);
+
+		$deserialized = Name::deserialize($serialized);
+
+		$this->assertEquals('name', $deserialized->type->value);
+		$this->assertEquals('name', $deserialized->name->value);
+		$this->assertFalse($deserialized->optional);
+		$this->assertEquals(5, $deserialized->min);
+		$this->assertEquals(128, $deserialized->max);
+		$this->assertEquals('John Doe', $deserialized->defaultValue->unwrap());
+	}
 }

@@ -7,6 +7,16 @@ use Meraki\Schema\Field\Atomic as AtomicField;
 use Meraki\Schema\Property;
 
 /**
+ * @extends Serialized<string|null>
+ * @property-read int $min
+ * @property-read int $max
+ * @internal
+ */
+interface SerializedName extends Serialized
+{
+}
+
+/**
  * A "name" field is used to represent a person's full name.
  *
  * It does not make any assumptions about the structure of a name.
@@ -18,6 +28,7 @@ use Meraki\Schema\Property;
  * 	- each "word" must be at least one character long
  *  - should use Roman Numerals to represent numbers (e.g. John Doe IV)
  *
+ * @extends AtomicField<string|null, SerializedName>
  * @see https://www.w3.org/International/questions/qa-personal-names
  * @see https://shinesolutions.com/2018/01/08/falsehoods-programmers-believe-about-names-with-examples/
  */
@@ -75,5 +86,45 @@ final class Name extends AtomicField
 	private function validateMax(string $value): bool
 	{
 		return mb_strlen($value) <= $this->max;
+	}
+
+	public function serialize(): SerializedName
+	{
+		return new class(
+			type: $this->type->value,
+			name: $this->name->value,
+			optional: $this->optional,
+			value: $this->defaultValue->unwrap(),
+			min: $this->min,
+			max: $this->max
+		) implements SerializedName {
+			public function __construct(
+				public readonly string $type,
+				public readonly string $name,
+				public readonly bool $optional,
+				public readonly mixed $value,
+				public readonly int $min,
+				public readonly int $max,
+			) {
+			}
+
+			public function getConstraints(): array
+			{
+				return ['min', 'max'];
+			}
+		};
+	}
+
+	/**
+	 * @param SerializedName $serialized
+	 */
+	public static function deserialize(Serialized $serialized): static
+	{
+		$field = new self(new Property\Name($serialized->name));
+		$field->optional = $serialized->optional;
+
+		return $field->minLengthOf($serialized->min)
+			->maxLengthOf($serialized->max)
+			->prefill($serialized->value);
 	}
 }
