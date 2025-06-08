@@ -17,4 +17,9 @@ interface Serialized
 	 * @return string[]
 	 */
 	public function getConstraints(): array;
+
+	/**
+	 * @return array<Serialized<mixed>>
+	 */
+	public function children(): array;
 }
