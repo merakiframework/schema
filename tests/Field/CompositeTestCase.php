@@ -85,4 +85,18 @@ abstract class CompositeTestCase extends FieldTestCase
 
 		$this->assertEquals($expectedStatus, $constraint->status, "Expected status '{$expectedStatus->name}' for constraint '$constraintName' in field '$fieldName', but got '{$constraint->status->name}'.");
 	}
+
+	/**
+	 * @param array<Serialized> $serializedChildren
+	 */
+	public function assertSerializedChildrenContainsFieldWithNameOf(string $fieldName, array $serializedChildren): void
+	{
+		foreach ($serializedChildren as $child) {
+			if ($child->name === $fieldName) {
+				return;
+			}
+		}
+
+		$this->fail("Serialized children does not contain a field with name '$fieldName'. Serialized children: " . json_encode($serializedChildren, JSON_PRETTY_PRINT));
+	}
 }
