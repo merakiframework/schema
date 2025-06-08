@@ -7,6 +7,19 @@ use Meraki\Schema\Field\Atomic as AtomicField;
 use Meraki\Schema\Property;
 use InvalidArgumentException;
 
+/**
+ * @extends Serialized<string|null>
+ * @property-read int $min
+ * @property-read int $max
+ * @internal
+ */
+interface SerializedUri extends Serialized
+{
+}
+
+/**
+ * @extends AtomicField<string|null, SerializedUri>
+ */
 final class Uri extends AtomicField
 {
 	private const PATTERN = '~^
@@ -87,5 +100,49 @@ final class Uri extends AtomicField
 	private function validateMax(mixed $value): bool
 	{
 		return mb_strlen($value) <= $this->max;
+	}
+
+	public function serialize(): SerializedUri
+	{
+		return new class(
+			type: $this->type->value,
+			name: $this->name->value,
+			optional: $this->optional,
+			min: $this->min,
+			max: $this->max,
+			value: $this->defaultValue->unwrap()
+		) implements SerializedUri {
+			public function __construct(
+				public readonly string $type,
+				public readonly string $name,
+				public readonly bool $optional,
+				public readonly int $min,
+				public readonly int $max,
+				public ?string $value
+			) {}
+
+			public function getConstraints(): array
+			{
+				return ['min', 'max'];
+			}
+		};
+	}
+
+	/**
+	 * @param SerializedUri $serialized
+	 */
+	public static function deserialize(Serialized $serialized): static
+	{
+		if ($serialized->type !== 'uri') {
+			throw new InvalidArgumentException('Invalid serialized type for Uri field.');
+		}
+
+		$instance = new self(new Property\Name($serialized->name));
+		$instance->optional = $serialized->optional;
+
+		return $instance
+			->minLengthOf($serialized->min)
+			->maxLengthOf($serialized->max)
+			->prefill($serialized->value);
 	}
 }

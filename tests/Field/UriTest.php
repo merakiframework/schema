@@ -139,4 +139,33 @@ final class UriTest extends FieldTestCase
 
 		$this->assertNull($sut->defaultValue->unwrap());
 	}
+
+	#[Test]
+	public function it_serializes_and_deserializes(): void
+	{
+		$sut = $this->createField()
+			->makeOptional()
+			->minLengthOf(1)
+			->maxLengthOf(64)
+			->prefill('localhost');
+
+		$serialized = $sut->serialize();
+
+		// serializing normalises time strings
+		$this->assertEquals('uri', $serialized->type);
+		$this->assertEquals('test', $serialized->name);
+		$this->assertTrue($serialized->optional);
+		$this->assertEquals(1, $serialized->min);
+		$this->assertEquals(64, $serialized->max);
+		$this->assertEquals('localhost', $serialized->value);
+
+		$deserialized = Uri::deserialize($serialized);
+
+		$this->assertEquals('uri', $deserialized->type->value);
+		$this->assertEquals('test', $deserialized->name->value);
+		$this->assertTrue($deserialized->optional);
+		$this->assertEquals(1, $deserialized->min);
+		$this->assertEquals(64, $deserialized->max);
+		$this->assertEquals('localhost', $deserialized->defaultValue->unwrap());
+	}
 }
