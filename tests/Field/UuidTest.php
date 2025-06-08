@@ -175,4 +175,31 @@ final class UuidTest extends FieldTestCase
 
 		$this->assertNull($sut->defaultValue->unwrap());
 	}
+
+	#[Test]
+	public function it_serializes_and_deserializes(): void
+	{
+		$uuid = '919108f7-52d1-4320-9bac-f847db4148a8';
+		$sut = $this->createField()
+			->makeOptional()
+			->restrictToVersion(4)
+			->prefill($uuid);
+
+		$serialized = $sut->serialize();
+
+		// serializing normalises time strings
+		$this->assertEquals('uuid', $serialized->type);
+		$this->assertEquals('uuid', $serialized->name);
+		$this->assertTrue($serialized->optional);
+		$this->assertEquals([4], $serialized->versions);
+		$this->assertEquals($uuid, $serialized->value);
+
+		$deserialized = Uuid::deserialize($serialized);
+
+		$this->assertEquals('uuid', $deserialized->type->value);
+		$this->assertEquals('uuid', $deserialized->name->value);
+		$this->assertTrue($deserialized->optional);
+		$this->assertEquals([4], $deserialized->versions);
+		$this->assertEquals($uuid, $deserialized->defaultValue->unwrap());
+	}
 }
