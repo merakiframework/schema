@@ -272,4 +272,56 @@ final class CreditCardTest extends CompositeTestCase
 
 		$this->assertEquals('2029-07-31', $field->expiry->resolvedValue->unwrap());
 	}
+
+	#[Test]
+	public function it_serializes_and_deserializes(): void
+	{
+		$addressNormalized = [
+			'credit_card.holder' => 'Mr. Matthew James',
+			'credit_card.number' => '4014182829098805',
+			'credit_card.expiry' => '2027-10-31',
+			'credit_card.security_code' => '511',
+		];
+		$sut = $this->createSubject()
+			->prefill([
+				'credit_card.holder' => 'Mr. Matthew James',
+				'credit_card.number' => '4014 1828 2909 8805',
+				'credit_card.expiry' => '2027-10',
+				'credit_card.security_code' => '511',
+			]);
+
+		$serialized = $sut->serialize();
+
+		// serializing normalises date and number
+		$this->assertEquals('credit_card', $serialized->type);
+		$this->assertEquals('credit_card', $serialized->name);
+		$this->assertFalse($serialized->optional);
+		$this->assertEquals($addressNormalized, $serialized->value);
+
+		$deserialized = CreditCard::deserialize($serialized);
+
+		$this->assertEquals('credit_card', $deserialized->type->value);
+		$this->assertEquals('credit_card', $deserialized->name->value);
+		$this->assertFalse($deserialized->optional);
+		$this->assertEquals($addressNormalized, $deserialized->defaultValue->unwrap());
+	}
+
+	#[Test]
+	public function children_returns_serialized_fields(): void
+	{
+		$field = $this->createSubject()->prefill([
+			'credit_card.holder' => 'Mr. Matthew James',
+			'credit_card.number' => '4014 1828 2909 8805',
+			'credit_card.expiry' => '2027-10',
+			'credit_card.security_code' => '511',
+		]);
+		$serialized = $field->serialize();
+		$children = $serialized->children();
+
+		$this->assertCount(4, $children);
+		$this->assertSerializedChildrenContainsFieldWithNameOf('credit_card.holder', $children);
+		$this->assertSerializedChildrenContainsFieldWithNameOf('credit_card.number', $children);
+		$this->assertSerializedChildrenContainsFieldWithNameOf('credit_card.expiry', $children);
+		$this->assertSerializedChildrenContainsFieldWithNameOf('credit_card.security_code', $children);
+	}
 }

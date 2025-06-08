@@ -11,6 +11,15 @@ use Meraki\Schema\Property;
 use DateTimeImmutable;
 
 /**
+ * @extends Serialized<array>
+ * @internal
+ */
+interface SerializedCreditCard extends Serialized
+{
+}
+
+/**
+ * @extends CompositeField<array|null, SerializedCreditCard>
  * @property-read Field\Name $holder
  * @property-read Field\Text $number
  * @property-read Field\Date $expiry
@@ -109,5 +118,64 @@ final class CreditCard extends CompositeField
 		}
 
 		return new Property\Value($value);
+	}
+
+	public function serialize(): SerializedCreditCard
+	{
+		$serializedChildren = array_map(
+			fn(Field $field): Serialized => $field->serialize(),
+			$this->fields->getIterator()->getArrayCopy()
+		);
+		return new class(
+			type: $this->type->value,
+			name: $this->name->value,
+			optional: $this->optional,
+			value: $this->defaultValue->unwrap(),
+			children: $serializedChildren
+		) implements SerializedCreditCard {
+			public function __construct(
+				public readonly string $type,
+				public readonly string $name,
+				public readonly bool $optional,
+				public readonly array $value,
+				private array $children,
+			) {}
+
+			public function getConstraints(): array
+			{
+				return [];
+			}
+
+			public function children(): array
+			{
+				return $this->children;
+			}
+		};
+	}
+
+	/**
+	 * @param SerializedCreditCard $serialized
+	 */
+	public static function deserialize(Serialized $serialized): static
+	{
+		if ($serialized->type !== 'credit_card') {
+			throw new \InvalidArgumentException('Invalid serialized data for CreditCard');
+		}
+
+		$deserializedChildren = [];
+		foreach ($serialized->children() as $child) {
+			$deserializedChildren[] = match ($child->type) {
+				'text' => Field\Text::deserialize($child),
+				'date' => Field\Date::deserialize($child),
+				'name' => Field\Name::deserialize($child),
+				default => throw new \InvalidArgumentException("Unsupported child type: {$child->type}"),
+			};
+		}
+
+		$field = new self(new Property\Name($serialized->name));
+		$field->optional = $serialized->optional;
+		$field->fields = new Field\Set(...$deserializedChildren);
+
+		return $field->prefill($serialized->value);
 	}
 }
