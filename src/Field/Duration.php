@@ -137,6 +137,11 @@ final class Duration extends AtomicField
 			{
 				return ['min', 'max', 'step'];
 			}
+
+			public function children(): array
+			{
+				return [];
+			}
 		};
 	}
 

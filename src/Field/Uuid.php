@@ -124,6 +124,10 @@ final class Uuid extends AtomicField
 			{
 				return ['versions'];
 			}
+			public function children(): array
+			{
+				return [];
+			}
 		};
 	}
 

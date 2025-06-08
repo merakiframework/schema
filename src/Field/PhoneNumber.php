@@ -81,6 +81,10 @@ final class PhoneNumber extends AtomicField
 			{
 				return [];
 			}
+			public function children(): array
+			{
+				return [];
+			}
 		};
 	}
 

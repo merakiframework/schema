@@ -112,6 +112,11 @@ final class Name extends AtomicField
 			{
 				return ['min', 'max'];
 			}
+
+			public function children(): array
+			{
+				return [];
+			}
 		};
 	}
 

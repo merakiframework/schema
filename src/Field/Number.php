@@ -175,6 +175,11 @@ final class Number extends AtomicField
 			{
 				return ['min', 'max', 'step'];
 			}
+
+			public function children(): array
+			{
+				return [];
+			}
 		};
 	}
 

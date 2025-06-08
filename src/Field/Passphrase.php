@@ -267,6 +267,10 @@ final class Passphrase extends AtomicField
 			{
 				return ['entropy', 'dictionary'];
 			}
+			public function children(): array
+			{
+				return [];
+			}
 		};
 	}
 

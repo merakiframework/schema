@@ -154,6 +154,10 @@ final class Text extends AtomicField
 			{
 				return ['min', 'max', 'pattern'];
 			}
+			public function children(): array
+			{
+				return [];
+			}
 		};
 	}
 

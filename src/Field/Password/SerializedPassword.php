@@ -35,4 +35,9 @@ final class SerializedPassword implements Serialized
 	{
 		return ['length', 'lowercase', 'uppercase', 'digits', 'symbols', 'any_of'];
 	}
+
+	public function children(): array
+	{
+		return [];
+	}
 }

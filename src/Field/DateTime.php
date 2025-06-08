@@ -200,6 +200,11 @@ final class DateTime extends AtomicField
 			{
 				return ['from', 'until', 'interval'];
 			}
+
+			public function children(): array
+			{
+				return [];
+			}
 		};
 	}
 

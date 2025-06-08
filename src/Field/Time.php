@@ -206,6 +206,10 @@ final class Time extends AtomicField
 			{
 				return ['from', 'until', 'step'];
 			}
+			public function children(): array
+			{
+				return [];
+			}
 		};
 	}
 

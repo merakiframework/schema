@@ -62,6 +62,11 @@ final class Boolean extends AtomicField
 			{
 				return [];
 			}
+
+			public function children(): array
+			{
+				return [];
+			}
 		};
 	}
 

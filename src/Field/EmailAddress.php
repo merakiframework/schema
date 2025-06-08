@@ -247,6 +247,10 @@ final class EmailAddress extends AtomicMultiValueField
 			{
 				return ['min', 'max', 'allowed_domains', 'disallowed_domains'];
 			}
+			public function children(): array
+			{
+				return [];
+			}
 		};
 	}
 

@@ -386,6 +386,10 @@ final class File extends AtomicMultiValueField
 					'disallowed_sources',
 				];
 			}
+			public function children(): array
+			{
+				return [];
+			}
 		};
 	}
 

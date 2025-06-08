@@ -74,6 +74,10 @@ final class Enum extends AtomicField
 			{
 				return [];
 			}
+			public function children(): array
+			{
+				return [];
+			}
 		};
 	}
 
