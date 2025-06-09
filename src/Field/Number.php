@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace Meraki\Schema\Field;
 
 use Brick\Math\RoundingMode;
+use InvalidArgumentException;
 use Meraki\Schema\Field\Atomic as AtomicField;
 use Meraki\Schema\Property;
 use Brick\Math\BigDecimal;
@@ -52,13 +53,24 @@ final class Number extends AtomicField
 
 	public function __construct(
 		Property\Name $name,
-		public readonly ?int $scale = null,
+		public ?int $scale = null,
 	) {
 		parent::__construct(new Property\Type('number', $this->validateType(...)), $name);
 
 		$this->min = BigDecimal::of(-PHP_FLOAT_MAX);
 		$this->max = BigDecimal::of(PHP_FLOAT_MAX);
 		$this->step = BigDecimal::one();
+	}
+
+	public function scaleTo(?int $scale): self
+	{
+		if ($scale < 0) {
+			throw new InvalidArgumentException('Scale must be a non-negative integer');
+		}
+
+		$this->scale = $scale;
+
+		return $this;
 	}
 
 	public function minOf(float|int|string $minValue): self
