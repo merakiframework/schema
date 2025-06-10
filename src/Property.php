@@ -9,8 +9,25 @@ namespace Meraki\Schema;
  * @property-read string $name
  * @property-read mixed $value
  */
-interface Property
+class Property
 {
-	// public string $name { get; }
-	// public mixed $value { get; }
+	public function __construct(
+		public readonly string $name,
+		public readonly mixed $value,
+	) {}
+
+	public function hasNameOf(string $name): bool
+	{
+		return $this->name === $name;
+	}
+
+	public function hasValueOf(mixed $value): bool
+	{
+		return $this->value === $value;
+	}
+
+	public function equals(self $other): bool
+	{
+		return $this->name === $other->name && $this->value === $other->value;
+	}
 }

@@ -10,13 +10,11 @@ use Meraki\Schema\Property;
  *
  * The value attribute is used to specify the value or default_value of a field.
  */
-final class Value implements Property
+final class Value extends Property
 {
-	public readonly string $name;
-
-	public function __construct(public readonly mixed $value)
+	public function __construct(mixed $value)
 	{
-		$this->name = 'value';
+		parent::__construct('value', $value);
 	}
 
 	public static function of(mixed $value): self

@@ -10,16 +10,14 @@ use Meraki\Schema\Property;
  *
  * The name attribute is used to specify the name of a field.
  */
-final class Name implements Property
+final class Name extends Property
 {
 	public const PREFIX_SEPARATOR = '.';
-	public readonly string $name;
 	public string $prefix = '';
 
-	public function __construct(public readonly string $value)
+	public function __construct(mixed $value)
 	{
-		$this->name = 'name';
-		// parent::__construct('name', $value);
+		parent::__construct('name', $value);
 	}
 
 	public function prefixWith(string|self $prefix): self
@@ -44,11 +42,6 @@ final class Name implements Property
 		$self->prefix = '';
 
 		return $self;
-	}
-
-	public function equals(self $other): bool
-	{
-		return $this->value === $other->value;
 	}
 
 	public function __toString(): string
