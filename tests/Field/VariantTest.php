@@ -179,4 +179,54 @@ final class VariantTest extends FieldTestCase
 		$this->assertEquals($value, $sut->passphrase->value->unwrap());
 		$this->assertEquals($value, $sut->password->value->unwrap());
 	}
+
+	#[Test]
+	public function it_serializes_and_deserializes(): void
+	{
+		$value = 'correct horse battery staple';
+		$sut = $this->createSubject()
+			->makeOptional()
+			->prefill($value);
+
+		$serialized = $sut->serialize();
+
+		// serializing normalises time strings
+		$this->assertEquals('variant', $serialized->type);
+		$this->assertEquals('secret', $serialized->name);
+		$this->assertTrue($serialized->optional);
+		$this->assertEquals($value, $serialized->value);
+
+		$deserialized = Variant::deserialize($serialized);
+
+		$this->assertEquals('variant', $deserialized->type->value);
+		$this->assertEquals('secret', $deserialized->name->value);
+		$this->assertTrue($deserialized->optional);
+		$this->assertEquals($value, $deserialized->defaultValue->unwrap());
+	}
+
+	#[Test]
+	public function children_returns_serialized_fields(): void
+	{
+		$field = $this->createSubject()->prefill('correct horse battery staple');
+		$serialized = $field->serialize();
+		$children = $serialized->children();
+
+		$this->assertCount(2, $children);
+		$this->assertSerializedChildrenContainsFieldWithNameOf('secret.password', $children);
+		$this->assertSerializedChildrenContainsFieldWithNameOf('secret.passphrase', $children);
+	}
+
+	/**
+	 * @param array<Serialized> $serializedChildren
+	 */
+	public function assertSerializedChildrenContainsFieldWithNameOf(string $fieldName, array $serializedChildren): void
+	{
+		foreach ($serializedChildren as $child) {
+			if ($child->name === $fieldName) {
+				return;
+			}
+		}
+
+		$this->fail("Serialized children does not contain a field with name '$fieldName'. Serialized children: " . json_encode($serializedChildren, JSON_PRETTY_PRINT));
+	}
 }

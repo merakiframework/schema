@@ -12,6 +12,15 @@ use Meraki\Schema\Property;
 use InvalidArgumentException;
 
 /**
+ * @template AcceptedType of mixed
+ * @extends Serialized<AcceptedType|null>
+ * @internal
+ */
+interface SerializedVariant extends Serialized
+{
+}
+
+/**
  * A variant field is a field that can have multiple types. It is used to represent a value that can be one of several different types.
  * For example, a variant field can be used to represent a password type and a passphrase type.
  * A variant field can only contain atomic fields, which are fields that have a single value.
@@ -22,6 +31,7 @@ use InvalidArgumentException;
  * the passphrase field was added first, then the passphrase field result is returned.)
  *
  * @template AcceptedType of mixed
+ * @extends Field<AcceptedType|null, SerializedVariant>
  */
 final class Variant extends Field
 {
@@ -146,5 +156,53 @@ final class Variant extends Field
 	private static function camelCaseToSnakeCase(string $input): string
 	{
 		return strtolower(preg_replace('/[A-Z]/', '_$0', lcfirst($input)));
+	}
+
+	public function serialize(): SerializedVariant
+	{
+		$serializedChildren = array_map(
+			fn(Field $field): Serialized => $field->serialize(),
+			$this->fields->getIterator()->getArrayCopy()
+		);
+
+		return new class(
+			type: $this->type->value,
+			name: $this->name->value,
+			optional: $this->optional,
+			value: $this->defaultValue->unwrap(),
+			children: $serializedChildren
+		) implements SerializedVariant {
+			public function __construct(
+				public readonly string $type,
+				public readonly string $name,
+				public readonly bool $optional,
+				public readonly mixed $value,
+				private array $children,
+			) {}
+
+			public function getConstraints(): array
+			{
+				return [];
+			}
+
+			public function children(): array
+			{
+				return $this->children;
+			}
+		};
+	}
+
+	/** @param SerializedVariant $serialized */
+	public static function deserialize(Serialized $serialized): static
+	{
+		if ($serialized->type !== 'variant') {
+			throw new InvalidArgumentException('Invalid type for Variant field: ' . $serialized->type);
+		}
+
+		$deserializedChildren = array_map(Field::deserialize(...), $serialized->children());
+		$field = new self(new Property\Name($serialized->name), ...$deserializedChildren);
+		$field->optional = $serialized->optional;
+
+		return $field->prefill($serialized->value);
 	}
 }
