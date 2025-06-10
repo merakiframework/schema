@@ -162,16 +162,7 @@ final class CreditCard extends CompositeField
 			throw new \InvalidArgumentException('Invalid serialized data for CreditCard');
 		}
 
-		$deserializedChildren = [];
-		foreach ($serialized->children() as $child) {
-			$deserializedChildren[] = match ($child->type) {
-				'text' => Field\Text::deserialize($child),
-				'date' => Field\Date::deserialize($child),
-				'name' => Field\Name::deserialize($child),
-				default => throw new \InvalidArgumentException("Unsupported child type: {$child->type}"),
-			};
-		}
-
+		$deserializedChildren = array_map(Field::deserialize(...), $serialized->children());
 		$field = new self(new Property\Name($serialized->name));
 		$field->optional = $serialized->optional;
 		$field->fields = new Field\Set(...$deserializedChildren);

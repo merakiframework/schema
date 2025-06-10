@@ -98,16 +98,7 @@ final class Address extends CompositeField
 			throw new InvalidArgumentException('Invalid serialized type for Address field.');
 		}
 
-		$deserializedChildren = [];
-
-		foreach ($serialized->children() as $child) {
-			$deserializedChildren[] = match ($child->type) {
-				'text' => Field\Text::deserialize($child),
-				'enum' => Field\Enum::deserialize($child),
-				default => throw new InvalidArgumentException("Unsupported child type: {$child->type}"),
-			};
-		}
-
+		$deserializedChildren = array_map(Field::deserialize(...), $serialized->children());
 		$field = new self(new Property\Name($serialized->name));
 		$field->optional = $serialized->optional;
 		$field->fields = new Field\Set(...$deserializedChildren);

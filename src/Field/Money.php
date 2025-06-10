@@ -323,15 +323,7 @@ final class Money extends CompositeField
 			throw new InvalidArgumentException('Expected instance of SerializedMoney');
 		}
 
-		$deserializedChildren = [];
-		foreach ($data->children() as $child) {
-			$deserializedChildren[] = match ($child->type) {
-				'enum' => Field\Enum::deserialize($child),
-				'number' => Field\Number::deserialize($child),
-				default => throw new InvalidArgumentException("Unknown child type: {$child->type}"),
-			};
-		}
-
+		$deserializedChildren = array_map(Field::deserialize(...), $data->children());
 		$field = new self(
 			new Property\Name($data->name),
 			self::combineAllowedAndScale($data->allowed, $data->scale),
