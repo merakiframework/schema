@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Field;
 
+use Brick\Math\BigDecimal;
 use Meraki\Schema\Field;
 use Meraki\Schema\Field\CompositeTestCase;
 use Meraki\Schema\Field\Money;
@@ -137,10 +138,90 @@ final class MoneyTest extends CompositeTestCase
 	}
 
 	#[Test]
+	#[DataProvider('validCurrencies')]
+	public function can_require_a_minimum_amount_per_currency(string $currency): void
+	{
+		$field = $this->createSubject()
+			->minOf('USD', '10.00')
+			->minOf('AUD', '20.00')
+			->input([
+				'cost.currency' => $currency,
+				'cost.amount' => '0.99',
+			]);
+
+		$result = $field->validate();
+
+		$this->assertConstraintValidationResultFailedForField('cost.amount', 'cost.amount.min', $result);
+	}
+
+	#[Test]
+	#[DataProvider('validCurrencies')]
+	public function can_require_maximum_amount_for_per_currency(string $currency): void
+	{
+		$field = $this->createSubject()
+			->maxOf('USD', '500.00')
+			->maxOf('AUD', '1000.00')
+			->input([
+				'cost.currency' => $currency,
+				'cost.amount' => '1001.00',
+			]);
+
+		$result = $field->validate();
+
+		$this->assertConstraintValidationResultFailedForField('cost.amount', 'cost.amount.max', $result);
+	}
+
+	#[Test]
+	#[DataProvider('validCurrencies')]
+	public function can_require_a_step_for_per_currency(string $currency): void
+	{
+		$field = $this->createSubject()
+			->minOf('USD', '0')
+			->maxOf('USD', '1000')
+			->inIncrementsOf('USD', '10.00')
+			->minOf('AUD', '0')
+			->maxOf('AUD', '1000')
+			->inIncrementsOf('AUD', '10.00')
+			->input([
+				'cost.currency' => $currency,
+				'cost.amount' => '1.23',
+			]);
+
+		$result = $field->validate();
+
+		$this->assertConstraintValidationResultFailedForField('cost.amount', 'cost.amount.step', $result);
+	}
+
+	public static function validCurrencies(): array
+	{
+		return [
+			'USD' => ['USD'],
+			'AUD' => ['AUD'],
+		];
+	}
+
+	#[Test]
+	public function it_scales_amount_to_correct_decimal_places(): void
+	{
+		$field = new Money(new Name('cost'), [
+			'AUD'=> 4,
+			'USD' => 2,
+		]);
+		$field->input([
+			'cost.currency' => 'AUD',
+			'cost.amount' => '1.23',
+		]);
+
+		$result = $field->validate();
+
+		$this->assertConstraintValidationResultPassedForField('cost.amount', 'cost.amount.scale', $result);
+	}
+
+	#[Test]
 	public function it_fails_if_scale_is_not_valid_for_currency(): void
 	{
 		$field = $this->createSubject()
-			->allow('AUD', 2) // Allow AUD with scale of 2
+			->allow('AUD', 2)
 			->input([
 				'cost.currency' => 'AUD',
 				'cost.amount' => '1.234',
@@ -155,7 +236,7 @@ final class MoneyTest extends CompositeTestCase
 	public function it_passes_if_scale_is_valid_for_currency(): void
 	{
 		$field = $this->createSubject()
-			->allow('AUD', 3) // Allow AUD with scale of 2
+			->allow('AUD', 3)
 			->input([
 				'cost.currency' => 'AUD',
 				'cost.amount' => '1.234',
@@ -164,5 +245,66 @@ final class MoneyTest extends CompositeTestCase
 		$result = $field->validate();
 
 		$this->assertConstraintValidationResultPassedForField('cost.amount', 'cost.amount.scale', $result);
+	}
+
+	#[Test]
+	public function it_serializes_and_deserializes(): void
+	{
+		$moneyNormalized = [
+			'cost.currency' => 'AUD',
+			'cost.amount' => '100.000',
+		];
+		$sut = $this->createSubject()
+			->allow('AUD', 3)
+			->minOf('AUD', '0')
+			->maxOf('AUD', '1000.000')
+			->inIncrementsOf('AUD', '0.001')
+			->minOf('USD', '20')
+			->maxOf('USD', '500')
+			->inIncrementsOf('USD', '10')
+			->prefill([
+				'cost.currency' => 'AUD',
+				'cost.amount' => '100',
+			]);
+
+		$serialized = $sut->serialize();
+
+		// serialized money will be normalized
+		$this->assertEquals('money', $serialized->type);
+		$this->assertEquals('cost', $serialized->name);
+		$this->assertFalse($serialized->optional);
+		$this->assertEquals(['AUD', 'USD'], $serialized->allowed);
+		$this->assertEquals(['AUD' => 3, 'USD' => 2], $serialized->scale);
+		$this->assertEquals(['AUD' => '0.000', 'USD' => '20.00'], $serialized->min);
+		$this->assertEquals(['AUD' => '1000.000', 'USD' => '500.00'], $serialized->max);
+		$this->assertEquals(['AUD' => '0.001', 'USD' => '10.00'], $serialized->step);
+		$this->assertEquals($moneyNormalized, $serialized->value);
+
+		$deserialized = Money::deserialize($serialized);
+
+		$this->assertEquals('money', $deserialized->type->value);
+		$this->assertEquals('cost', $deserialized->name->value);
+		$this->assertFalse($deserialized->optional);
+		$this->assertEquals(['AUD', 'USD'], $deserialized->allowed);
+		$this->assertEquals(['AUD' => 3, 'USD' => 2], $deserialized->scale);
+		$this->assertEquals(['AUD' => BigDecimal::of('0.000'), 'USD' => BigDecimal::of('20.00')], $deserialized->min);
+		$this->assertEquals(['AUD' => BigDecimal::of('1000.000'), 'USD' => BigDecimal::of('500.00')], $deserialized->max);
+		$this->assertEquals(['AUD' => BigDecimal::of('0.001'), 'USD' => BigDecimal::of('10.00')], $deserialized->step);
+		$this->assertEquals($moneyNormalized, $deserialized->defaultValue->unwrap());
+	}
+
+	#[Test]
+	public function children_returns_serialized_fields(): void
+	{
+		$field = $this->createSubject()->prefill([
+			'cost.currency' => 'AUD',
+			'cost.amount' => '100.00',
+		]);
+		$serialized = $field->serialize();
+		$children = $serialized->children();
+
+		$this->assertCount(2, $children);
+		$this->assertSerializedChildrenContainsFieldWithNameOf('cost.currency', $children);
+		$this->assertSerializedChildrenContainsFieldWithNameOf('cost.amount', $children);
 	}
 }
