@@ -7,9 +7,11 @@ use Meraki\Schema\Property;
 use Meraki\Schema\AggregatedValidationResult;
 use Meraki\Schema\Field\ValidationResult;
 use Meraki\Schema\Field\ConstraintValidationResult;
+use Meraki\Schema\Field\Serialized;
 
 /**
  * @template AcceptedType of mixed
+ * @template TSerialized of Serialized
  */
 abstract class Field
 {
@@ -137,7 +139,7 @@ abstract class Field
 	 * Sets the default value for the field, which will be used when
 	 * no input has been given.
 	 *
-	 * @param AcceptedType $value
+	 * @param AcceptedType|null $value
 	 */
 	public function prefill($value): static
 	{
@@ -274,4 +276,57 @@ abstract class Field
 	 * @return array<string, callable(mixed): bool|null>
 	 */
 	abstract protected function getConstraints(): array;
+
+	/**
+	 * @return TSerialized
+	 */
+	abstract public function serialize(): Serialized;
+
+	/**
+	 * @param TSerialized $serialized
+	 */
+	public static function deserialize(Serialized $serialized): static
+	{
+		$fqcn = self::resolveFieldType($serialized->type);
+
+		if (!is_subclass_of($fqcn, Field::class)) {
+			throw new \InvalidArgumentException("Cannot deserialize field of type {$serialized->type} as it is not a subclass of " . Field::class);
+		}
+
+		if (!method_exists($fqcn, 'deserialize')) {
+			throw new \InvalidArgumentException("Field type {$serialized->type} does not implement the deserialize method.");
+		}
+
+		return $fqcn::deserialize($serialized);
+	}
+
+	/**
+	 * @return class-string<Field>
+	 */
+	protected static function resolveFieldType(string $type): string
+	{
+		return match ($type) {
+			'address' => Field\Address::class,
+			'boolean' => Field\Boolean::class,
+			'credit_card' => Field\CreditCard::class,
+			'date' => Field\Date::class,
+			'date_time' => Field\DateTime::class,
+			'duration' => Field\Duration::class,
+			'email_address' => Field\EmailAddress::class,
+			'enum' => Field\Enum::class,
+			'file' => Field\File::class,
+			'money' => Field\Money::class,
+			'name' => Field\Name::class,
+			'number' => Field\Number::class,
+			'passphrase' => Field\Passphrase::class,
+			'password' => Field\Password::class,
+			'phone_number' => Field\PhoneNumber::class,
+			'text' => Field\Text::class,
+			'time' => Field\Time::class,
+			'uri' => Field\Uri::class,
+			'uuid' => Field\Uuid::class,
+			'variant' => Field\Variant::class,
+			default => throw new \InvalidArgumentException("Unknown field type: {$type}"),
+		};
+	}
 }
