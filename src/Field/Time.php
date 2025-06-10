@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace Meraki\Schema\Field;
 
 use Brick\DateTime\DateTimeException;
+use Brick\Math\BigInteger;
 use Meraki\Schema\Field\Atomic as AtomicField;
 use Meraki\Schema\Field\Time\PrecisionCaster;
 use Meraki\Schema\Field\Time\Precision;
@@ -167,15 +168,21 @@ final class Time extends AtomicField
 		$input = $this->cast($value)->atDate(LocalDate::now(TimeZone::utc()))->atTimeZone(TimeZone::utc())->getInstant();
 		$from = $this->from->atDate(LocalDate::now(TimeZone::utc()))->atTimeZone(TimeZone::utc())->getInstant();
 
-		$inputNanos = $input->getEpochSecond() * 1_000_000_000 + $input->getNano();
-		$fromNanos = $from->getEpochSecond() * 1_000_000_000 + $from->getNano();
-		$stepNanos = $this->step->getSeconds() * 1_000_000_000 + $this->step->getNanos();
+		$inputNanos = BigInteger::of($input->getEpochSecond())
+			->multipliedBy(BigInteger::of(1_000_000_000))
+			->plus(BigInteger::of($input->getNano()));
+		$fromNanos = BigInteger::of($from->getEpochSecond())
+			->multipliedBy(BigInteger::of(1_000_000_000))
+			->plus(BigInteger::of($from->getNano()));
+		$stepNanos = BigInteger::of($this->step->getSeconds())
+			->multipliedBy(BigInteger::of(1_000_000_000))
+			->plus(BigInteger::of($this->step->getNanos()));
 
-		if ($stepNanos === 0) {
+		if ($stepNanos->isZero()) {
 			return false;
 		}
 
-		return ($inputNanos - $fromNanos) % $stepNanos === 0;
+		return $inputNanos->minus($fromNanos)->remainder($stepNanos)->isZero();
 	}
 
 	public function serialize(): SerializedTime
