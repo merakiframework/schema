@@ -85,6 +85,25 @@ class CompositeValidationResultTest extends AggregatedValidationResultTestCase
 			private function validateMockType(): bool {
 				return true;
 			}
+
+			public function serialize(): Serialized {
+				return new class implements Serialized {
+					public function getConstraints(): array {
+						return [];
+					}
+
+					public function children(): array {
+						return [];
+					}
+				};
+			}
+
+			public static function deserialize(Serialized $serialized): static {
+				if ($serialized->type !== 'mock') {
+					throw new \InvalidArgumentException('Invalid type for Mock field: ' . $serialized->type);
+				}
+				return new self();
+			}
 		};
 	}
 
