@@ -108,6 +108,7 @@ final class Uuid extends AtomicField
 			optional: $this->optional,
 			value: $this->defaultValue->unwrap(),
 			versions: $this->versions,
+			fields: [],
 		) implements SerializedUuid {
 			/**
 			 * @param int[] $versions
@@ -116,18 +117,11 @@ final class Uuid extends AtomicField
 				public readonly string $type,
 				public readonly string $name,
 				public readonly bool $optional,
-				public ?string $value,
+				public readonly ?string $value,
 				public readonly array $versions,
+				/** @var array<Serialized> */
+				public readonly array $fields,
 			) {}
-
-			public function getConstraints(): array
-			{
-				return ['versions'];
-			}
-			public function children(): array
-			{
-				return [];
-			}
 		};
 	}
 

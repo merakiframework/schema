@@ -20,10 +20,10 @@ use InvalidArgumentException;
  * @property-read int $maxCount
  * @property-read int $minSize
  * @property-read int $maxSize
- * @property-read list<string> $allowedTypes
- * @property-read list<string> $disallowedTypes
- * @property-read list<string> $allowedSources
- * @property-read list<string> $disallowedSources
+ * @property-read list<string> $allowed_types
+ * @property-read list<string> $disallowed_types
+ * @property-read list<string> $allowed_sources
+ * @property-read list<string> $disallowed_sources
  * @internal
  */
 interface SerializedFile extends Serialized
@@ -348,10 +348,11 @@ final class File extends AtomicMultiValueField
 			maxCount: $this->maxCount,
 			minSize: $this->minSize,
 			maxSize: $this->maxSize,
-			allowedTypes: $this->allowedTypes,
-			disallowedTypes: $this->disallowedTypes,
-			allowedSources: $this->allowedSources,
-			disallowedSources: $this->disallowedSources
+			allowed_types: $this->allowedTypes,
+			disallowed_types: $this->disallowedTypes,
+			allowed_sources: $this->allowedSources,
+			disallowed_sources: $this->disallowedSources,
+			fields: [],
 		) implements SerializedFile {
 			public function __construct(
 				public readonly string $type,
@@ -363,32 +364,17 @@ final class File extends AtomicMultiValueField
 				public readonly int $maxCount,
 				public readonly int $minSize,
 				public readonly int $maxSize,
-				/** @param list<string> $allowedTypes */
-				public readonly array $allowedTypes,
-				/** @param list<string> $disallowedTypes */
-				public readonly array $disallowedTypes,
-				/** @param list<string> $allowedSources */
-				public readonly array $allowedSources,
-				/** @param list<string> $disallowedSources */
-				public readonly array $disallowedSources,
+				/** @param list<string> $allowed_types */
+				public readonly array $allowed_types,
+				/** @param list<string> $disallowed_types */
+				public readonly array $disallowed_types,
+				/** @param list<string> $allowed_sources */
+				public readonly array $allowed_sources,
+				/** @param list<string> $disallowed_sources */
+				public readonly array $disallowed_sources,
+				/** @var array<Serialized> */
+				public readonly array $fields,
 			) {
-			}
-			public function getConstraints(): array
-			{
-				return [
-					'min_count',
-					'max_count',
-					'min_size',
-					'max_size',
-					'allowed_types',
-					'disallowed_types',
-					'allowed_sources',
-					'disallowed_sources',
-				];
-			}
-			public function children(): array
-			{
-				return [];
 			}
 		};
 	}
@@ -404,15 +390,15 @@ final class File extends AtomicMultiValueField
 
 		$fileField = new self(new Property\Name($serialized->name));
 		$fileField->optional = $serialized->optional;
-		$fileField->allowedSources = $serialized->allowedSources;
-		$fileField->disallowedSources = $serialized->disallowedSources;
+		$fileField->allowedSources = $serialized->allowed_sources;
+		$fileField->disallowedSources = $serialized->disallowed_sources;
 
 		return $fileField->atLeast($serialized->minCount)
 			->atMost($serialized->maxCount)
 			->minFileSizeOf($serialized->minSize)
 			->maxFileSizeOf($serialized->maxSize)
-			->allowTypes(...$serialized->allowedTypes)
-			->disallowTypes(...$serialized->disallowedTypes)
+			->allowTypes(...$serialized->allowed_types)
+			->disallowTypes(...$serialized->disallowed_types)
 			->prefill($serialized->value);
 	}
 }

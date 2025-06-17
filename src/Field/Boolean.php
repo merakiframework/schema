@@ -50,23 +50,15 @@ final class Boolean extends AtomicField
 			name: $this->name->value,
 			optional: $this->optional,
 			value: $this->defaultValue->unwrap(),
+			fields: [],
 		) implements SerializedBoolean {
 			public function __construct(
 				public readonly string $type,
 				public readonly string $name,
 				public readonly bool $optional,
 				public readonly ?bool $value,
+				public readonly array $fields,
 			) {}
-
-			public function getConstraints(): array
-			{
-				return [];
-			}
-
-			public function children(): array
-			{
-				return [];
-			}
 		};
 	}
 

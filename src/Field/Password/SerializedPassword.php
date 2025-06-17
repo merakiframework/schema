@@ -26,18 +26,10 @@ final class SerializedPassword implements Serialized
 		/** @var array{0:int|null, 1:int|null}|array{} */
 		public readonly array $symbols,
 		/** @var string[] */
-		public readonly array $anyOf,
+		public readonly array $any_of,
 		public readonly ?string $value,
+		/** @var array<Serialized> */
+		public readonly array $fields = [],
 	) {
-	}
-
-	public function getConstraints(): array
-	{
-		return ['length', 'lowercase', 'uppercase', 'digits', 'symbols', 'any_of'];
-	}
-
-	public function children(): array
-	{
-		return [];
 	}
 }

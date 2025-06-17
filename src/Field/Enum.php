@@ -9,7 +9,7 @@ use Meraki\Schema\Property;
 /**
  * @extends Serialized<string|null>
  * @template T of scalar
- * @property-read list<T> $oneOf
+ * @property-read list<T> $one_of
  * @internal
  */
 interface SerializedEnum extends Serialized
@@ -59,24 +59,19 @@ final class Enum extends AtomicField
 			name: $this->name->value,
 			optional: $this->optional,
 			value: $this->defaultValue->unwrap(),
-			oneOf: $this->oneOf
+			one_of: $this->oneOf,
+			fields: [],
 		) implements SerializedEnum {
 			public function __construct(
 				public readonly string $type,
 				public readonly string $name,
 				public readonly bool $optional,
 				public readonly string|null $value,
-				/** @param list<T> $oneOf */
-				public readonly array $oneOf,
+				/** @param list<T> $one_of */
+				public readonly array $one_of,
+				/** @param array<Serialized> $fields */
+				public readonly array $fields,
 			) {
-			}
-			public function getConstraints(): array
-			{
-				return [];
-			}
-			public function children(): array
-			{
-				return [];
 			}
 		};
 	}
@@ -92,7 +87,7 @@ final class Enum extends AtomicField
 
 		$enumField = new self(
 			new Property\Name($serialized->name),
-			$serialized->oneOf
+			$serialized->one_of
 		);
 
 		$enumField->optional = $serialized->optional;

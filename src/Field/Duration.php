@@ -122,6 +122,7 @@ final class Duration extends AtomicField
 			min: $this->min->__toString(),
 			max: $this->max->__toString(),
 			step: $this->step->__toString(),
+			fields: [],
 		) implements SerializedDuration {
 			public function __construct(
 				public readonly string $type,
@@ -131,17 +132,9 @@ final class Duration extends AtomicField
 				public readonly string $min,
 				public readonly string $max,
 				public readonly string $step,
+				/** @var array<Serialized> */
+				public readonly array $fields,
 			) {}
-
-			public function getConstraints(): array
-			{
-				return ['min', 'max', 'step'];
-			}
-
-			public function children(): array
-			{
-				return [];
-			}
 		};
 	}
 

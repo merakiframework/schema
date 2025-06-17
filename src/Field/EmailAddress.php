@@ -13,8 +13,8 @@ use InvalidArgumentException;
  * @property-read string $format
  * @property-read int $min
  * @property-read int $max
- * @property-read string[] $allowedDomains
- * @property-read string[] $disallowedDomains
+ * @property-read string[] $allowed_domains
+ * @property-read string[] $disallowed_domains
  * @internal
  */
 interface SerializedEmailAddress extends Serialized
@@ -229,8 +229,9 @@ final class EmailAddress extends AtomicMultiValueField
 			value: $this->defaultValue->unwrap(),
 			min: $this->min,
 			max: $this->max,
-			allowedDomains: $this->allowedDomains,
-			disallowedDomains: $this->disallowedDomains
+			allowed_domains: $this->allowedDomains,
+			disallowed_domains: $this->disallowedDomains,
+			fields: [],
 		) implements SerializedEmailAddress {
 			public function __construct(
 				public readonly string $type,
@@ -240,17 +241,10 @@ final class EmailAddress extends AtomicMultiValueField
 				public readonly string $format,
 				public readonly int $min,
 				public readonly int $max,
-				public readonly array $allowedDomains,
-				public readonly array $disallowedDomains
+				public readonly array $allowed_domains,
+				public readonly array $disallowed_domains,
+				public readonly array $fields,
 			) {}
-			public function getConstraints(): array
-			{
-				return ['min', 'max', 'allowed_domains', 'disallowed_domains'];
-			}
-			public function children(): array
-			{
-				return [];
-			}
 		};
 	}
 
@@ -272,8 +266,8 @@ final class EmailAddress extends AtomicMultiValueField
 
 		return $emailField->minLengthOf($serialized->min)
 			->maxLengthOf($serialized->max)
-			->allowDomain(...$serialized->allowedDomains)
-			->disallowDomain(...$serialized->disallowedDomains)
+			->allowDomain(...$serialized->allowed_domains)
+			->disallowDomain(...$serialized->disallowed_domains)
 			->prefill($serialized->value);
 	}
 }

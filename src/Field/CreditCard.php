@@ -122,34 +122,23 @@ final class CreditCard extends CompositeField
 
 	public function serialize(): SerializedCreditCard
 	{
-		$serializedChildren = array_map(
-			fn(Field $field): Serialized => $field->serialize(),
-			$this->fields->getIterator()->getArrayCopy()
-		);
 		return new class(
 			type: $this->type->value,
 			name: $this->name->value,
 			optional: $this->optional,
 			value: $this->defaultValue->unwrap(),
-			children: $serializedChildren
+			fields: array_map(
+				fn(Field $field): Serialized => $field->serialize(),
+				$this->fields->getIterator()->getArrayCopy()
+			)
 		) implements SerializedCreditCard {
 			public function __construct(
 				public readonly string $type,
 				public readonly string $name,
 				public readonly bool $optional,
 				public readonly array $value,
-				private array $children,
+				public readonly array $fields,
 			) {}
-
-			public function getConstraints(): array
-			{
-				return [];
-			}
-
-			public function children(): array
-			{
-				return $this->children;
-			}
 		};
 	}
 
@@ -162,7 +151,7 @@ final class CreditCard extends CompositeField
 			throw new \InvalidArgumentException('Invalid serialized data for CreditCard');
 		}
 
-		$deserializedChildren = array_map(Field::deserialize(...), $serialized->children());
+		$deserializedChildren = array_map(Field::deserialize(...), $serialized->fields);
 		$field = new self(new Property\Name($serialized->name));
 		$field->optional = $serialized->optional;
 		$field->fields = new Field\Set(...$deserializedChildren);

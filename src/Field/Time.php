@@ -22,8 +22,8 @@ use InvalidArgumentException;
  * @property-read string $from
  * @property-read string $until
  * @property-read string $step
- * @property-read string $precisionUnit
- * @property-read string $precisionMode
+ * @property-read string $precision_unit
+ * @property-read string $precision_mode
  * @internal
  */
 interface SerializedTime extends Serialized
@@ -194,8 +194,8 @@ final class Time extends AtomicField
 			from: $this->from->__toString(),
 			until: $this->until->__toString(),
 			step: $this->step->__toString(),
-			precisionUnit: $this->precision->value,
-			precisionMode: self::getPrecisionModeFromCaster($this->caster),
+			precision_unit: $this->precision->value,
+			precision_mode: self::getPrecisionModeFromCaster($this->caster),
 			value: $this->defaultValue->unwrap() !== null ? $this->cast($this->defaultValue->unwrap())->__toString() : null,
 		) implements SerializedTime {
 			public function __construct(
@@ -205,18 +205,10 @@ final class Time extends AtomicField
 				public readonly string $from,
 				public readonly string $until,
 				public readonly string $step,
-				public readonly string $precisionUnit,
-				public readonly string $precisionMode,
-				public ?string $value
+				public readonly string $precision_unit,
+				public readonly string $precision_mode,
+				public readonly ?string $value
 			) {}
-			public function getConstraints(): array
-			{
-				return ['from', 'until', 'step'];
-			}
-			public function children(): array
-			{
-				return [];
-			}
 		};
 	}
 
@@ -231,8 +223,8 @@ final class Time extends AtomicField
 
 		$instance = new self(
 			new Property\Name($serialized->name),
-			Precision::from($serialized->precisionUnit),
-			self::getCasterFromPrecisionMode($serialized->precisionMode)
+			Precision::from($serialized->precision_unit),
+			self::getCasterFromPrecisionMode($serialized->precision_mode)
 		);
 
 		$instance->optional = $serialized->optional;

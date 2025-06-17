@@ -270,16 +270,17 @@ final class Password extends AtomicField
 	public function serialize(): Password\SerializedPassword
 	{
 		return new Password\SerializedPassword(
-			$this->type->value,
-			$this->name->value,
-			$this->optional,
-			$this->length->toTuple(),
-			$this->lowercase->toTuple(),
-			$this->uppercase->toTuple(),
-			$this->digits->toTuple(),
-			$this->symbols->toTuple(),
-			$this->anyOf,
-			$this->defaultValue->unwrap(),
+			type: $this->type->value,
+			name: $this->name->value,
+			optional: $this->optional,
+			length: $this->length->toTuple(),
+			lowercase: $this->lowercase->toTuple(),
+			uppercase: $this->uppercase->toTuple(),
+			digits: $this->digits->toTuple(),
+			symbols: $this->symbols->toTuple(),
+			any_of: $this->anyOf,
+			value: $this->defaultValue->unwrap(),
+			fields: [],
 		);
 	}
 
@@ -299,7 +300,7 @@ final class Password extends AtomicField
 		$field->uppercase = Range::fromTuple($data->uppercase);
 		$field->digits = Range::fromTuple($data->digits);
 		$field->symbols = Range::fromTuple($data->symbols);
-		$field->anyOf = $data->anyOf;
+		$field->anyOf = $data->any_of;
 
 		return $field->prefill($data->value);
 	}

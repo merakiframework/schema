@@ -9,17 +9,8 @@ namespace Meraki\Schema\Field;
  * @property-read string $name
  * @property-read boolean $optional
  * @property-read AcceptedType|null $value
+ * @property-read array<Serialized> $fields
  */
 interface Serialized
 {
-	/**
-	 * The names of the properties on this serialized field that are used for validation; not including 'type'.
-	 * @return string[]
-	 */
-	public function getConstraints(): array;
-
-	/**
-	 * @return array<Serialized<mixed>>
-	 */
-	public function children(): array;
 }

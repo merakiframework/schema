@@ -242,31 +242,27 @@ final class Money extends CompositeField
 
 	public function serialize(): SerializedMoney
 	{
-		$serializedChildren = array_map(
-			fn(Field $field): Serialized => $field->serialize(),
-			$this->fields->getIterator()->getArrayCopy()
-		);
 		$currencyFieldName = $this->getCurrencyFieldName();
 		$amountFieldName = $this->getAmountFieldName();
 		$value = $this->defaultValue->unwrap();
-		$min = self::flatten($this->min);
-		$max = self::flatten($this->max);
-		$step = self::flatten($this->step);
 
 		return new class(
 			type: $this->type->value,
 			name: $this->name->value,
 			optional: $this->optional,
 			allowed: $this->allowed,
-			min: $min,
-			max: $max,
-			step: $step,
+			min: self::flatten($this->min),
+			max: self::flatten($this->max),
+			step: self::flatten($this->step),
 			scale: $this->scale,
 			value: [
 				$currencyFieldName => $value[$currencyFieldName],
-				$amountFieldName => (string)$this->toDecimal($value[$currencyFieldName], $value[$amountFieldName]),
+				$amountFieldName => $value[$amountFieldName] !== null ? (string)$this->toDecimal($value[$currencyFieldName], $value[$amountFieldName]) : null,
 			],
-			children: $serializedChildren
+			fields: array_map(
+				fn(Field $field): Serialized => $field->serialize(),
+				$this->fields->getIterator()->getArrayCopy()
+			),
 		) implements SerializedMoney {
 			public function __construct(
 				public readonly string $type,
@@ -283,18 +279,9 @@ final class Money extends CompositeField
 				/** @var array<string, int> */
 				public readonly array $scale,
 				public readonly array $value,
-				private array $children,
+				/** @var array<Serialized> */
+				public readonly array $fields,
 			) {}
-
-			public function getConstraints(): array
-			{
-				return ['allowed', 'min', 'max', 'step', 'scale'];
-			}
-
-			public function children(): array
-			{
-				return $this->children;
-			}
 		};
 	}
 
@@ -323,7 +310,7 @@ final class Money extends CompositeField
 			throw new InvalidArgumentException('Expected instance of SerializedMoney');
 		}
 
-		$deserializedChildren = array_map(Field::deserialize(...), $data->children());
+		$deserializedChildren = array_map(Field::deserialize(...), $data->fields);
 		$field = new self(
 			new Property\Name($data->name),
 			self::combineAllowedAndScale($data->allowed, $data->scale),

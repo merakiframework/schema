@@ -23,8 +23,8 @@ use InvalidArgumentException;
  * @property-read string $from
  * @property-read string $until
  * @property-read string $interval
- * @property-read string $precisionUnit
- * @property-read string $precisionMode
+ * @property-read string $precision_unit
+ * @property-read string $precision_mode
  * @internal
  */
 interface SerializedDateTime extends Serialized
@@ -186,33 +186,26 @@ final class DateTime extends AtomicField
 			name: $this->name->value,
 			optional: $this->optional,
 			value: $this->defaultValue->unwrap(),
-			precisionUnit: $this->precision->value,
-			precisionMode: $this->getPrecisionMode(),
+			precision_unit: $this->precision->value,
+			precision_mode: $this->getPrecisionMode(),
 			from: $this->from->__toString(),
 			until: $this->until->__toString(),
 			interval: $this->interval->__toString(),
+			fields: [],
 		) implements SerializedDateTime {
 			public function __construct(
 				public readonly string $type,
 				public readonly string $name,
 				public readonly bool $optional,
 				public readonly ?string $value,
-				public readonly string $precisionUnit,
-				public readonly string $precisionMode,
+				public readonly string $precision_unit,
+				public readonly string $precision_mode,
 				public readonly string $from,
 				public readonly string $until,
 				public readonly string $interval,
+				/** @var array<Serialized> */
+				public readonly array $fields = [],
 			) {}
-
-			public function getConstraints(): array
-			{
-				return ['from', 'until', 'interval'];
-			}
-
-			public function children(): array
-			{
-				return [];
-			}
 		};
 	}
 
@@ -242,8 +235,8 @@ final class DateTime extends AtomicField
 			throw new InvalidArgumentException('Invalid type for DateTime field: ' . $serialized->type);
 		}
 
-		$precision = TimePrecision::from($serialized->precisionUnit);
-		$caster = self::getCasterFromPrecisionMode($serialized->precisionMode);
+		$precision = TimePrecision::from($serialized->precision_unit);
+		$caster = self::getCasterFromPrecisionMode($serialized->precision_mode);
 		$field = new self(new Property\Name($serialized->name), $precision, $caster);
 		$field->optional = $serialized->optional;
 		$field->prefill($serialized->value);

@@ -64,28 +64,18 @@ final class Address extends CompositeField
 			name: $this->name->value,
 			optional: $this->optional,
 			value: $this->defaultValue->unwrap(),
-			children: $serializedChildren
+			fields: $serializedChildren
 		) implements SerializedAddress {
 			/**
-			 * @param array<Serialized> $children
+			 * @param array<Serialized> $fields
 			 */
 			public function __construct(
 				public readonly string $type,
 				public readonly string $name,
 				public readonly bool $optional,
 				public readonly array $value,
-				private array $children,
+				public readonly array $fields,
 			) {}
-
-			public function getConstraints(): array
-			{
-				return [];
-			}
-
-			public function children(): array
-			{
-				return $this->children;
-			}
 		};
 	}
 
@@ -98,7 +88,7 @@ final class Address extends CompositeField
 			throw new InvalidArgumentException('Invalid serialized type for Address field.');
 		}
 
-		$deserializedChildren = array_map(Field::deserialize(...), $serialized->children());
+		$deserializedChildren = array_map(Field::deserialize(...), $serialized->fields);
 		$field = new self(new Property\Name($serialized->name));
 		$field->optional = $serialized->optional;
 		$field->fields = new Field\Set(...$deserializedChildren);

@@ -253,6 +253,7 @@ final class Passphrase extends AtomicField
 			method: $this->method,
 			dictionary: $this->dictionary,
 			value: $this->defaultValue->unwrap(),
+			fields: [],
 		) implements SerializedPassphrase {
 			public function __construct(
 				public readonly string $type,
@@ -262,15 +263,9 @@ final class Passphrase extends AtomicField
 				public readonly string $method,
 				public readonly string $dictionary,
 				public readonly ?string $value,
+				/** @var array<Serialized> */
+				public readonly array $fields,
 			) {}
-			public function getConstraints(): array
-			{
-				return ['entropy', 'dictionary'];
-			}
-			public function children(): array
-			{
-				return [];
-			}
 		};
 	}
 

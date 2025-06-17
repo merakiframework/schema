@@ -139,6 +139,7 @@ final class Text extends AtomicField
 			max: $this->max,
 			pattern: $this->pattern,
 			value: $this->defaultValue->unwrap(),
+			fields: [],
 		) implements SerializedText {
 			public function __construct(
 				public readonly string $type,
@@ -147,17 +148,10 @@ final class Text extends AtomicField
 				public readonly int $min,
 				public readonly int $max,
 				public readonly ?string $pattern,
-				public ?string $value,
+				public readonly ?string $value,
+				/** @var array<Serialized> */
+				public readonly array $fields,
 			) {}
-
-			public function getConstraints(): array
-			{
-				return ['min', 'max', 'pattern'];
-			}
-			public function children(): array
-			{
-				return [];
-			}
 		};
 	}
 

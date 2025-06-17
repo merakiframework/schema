@@ -96,7 +96,8 @@ final class Name extends AtomicField
 			optional: $this->optional,
 			value: $this->defaultValue->unwrap(),
 			min: $this->min,
-			max: $this->max
+			max: $this->max,
+			fields: [],
 		) implements SerializedName {
 			public function __construct(
 				public readonly string $type,
@@ -105,17 +106,9 @@ final class Name extends AtomicField
 				public readonly mixed $value,
 				public readonly int $min,
 				public readonly int $max,
+				/** @var array<Serialized> */
+				public readonly array $fields,
 			) {
-			}
-
-			public function getConstraints(): array
-			{
-				return ['min', 'max'];
-			}
-
-			public function children(): array
-			{
-				return [];
 			}
 		};
 	}

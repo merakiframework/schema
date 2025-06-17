@@ -131,6 +131,7 @@ final class Date extends AtomicField
 			from: $this->from->__toString(),
 			until: $this->until->__toString(),
 			interval: $this->interval->__toString(),
+			fields: []
 		) implements SerializedDate {
 			public function __construct(
 				public readonly string $type,
@@ -140,17 +141,9 @@ final class Date extends AtomicField
 				public readonly string $from,
 				public readonly string $until,
 				public readonly string $interval,
+				/** @var array<Serialized> */
+				public readonly array $fields,
 			) {}
-
-			public function getConstraints(): array
-			{
-				return ['from', 'until', 'interval'];
-			}
-
-			public function children(): array
-			{
-				return [];
-			}
 		};
 	}
 

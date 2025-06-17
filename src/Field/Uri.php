@@ -110,7 +110,8 @@ final class Uri extends AtomicField
 			optional: $this->optional,
 			min: $this->min,
 			max: $this->max,
-			value: $this->defaultValue->unwrap()
+			value: $this->defaultValue->unwrap(),
+			fields: [],
 		) implements SerializedUri {
 			public function __construct(
 				public readonly string $type,
@@ -118,17 +119,10 @@ final class Uri extends AtomicField
 				public readonly bool $optional,
 				public readonly int $min,
 				public readonly int $max,
-				public ?string $value
+				public readonly ?string $value,
+				/** @var array<Serialized> */
+				public readonly array $fields,
 			) {}
-
-			public function getConstraints(): array
-			{
-				return ['min', 'max'];
-			}
-			public function children(): array
-			{
-				return [];
-			}
 		};
 	}
 

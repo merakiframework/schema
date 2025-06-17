@@ -69,22 +69,17 @@ final class PhoneNumber extends AtomicField
 			type: $this->type->value,
 			name: $this->name->value,
 			optional: $this->optional,
-			value: $this->value !== null ? $this->cast($this->defaultValue->unwrap()) : null,
+			value: $this->defaultValue->unwrap() !== null ? $this->cast($this->defaultValue->unwrap()) : null,
+			fields: [],
 		) implements SerializedPhoneNumber {
 			public function __construct(
 				public readonly string $type,
 				public readonly string $name,
 				public readonly bool $optional,
-				public ?string $value = null,
+				public readonly ?string $value = null,
+				/** @var array<Serialized> */
+				public readonly array $fields = [],
 			) {}
-			public function getConstraints(): array
-			{
-				return [];
-			}
-			public function children(): array
-			{
-				return [];
-			}
 		};
 	}
 

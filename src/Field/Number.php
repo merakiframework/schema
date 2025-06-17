@@ -169,7 +169,8 @@ final class Number extends AtomicField
 			min: $this->min->__toString(),
 			max: $this->max->__toString(),
 			step: $this->step->__toString(),
-			scale: $this->scale
+			scale: $this->scale,
+			fields: [],
 		) implements SerializedNumber {
 			public function __construct(
 				public readonly string $type,
@@ -179,18 +180,10 @@ final class Number extends AtomicField
 				public readonly string $min,
 				public readonly string $max,
 				public readonly string $step,
-				public readonly ?int $scale
+				public readonly ?int $scale,
+				/** @var array<Serialized> */
+				public readonly array $fields,
 			) {
-			}
-
-			public function getConstraints(): array
-			{
-				return ['min', 'max', 'step'];
-			}
-
-			public function children(): array
-			{
-				return [];
 			}
 		};
 	}
