@@ -1,114 +1,85 @@
 {
-	"name": "contact_form",
+	"name": "contact_us",
 	"fields": {
 		"name": {
 			"type": "name",
-			"default_value": null,
+			"name": "name",
+			"optional": false,
 			"value": null,
-			"required": true
+			"min": 1,
+			"max": 255,
+			"fields": []
 		},
 		"contact_method": {
 			"type": "enum",
-			"default_value": null,
+			"name": "contact_method",
+			"optional": false,
 			"value": null,
-			"required": true,
 			"one_of": [
 				"email",
 				"phone"
-			]
-		},
-		"message": {
-			"type": "text",
-			"default_value": null,
-			"value": null,
-			"required": true,
-			"min": 10,
-			"max": 500,
-			"multiline": true
+			],
+			"fields": []
 		},
 		"email_address": {
 			"type": "email_address",
-			"default_value": null,
-			"value": null
+			"name": "email_address",
+			"optional": false,
+			"value": null,
+			"format": "basic",
+			"min": 3,
+			"max": 254,
+			"allowed_domains": [],
+			"disallowed_domains": [],
+			"fields": []
 		},
 		"phone_number": {
 			"type": "phone_number",
-			"default_value": null,
-			"value": null
-		},
-		"credit_card": {
-			"type": "credit_card",
-			"name": "credit_card",
+			"name": "phone_number",
 			"optional": false,
-			"inputs": [
-				{
-					"name": "number",
-					"type": "text",
-					"pattern": "^[0-9]$",
-					"min": 15,
-					"max": 16
-				},
-				{
-					"name": "expiration_date",
-					"type": "text",
-					"min": 4,
-					"max": 4,
-					"pattern": "^(0[1-9]|1[0-2])([0-9]{2})$"
-				},
-				{
-					"name": "security_code",
-					"type": "text",
-					"optional": false,
-					"min": 3,
-					"max": 4
-				}
-			]
+			"value": null,
+			"fields": []
+		},
+		"message": {
+			"type": "text",
+			"name": "message",
+			"optional": false,
+			"min": 10,
+			"max": 500,
+			"pattern": null,
+			"value": null,
+			"fields": []
 		}
 	},
 	"rules": [
 		{
 			"when": {
-				"group": "all",
-				"conditions": [
-					{
-						"target": "#\/fields\/contact_method\/value",
-						"operator": "equals",
-						"expected": "email"
-					}
-				]
+				"type": "equals",
+				"target": "#\/fields\/contact_method\/value",
+				"expected": "email"
 			},
 			"then": [
 				{
-					"action": "require",
-					"target": "#\/fields\/email_address"
-				},
-				{
-					"action": "set",
-					"target": "#\/fields\/phone_number\/required",
-					"to": false
+					"action": "make_optional",
+					"field": "#\/fields\/phone_number"
 				}
 			]
 		},
 		{
 			"when": {
-				"group": "all",
+				"type": "all_of",
 				"conditions": [
 					{
+						"type": "equals",
 						"target": "#\/fields\/contact_method\/value",
-						"operator": "equals",
 						"expected": "phone"
 					}
 				]
 			},
 			"then": [
 				{
-					"action": "require",
-					"target": "#\/fields\/phone_number"
-				},
-				{
-					"action": "set",
-					"target": "#\/fields\/email_address\/required",
-					"to": false
+					"action": "make_optional",
+					"field": "#\/fields\/email_address"
 				}
 			]
 		}
