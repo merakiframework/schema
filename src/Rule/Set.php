@@ -4,10 +4,11 @@ declare(strict_types=1);
 namespace Meraki\Schema\Rule;
 
 use Meraki\Schema\Rule;
-use Meraki\Schema\SchemaFacade;
+use Meraki\Schema\Facade;
 
 class Set implements \IteratorAggregate, \Countable
 {
+	/** @var list<Rule> */
 	private array $rules = [];
 
 	public function __construct(Rule ...$rules)
@@ -26,10 +27,10 @@ class Set implements \IteratorAggregate, \Countable
 		return null;
 	}
 
-	public function apply(array $data, SchemaFacade $schema): void
+	public function apply(array $data, Facade $schema): void
 	{
 		foreach ($this->rules as $rule) {
-			$rule->apply($data, $schema);
+			$rule->evaluate($schema, $data);
 		}
 	}
 

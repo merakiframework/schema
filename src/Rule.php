@@ -3,91 +3,76 @@ declare(strict_types=1);
 
 namespace Meraki\Schema;
 
-use Meraki\Schema\SchemaFacade;
+use Meraki\Schema\Facade;
 use Meraki\Schema\Rule\Condition;
-use Meraki\Schema\Rule\ConditionGroup;
+use Meraki\Schema\Rule\ConditionFactory;
 use Meraki\Schema\Rule\Outcome;
-use Meraki\Schema\Rule\OutcomeGroup;
+use Meraki\Schema\Rule\OutcomeFactory;
 
+/**
+ * @phpstan-import-type SerializedCondition from Condition
+ * @phpstan-import-type SerializedOutcome from Outcome
+ * @phpstan-type SerializedRule = object{
+ * 	when: SerializedCondition,
+ * 	then: array<SerializedOutcome>,
+ * }
+ */
 class Rule
 {
 	public function __construct(
-		public ConditionGroup $conditions,
-		public OutcomeGroup $outcomes = new OutcomeGroup(),
+		public readonly Condition $condition,
+		/** @var array<Outcome> */
+		public readonly array $outcomes,
 	) {
 	}
 
-	public static function matchAll(): self
+	public static function when(Condition $condition): self
 	{
-		return new self(ConditionGroup::allOf());
+		return new self($condition, []);
 	}
 
-	public static function matchAny(): self
+	public function then(Outcome ...$outcomes): self
 	{
-		return new self(ConditionGroup::anyOf());
+		return new self($this->condition, array_merge($this->outcomes, $outcomes));
 	}
 
-	public static function matchNone(): self
+	public function evaluate(Facade $schema, array $data): void
 	{
-		return new self(ConditionGroup::noneOf());
-	}
-
-	/**
-	 * Add a condition to the rule.
-	 */
-	public function when(Condition $condition, Condition ...$conditions): self
-	{
-		$copy = clone $this;
-		$group = $copy->conditions;
-
-		foreach ([$condition, ...$conditions] as $condition) {
-			$group = $copy->conditions->add($condition);
+		if ($this->condition->matches($data)) {
+			foreach ($this->outcomes as $outcome) {
+				$outcome->apply($schema);
+			}
 		}
-
-		$copy->conditions = $group;
-
-		return $copy;
 	}
 
 	/**
-	 * Add an outcome to the rule.
+	 * @return SerializedRule
 	 */
-	public function then(Outcome $outcome, Outcome ...$outcomes): self
+	public function serialize(): object
 	{
-		$copy = clone $this;
-		$copy->outcomes = $copy->outcomes->add($outcome, ...$outcomes);
-
-		return $copy;
+		return (object)[
+			'when' => $this->condition->serialize(),
+			'then' => array_map(
+				fn(Outcome $outcome): object => $outcome->serialize(),
+				$this->outcomes
+			),
+		];
 	}
 
 	/**
-	 * Apply the rule to the schema.
-	 *
-	 * If conditions are met, execute the outcomes.
+	 * @param SerializedRule $data
 	 */
-	public function apply(array $data, SchemaFacade $schema): bool
-	{
-		if ($this->evaluate($data, $schema)) {
-			$this->execute($data, $schema);
-			return true;
-		}
-
-		return false;
-	}
-
-	/**
-	 * Check if the conditions have been met.
-	 */
-	public function evaluate(array $data, SchemaFacade $schema): bool
-	{
-		return $this->conditions->evaluate($data, $schema);
-	}
-
-	/**
-	 * Execute the outcomes regardless of the conditions.
-	 */
-	public function execute(array $data, SchemaFacade $schema): void
-	{
-		$this->outcomes->execute($data, $schema);
+	public static function deserialize(
+		object $data,
+		ConditionFactory $conditionFactory = new ConditionFactory(),
+		OutcomeFactory $outcomeFactory = new OutcomeFactory()
+	): static {
+		return new self(
+			$conditionFactory->deserialize($data->when),
+			array_map(
+				fn(object $serializedOutcome): Outcome => $outcomeFactory->deserialize($serializedOutcome),
+				$data->then
+			)
+		);
 	}
 }
