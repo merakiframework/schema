@@ -4,20 +4,17 @@ declare(strict_types=1);
 namespace Meraki\Schema\Field;
 
 use Meraki\Schema\Field\Atomic as AtomicField;
+use Meraki\Schema\Field;
 use Meraki\Schema\Property;
 use InvalidArgumentException;
 
 /**
- * @extends Serialized<string|null>
- * @property-read int $min
- * @property-read int $max
- * @internal
- */
-interface SerializedUri extends Serialized
-{
-}
-
-/**
+ * @phpstan-import-type SerializedField from Field
+ * @phpstan-type SerializedUri = SerializedField&object{
+ * 	type: 'uri',
+ * 	min: int,
+ * 	max: int
+ * }
  * @extends AtomicField<string|null, SerializedUri>
  */
 final class Uri extends AtomicField
@@ -102,34 +99,26 @@ final class Uri extends AtomicField
 		return mb_strlen($value) <= $this->max;
 	}
 
-	public function serialize(): SerializedUri
+	/**
+	 * @return SerializedUri
+	 */
+	public function serialize(): object
 	{
-		return new class(
-			type: $this->type->value,
-			name: $this->name->value,
-			optional: $this->optional,
-			min: $this->min,
-			max: $this->max,
-			value: $this->defaultValue->unwrap(),
-			fields: [],
-		) implements SerializedUri {
-			public function __construct(
-				public readonly string $type,
-				public readonly string $name,
-				public readonly bool $optional,
-				public readonly int $min,
-				public readonly int $max,
-				public readonly ?string $value,
-				/** @var array<Serialized> */
-				public readonly array $fields,
-			) {}
-		};
+		return (object)[
+			'type' => $this->type->value,
+			'name' => $this->name->value,
+			'optional' => $this->optional,
+			'value' => $this->defaultValue->unwrap(),
+			'fields' => [],
+			'min' => $this->min,
+			'max' => $this->max,
+		];
 	}
 
 	/**
 	 * @param SerializedUri $serialized
 	 */
-	public static function deserialize(Serialized $serialized): static
+	public static function deserialize(object $serialized): static
 	{
 		if ($serialized->type !== 'uri') {
 			throw new InvalidArgumentException('Invalid serialized type for Uri field.');

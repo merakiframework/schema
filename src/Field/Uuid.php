@@ -4,19 +4,16 @@ declare(strict_types=1);
 namespace Meraki\Schema\Field;
 
 use Meraki\Schema\Field\Atomic as AtomicField;
+use Meraki\Schema\Field;
 use Meraki\Schema\Property;
 use InvalidArgumentException;
 
 /**
- * @extends Serialized<string|null>
- * @property-read int[] $versions
- * @internal
- */
-interface SerializedUuid extends Serialized
-{
-}
-
-/**
+ * @phpstan-import-type SerializedField from Field
+ * @phpstan-type SerializedUuid = SerializedField&object{
+ * 	type: 'uuid',
+ * 	versions: int[]
+ * }
  * @extends AtomicField<string|null, SerializedUuid>
  */
 final class Uuid extends AtomicField
@@ -100,36 +97,30 @@ final class Uuid extends AtomicField
 		return in_array(hexdec($value[14]), $this->versions, true);
 	}
 
-	public function serialize(): SerializedUuid
+	/**
+	 * @return SerializedUuid
+	 */
+	public function serialize(): object
 	{
-		return new class(
-			type: $this->type->value,
-			name: $this->name->value,
-			optional: $this->optional,
-			value: $this->defaultValue->unwrap(),
-			versions: $this->versions,
-			fields: [],
-		) implements SerializedUuid {
-			/**
-			 * @param int[] $versions
-			 */
-			public function __construct(
-				public readonly string $type,
-				public readonly string $name,
-				public readonly bool $optional,
-				public readonly ?string $value,
-				public readonly array $versions,
-				/** @var array<Serialized> */
-				public readonly array $fields,
-			) {}
-		};
+		return (object)[
+			'type' => $this->type->value,
+			'name' => $this->name->value,
+			'optional' => $this->optional,
+			'value' => $this->defaultValue->unwrap(),
+			'fields' => [],
+			'versions' => $this->versions,
+		];
 	}
 
 	/**
 	 * @param SerializedUuid $serialized
 	 */
-	public static function deserialize(Serialized $serialized): static
+	public static function deserialize(object $serialized): static
 	{
+		if ($serialized->type !== 'uuid') {
+			throw new InvalidArgumentException('Invalid serialized type for UUID field.');
+		}
+
 		$uuid = new self(new Property\Name($serialized->name));
 		$uuid->optional = $serialized->optional;
 

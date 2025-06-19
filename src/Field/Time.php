@@ -3,33 +3,20 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Field;
 
-use Brick\DateTime\DateTimeException;
-use Brick\Math\BigInteger;
-use Meraki\Schema\Field\Atomic as AtomicField;
 use Meraki\Schema\Field\Time\PrecisionCaster;
 use Meraki\Schema\Field\Time\Precision;
 use Meraki\Schema\Field\Time\PreservePrecision;
 use Meraki\Schema\Field\Time\TruncatePrecision;
+use Meraki\Schema\Field\Atomic as AtomicField;
+use Meraki\Schema\Field;
 use Meraki\Schema\Property;
 use Brick\DateTime\Duration;
 use Brick\DateTime\LocalDate;
 use Brick\DateTime\LocalTime;
 use Brick\DateTime\TimeZone;
+use Brick\DateTime\DateTimeException;
+use Brick\Math\BigInteger;
 use InvalidArgumentException;
-
-/**
- * @extends Serialized<string|null>
- * @property-read string $from
- * @property-read string $until
- * @property-read string $step
- * @property-read string $precision_unit
- * @property-read string $precision_mode
- * @internal
- */
-interface SerializedTime extends Serialized
-{
-}
-
 
 /**
  * A `time` value as close to ISO 8601, RFC 3339/9557, and HTML standards.
@@ -37,6 +24,15 @@ interface SerializedTime extends Serialized
  * The HTML standard does not have any time formats that have exact intersections
  * with the ISO 8601 and RFC 3339/9557 standards.
  *
+ * @phpstan-import-type SerializedField from Field
+ * @phpstan-type SerializedTime = SerializedField&object{
+ * 	type: 'time',
+ * 	from: string,
+ * 	until: string,
+ * 	step: string,
+ * 	precision_unit: string,
+ * 	precision_mode: string
+ * }
  * @extends AtomicField<string|null, SerializedTime>
  */
 final class Time extends AtomicField
@@ -185,37 +181,29 @@ final class Time extends AtomicField
 		return $inputNanos->minus($fromNanos)->remainder($stepNanos)->isZero();
 	}
 
-	public function serialize(): SerializedTime
+	/**
+	 * @return SerializedTime
+	 */
+	public function serialize(): object
 	{
-		return new class(
-			type: $this->type->value,
-			name: $this->name->value,
-			optional: $this->optional,
-			from: $this->from->__toString(),
-			until: $this->until->__toString(),
-			step: $this->step->__toString(),
-			precision_unit: $this->precision->value,
-			precision_mode: self::getPrecisionModeFromCaster($this->caster),
-			value: $this->defaultValue->unwrap() !== null ? $this->cast($this->defaultValue->unwrap())->__toString() : null,
-		) implements SerializedTime {
-			public function __construct(
-				public readonly string $type,
-				public readonly string $name,
-				public readonly bool $optional,
-				public readonly string $from,
-				public readonly string $until,
-				public readonly string $step,
-				public readonly string $precision_unit,
-				public readonly string $precision_mode,
-				public readonly ?string $value
-			) {}
-		};
+		return (object)[
+			'type' => $this->type->value,
+			'name' => $this->name->value,
+			'optional' => $this->optional,
+			'value' => $this->defaultValue->unwrap() !== null ? $this->cast($this->defaultValue->unwrap())->__toString() : null,
+			'fields' => [],
+			'from' => $this->from->__toString(),
+			'until' => $this->until->__toString(),
+			'step' => $this->step->__toString(),
+			'precision_unit' => $this->precision->value,
+			'precision_mode' => self::getPrecisionModeFromCaster($this->caster),
+		];
 	}
 
 	/**
 	 * @param SerializedTime $serialized
 	 */
-	public static function deserialize(Serialized $serialized): static
+	public static function deserialize(object $serialized): static
 	{
 		if ($serialized->type !== 'time') {
 			throw new InvalidArgumentException('Invalid serialized type for Time field.');

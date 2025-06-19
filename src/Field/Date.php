@@ -4,24 +4,21 @@ declare(strict_types=1);
 namespace Meraki\Schema\Field;
 
 use Meraki\Schema\Field\Atomic as AtomicField;
-use Meraki\Schema\Field\Serialized;
+use Meraki\Schema\Field;
 use Meraki\Schema\Property;
 use Brick\DateTime\DateTimeException;
 use Brick\DateTime\Period;
 use Brick\DateTime\LocalDate;
 
 /**
- * @extends Serialized<string|null>
- * @property-read string $from
- * @property-read string $until
- * @property-read string $interval
- * @internal
- */
-interface SerializedDate extends Serialized
-{
-}
-
-/**
+ * @phpstan-import-type SerializedField from Field
+ * @phpstan-type SerializedDate = SerializedField&object{
+ * 	type: 'date',
+ * 	value: string|null,
+ * 	from: string,
+ * 	until: string,
+ * 	interval: string
+ * }
  * @extends AtomicField<string|null, SerializedDate>
  */
 final class Date extends AtomicField
@@ -121,36 +118,27 @@ final class Date extends AtomicField
 		return $period->isEqualTo($this->interval) || $period->isZero();
 	}
 
-	public function serialize(): SerializedDate
+	/**
+	 * @return SerializedDate
+	 */
+	public function serialize(): object
 	{
-		return new class(
-			type: $this->type->value,
-			name: $this->name->value,
-			optional: $this->optional,
-			value: $this->defaultValue->unwrap(),
-			from: $this->from->__toString(),
-			until: $this->until->__toString(),
-			interval: $this->interval->__toString(),
-			fields: []
-		) implements SerializedDate {
-			public function __construct(
-				public readonly string $type,
-				public readonly string $name,
-				public readonly bool $optional,
-				public readonly ?string $value,
-				public readonly string $from,
-				public readonly string $until,
-				public readonly string $interval,
-				/** @var array<Serialized> */
-				public readonly array $fields,
-			) {}
-		};
+		return (object)[
+			'type' => $this->type->value,
+			'name' => $this->name->value,
+			'optional' => $this->optional,
+			'value' => $this->defaultValue->unwrap(),
+			'fields' => [],
+			'from' => $this->from->__toString(),
+			'until' => $this->until->__toString(),
+			'interval' => $this->interval->__toString(),
+		];
 	}
 
 	/**
 	 * @param SerializedDate $serialized
 	 */
-	public static function deserialize(Serialized $serialized): static
+	public static function deserialize(object $serialized): static
 	{
 		if ($serialized->type !== 'date') {
 			throw new \InvalidArgumentException('Invalid type for Date field: ' . $serialized->type);

@@ -3,25 +3,14 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Field;
 
-use Brick\Math\RoundingMode;
-use InvalidArgumentException;
 use Meraki\Schema\Field\Atomic as AtomicField;
+use Meraki\Schema\Field;
 use Meraki\Schema\Property;
+use Brick\Math\RoundingMode;
 use Brick\Math\BigDecimal;
 use Brick\Math\Exception\MathException;
+use InvalidArgumentException;
 use TypeError;
-
-/**
- * @extends Serialized<string|null>
- * @property-read int $min
- * @property-read int $max
- * @property-read int $step
- * @property-read int $scale
- * @internal
- */
-interface SerializedNumber extends Serialized
-{
-}
 
 /**
  * Represents a number input field.
@@ -41,6 +30,14 @@ interface SerializedNumber extends Serialized
  *	- to force decimals, set the scale property to more than 0
  *	- exponent notation is always converted to canonical decimal form (if safe to do so)
  *
+ * @phpstan-import-type SerializedField from Field
+ * @phpstan-type SerializedNumber = SerializedField&object{
+ * 	type: 'number',
+ * 	min: int,
+ * 	max: int,
+ * 	step: int,
+ * 	scale: int|null
+ * }
  * @extends AtomicField<float|int|string|null, SerializedNumber>
  */
 final class Number extends AtomicField
@@ -156,44 +153,33 @@ final class Number extends AtomicField
 		}
 	}
 
-	public function serialize(): SerializedNumber
+	/**
+	 * @return SerializedNumber
+	 */
+	public function serialize(): object
 	{
 		// normalise integers and floats to strings
 		$defaultValue = $this->defaultValue->unwrap() !== null ? $this->cast($this->defaultValue->unwrap())->__tostring() : null;
 
-		return new class(
-			type: $this->type->value,
-			name: $this->name->value,
-			optional: $this->optional,
-			value: $defaultValue,
-			min: $this->min->__toString(),
-			max: $this->max->__toString(),
-			step: $this->step->__toString(),
-			scale: $this->scale,
-			fields: [],
-		) implements SerializedNumber {
-			public function __construct(
-				public readonly string $type,
-				public readonly string $name,
-				public readonly bool $optional,
-				public readonly string|null $value,
-				public readonly string $min,
-				public readonly string $max,
-				public readonly string $step,
-				public readonly ?int $scale,
-				/** @var array<Serialized> */
-				public readonly array $fields,
-			) {
-			}
-		};
+		return (object)[
+			'type' => $this->type->value,
+			'name' => $this->name->value,
+			'optional' => $this->optional,
+			'value' => $defaultValue,
+			'fields' => [],
+			'min' => $this->min->__toString(),
+			'max' => $this->max->__toString(),
+			'step' => $this->step->__toString(),
+			'scale' => $this->scale,
+		];
 	}
 
 	/**
 	 * @param SerializedNumber $data
 	 */
-	public static function deserialize(Serialized $data): static
+	public static function deserialize(object $data): static
 	{
-		if (!($data instanceof SerializedNumber) || $data->type !== 'number') {
+		if ($data->type !== 'number') {
 			throw new TypeError('Expected instance of SerializedNumber');
 		}
 

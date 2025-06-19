@@ -3,25 +3,23 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Field;
 
-use InvalidArgumentException;
-use Meraki\Schema\Field;
 use Meraki\Schema\Field\Composite as CompositeField;
+use Meraki\Schema\Field;
 use Meraki\Schema\Property;
-
-/**
- * @extends Serialized<array>
- * @internal
- */
-interface SerializedAddress extends Serialized
-{
-}
+use InvalidArgumentException;
 
 /**
  * A field representing an address.
  *
  * @todo Maybe add line1 (person) and line2 (company) fields
  *
+ * @phpstan-import-type SerializedField from Field
+ * @phpstan-type SerializedAddress = SerializedField&object{
+ * 	type: 'address',
+ * 	value: array|null,
+ * }
  * @extends CompositeField<array|null, SerializedAddress>
+ *
  * @property-read Field\Text $street
  * @property-read Field\Text $city
  * @property-read Field\Text $state
@@ -53,42 +51,55 @@ final class Address extends CompositeField
 		return true;
 	}
 
-	public function serialize(): SerializedAddress
+	/**
+	 * @return SerializedAddress
+	 */
+	public function serialize(): object
 	{
-		$serializedChildren = array_map(
-			fn(Field $field): Serialized => $field->serialize(),
-			$this->fields->getIterator()->getArrayCopy()
-		);
-		return new class(
-			type: $this->type->value,
-			name: $this->name->value,
-			optional: $this->optional,
-			value: $this->defaultValue->unwrap(),
-			fields: $serializedChildren
-		) implements SerializedAddress {
-			/**
-			 * @param array<Serialized> $fields
-			 */
-			public function __construct(
-				public readonly string $type,
-				public readonly string $name,
-				public readonly bool $optional,
-				public readonly array $value,
-				public readonly array $fields,
-			) {}
-		};
+		return (object)[
+			'type' => $this->type->value,
+			'name' => $this->name->value,
+			'optional' => $this->optional,
+			'value' => $this->defaultValue->unwrap(),
+			'fields' => array_map(
+				fn(Field $field): Serialized => $field->serialize(),
+				$this->fields->getIterator()->getArrayCopy()
+			),
+		];
+		// $serializedChildren = array_map(
+		// 	fn(Field $field): Serialized => $field->serialize(),
+		// 	$this->fields->getIterator()->getArrayCopy()
+		// );
+		// return new class(
+		// 	type: $this->type->value,
+		// 	name: $this->name->value,
+		// 	optional: $this->optional,
+		// 	value: $this->defaultValue->unwrap(),
+		// 	fields: $serializedChildren
+		// ) implements SerializedAddress {
+		// 	/**
+		// 	 * @param array<Serialized> $fields
+		// 	 */
+		// 	public function __construct(
+		// 		public readonly string $type,
+		// 		public readonly string $name,
+		// 		public readonly bool $optional,
+		// 		public readonly array $value,
+		// 		public readonly array $fields,
+		// 	) {}
+		// };
 	}
 
 	/**
 	 * @param SerializedAddress $serialized
 	 */
-	public static function deserialize(Serialized $serialized): static
+	public static function deserialize(object $serialized, Field\Factory $fieldFactory = new Field\Factory()): static
 	{
 		if ($serialized->type !== 'address') {
 			throw new InvalidArgumentException('Invalid serialized type for Address field.');
 		}
 
-		$deserializedChildren = array_map(Field::deserialize(...), $serialized->fields);
+		$deserializedChildren = array_map($fieldFactory->deserialize(...), $serialized->fields);
 		$field = new self(new Property\Name($serialized->name));
 		$field->optional = $serialized->optional;
 		$field->fields = new Field\Set(...$deserializedChildren);

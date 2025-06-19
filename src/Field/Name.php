@@ -4,17 +4,8 @@ declare(strict_types=1);
 namespace Meraki\Schema\Field;
 
 use Meraki\Schema\Field\Atomic as AtomicField;
+use Meraki\Schema\Field;
 use Meraki\Schema\Property;
-
-/**
- * @extends Serialized<string|null>
- * @property-read int $min
- * @property-read int $max
- * @internal
- */
-interface SerializedName extends Serialized
-{
-}
 
 /**
  * A "name" field is used to represent a person's full name.
@@ -28,6 +19,12 @@ interface SerializedName extends Serialized
  * 	- each "word" must be at least one character long
  *  - should use Roman Numerals to represent numbers (e.g. John Doe IV)
  *
+ * @phpstan-import-type SerializedField from Field
+ * @phpstan-type SerializedName = SerializedField&object{
+ * 	type: 'name',
+ * 	min: int,
+ * 	max: int
+ * }
  * @extends AtomicField<string|null, SerializedName>
  * @see https://www.w3.org/International/questions/qa-personal-names
  * @see https://shinesolutions.com/2018/01/08/falsehoods-programmers-believe-about-names-with-examples/
@@ -88,36 +85,31 @@ final class Name extends AtomicField
 		return mb_strlen($value) <= $this->max;
 	}
 
-	public function serialize(): SerializedName
+	/**
+	 * @return SerializedName
+	 */
+	public function serialize(): object
 	{
-		return new class(
-			type: $this->type->value,
-			name: $this->name->value,
-			optional: $this->optional,
-			value: $this->defaultValue->unwrap(),
-			min: $this->min,
-			max: $this->max,
-			fields: [],
-		) implements SerializedName {
-			public function __construct(
-				public readonly string $type,
-				public readonly string $name,
-				public readonly bool $optional,
-				public readonly mixed $value,
-				public readonly int $min,
-				public readonly int $max,
-				/** @var array<Serialized> */
-				public readonly array $fields,
-			) {
-			}
-		};
+		return (object)[
+			'type' => $this->type->value,
+			'name' => $this->name->value,
+			'optional' => $this->optional,
+			'value' => $this->defaultValue->unwrap(),
+			'fields' => [],
+			'min' => $this->min,
+			'max' => $this->max,
+		];
 	}
 
 	/**
 	 * @param SerializedName $serialized
 	 */
-	public static function deserialize(Serialized $serialized): static
+	public static function deserialize(object $serialized): static
 	{
+		if ($serialized->type !== 'name') {
+			throw new \InvalidArgumentException('Invalid type for Name field: ' . $serialized->type);
+		}
+
 		$field = new self(new Property\Name($serialized->name));
 		$field->optional = $serialized->optional;
 

@@ -4,20 +4,17 @@ declare(strict_types=1);
 namespace Meraki\Schema\Field;
 
 use Meraki\Schema\Field\Atomic as AtomicField;
+use Meraki\Schema\Field;
 use Meraki\Schema\Property;
 
 /**
- * @extends Serialized<string|null>
  * @template T of scalar
- * @property-read list<T> $one_of
- * @internal
- */
-interface SerializedEnum extends Serialized
-{
-}
-
-/**
- * @template T of scalar
+ * @phpstan-import-type SerializedField from Field
+ * @phpstan-type SerializedEnum = SerializedField&object{
+ * 	type: 'enum',
+ * 	value: string|null,
+ * 	one_of: list<T>,
+ * }
  * @extends AtomicField<string|null, SerializedEnum>
  */
 final class Enum extends AtomicField
@@ -52,36 +49,27 @@ final class Enum extends AtomicField
 		return [];
 	}
 
-	public function serialize(): SerializedEnum
+	/**
+	 * @return SerializedEnum
+	 */
+	public function serialize(): object
 	{
-		return new class(
-			type: $this->type->value,
-			name: $this->name->value,
-			optional: $this->optional,
-			value: $this->defaultValue->unwrap(),
-			one_of: $this->oneOf,
-			fields: [],
-		) implements SerializedEnum {
-			public function __construct(
-				public readonly string $type,
-				public readonly string $name,
-				public readonly bool $optional,
-				public readonly string|null $value,
-				/** @param list<T> $one_of */
-				public readonly array $one_of,
-				/** @param array<Serialized> $fields */
-				public readonly array $fields,
-			) {
-			}
-		};
+		return (object)[
+			'type' => $this->type->value,
+			'name' => $this->name->value,
+			'optional' => $this->optional,
+			'value' => $this->defaultValue->unwrap(),
+			'fields' => [],
+			'one_of' => $this->oneOf,
+		];
 	}
 
 	/**
 	 * @param SerializedEnum $serialized
 	 */
-	public static function deserialize(Serialized $serialized): static
+	public static function deserialize(object $serialized): static
 	{
-		if ($serialized->type !== 'enum' || !($serialized instanceof SerializedEnum)) {
+		if ($serialized->type !== 'enum') {
 			throw new \InvalidArgumentException('Invalid serialized data for Enum.');
 		}
 

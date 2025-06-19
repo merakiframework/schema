@@ -3,14 +3,24 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Field;
 
-use Meraki\Schema\Field\Atomic as AtomicField;
-use Meraki\Schema\Field\Serialized;
 use Meraki\Schema\Field\Password\Range;
+use Meraki\Schema\Field\Atomic as AtomicField;
+use Meraki\Schema\Field;
 use Meraki\Schema\Property;
 use InvalidArgumentException;
 
 /**
- * @extends AtomicField<string|null, Password\SerializedPassword>
+ * @phpstan-import-type SerializedField from Field
+ * @phpstan-type SerializedPassword = SerializedField&object{
+ * 	type: 'password',
+ * 	length: array{?int, ?int},
+ * 	lowercase: array{?int, ?int},
+ * 	uppercase: array{?int, ?int},
+ * 	digits: array{?int, ?int},
+ * 	symbols: array{?int, ?int},
+ * 	any_of: string[]
+ * }
+ * @extends AtomicField<string|null, SerializedPassword>
  */
 final class Password extends AtomicField
 {
@@ -267,29 +277,32 @@ final class Password extends AtomicField
 		return $this->anyOfPassed;
 	}
 
-	public function serialize(): Password\SerializedPassword
+	/**
+	 * @return SerializedPassword
+	 */
+	public function serialize(): object
 	{
-		return new Password\SerializedPassword(
-			type: $this->type->value,
-			name: $this->name->value,
-			optional: $this->optional,
-			length: $this->length->toTuple(),
-			lowercase: $this->lowercase->toTuple(),
-			uppercase: $this->uppercase->toTuple(),
-			digits: $this->digits->toTuple(),
-			symbols: $this->symbols->toTuple(),
-			any_of: $this->anyOf,
-			value: $this->defaultValue->unwrap(),
-			fields: [],
-		);
+		return (object)[
+			'type' => $this->type->value,
+			'name' => $this->name->value,
+			'optional' => $this->optional,
+			'value' => $this->defaultValue->unwrap(),
+			'fields' => [],
+			'length' => $this->length->toTuple(),
+			'lowercase' => $this->lowercase->toTuple(),
+			'uppercase' => $this->uppercase->toTuple(),
+			'digits' => $this->digits->toTuple(),
+			'symbols' => $this->symbols->toTuple(),
+			'any_of' => $this->anyOf,
+		];
 	}
 
 	/**
-	 * @param Password\SerializedPassword $data
+	 * @param SerializedPassword $data
 	 */
-	public static function deserialize(Serialized $data): static
+	public static function deserialize(object $data): static
 	{
-		if (!($data instanceof Password\SerializedPassword) || $data->type !== 'password') {
+		if ($data->type !== 'password') {
 			throw new InvalidArgumentException('Invalid serialized data for Password.');
 		}
 

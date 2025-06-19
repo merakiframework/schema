@@ -4,12 +4,12 @@ declare(strict_types=1);
 namespace Meraki\Schema\Field;
 
 use Meraki\Schema\Field;
-use Meraki\Schema\Field\Serialized;
 use Meraki\Schema\Field\ValidationResult;
 
 /**
+ * @phpstan-import-type SerializedField from Field
  * @template AcceptedType of mixed
- * @template TSerialized of Serialized
+ * @template TSerialized of SerializedField
  * @extends Field<AcceptedType, TSerialized>
  */
 abstract class Atomic extends Field

@@ -3,28 +3,24 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Field;
 
-use Brick\Math\BigDecimal;
-use Brick\Math\Exception\RoundingNecessaryException;
-use Brick\Math\RoundingMode;
-use InvalidArgumentException;
-use Meraki\Schema\Field;
 use Meraki\Schema\Field\Composite as CompositeField;
+use Meraki\Schema\Field;
 use Meraki\Schema\Property;
+use Brick\Math\BigDecimal;
+use Brick\Math\RoundingMode;
+use Brick\Math\Exception\RoundingNecessaryException;
+use InvalidArgumentException;
 
 /**
- * @extends Serialized<string|null>
- * @property-read array<string, string> $min
- * @property-read array<string, string> $max
- * @property-read array<string, string> $step
- * @property-read array<string, int> $scale
- * @property-read array<string> $allowed
- * @internal
- */
-interface SerializedMoney extends Serialized
-{
-}
-
-/**
+ * @phpstan-import-type SerializedField from Field
+ * @phpstan-type SerializedMoney = SerializedField&object{
+ * 	type: 'money',
+ * 	min: array<string, string>,
+ * 	max: array<string, string>,
+ * 	step: array<string, string>,
+ * 	scale: array<string, int>,
+ * 	allowed_currencies: array<string>
+ * }
  * @extends CompositeField<array|null, SerializedMoney>
  * @property-read Field\Enum $currency
  * @property-read Field\Number $amount
@@ -240,49 +236,33 @@ final class Money extends CompositeField
 		return (new Property\Name('amount'))->prefixWith($this->name)->__toString();
 	}
 
-	public function serialize(): SerializedMoney
+	/**
+	 * @return SerializedMoney
+	 */
+	public function serialize(): object
 	{
 		$currencyFieldName = $this->getCurrencyFieldName();
 		$amountFieldName = $this->getAmountFieldName();
-		$value = $this->defaultValue->unwrap();
+		[$currencyFieldName => $currency, $amountFieldName => $amount] = $this->defaultValue->unwrap();
 
-		return new class(
-			type: $this->type->value,
-			name: $this->name->value,
-			optional: $this->optional,
-			allowed: $this->allowed,
-			min: self::flatten($this->min),
-			max: self::flatten($this->max),
-			step: self::flatten($this->step),
-			scale: $this->scale,
-			value: [
-				$currencyFieldName => $value[$currencyFieldName],
-				$amountFieldName => $value[$amountFieldName] !== null ? (string)$this->toDecimal($value[$currencyFieldName], $value[$amountFieldName]) : null,
+		return (object)[
+			'type' => $this->type->value,
+			'name' => $this->name->value,
+			'optional' => $this->optional,
+			'value' => [
+				$currencyFieldName => $currency,
+				$amountFieldName => $amount !== null ? (string)$this->toDecimal($currency, $amount) : null,
 			],
-			fields: array_map(
-				fn(Field $field): Serialized => $field->serialize(),
+			'fields' => array_map(
+				fn(Field $field): object => $field->serialize(),
 				$this->fields->getIterator()->getArrayCopy()
 			),
-		) implements SerializedMoney {
-			public function __construct(
-				public readonly string $type,
-				public readonly string $name,
-				public readonly bool $optional,
-				/** @var array<string> */
-				public readonly array $allowed,
-				/** @var array<string, string> */
-				public readonly array $min,
-				/** @var array<string, string> */
-				public readonly array $max,
-				/** @var array<string, string> */
-				public readonly array $step,
-				/** @var array<string, int> */
-				public readonly array $scale,
-				public readonly array $value,
-				/** @var array<Serialized> */
-				public readonly array $fields,
-			) {}
-		};
+			'allowed_currencies' => $this->allowed,
+			'min' => self::flatten($this->min),
+			'max' => self::flatten($this->max),
+			'step' => self::flatten($this->step),
+			'scale' => $this->scale,
+		];
 	}
 
 	/**
@@ -302,18 +282,17 @@ final class Money extends CompositeField
 
 	/**
 	 * @param SerializedMoney $data
-	 * @throws InvalidArgumentException
 	 */
-	public static function deserialize(Serialized $data): static
+	public static function deserialize(object $data, Field\Factory $fieldFactory = new FieldFactory()): static
 	{
 		if ($data->type !== 'money') {
 			throw new InvalidArgumentException('Expected instance of SerializedMoney');
 		}
 
-		$deserializedChildren = array_map(Field::deserialize(...), $data->fields);
+		$deserializedChildren = array_map($fieldFactory->deserialize(...), $data->fields);
 		$field = new self(
 			new Property\Name($data->name),
-			self::combineAllowedAndScale($data->allowed, $data->scale),
+			self::combineAllowedAndScale($data->allowed_currencies, $data->scale),
 		);
 		$field->fields = new Field\Set(...$deserializedChildren);
 		$field->optional = $data->optional;

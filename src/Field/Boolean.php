@@ -4,18 +4,15 @@ declare(strict_types=1);
 namespace Meraki\Schema\Field;
 
 use Meraki\Schema\Field\Atomic as AtomicField;
-use Meraki\Schema\Field\Serialized;
+use Meraki\Schema\Field;
 use Meraki\Schema\Property;
 
 /**
- * @extends Serialized<bool|null>
- * @internal
- */
-interface SerializedBoolean extends Serialized
-{
-}
-
-/**
+ * @phpstan-import-type SerializedField from Field
+ * @phpstan-type SerializedBoolean = SerializedField&object{
+ * 	type: 'boolean',
+ * 	value: bool|null
+ * }
  * @extends AtomicField<bool|null, SerializedBoolean>
  */
 final class Boolean extends AtomicField
@@ -43,29 +40,24 @@ final class Boolean extends AtomicField
 		return [];
 	}
 
-	public function serialize(): SerializedBoolean
+	/**
+	 * @return SerializedBoolean
+	 */
+	public function serialize(): object
 	{
-		return new class(
-			type: $this->type->value,
-			name: $this->name->value,
-			optional: $this->optional,
-			value: $this->defaultValue->unwrap(),
-			fields: [],
-		) implements SerializedBoolean {
-			public function __construct(
-				public readonly string $type,
-				public readonly string $name,
-				public readonly bool $optional,
-				public readonly ?bool $value,
-				public readonly array $fields,
-			) {}
-		};
+		return (object)[
+			'type' => $this->type->value,
+			'name' => $this->name->value,
+			'optional' => $this->optional,
+			'value' => $this->defaultValue->unwrap(),
+			'fields' => [],
+		];
 	}
 
 	/**
 	 * @param SerializedBoolean $name
 	 */
-	public static function deserialize(Serialized $serialized): static
+	public static function deserialize(object $serialized): static
 	{
 		if ($serialized->type !== 'boolean') {
 			throw new \InvalidArgumentException('Invalid type for Boolean field: ' . $serialized->type);

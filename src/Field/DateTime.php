@@ -3,15 +3,15 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Field;
 
-use Brick\Math\BigDecimal;
-use Brick\Math\BigInteger;
-use Meraki\Schema\Field\Atomic as AtomicField;
 use Meraki\Schema\Field\DateTime\PreservePrecision;
 use Meraki\Schema\Field\DateTime\TimePrecision;
 use Meraki\Schema\Field\DateTime\PrecisionCaster;
 use Meraki\Schema\Field\DateTime\TruncatePrecision;
-use Meraki\Schema\Field\Serialized;
+use Meraki\Schema\Field\Atomic as AtomicField;
+use Meraki\Schema\Field;
 use Meraki\Schema\Property;
+use Brick\Math\BigDecimal;
+use Brick\Math\BigInteger;
 use Brick\DateTime\TimeZone;
 use Brick\DateTime\DateTimeException;
 use Brick\DateTime\LocalDateTime;
@@ -19,19 +19,16 @@ use Brick\DateTime\Duration;
 use InvalidArgumentException;
 
 /**
- * @extends Serialized<string|null>
- * @property-read string $from
- * @property-read string $until
- * @property-read string $interval
- * @property-read string $precision_unit
- * @property-read string $precision_mode
- * @internal
- */
-interface SerializedDateTime extends Serialized
-{
-}
-
-/**
+ * @phpstan-import-type SerializedField from Field
+ * @phpstan-type SerializedDateTime = SerializedField&object{
+ * 	type: 'date_time',
+ * 	value: string|null,
+ * 	from: string,
+ * 	until: string,
+ * 	interval: string,
+ * 	precision_unit: string,
+ * 	precision_mode: string
+ * }
  * @extends AtomicField<string|null, SerializedDateTime>
  */
 final class DateTime extends AtomicField
@@ -179,34 +176,23 @@ final class DateTime extends AtomicField
 		return $inputNanos->minus($fromNanos)->remainder($stepNanos)->isZero();
 	}
 
-	public function serialize(): SerializedDateTime
+	/**
+	 * @return SerializedDateTime
+	 */
+	public function serialize(): object
 	{
-		return new class(
-			type: $this->type->value,
-			name: $this->name->value,
-			optional: $this->optional,
-			value: $this->defaultValue->unwrap(),
-			precision_unit: $this->precision->value,
-			precision_mode: $this->getPrecisionMode(),
-			from: $this->from->__toString(),
-			until: $this->until->__toString(),
-			interval: $this->interval->__toString(),
-			fields: [],
-		) implements SerializedDateTime {
-			public function __construct(
-				public readonly string $type,
-				public readonly string $name,
-				public readonly bool $optional,
-				public readonly ?string $value,
-				public readonly string $precision_unit,
-				public readonly string $precision_mode,
-				public readonly string $from,
-				public readonly string $until,
-				public readonly string $interval,
-				/** @var array<Serialized> */
-				public readonly array $fields = [],
-			) {}
-		};
+		return (object)[
+			'type' => $this->type->value,
+			'name' => $this->name->value,
+			'optional' => $this->optional,
+			'value' => $this->defaultValue->unwrap(),
+			'fields' => [],
+			'precision_unit' => $this->precision->value,
+			'precision_mode' => $this->getPrecisionMode(),
+			'from' => $this->from->__toString(),
+			'until' => $this->until->__toString(),
+			'interval' => $this->interval->__toString(),
+		];
 	}
 
 	private function getPrecisionMode(): string
@@ -229,7 +215,7 @@ final class DateTime extends AtomicField
 	/**
 	 * @param SerializedDateTime $serialized
 	 */
-	public static function deserialize(Serialized $serialized): static
+	public static function deserialize(object $serialized): static
 	{
 		if ($serialized->type !== 'date_time') {
 			throw new InvalidArgumentException('Invalid type for DateTime field: ' . $serialized->type);

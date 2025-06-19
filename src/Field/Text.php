@@ -4,21 +4,18 @@ declare(strict_types=1);
 namespace Meraki\Schema\Field;
 
 use Meraki\Schema\Field\Atomic as AtomicField;
+use Meraki\Schema\Field;
 use Meraki\Schema\Property;
 use InvalidArgumentException;
 
 /**
- * @extends Serialized<string|null>
- * @property-read int $min
- * @property-read int $max
- * @property-read string|null $pattern
- * @internal
- */
-interface SerializedText extends Serialized
-{
-}
-
-/**
+ * @phpstan-import-type SerializedField from Field
+ * @phpstan-type SerializedText = SerializedField&object{
+ * 	type: 'text',
+ * 	min: int,
+ * 	max: int,
+ * 	pattern: string|null
+ * }
  * @extends AtomicField<string|null, SerializedText>
  */
 final class Text extends AtomicField
@@ -129,36 +126,27 @@ final class Text extends AtomicField
 		return preg_match($this->pattern, $value) === 1;
 	}
 
-	public function serialize(): SerializedText
+	/**
+	 * @return SerializedText
+	 */
+	public function serialize(): object
 	{
-		return new class(
-			type: $this->type->value,
-			name: $this->name->value,
-			optional: $this->optional,
-			min: $this->min,
-			max: $this->max,
-			pattern: $this->pattern,
-			value: $this->defaultValue->unwrap(),
-			fields: [],
-		) implements SerializedText {
-			public function __construct(
-				public readonly string $type,
-				public readonly string $name,
-				public readonly bool $optional,
-				public readonly int $min,
-				public readonly int $max,
-				public readonly ?string $pattern,
-				public readonly ?string $value,
-				/** @var array<Serialized> */
-				public readonly array $fields,
-			) {}
-		};
+		return (object)[
+			'type' => $this->type->value,
+			'name' => $this->name->value,
+			'optional' => $this->optional,
+			'value' => $this->defaultValue->unwrap(),
+			'fields' => [],
+			'min' => $this->min,
+			'max' => $this->max,
+			'pattern' => $this->pattern,
+		];
 	}
 
 	/**
 	 * @param SerializedText $data
 	 */
-	public static function deserialize(Serialized $data): static
+	public static function deserialize(object $data): static
 	{
 		if ($data->type !== 'text') {
 			throw new InvalidArgumentException('Invalid type for Text field.');

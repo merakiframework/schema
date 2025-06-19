@@ -3,8 +3,9 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Field;
 
-use Meraki\Schema\Field\AtomicMultiValue as AtomicMultiValueField;
 use Meraki\Schema\Field\File\Metadata;
+use Meraki\Schema\Field\AtomicMultiValue as AtomicMultiValueField;
+use Meraki\Schema\Field;
 use Meraki\Schema\Property;
 use InvalidArgumentException;
 
@@ -15,27 +16,18 @@ use InvalidArgumentException;
  *	size: int,
  *	source: string,
  * }
- * @extends Serialized<list<FileMetadata>|null>
- * @property-read int $minCount
- * @property-read int $maxCount
- * @property-read int $minSize
- * @property-read int $maxSize
- * @property-read list<string> $allowed_types
- * @property-read list<string> $disallowed_types
- * @property-read list<string> $allowed_sources
- * @property-read list<string> $disallowed_sources
- * @internal
- */
-interface SerializedFile extends Serialized
-{
-}
-
-/**
- * @psalm-type FileMetadata = array{
- *	name: string,
- *	type: string,
- *	size: int,
- *	source: string,
+ * @phpstan-import-type SerializedField from Field
+ * @phpstan-type SerializedFile = SerializedField&object{
+ * 	type: 'file',
+ * 	value: list<FileMetadata>|null,
+ * 	min_count: int,
+ * 	max_count: int,
+ * 	min_size: int,
+ * 	max_size: int,
+ * 	allowed_types: list<string>,
+ * 	disallowed_types: list<string>,
+ * 	allowed_sources: list<string>,
+ * 	disallowed_sources: list<string>
  * }
  * @extends AtomicMultiValueField<list<FileMetadata>|null, SerializedFile>
  */
@@ -337,54 +329,34 @@ final class File extends AtomicMultiValueField
 		return true;
 	}
 
-	public function serialize(): SerializedFile
+	/**
+	 * @return SerializedFile
+	 */
+	public function serialize(): object
 	{
-		return new class(
-			type: $this->type->value,
-			name: $this->name->value,
-			optional: $this->optional,
-			value: $this->defaultValue->unwrap(),
-			minCount: $this->minCount,
-			maxCount: $this->maxCount,
-			minSize: $this->minSize,
-			maxSize: $this->maxSize,
-			allowed_types: $this->allowedTypes,
-			disallowed_types: $this->disallowedTypes,
-			allowed_sources: $this->allowedSources,
-			disallowed_sources: $this->disallowedSources,
-			fields: [],
-		) implements SerializedFile {
-			public function __construct(
-				public readonly string $type,
-				public readonly string $name,
-				public readonly bool $optional,
-				/** @param list<FileMetadata>|null $value */
-				public readonly array|null $value,
-				public readonly int $minCount,
-				public readonly int $maxCount,
-				public readonly int $minSize,
-				public readonly int $maxSize,
-				/** @param list<string> $allowed_types */
-				public readonly array $allowed_types,
-				/** @param list<string> $disallowed_types */
-				public readonly array $disallowed_types,
-				/** @param list<string> $allowed_sources */
-				public readonly array $allowed_sources,
-				/** @param list<string> $disallowed_sources */
-				public readonly array $disallowed_sources,
-				/** @var array<Serialized> */
-				public readonly array $fields,
-			) {
-			}
-		};
+		return (object)[
+			'type' => $this->type->value,
+			'name' => $this->name->value,
+			'optional' => $this->optional,
+			'value' => $this->defaultValue->unwrap(),
+			'fields' => [],
+			'min_count' => $this->minCount,
+			'max_count' => $this->maxCount,
+			'min_size' => $this->minSize,
+			'max_size' => $this->maxSize,
+			'allowed_types' => $this->allowedTypes,
+			'disallowed_types' => $this->disallowedTypes,
+			'allowed_sources' => $this->allowedSources,
+			'disallowed_sources' => $this->disallowedSources,
+		];
 	}
 
 	/**
 	 * @param SerializedFile $serialized
 	 */
-	public static function deserialize(Serialized $serialized): static
+	public static function deserialize(object $serialized): static
 	{
-		if ($serialized->type !== 'file' || !($serialized instanceof SerializedFile)) {
+		if ($serialized->type !== 'file') {
 			throw new InvalidArgumentException('Invalid serialized data for File.');
 		}
 

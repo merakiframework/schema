@@ -3,22 +3,13 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Field;
 
-use Meraki\Schema\AggregatedValidationResult;
-use Meraki\Schema\Field;
 use Meraki\Schema\Field\ValidationResult;
-use Meraki\Schema\ValidationStatus;
 use Meraki\Schema\Field\Atomic as AtomicField;
+use Meraki\Schema\Field;
+use Meraki\Schema\ValidationStatus;
 use Meraki\Schema\Property;
+use Meraki\Schema\AggregatedValidationResult;
 use InvalidArgumentException;
-
-/**
- * @template AcceptedType of mixed
- * @extends Serialized<AcceptedType|null>
- * @internal
- */
-interface SerializedVariant extends Serialized
-{
-}
 
 /**
  * A variant field is a field that can have multiple types. It is used to represent a value that can be one of several different types.
@@ -30,6 +21,10 @@ interface SerializedVariant extends Serialized
  * The first field that matches the value is the one that is used. (e.g. if a value can match a password and a passphrase field, but
  * the passphrase field was added first, then the passphrase field result is returned.)
  *
+ * @phpstan-import-type SerializedField from Field
+ * @phpstan-type SerializedVariant = SerializedField&object{
+ * 	type: 'variant'
+ * }
  * @template AcceptedType of mixed
  * @extends Field<AcceptedType|null, SerializedVariant>
  */
@@ -158,36 +153,31 @@ final class Variant extends Field
 		return strtolower(preg_replace('/[A-Z]/', '_$0', lcfirst($input)));
 	}
 
-	public function serialize(): SerializedVariant
+	/**
+	 * @return SerializedVariant
+	 */
+	public function serialize(): object
 	{
-		return new class(
-			type: $this->type->value,
-			name: $this->name->value,
-			optional: $this->optional,
-			value: $this->defaultValue->unwrap(),
-			fields: array_map(
+		return (object)[
+			'type' => $this->type->value,
+			'name' => $this->name->value,
+			'optional' => $this->optional,
+			'value' => $this->defaultValue->unwrap(),
+			'fields' => array_map(
 				fn(Field $field): Serialized => $field->serialize(),
 				$this->fields->getIterator()->getArrayCopy()
 			),
-		) implements SerializedVariant {
-			public function __construct(
-				public readonly string $type,
-				public readonly string $name,
-				public readonly bool $optional,
-				public readonly mixed $value,
-				private readonly array $fields,
-			) {}
-		};
+		];
 	}
 
 	/** @param SerializedVariant $serialized */
-	public static function deserialize(Serialized $serialized): static
+	public static function deserialize(object $serialized, Field\Factory $fieldFactory = new FieldFactory()): static
 	{
 		if ($serialized->type !== 'variant') {
 			throw new InvalidArgumentException('Invalid type for Variant field: ' . $serialized->type);
 		}
 
-		$deserializedChildren = array_map(Field::deserialize(...), $serialized->fields);
+		$deserializedChildren = array_map($fieldFactory->deserialize(...), $serialized->fields);
 		$field = new self(new Property\Name($serialized->name), ...$deserializedChildren);
 		$field->optional = $serialized->optional;
 

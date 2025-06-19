@@ -3,22 +3,19 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Field;
 
+use Meraki\Schema\Field\Composite as CompositeField;
+use Meraki\Schema\Field;
+use Meraki\Schema\Property;
 use Brick\DateTime\TimeZone;
 use Brick\DateTime\ZonedDateTime;
-use Meraki\Schema\Field;
-use Meraki\Schema\Field\Composite as CompositeField;
-use Meraki\Schema\Property;
 use DateTimeImmutable;
 
 /**
- * @extends Serialized<array>
- * @internal
- */
-interface SerializedCreditCard extends Serialized
-{
-}
-
-/**
+ * @phpstan-import-type SerializedField from Field
+ * @phpstan-type SerializedCreditCard = SerializedField&object{
+ * 	type: 'credit_card',
+ * 	value: array|null
+ * }
  * @extends CompositeField<array|null, SerializedCreditCard>
  * @property-read Field\Name $holder
  * @property-read Field\Text $number
@@ -120,38 +117,33 @@ final class CreditCard extends CompositeField
 		return new Property\Value($value);
 	}
 
-	public function serialize(): SerializedCreditCard
+	/**
+	 * @return SerializedCreditCard
+	 */
+	public function serialize(): object
 	{
-		return new class(
-			type: $this->type->value,
-			name: $this->name->value,
-			optional: $this->optional,
-			value: $this->defaultValue->unwrap(),
-			fields: array_map(
-				fn(Field $field): Serialized => $field->serialize(),
+		return (object)[
+			'type' => $this->type->value,
+			'name' => $this->name->value,
+			'optional' => $this->optional,
+			'value' => $this->defaultValue->unwrap(),
+			'fields' => array_map(
+				fn(Field $field): object => $field->serialize(),
 				$this->fields->getIterator()->getArrayCopy()
-			)
-		) implements SerializedCreditCard {
-			public function __construct(
-				public readonly string $type,
-				public readonly string $name,
-				public readonly bool $optional,
-				public readonly array $value,
-				public readonly array $fields,
-			) {}
-		};
+			),
+		];
 	}
 
 	/**
 	 * @param SerializedCreditCard $serialized
 	 */
-	public static function deserialize(Serialized $serialized): static
+	public static function deserialize(object $serialized, Field\Factory $fieldFactory = new FieldFactory()): static
 	{
 		if ($serialized->type !== 'credit_card') {
 			throw new \InvalidArgumentException('Invalid serialized data for CreditCard');
 		}
 
-		$deserializedChildren = array_map(Field::deserialize(...), $serialized->fields);
+		$deserializedChildren = array_map($fieldFactory->deserialize(...), $serialized->fields);
 		$field = new self(new Property\Name($serialized->name));
 		$field->optional = $serialized->optional;
 		$field->fields = new Field\Set(...$deserializedChildren);

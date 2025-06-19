@@ -13,7 +13,10 @@ use Countable;
 use InvalidArgumentException;
 
 /**
+ * @phpstan-import-type SerializedField from Field
  * @template AcceptedType of mixed
+ * @template TSerialized of SerializedField
+ * @extends Field<AcceptedType, TSerialized>
  */
 abstract class Composite extends Field implements IteratorAggregate, Countable
 {

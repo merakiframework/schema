@@ -3,23 +3,11 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Field;
 
-use Meraki\Schema\Field\AtomicMultiValue as AtomicMultiValueField;
 use Meraki\Schema\Field\EmailAddress\Format;
+use Meraki\Schema\Field\AtomicMultiValue as AtomicMultiValueField;
+use Meraki\Schema\Field;
 use Meraki\Schema\Property;
 use InvalidArgumentException;
-
-/**
- * @extends Serialized<array|string|null>
- * @property-read string $format
- * @property-read int $min
- * @property-read int $max
- * @property-read string[] $allowed_domains
- * @property-read string[] $disallowed_domains
- * @internal
- */
-interface SerializedEmailAddress extends Serialized
-{
-}
 
 /**
  * Represents an email address field.
@@ -27,6 +15,16 @@ interface SerializedEmailAddress extends Serialized
  * Validates the email address format according to the HTML specification,
  * which is a subset (and saner version) of the format specified in RFC 5322.
  *
+ * @phpstan-import-type SerializedField from Field
+ * @phpstan-type SerializedEmailAddress = SerializedField&object{
+ * 	type: 'email_address',
+ * 	value: array|string|null,
+ * 	format: string,
+ * 	min: int,
+ * 	max: int,
+ * 	allowed_domains: list<string>,
+ * 	disallowed_domains: list<string>
+ * }
  * @extends AtomicMultiValueField<array|string|null, SerializedEmailAddress>
  * @see https://html.spec.whatwg.org/multipage/input.html#valid-e-mail-address
  */
@@ -219,41 +217,31 @@ final class EmailAddress extends AtomicMultiValueField
 		return (bool)preg_match($regex, $domain);
 	}
 
-	public function serialize(): SerializedEmailAddress
+	/**
+	 * @return SerializedEmailAddress
+	 */
+	public function serialize(): object
 	{
-		return new class(
-			type: $this->type->value,
-			name: $this->name->value,
-			format: $this->format->value,
-			optional: $this->optional,
-			value: $this->defaultValue->unwrap(),
-			min: $this->min,
-			max: $this->max,
-			allowed_domains: $this->allowedDomains,
-			disallowed_domains: $this->disallowedDomains,
-			fields: [],
-		) implements SerializedEmailAddress {
-			public function __construct(
-				public readonly string $type,
-				public readonly string $name,
-				public readonly bool $optional,
-				public readonly array|string|null $value,
-				public readonly string $format,
-				public readonly int $min,
-				public readonly int $max,
-				public readonly array $allowed_domains,
-				public readonly array $disallowed_domains,
-				public readonly array $fields,
-			) {}
-		};
+		return (object)[
+			'type' => $this->type->value,
+			'name' => $this->name->value,
+			'format' => $this->format->value,
+			'optional' => $this->optional,
+			'value' => $this->defaultValue->unwrap(),
+			'fields' => [],
+			'min' => $this->min,
+			'max' => $this->max,
+			'allowed_domains' => $this->allowedDomains,
+			'disallowed_domains' => $this->disallowedDomains,
+		];
 	}
 
 	/**
 	 * @param SerializedEmailAddress $serialized
 	 */
-	public static function deserialize(Serialized $serialized): static
+	public static function deserialize(object $serialized): static
 	{
-		if ($serialized->type !== 'email_address' || !($serialized instanceof SerializedEmailAddress)) {
+		if ($serialized->type !== 'email_address') {
 			throw new InvalidArgumentException('Invalid serialized data for EmailAddress.');
 		}
 

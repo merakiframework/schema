@@ -6,7 +6,9 @@ namespace Meraki\Schema\Field;
 use Meraki\Schema\Field;
 
 /**
- * @extends Field<null|string>
+ * @phpstan-import-type SerializedField from Field
+ * @template TSerialized of SerializedField
+ * @extends Field<string|null, TSerialized>
  */
 abstract class Structured extends Field
 {
