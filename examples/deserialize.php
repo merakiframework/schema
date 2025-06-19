@@ -2,8 +2,9 @@
 
 require_once __DIR__ . '/../vendor/autoload.php';
 
-$schema = Meraki\Schema\SchemaFacade::deserialize(__DIR__ . '/schema.json');
-
 echo '<pre>';
+
+$schema = Meraki\Schema\Facade::deserialize(__DIR__ . '/schema.json');
 var_dump($schema);
+
 echo '</pre>';
