@@ -137,7 +137,7 @@ final class CreditCard extends CompositeField
 	/**
 	 * @param SerializedCreditCard $serialized
 	 */
-	public static function deserialize(object $serialized, Field\Factory $fieldFactory = new FieldFactory()): static
+	public static function deserialize(object $serialized, Field\Factory $fieldFactory): static
 	{
 		if ($serialized->type !== 'credit_card') {
 			throw new \InvalidArgumentException('Invalid serialized data for CreditCard');

@@ -146,7 +146,7 @@ final class Text extends AtomicField
 	/**
 	 * @param SerializedText $data
 	 */
-	public static function deserialize(object $data): static
+	public static function deserialize(object $data, Field\Factory $fieldFactory): static
 	{
 		if ($data->type !== 'text') {
 			throw new InvalidArgumentException('Invalid type for Text field.');

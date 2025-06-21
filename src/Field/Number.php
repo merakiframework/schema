@@ -177,7 +177,7 @@ final class Number extends AtomicField
 	/**
 	 * @param SerializedNumber $data
 	 */
-	public static function deserialize(object $data): static
+	public static function deserialize(object $data, Field\Factory $fieldFactory): static
 	{
 		if ($data->type !== 'number') {
 			throw new TypeError('Expected instance of SerializedNumber');

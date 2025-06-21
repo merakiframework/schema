@@ -215,7 +215,7 @@ final class DateTime extends AtomicField
 	/**
 	 * @param SerializedDateTime $serialized
 	 */
-	public static function deserialize(object $serialized): static
+	public static function deserialize(object $serialized, Field\Factory $fieldFactory): static
 	{
 		if ($serialized->type !== 'date_time') {
 			throw new InvalidArgumentException('Invalid type for DateTime field: ' . $serialized->type);

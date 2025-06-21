@@ -171,7 +171,7 @@ final class Variant extends Field
 	}
 
 	/** @param SerializedVariant $serialized */
-	public static function deserialize(object $serialized, Field\Factory $fieldFactory = new FieldFactory()): static
+	public static function deserialize(object $serialized, Field\Factory $fieldFactory): static
 	{
 		if ($serialized->type !== 'variant') {
 			throw new InvalidArgumentException('Invalid type for Variant field: ' . $serialized->type);

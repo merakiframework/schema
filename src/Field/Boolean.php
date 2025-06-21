@@ -57,7 +57,7 @@ final class Boolean extends AtomicField
 	/**
 	 * @param SerializedBoolean $name
 	 */
-	public static function deserialize(object $serialized): static
+	public static function deserialize(object $serialized, Field\Factory $fieldFactory): static
 	{
 		if ($serialized->type !== 'boolean') {
 			throw new \InvalidArgumentException('Invalid type for Boolean field: ' . $serialized->type);

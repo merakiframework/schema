@@ -300,7 +300,7 @@ final class Password extends AtomicField
 	/**
 	 * @param SerializedPassword $data
 	 */
-	public static function deserialize(object $data): static
+	public static function deserialize(object $data, Field\Factory $fieldFactory): static
 	{
 		if ($data->type !== 'password') {
 			throw new InvalidArgumentException('Invalid serialized data for Password.');

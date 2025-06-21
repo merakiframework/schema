@@ -77,7 +77,7 @@ final class PhoneNumber extends AtomicField
 	/**
 	 * @param SerializedPhoneNumber $data
 	 */
-	public static function deserialize(object $data): static
+	public static function deserialize(object $data, Field\Factory $fieldFactory): static
 	{
 		if ($data->type !== 'phone_number') {
 			throw new \InvalidArgumentException('Invalid serialized data for PhoneNumber.');

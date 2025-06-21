@@ -138,7 +138,7 @@ final class Date extends AtomicField
 	/**
 	 * @param SerializedDate $serialized
 	 */
-	public static function deserialize(object $serialized): static
+	public static function deserialize(object $serialized, Field\Factory $fieldFactory): static
 	{
 		if ($serialized->type !== 'date') {
 			throw new \InvalidArgumentException('Invalid type for Date field: ' . $serialized->type);

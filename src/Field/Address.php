@@ -93,7 +93,7 @@ final class Address extends CompositeField
 	/**
 	 * @param SerializedAddress $serialized
 	 */
-	public static function deserialize(object $serialized, Field\Factory $fieldFactory = new Field\Factory()): static
+	public static function deserialize(object $serialized, Field\Factory $fieldFactory): static
 	{
 		if ($serialized->type !== 'address') {
 			throw new InvalidArgumentException('Invalid serialized type for Address field.');

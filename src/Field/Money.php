@@ -283,7 +283,7 @@ final class Money extends CompositeField
 	/**
 	 * @param SerializedMoney $data
 	 */
-	public static function deserialize(object $data, Field\Factory $fieldFactory = new FieldFactory()): static
+	public static function deserialize(object $data, Field\Factory $fieldFactory): static
 	{
 		if ($data->type !== 'money') {
 			throw new InvalidArgumentException('Expected instance of SerializedMoney');

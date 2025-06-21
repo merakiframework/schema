@@ -67,7 +67,7 @@ final class Enum extends AtomicField
 	/**
 	 * @param SerializedEnum $serialized
 	 */
-	public static function deserialize(object $serialized): static
+	public static function deserialize(object $serialized, Field\Factory $fieldFactory): static
 	{
 		if ($serialized->type !== 'enum') {
 			throw new \InvalidArgumentException('Invalid serialized data for Enum.');

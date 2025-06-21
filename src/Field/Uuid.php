@@ -115,7 +115,7 @@ final class Uuid extends AtomicField
 	/**
 	 * @param SerializedUuid $serialized
 	 */
-	public static function deserialize(object $serialized): static
+	public static function deserialize(object $serialized, Field\Factory $fieldFactory): static
 	{
 		if ($serialized->type !== 'uuid') {
 			throw new InvalidArgumentException('Invalid serialized type for UUID field.');

@@ -104,7 +104,7 @@ final class Name extends AtomicField
 	/**
 	 * @param SerializedName $serialized
 	 */
-	public static function deserialize(object $serialized): static
+	public static function deserialize(object $serialized, Field\Factory $fieldFactory): static
 	{
 		if ($serialized->type !== 'name') {
 			throw new \InvalidArgumentException('Invalid type for Name field: ' . $serialized->type);

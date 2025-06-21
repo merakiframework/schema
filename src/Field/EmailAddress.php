@@ -239,7 +239,7 @@ final class EmailAddress extends AtomicMultiValueField
 	/**
 	 * @param SerializedEmailAddress $serialized
 	 */
-	public static function deserialize(object $serialized): static
+	public static function deserialize(object $serialized, Field\Factory $fieldFactory): static
 	{
 		if ($serialized->type !== 'email_address') {
 			throw new InvalidArgumentException('Invalid serialized data for EmailAddress.');

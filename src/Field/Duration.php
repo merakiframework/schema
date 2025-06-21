@@ -130,7 +130,7 @@ final class Duration extends AtomicField
 	/**
 	 * @param SerializedDuration $serialized
 	 */
-	public static function deserialize(object $serialized): static
+	public static function deserialize(object $serialized, Field\Factory $fieldFactory): static
 	{
 		if ($serialized->type !== 'duration') {
 			throw new \InvalidArgumentException('Invalid type for Duration field: ' . $serialized->type);

@@ -354,7 +354,7 @@ final class File extends AtomicMultiValueField
 	/**
 	 * @param SerializedFile $serialized
 	 */
-	public static function deserialize(object $serialized): static
+	public static function deserialize(object $serialized, Field\Factory $fieldFactory): static
 	{
 		if ($serialized->type !== 'file') {
 			throw new InvalidArgumentException('Invalid serialized data for File.');

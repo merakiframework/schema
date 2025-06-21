@@ -203,7 +203,7 @@ final class Time extends AtomicField
 	/**
 	 * @param SerializedTime $serialized
 	 */
-	public static function deserialize(object $serialized): static
+	public static function deserialize(object $serialized, Field\Factory $fieldFactory): static
 	{
 		if ($serialized->type !== 'time') {
 			throw new InvalidArgumentException('Invalid serialized type for Time field.');

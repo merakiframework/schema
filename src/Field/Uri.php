@@ -118,7 +118,7 @@ final class Uri extends AtomicField
 	/**
 	 * @param SerializedUri $serialized
 	 */
-	public static function deserialize(object $serialized): static
+	public static function deserialize(object $serialized, Field\Factory $fieldFactory): static
 	{
 		if ($serialized->type !== 'uri') {
 			throw new InvalidArgumentException('Invalid serialized type for Uri field.');
