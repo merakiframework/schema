@@ -5,9 +5,37 @@ namespace Meraki\Schema\Field;
 
 use Meraki\Schema\Field;
 use Meraki\Schema\Property;
+use InvalidArgumentException;
 
 class Factory
 {
+	public function __construct(
+		/** @var array<string, class-string<Field>> */
+		private array $fieldMap = [
+			'address' => Field\Address::class,
+			'boolean' => Field\Boolean::class,
+			'credit_card' => Field\CreditCard::class,
+			'date' => Field\Date::class,
+			'date_time' => Field\DateTime::class,
+			'duration' => Field\Duration::class,
+			'email_address' => Field\EmailAddress::class,
+			'enum' => Field\Enum::class,
+			'file' => Field\File::class,
+			'money' => Field\Money::class,
+			'name' => Field\Name::class,
+			'number' => Field\Number::class,
+			'passphrase' => Field\Passphrase::class,
+			'password' => Field\Password::class,
+			'phone_number' => Field\PhoneNumber::class,
+			'text' => Field\Text::class,
+			'time' => Field\Time::class,
+			'uri' => Field\Uri::class,
+			'uuid' => Field\Uuid::class,
+			'variant' => Field\Variant::class,
+		],
+	) {
+	}
+
 	public function createAddress(string $name): Field\Address
 	{
 		return new Field\Address(new Property\Name($name));
@@ -53,9 +81,12 @@ class Factory
 		return new Field\File(new Property\Name($name));
 	}
 
-	public function createMoney(string $name): Field\Money
+	/**
+	 * @param $allowedCurrencies array<string, integer>
+	 */
+	public function createMoney(string $name, array $allowedCurrencies): Field\Money
 	{
-		return new Field\Money(new Property\Name($name));
+		return new Field\Money(new Property\Name($name), $allowedCurrencies);
 	}
 
 	public function createName(string $name): Field\Name
@@ -101,5 +132,25 @@ class Factory
 	public function createUuid(string $name): Field\Uuid
 	{
 		return new Field\Uuid(new Property\Name($name));
+	}
+
+	public function createVariant(string $name, Field\Atomic ...$fields): Field\Variant
+	{
+		return new Field\Variant(new Property\Name($name), ...$fields);
+	}
+
+	public function deserialize(object $data): Field
+	{
+		if (!isset($data->type)) {
+			throw new InvalidArgumentException('Field type is missing.');
+		}
+
+		if (!isset($this->fieldMap[$data->type])) {
+			throw new InvalidArgumentException('Unknown field type: ' . $data->action);
+		}
+
+		$class = $this->fieldMap[$data->type];
+
+		return $class::deserialize($data, $this);
 	}
 }
