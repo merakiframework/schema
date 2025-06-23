@@ -7,6 +7,7 @@ use Meraki\Schema\Field;
 use Meraki\Schema\Property;
 use IteratorAggregate;
 use Countable;
+use InvalidArgumentException;
 
 /**
  * @implements IteratorAggregate<Field>
@@ -48,6 +49,17 @@ class Set implements IteratorAggregate, Countable
 		}
 
 		return null;
+	}
+
+	public function getByName(string|Property\Name $name): ?Field
+	{
+		$field = $this->findByName($name);
+
+		if ($field !== null) {
+			return $field;
+		}
+
+		throw new InvalidArgumentException(sprintf('Field with name "%s" does not exist.', (string)$name));
 	}
 
 	public function findByName(string|Property\Name $name): ?Field
