@@ -6,32 +6,32 @@
 			"name": "name",
 			"optional": false,
 			"value": null,
+			"fields": [],
 			"min": 1,
-			"max": 255,
-			"fields": []
+			"max": 255
 		},
 		"contact_method": {
 			"type": "enum",
 			"name": "contact_method",
 			"optional": false,
 			"value": null,
+			"fields": [],
 			"one_of": [
 				"email",
 				"phone"
-			],
-			"fields": []
+			]
 		},
 		"email_address": {
 			"type": "email_address",
 			"name": "email_address",
+			"format": "basic",
 			"optional": false,
 			"value": null,
-			"format": "basic",
+			"fields": [],
 			"min": 3,
 			"max": 254,
 			"allowed_domains": [],
-			"disallowed_domains": [],
-			"fields": []
+			"disallowed_domains": []
 		},
 		"phone_number": {
 			"type": "phone_number",
@@ -44,19 +44,24 @@
 			"type": "text",
 			"name": "message",
 			"optional": false,
+			"value": null,
+			"fields": [],
 			"min": 10,
 			"max": 500,
-			"pattern": null,
-			"value": null,
-			"fields": []
+			"pattern": null
 		}
 	},
 	"rules": [
 		{
 			"when": {
-				"type": "equals",
-				"target": "#\/fields\/contact_method\/value",
-				"expected": "email"
+				"type": "all_of",
+				"conditions": [
+					{
+						"type": "equals",
+						"target": "#\/fields\/contact_method\/value",
+						"expected": "email"
+					}
+				]
 			},
 			"then": [
 				{
