@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace Meraki\Schema\Rule\Condition;
 
 use Meraki\Schema\Rule\Condition;
+use Meraki\Schema\Rule\ConditionGroup;
 use Meraki\Schema\Rule\ConditionFactory;
 use InvalidArgumentException;
 
@@ -13,9 +14,9 @@ use InvalidArgumentException;
  * 	type: 'any_of',
  * 	conditions: array<SerializedCondition>
  * }
- * @implements Condition<SerializedAnyOf>
+ * @implements ConditionGroup<SerializedAnyOf>
  */
-final class AnyOf implements Condition
+final class AnyOf implements ConditionGroup
 {
 	/** @var Condition[] */
 	private array $conditions;
@@ -33,6 +34,12 @@ final class AnyOf implements Condition
 			}
 		}
 		return false;
+	}
+
+	public function add(Condition $condition): static
+	{
+		$this->conditions[] = $condition;
+		return $this;
 	}
 
 	public function getScopes(): array
