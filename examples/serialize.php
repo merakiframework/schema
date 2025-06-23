@@ -25,10 +25,8 @@ $schema->whenAllMatch(fn(Builder $r): Builder =>
 $schema->addRule(
 	Rule::when(new Condition\AllOf(
 		new Condition\Equals('#/fields/contact_method/value', 'phone')
-		// @eventually: new Scope('#/fields/contact_method/value')->equals('phone')
 	))->then(
 		new Outcome\MakeOptional('#/fields/email_address')
-		// @eventually: new Scope('#/fields/email_address')->makeOptional()
 	)
 );
 
