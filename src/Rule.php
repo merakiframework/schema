@@ -6,6 +6,7 @@ namespace Meraki\Schema;
 use Meraki\Schema\Facade;
 use Meraki\Schema\Rule\Condition;
 use Meraki\Schema\Rule\ConditionFactory;
+use Meraki\Schema\Rule\ConditionGroup;
 use Meraki\Schema\Rule\Outcome;
 use Meraki\Schema\Rule\OutcomeFactory;
 
@@ -20,20 +21,10 @@ use Meraki\Schema\Rule\OutcomeFactory;
 class Rule
 {
 	public function __construct(
-		public readonly Condition $condition,
+		public readonly ConditionGroup $condition,
 		/** @var array<Outcome> */
 		public readonly array $outcomes,
 	) {
-	}
-
-	public static function when(Condition $condition): self
-	{
-		return new self($condition, []);
-	}
-
-	public function then(Outcome ...$outcomes): self
-	{
-		return new self($this->condition, array_merge($this->outcomes, $outcomes));
 	}
 
 	public function evaluate(Facade $schema, array $data): void
