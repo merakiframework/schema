@@ -199,14 +199,14 @@ final class Facade implements ScopeTarget
 
 	public function whenAllMatch(Closure $configurator): self
 	{
-		$this->addRule($configurator(new Builder(new Condition\AllOf())));
+		$this->addRule($configurator(Builder::whenAllOf()));
 
 		return $this;
 	}
 
 	public function whenAnyMatch(Closure $configurator): self
 	{
-		$this->addRule($configurator(new Builder(new Condition\AnyOf())));
+		$this->addRule($configurator(Builder::whenAnyOf()));
 
 		return $this;
 	}
