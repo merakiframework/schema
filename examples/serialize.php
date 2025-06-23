@@ -23,10 +23,13 @@ $schema->whenAllMatch(fn(Builder $r): Builder =>
 
 // manipulating rules directly
 $schema->addRule(
-	Rule::when(new Condition\AllOf(
-		new Condition\Equals('#/fields/contact_method/value', 'phone')
-	))->then(
-		new Outcome\MakeOptional('#/fields/email_address')
+	new Rule(
+		new Condition\AllOf(
+			new Condition\Equals('#/fields/contact_method/value', 'phone')
+		),
+		[
+			new Outcome\MakeOptional('#/fields/email_address'),
+		]
 	)
 );
 
