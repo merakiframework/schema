@@ -15,6 +15,15 @@ $schema->addEmailAddressField('email_address');
 $schema->addPhoneNumberField('phone_number');
 $schema->addTextField('message', fn(Field\Text $field): Field\Text => $field->minLengthOf(10)->maxLengthOf(500));
 
+// provide default values for fields
+$schema->prefill([
+	'name' => 'Default Name',
+	'contact_method' => 'email',
+	'email_address' => 'test@example.com',
+	'phone_number' => '+61 412 345 678',
+	'message' => 'This is a default message.',
+]);
+
 // manipulating rules using the fluent interface
 $schema->whenAllMatch(fn(Builder $r): Builder =>
 	$r->whenEquals('#/fields/contact_method/value', 'email')
