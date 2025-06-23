@@ -4,37 +4,82 @@ declare(strict_types=1);
 namespace Meraki\Schema\Rule;
 
 use Meraki\Schema\Rule\Condition;
-use Meraki\Schema\Rule\Outcome;
-use Meraki\Schema\Facade;
+use Meraki\Schema\Rule\ConditionGroup;
 use Meraki\Schema\Rule;
+use Meraki\Schema\Facade;
 
 final class Builder extends Rule
 {
-	private Condition $conditionGroup;
+	private ConditionGroup $rootGroup;
+	private ConditionGroup $currentGroup;
 
+	/** @var Outcome[] */
 	private array $outcomesToAdd = [];
 
-	public function __construct(Condition $group)
+	protected function __construct(ConditionGroup $rootGroup)
 	{
-		$this->conditionGroup = $group;
+		$this->rootGroup = $rootGroup;
+		$this->currentGroup = $this->rootGroup;
 	}
 
-	public function whenAllOf(Condition ...$conditions): self
+	public static function whenAllOf(): self
 	{
-		$this->conditionGroup = new Condition\AllOf(...$conditions);
+		return new self(new Condition\AllOf());
+	}
+
+	public static function whenAnyOf(): self
+	{
+		return new self(new Condition\AnyOf());
+	}
+
+	public function when(Condition $condition): self
+	{
+		$this->currentGroup->add($condition);
+
 		return $this;
 	}
 
-	public function whenAnyOf(Condition ...$conditions): self
+	public function andWhen(Condition $condition): self
 	{
-		$this->conditionGroup = new Condition\AnyOf(...$conditions);
+		if ($this->currentGroup instanceof Condition\AllOf) {
+			$this->currentGroup->add($condition);
+
+			return $this;
+		}
+
+		$this->currentGroup = new Condition\AllOf($this->currentGroup, $condition);
+		$this->rootGroup = $this->currentGroup;
+
+		return $this;
+	}
+
+	public function orWhen(Condition $condition): self
+	{
+		if ($this->currentGroup instanceof Condition\AnyOf) {
+			$this->currentGroup->add($condition);
+
+			return $this;
+		}
+
+		$this->currentGroup = new Condition\AnyOf($this->currentGroup, $condition);
+		$this->rootGroup = $this->currentGroup;
+
 		return $this;
 	}
 
 	public function whenEquals(string $target, mixed $expected): self
 	{
-		$this->conditionGroup = new Condition\Equals($target, $expected);
-		return $this;
+		return $this->when(new Condition\Equals($target, $expected));
+	}
+
+	public function andWhenEquals(string $target, mixed $expected): self
+	{
+		return $this->andWhen(new Condition\Equals($target, $expected));
+	}
+
+	public function orWhenEquals(string $target, mixed $expected): self
+	{
+		return $this->orWhen(new Condition\Equals($target, $expected));
 	}
 
 	public function then(Outcome ...$outcomes): self
@@ -50,7 +95,7 @@ final class Builder extends Rule
 
 	public function build(): Rule
 	{
-		return new Rule($this->conditionGroup, $this->outcomesToAdd);
+		return new Rule($this->rootGroup, $this->outcomesToAdd);
 	}
 
 	public function evaluate(Facade $schema, array $data): void
