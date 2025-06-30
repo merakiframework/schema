@@ -15,6 +15,7 @@ final class OutcomeFactory
 		/** @var array<string, class-string<Outcome>> */
 		private array $outcomeMap = [
 			'make_optional' => Outcome\MakeOptional::class,
+			'require' => Outcome\_Require::class,
 		],
 	) {}
 
