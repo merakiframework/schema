@@ -130,6 +130,21 @@ final class Scope implements Stringable, Countable, Iterator
 		return $this->path;
 	}
 
+	public function resolve(Facade $schema): mixed
+	{
+		if ($this->isRoot()) {
+			return $schema;
+		}
+
+		$currentSegment = $this->currentAsSnakeCase();
+
+		if ($currentSegment === null) {
+			throw new OutOfBoundsException("No current segment at position {$this->position} in scope path '{$this->path}'");
+		}
+
+		return $schema->traverse($this);
+	}
+
 	private function assertPositionInBounds(int $index = -1): void
 	{
 		if ($index === -1) {
