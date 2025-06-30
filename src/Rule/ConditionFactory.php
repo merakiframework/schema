@@ -43,7 +43,7 @@ final class ConditionFactory
 	public function deserialize(object $data): Condition
 	{
 		if (!isset($this->conditionMap[$data->type])) {
-			throw new InvalidArgumentException('Unknown condition type: ' . $data->action);
+			throw new InvalidArgumentException('Unknown condition type: ' . $data->type);
 		}
 
 		$class = $this->conditionMap[$data->type];
