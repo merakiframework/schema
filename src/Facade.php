@@ -33,7 +33,20 @@ final class Facade implements ScopeTarget
 
 	public static function deserialize(string $data, ?Deserializer $deserializer = null): self
 	{
-		return ($deserializer ?? new JsonDeserializer())->deserialize($data);
+		$schema = ($deserializer ?? new JsonDeserializer())->deserialize($data);
+
+		return $schema->applyRules();
+	}
+
+	public static function extractDefaultValues(self $schema): array
+	{
+		$data = [];
+
+		foreach ($schema->fields as $field) {
+			$data[(string)$field->name] = $field->defaultValue->unwrap();
+		}
+
+		return $data;
 	}
 
 	/**
@@ -171,7 +184,7 @@ final class Facade implements ScopeTarget
 			$field->input($data[(string) $field->name] ?? null);
 		}
 
-		$this->rules->apply($data, $this);
+		$this->applyRules($data);
 
 		return $this;
 	}
@@ -187,6 +200,19 @@ final class Facade implements ScopeTarget
 		return $this;
 	}
 
+	public function applyRules(array|object|null $data = null): self
+	{
+		if ($data === null) {
+			$data = self::extractDefaultValues($this);
+		}
+
+		$data = is_object($data) ? get_object_vars($data) : $data;
+
+		$this->rules->apply($data, $this);
+
+		return $this;
+	}
+
 	public function validate(array|object $data): AggregatedValidationResults
 	{
 		return (new SchemaValidator($this))->validate($data);
@@ -194,6 +220,8 @@ final class Facade implements ScopeTarget
 
 	public function serialize(?Serializer $serializer = null): string
 	{
+		$this->applyRules();
+
 		return ($serializer ?? new JsonSerializer())->serialize($this);
 	}
 
