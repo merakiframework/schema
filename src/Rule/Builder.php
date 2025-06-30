@@ -93,6 +93,11 @@ final class Builder extends Rule
 		return $this->then(new Outcome\MakeOptional($scope));
 	}
 
+	public function thenRequire(string $scope): self
+	{
+		return $this->then(new Outcome\_Require($scope));
+	}
+
 	public function build(): Rule
 	{
 		return new Rule($this->rootGroup, $this->outcomesToAdd);
