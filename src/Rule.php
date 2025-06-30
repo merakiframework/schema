@@ -29,7 +29,7 @@ class Rule
 
 	public function evaluate(Facade $schema, array $data): void
 	{
-		if ($this->condition->matches($data)) {
+		if ($this->condition->matches($data, $schema)) {
 			foreach ($this->outcomes as $outcome) {
 				$outcome->apply($schema);
 			}
