@@ -3,13 +3,13 @@ declare(strict_types=1);
 
 namespace Meraki\Schema;
 
-use InvalidArgumentException;
 use Meraki\Schema\Property;
 use Meraki\Schema\ScopeTarget;
 use Meraki\Schema\AggregatedValidationResult;
 use Meraki\Schema\Field\ValidationResult;
 use Meraki\Schema\Field\ConstraintValidationResult;
 use Meraki\Schema\Field\Factory as FieldFactory;
+use InvalidArgumentException;
 
 /**
  * @phpstan-type AcceptedType = mixed
@@ -130,6 +130,13 @@ abstract class Field implements ScopeTarget
 		return $this;
 	}
 
+	public function require(): static
+	{
+		$this->optional = false;
+
+		return $this;
+	}
+
 	/**
 	 * Sets the input value for the field.
 	 *
@@ -158,6 +165,11 @@ abstract class Field implements ScopeTarget
 		$this->resolveValue();
 
 		return $this;
+	}
+
+	public function equals(mixed $other): bool
+	{
+		return $other instanceof static && $this->name->equals($other->name);
 	}
 
 	public function traverse(Scope $scope): ScopeResolutionResult
