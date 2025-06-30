@@ -6,6 +6,8 @@ namespace Meraki\Schema\Rule\Outcome;
 use Meraki\Schema\Rule\Outcome;
 use Meraki\Schema\Scope;
 use Meraki\Schema\Facade;
+use Meraki\Schema\Field;
+use InvalidArgumentException;
 
 /**
  * @phpstan-import-type SerializedOutcome from Outcome
@@ -26,13 +28,15 @@ final class MakeOptional implements Outcome
 
 	public function apply(Facade $schema): void
 	{
-		$target = $this->scope->resolve($schema);
+		$target = $this->scope->resolve($schema)->value;
 
-		if (!$target instanceof Field) {
-			throw new \InvalidArgumentException("MakeOptional can only be applied to fields.");
+		if ($target instanceof Field) {
+			$target->makeOptional();
+
+			return;
 		}
 
-		$target->makeOptional();
+		throw new InvalidArgumentException("MakeOptional can only be applied to fields.");
 	}
 
 	public function getScope(): Scope
@@ -57,7 +61,7 @@ final class MakeOptional implements Outcome
 	public static function deserialize(object $data): static
 	{
 		if ($data->action !== 'make_optional') {
-			throw new \InvalidArgumentException('Invalid serialized outcome type: ' . $data->action);
+			throw new InvalidArgumentException('Invalid serialized outcome type: ' . $data->action);
 		}
 
 		return new self($data->field);
