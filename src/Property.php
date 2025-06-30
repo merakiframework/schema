@@ -26,8 +26,10 @@ class Property
 		return $this->value === $value;
 	}
 
-	public function equals(self $other): bool
+	public function equals(mixed $other): bool
 	{
-		return $this->name === $other->name && $this->value === $other->value;
+		return $other instanceof static
+			&& $this->name === $other->name
+			&& $this->value === $other->value;
 	}
 }
