@@ -3,8 +3,11 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Rule\Condition;
 
+use Meraki\Schema\Facade;
+use Meraki\Schema\Property;
 use Meraki\Schema\Rule\Condition;
 use Meraki\Schema\Scope;
+use Meraki\Schema\Comparison;
 use InvalidArgumentException;
 
 /**
@@ -30,9 +33,13 @@ final class Equals implements Condition
 		$this->expected = $expected;
 	}
 
-	public function matches(array $data): bool
+	public function matches(array $data, Facade $schema): bool
 	{
-		$value = $this->scope->evaluate($data);
+		$value = $this->scope->resolve($schema)->value;
+
+		if ($value instanceof Property) {
+			$value = $value->value;
+		}
 
 		return $value === $this->expected;
 	}

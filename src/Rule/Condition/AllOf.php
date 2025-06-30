@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Rule\Condition;
 
+use Meraki\Schema\Facade;
 use Meraki\Schema\Rule\Condition;
 use Meraki\Schema\Rule\ConditionGroup;
 use Meraki\Schema\Rule\ConditionFactory;
@@ -26,9 +27,9 @@ final class AllOf implements ConditionGroup
 		$this->conditions = $conditions;
 	}
 
-	public function matches(array $data): bool {
+	public function matches(array $data, Facade $schema): bool {
 		foreach ($this->conditions as $condition) {
-			if (!$condition->matches($data)) {
+			if (!$condition->matches($data, $schema)) {
 				return false;
 			}
 		}
