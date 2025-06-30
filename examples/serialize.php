@@ -10,23 +10,22 @@ use Meraki\Schema\Rule\Condition;
 
 $schema = new Meraki\Schema\Facade('contact_us');
 $schema->addNameField('name');
-$schema->addEnumField('contact_method', ['email', 'phone']);
+$schema->addEnumField(
+	'contact_method',
+	['email', 'phone'],
+	fn(Field\Enum $contactMethod): Field\Enum => $contactMethod->prefill('email')
+);
 $schema->addEmailAddressField('email_address');
 $schema->addPhoneNumberField('phone_number');
-$schema->addTextField('message', fn(Field\Text $field): Field\Text => $field->minLengthOf(10)->maxLengthOf(500));
-
-// provide default values for fields
-$schema->prefill([
-	'name' => 'Default Name',
-	'contact_method' => 'email',
-	'email_address' => 'test@example.com',
-	'phone_number' => '+61 412 345 678',
-	'message' => 'This is a default message.',
-]);
+$schema->addTextField(
+	'message',
+	fn(Field\Text $message): Field\Text => $message->minLengthOf(10)->maxLengthOf(500)
+);
 
 // manipulating rules using the fluent interface
 $schema->whenAllMatch(fn(Builder $r): Builder =>
 	$r->whenEquals('#/fields/contact_method/value', 'email')
+		->thenRequire('#/fields/email_address')
 		->thenMakeOptional('#/fields/phone_number')
 );
 
@@ -37,6 +36,7 @@ $schema->addRule(
 			new Condition\Equals('#/fields/contact_method/value', 'phone')
 		),
 		[
+			new Outcome\_Require('#/fields/phone_number'),
 			new Outcome\MakeOptional('#/fields/email_address'),
 		]
 	)
