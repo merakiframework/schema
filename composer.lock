@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "27a5a3e95e1a9c86e07753b383a48252",
+    "content-hash": "fa4540d5b8d3857d7f601a3a294e9675",
     "packages": [
         {
             "name": "brick/date-time",
@@ -81,16 +81,16 @@
         },
         {
             "name": "brick/math",
-            "version": "0.13.1",
+            "version": "0.12.3",
             "source": {
                 "type": "git",
                 "url": "https://github.com/brick/math.git",
-                "reference": "fc7ed316430118cc7836bf45faff18d5dfc8de04"
+                "reference": "866551da34e9a618e64a819ee1e01c20d8a588ba"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/brick/math/zipball/fc7ed316430118cc7836bf45faff18d5dfc8de04",
-                "reference": "fc7ed316430118cc7836bf45faff18d5dfc8de04",
+                "url": "https://api.github.com/repos/brick/math/zipball/866551da34e9a618e64a819ee1e01c20d8a588ba",
+                "reference": "866551da34e9a618e64a819ee1e01c20d8a588ba",
                 "shasum": ""
             },
             "require": {
@@ -129,7 +129,7 @@
             ],
             "support": {
                 "issues": "https://github.com/brick/math/issues",
-                "source": "https://github.com/brick/math/tree/0.13.1"
+                "source": "https://github.com/brick/math/tree/0.12.3"
             },
             "funding": [
                 {
@@ -137,7 +137,7 @@
                     "type": "github"
                 }
             ],
-            "time": "2025-03-29T13:50:30+00:00"
+            "time": "2025-02-28T13:11:00+00:00"
         }
     ],
     "packages-dev": [

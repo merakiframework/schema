@@ -25,7 +25,7 @@
     "require": {
 		"php": "^8.2",
         "brick/date-time": "^0.7.0",
-        "brick/math": "^0.13.1"
+        "brick/math": "^0.12.1"
 	},
 	"scripts": {
 		"test": "phpunit"
