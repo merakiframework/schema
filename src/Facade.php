@@ -10,6 +10,8 @@ use Meraki\Schema\ScopeTarget;
 use Meraki\Schema\Field\Atomic;
 use Meraki\Schema\Property;
 use Meraki\Schema\Rule;
+use Meraki\Schema\SchemaValidator;
+use Meraki\Schema\SchemaValidationResult;
 use Meraki\Schema\Rule\Condition;
 use Meraki\Schema\Rule\Builder;
 use Meraki\Schema\Deserialization\Deserializer;
@@ -38,7 +40,7 @@ final class Facade implements ScopeTarget
 		return $schema->applyRules();
 	}
 
-	public static function extractDefaultValues(self $schema): array
+	private static function extractDefaultValues(self $schema): array
 	{
 		$data = [];
 
@@ -177,7 +179,7 @@ final class Facade implements ScopeTarget
 
 	public function input(array|object $data): self
 	{
-		$data = is_object($data) ? get_object_vars($data) : $data;
+		$data = $this->extractData($data);
 
 		// input data
 		foreach ($this->fields as $field) {
@@ -191,7 +193,7 @@ final class Facade implements ScopeTarget
 
 	public function prefill(array|object $data): self
 	{
-		$data = is_object($data) ? get_object_vars($data) : $data;
+		$data = $this->extractData($data);
 
 		foreach ($this->fields as $field) {
 			$field->prefill($data[(string) $field->name] ?? null);
@@ -202,20 +204,30 @@ final class Facade implements ScopeTarget
 
 	public function applyRules(array|object|null $data = null): self
 	{
-		if ($data === null) {
-			$data = self::extractDefaultValues($this);
-		}
-
-		$data = is_object($data) ? get_object_vars($data) : $data;
-
-		$this->rules->apply($data, $this);
+		$this->rules->apply($this->extractData($data), $this);
 
 		return $this;
 	}
 
-	public function validate(array|object $data): AggregatedValidationResults
+	public function validate(array|object $data): SchemaValidationResult
 	{
-		return (new SchemaValidator($this))->validate($data);
+		$this->input($data);
+
+		$results = array_map(
+			fn(Field $field): AggregatedValidationResult => $field->validate(),
+			$this->fields->__toArray()
+		);
+
+		return new SchemaValidationResult(...$results);
+	}
+
+	private function extractData(array|object|null $data): array
+	{
+		if ($data === null) {
+			$data = self::extractDefaultValues($this);
+		}
+
+		return is_object($data) ? get_object_vars($data) : $data;
 	}
 
 	public function serialize(?Serializer $serializer = null): string
