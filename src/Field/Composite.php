@@ -92,7 +92,7 @@ abstract class Composite extends Field implements IteratorAggregate, Countable
 		// skip validation of all fields if the type validation fails
 		// or if the value is not provided and field is optional
 		if (($this->optional && !$this->valueProvided($value)) || !($this->type->validator)($value->unwrap())) {
-			return $this->skipValidationOfAllFields();
+			return $this->validationResult = $this->skipValidationOfAllFields();
 		}
 
 		// First validate types of each subfield
@@ -168,7 +168,7 @@ abstract class Composite extends Field implements IteratorAggregate, Countable
 			}
 		}
 
-		return new CompositeValidationResult($this, ...array_values($fieldResults));
+		return $this->validationResult = new CompositeValidationResult($this, ...array_values($fieldResults));
 	}
 
 	/**

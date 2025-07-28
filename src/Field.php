@@ -7,6 +7,7 @@ use Meraki\Schema\Property;
 use Meraki\Schema\ScopeTarget;
 use Meraki\Schema\AggregatedValidationResult;
 use Meraki\Schema\Field\ValidationResult;
+use Meraki\Schema\Field\CompositeValidationResult;
 use Meraki\Schema\Field\ConstraintValidationResult;
 use Meraki\Schema\Field\Factory as FieldFactory;
 use InvalidArgumentException;
@@ -78,6 +79,14 @@ abstract class Field implements ScopeTarget
 	 * @readonly External code should not modify this property
 	 */
 	public Property\Value $resolvedValue;
+
+	/**
+	 * This property holds the result of the last validation run.
+	 * It is set to null if no validation has been performed yet.
+	 *
+	 * @readonly External code should not modify this property
+	 */
+	public ValidationResult|CompositeValidationResult|null $validationResult = null;
 
 	/**
 	 * Indicates whether input has been given for this field.
@@ -254,7 +263,7 @@ abstract class Field implements ScopeTarget
 		}
 
 		if ($valueNotProvided) {
-			return new ValidationResult($this, ConstraintValidationResult::fail('type'));
+			return $this->validationResult = new ValidationResult($this, ConstraintValidationResult::fail('type'));
 		}
 
 		$typeIsValid = ($this->type->validator)($value->unwrap());
@@ -270,7 +279,7 @@ abstract class Field implements ScopeTarget
 				};
 			}
 
-			return new ValidationResult($this, ...$results);
+			return $this->validationResult = new ValidationResult($this, ...$results);
 		}
 
 		$results = [ConstraintValidationResult::fail('type')];
@@ -279,7 +288,7 @@ abstract class Field implements ScopeTarget
 			$results[] = ConstraintValidationResult::skip($constraintName);
 		}
 
-		return new ValidationResult($this, ...$results);
+		return $this->validationResult = new ValidationResult($this, ...$results);
 	}
 
 	/**

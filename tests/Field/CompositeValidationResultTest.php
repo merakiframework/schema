@@ -5,6 +5,7 @@ namespace Meraki\Schema\Field;
 
 use Meraki\Schema\Field;
 use Meraki\Schema\Field\Composite as CompositeField;
+use Meraki\Schema\Field\Factory as FieldFactory;
 use Meraki\Schema\Field\ValidationResult as FieldValidationResult;
 use Meraki\Schema\Field\ConstraintValidationResult;
 use Meraki\Schema\ValidationResult;
@@ -86,19 +87,17 @@ class CompositeValidationResultTest extends AggregatedValidationResultTestCase
 				return true;
 			}
 
-			public function serialize(): Serialized {
-				return new class implements Serialized {
-					public function getConstraints(): array {
-						return [];
-					}
-
-					public function children(): array {
-						return [];
-					}
-				};
+			public function serialize(): object {
+				return (object)[
+					'type' => 'mock',
+					'name' => 'mock',
+					'optional' => false,
+					'value' => null,
+					'fields' => [],
+				];
 			}
 
-			public static function deserialize(Serialized $serialized): static {
+			public static function deserialize(object $serialized, FieldFactory $fieldFactory): static {
 				if ($serialized->type !== 'mock') {
 					throw new \InvalidArgumentException('Invalid type for Mock field: ' . $serialized->type);
 				}
