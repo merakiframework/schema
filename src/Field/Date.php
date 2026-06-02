@@ -114,8 +114,37 @@ final class Date extends AtomicField
 
 	private function validateInterval(mixed $value): bool
 	{
-		$period = Period::between($this->from, $this->cast($value));
-		return $period->isEqualTo($this->interval) || $period->isZero();
+		$date = $this->cast($value);
+
+		if ($date->isEqualTo($this->from)) {
+			return true;
+		}
+
+		// Day-based intervals (including the P1D default): the number of days
+		// from `from` must be a whole multiple of the interval.
+		if ($this->interval->getYears() === 0 && $this->interval->getMonths() === 0) {
+			$intervalDays = $this->interval->getDays();
+
+			if ($intervalDays <= 0) {
+				return false;
+			}
+
+			return $this->from->daysUntil($date) % $intervalDays === 0;
+		}
+
+		// Month/year based intervals: step from `from` until we land on or pass
+		// the value.
+		$cursor = $this->from;
+
+		while ($cursor->isBeforeOrEqualTo($date)) {
+			if ($cursor->isEqualTo($date)) {
+				return true;
+			}
+
+			$cursor = $cursor->plusPeriod($this->interval);
+		}
+
+		return false;
 	}
 
 	/**

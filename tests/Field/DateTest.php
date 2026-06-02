@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace Meraki\Schema\Field;
 
 use Meraki\Schema\Field\Date;
+use Meraki\Schema\Field\Factory;
 use Meraki\Schema\Property\Name;
 use Meraki\Schema\FieldTestCase;
 use PHPUnit\Framework\Attributes\Test;
@@ -236,6 +237,10 @@ final class DateTest extends FieldTestCase
 			'same day' => ['2025-02-20', 'P1D', '2025-02-20'],
 			'the next day' => ['2025-02-20', 'P1D', '2025-02-21'],
 			'in a week' => ['2025-02-20', 'P7D', '2025-02-27'],
+			'two weeks (multiple of interval)' => ['2025-02-20', 'P7D', '2025-03-06'],
+			'far future on default daily interval' => ['1900-01-01', 'P1D', '1990-05-20'],
+			'one month' => ['2025-01-15', 'P1M', '2025-02-15'],
+			'three months (multiple of interval)' => ['2025-01-15', 'P1M', '2025-04-15'],
 		];
 	}
 
@@ -244,6 +249,7 @@ final class DateTest extends FieldTestCase
 		return [
 			'less than right amount of days' => ['2025-02-20', 'P7D', '2025-02-25'],
 			'more than right amount of days' => ['2025-02-20', 'P7D', '2025-03-07'],
+			'between monthly intervals' => ['2025-01-15', 'P1M', '2025-02-20'],
 		];
 	}
 
@@ -282,7 +288,7 @@ final class DateTest extends FieldTestCase
 		$this->assertEquals('P1D', $serialized->interval);
 		$this->assertEquals('2025-02-25', $serialized->value);
 
-		$deserialized = Date::deserialize($serialized);
+		$deserialized = Date::deserialize($serialized, new Factory());
 
 		$this->assertEquals('date', $deserialized->type->value);
 		$this->assertEquals('date', $deserialized->name->value);
