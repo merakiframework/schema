@@ -126,7 +126,7 @@ final class PassphraseTest extends FieldTestCase
 		$this->assertEquals('none', $serialized->dictionary);
 		$this->assertEquals('correct * horse battery 234 staple', $serialized->value);
 
-		$deserialized = Passphrase::deserialize($serialized);
+		$deserialized = Passphrase::deserialize($serialized, new Factory());
 
 		$this->assertEquals('passphrase', $deserialized->type->value);
 		$this->assertEquals('sut', $deserialized->name->value);

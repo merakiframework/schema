@@ -3,19 +3,19 @@ declare(strict_types=1);
 
 namespace Meraki\Schema;
 
-use Meraki\Schema\SchemaFacade;
+use Meraki\Schema\Facade;
 use PHPUnit\Framework\TestCase;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\Attributes\CoversClass;
 
-#[CoversClass(SchemaFacade::class)]
+#[CoversClass(Facade::class)]
 final class SchemaFacadeTest extends TestCase
 {
 	#[Test]
 	public function it_exists(): void
 	{
-		$schema = new SchemaFacade('test');
+		$schema = new Facade('test');
 
-		$this->assertInstanceOf(SchemaFacade::class, $schema);
+		$this->assertInstanceOf(Facade::class, $schema);
 	}
 }

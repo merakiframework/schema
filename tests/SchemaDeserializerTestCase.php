@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 namespace Meraki\Schema;
 
-use Meraki\Schema\SchemaDeserializer;
+use Meraki\Schema\Deserialization\Deserializer;
 use PHPUnit\Framework\TestCase;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -16,7 +16,7 @@ abstract class SchemaDeserializerTestCase extends TestCase
 	{
 		$deserializer = $this->createDeserializer();
 
-		$this->assertInstanceOf(SchemaDeserializer::class, $deserializer);
+		$this->assertInstanceOf(Deserializer::class, $deserializer);
 	}
 
 	#[Test]
@@ -24,7 +24,7 @@ abstract class SchemaDeserializerTestCase extends TestCase
 	{
 		$json = $this->createDeserializer();
 
-		$this->assertInstanceOf(SchemaDeserializer::class, $json);
+		$this->assertInstanceOf(Deserializer::class, $json);
 	}
 
 	#[Test]
@@ -34,7 +34,7 @@ abstract class SchemaDeserializerTestCase extends TestCase
 		$jsonString = '{}';
 
 		$this->expectException(\InvalidArgumentException::class);
-		$this->expectExceptionMessage('Schema must have a name.');
+		$this->expectExceptionMessage('Expected a property named "name" in object.');
 
 		$schema = $json->deserialize($jsonString);
 	}
@@ -75,5 +75,5 @@ abstract class SchemaDeserializerTestCase extends TestCase
 		];
 	}
 
-	abstract public function createDeserializer(): SchemaDeserializer;
+	abstract public function createDeserializer(): Deserializer;
 }

@@ -148,7 +148,7 @@ final class TextTest extends FieldTestCase
 		$this->assertEquals('/[a-zA-Z_][a-zA-Z0-9_]/', $serialized->pattern);
 		$this->assertEquals('doStuff', $serialized->value);
 
-		$deserialized = Text::deserialize($serialized);
+		$deserialized = Text::deserialize($serialized, new Factory());
 
 		$this->assertEquals('text', $deserialized->type->value);
 		$this->assertEquals('text', $deserialized->name->value);

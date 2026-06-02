@@ -130,7 +130,7 @@ final class PhoneNumberTest extends FieldTestCase
 		$this->assertTrue($serialized->optional);
 		$this->assertEquals('+61312345678', $serialized->value);
 
-		$deserialized = PhoneNumber::deserialize($serialized);
+		$deserialized = PhoneNumber::deserialize($serialized, new Factory());
 
 		$this->assertEquals('phone_number', $deserialized->type->value);
 		$this->assertEquals('test', $deserialized->name->value);

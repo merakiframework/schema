@@ -61,6 +61,7 @@ final class FactoryTest extends TestCase
 			]],
 			'money' => ['createMoney', Field\Money::class, [
 				'name' => 'salary',
+				'allowedCurrencies' => ['AUD' => 2],
 			]],
 			'name' => ['createName', Field\Name::class, [
 				'name' => 'full_name',

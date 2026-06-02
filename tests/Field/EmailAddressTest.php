@@ -228,11 +228,11 @@ final class EmailAddressTest extends FieldTestCase
 		$this->assertEquals('basic', $serialized->format);
 		$this->assertEquals(5, $serialized->min);
 		$this->assertEquals(128, $serialized->max);
-		$this->assertEquals(['example.org'], $serialized->allowedDomains);
-		$this->assertEquals(['example.com'], $serialized->disallowedDomains);
+		$this->assertEquals(['example.org'], $serialized->allowed_domains);
+		$this->assertEquals(['example.com'], $serialized->disallowed_domains);
 		$this->assertEquals('postmaster@example.org', $serialized->value);
 
-		$deserialized = EmailAddress::deserialize($serialized);
+		$deserialized = EmailAddress::deserialize($serialized, new Factory());
 
 		$this->assertEquals('email_address', $deserialized->type->value);
 		$this->assertEquals('email_address', $deserialized->name->value);

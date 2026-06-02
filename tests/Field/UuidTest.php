@@ -194,7 +194,7 @@ final class UuidTest extends FieldTestCase
 		$this->assertEquals([4], $serialized->versions);
 		$this->assertEquals($uuid, $serialized->value);
 
-		$deserialized = Uuid::deserialize($serialized);
+		$deserialized = Uuid::deserialize($serialized, new Factory());
 
 		$this->assertEquals('uuid', $deserialized->type->value);
 		$this->assertEquals('uuid', $deserialized->name->value);

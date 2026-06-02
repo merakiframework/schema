@@ -164,7 +164,7 @@ final class Variant extends Field
 			'optional' => $this->optional,
 			'value' => $this->defaultValue->unwrap(),
 			'fields' => array_map(
-				fn(Field $field): Serialized => $field->serialize(),
+				fn(Field $field): object => $field->serialize(),
 				$this->fields->getIterator()->getArrayCopy()
 			),
 		];

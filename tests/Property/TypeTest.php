@@ -13,13 +13,13 @@ final class TypeTest extends PropertyTestCase
 {
 	public function createProperty(): Type
 	{
-		return new Type('value');
+		return new Type('value', fn(mixed $value): bool => true);
 	}
 
 	#[Test]
 	public function it_has_the_correct_name(): void
 	{
-		$property = new Type('value');
+		$property = $this->createProperty();
 
 		$this->assertEquals('type', $property->name);
 	}
@@ -29,7 +29,7 @@ final class TypeTest extends PropertyTestCase
 	{
 		$expectedValue = 'field_name';
 
-		$property = new Type($expectedValue);
+		$property = new Type($expectedValue, fn(mixed $value): bool => true);
 
 		$this->assertSame($expectedValue, $property->value);
 	}

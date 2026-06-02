@@ -80,7 +80,7 @@ final class NameTest extends FieldTestCase
 		$this->assertEquals(128, $serialized->max);
 		$this->assertEquals('John Doe', $serialized->value);
 
-		$deserialized = Name::deserialize($serialized);
+		$deserialized = Name::deserialize($serialized, new Factory());
 
 		$this->assertEquals('name', $deserialized->type->value);
 		$this->assertEquals('name', $deserialized->name->value);

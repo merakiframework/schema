@@ -196,7 +196,7 @@ final class VariantTest extends FieldTestCase
 		$this->assertTrue($serialized->optional);
 		$this->assertEquals($value, $serialized->value);
 
-		$deserialized = Variant::deserialize($serialized);
+		$deserialized = Variant::deserialize($serialized, new Factory());
 
 		$this->assertEquals('variant', $deserialized->type->value);
 		$this->assertEquals('secret', $deserialized->name->value);
@@ -209,7 +209,7 @@ final class VariantTest extends FieldTestCase
 	{
 		$field = $this->createSubject()->prefill('correct horse battery staple');
 		$serialized = $field->serialize();
-		$children = $serialized->children();
+		$children = $serialized->fields;
 
 		$this->assertCount(2, $children);
 		$this->assertSerializedChildrenContainsFieldWithNameOf('secret.password', $children);

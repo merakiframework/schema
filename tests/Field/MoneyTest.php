@@ -273,14 +273,14 @@ final class MoneyTest extends CompositeTestCase
 		$this->assertEquals('money', $serialized->type);
 		$this->assertEquals('cost', $serialized->name);
 		$this->assertFalse($serialized->optional);
-		$this->assertEquals(['AUD', 'USD'], $serialized->allowed);
+		$this->assertEquals(['AUD', 'USD'], $serialized->allowed_currencies);
 		$this->assertEquals(['AUD' => 3, 'USD' => 2], $serialized->scale);
 		$this->assertEquals(['AUD' => '0.000', 'USD' => '20.00'], $serialized->min);
 		$this->assertEquals(['AUD' => '1000.000', 'USD' => '500.00'], $serialized->max);
 		$this->assertEquals(['AUD' => '0.001', 'USD' => '10.00'], $serialized->step);
 		$this->assertEquals($moneyNormalized, $serialized->value);
 
-		$deserialized = Money::deserialize($serialized);
+		$deserialized = Money::deserialize($serialized, new Factory());
 
 		$this->assertEquals('money', $deserialized->type->value);
 		$this->assertEquals('cost', $deserialized->name->value);
@@ -301,7 +301,7 @@ final class MoneyTest extends CompositeTestCase
 			'cost.amount' => '100.00',
 		]);
 		$serialized = $field->serialize();
-		$children = $serialized->children();
+		$children = $serialized->fields;
 
 		$this->assertCount(2, $children);
 		$this->assertSerializedChildrenContainsFieldWithNameOf('cost.currency', $children);

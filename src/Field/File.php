@@ -365,10 +365,10 @@ final class File extends AtomicMultiValueField
 		$fileField->allowedSources = $serialized->allowed_sources;
 		$fileField->disallowedSources = $serialized->disallowed_sources;
 
-		return $fileField->atLeast($serialized->minCount)
-			->atMost($serialized->maxCount)
-			->minFileSizeOf($serialized->minSize)
-			->maxFileSizeOf($serialized->maxSize)
+		return $fileField->atLeast($serialized->min_count)
+			->atMost($serialized->max_count)
+			->minFileSizeOf($serialized->min_size)
+			->maxFileSizeOf($serialized->max_size)
 			->allowTypes(...$serialized->allowed_types)
 			->disallowTypes(...$serialized->disallowed_types)
 			->prefill($serialized->value);

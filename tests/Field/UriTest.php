@@ -159,7 +159,7 @@ final class UriTest extends FieldTestCase
 		$this->assertEquals(64, $serialized->max);
 		$this->assertEquals('localhost', $serialized->value);
 
-		$deserialized = Uri::deserialize($serialized);
+		$deserialized = Uri::deserialize($serialized, new Factory());
 
 		$this->assertEquals('uri', $deserialized->type->value);
 		$this->assertEquals('test', $deserialized->name->value);

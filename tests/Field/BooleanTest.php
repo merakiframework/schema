@@ -33,7 +33,7 @@ final class BooleanTest extends FieldTestCase
 		$this->assertFalse($serialized->optional);
 		$this->assertNull($serialized->value);
 
-		$deserialized = Boolean::deserialize($serialized);
+		$deserialized = Boolean::deserialize($serialized, new Factory());
 
 		$this->assertEquals('boolean', $deserialized->type->value);
 		$this->assertEquals('test', $deserialized->name->value);

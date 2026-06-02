@@ -273,15 +273,15 @@ final class FileTest extends FieldTestCase
 		$this->assertEquals('file', $serialized->type);
 		$this->assertEquals('file', $serialized->name);
 		$this->assertFalse($serialized->optional);
-		$this->assertEquals(1, $serialized->minCount);
-		$this->assertEquals(3, $serialized->maxCount);
-		$this->assertEquals(16, $serialized->minSize);
-		$this->assertEquals(2048, $serialized->maxSize);
-		$this->assertEquals($allowedTypes, $serialized->allowedTypes);
-		$this->assertEquals($disallowedTypes, $serialized->disallowedTypes);
+		$this->assertEquals(1, $serialized->min_count);
+		$this->assertEquals(3, $serialized->max_count);
+		$this->assertEquals(16, $serialized->min_size);
+		$this->assertEquals(2048, $serialized->max_size);
+		$this->assertEquals($allowedTypes, $serialized->allowed_types);
+		$this->assertEquals($disallowedTypes, $serialized->disallowed_types);
 		$this->assertEquals($files, $serialized->value);
 
-		$deserialized = File::deserialize($serialized);
+		$deserialized = File::deserialize($serialized, new \Meraki\Schema\Field\Factory());
 
 		$this->assertEquals('file', $deserialized->type->value);
 		$this->assertEquals('file', $deserialized->name->value);

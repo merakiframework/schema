@@ -220,11 +220,11 @@ final class TimeTest extends FieldTestCase
 		$this->assertEquals('10:00', $serialized->from);
 		$this->assertEquals('20:00', $serialized->until);
 		$this->assertEquals('PT1H', $serialized->step);
-		$this->assertEquals('minutes', $serialized->precisionUnit);
-		$this->assertEquals('truncate', $serialized->precisionMode);
+		$this->assertEquals('minutes', $serialized->precision_unit);
+		$this->assertEquals('truncate', $serialized->precision_mode);
 		$this->assertEquals('12:00', $serialized->value);
 
-		$deserialized = Time::deserialize($serialized);
+		$deserialized = Time::deserialize($serialized, new Factory());
 
 		$this->assertEquals('time', $deserialized->type->value);
 		$this->assertEquals('time', $deserialized->name->value);

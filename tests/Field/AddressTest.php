@@ -108,7 +108,7 @@ final class AddressTest extends CompositeTestCase
 		$this->assertFalse($serialized->optional);
 		$this->assertEquals($address, $serialized->value);
 
-		$deserialized = Address::deserialize($serialized);
+		$deserialized = Address::deserialize($serialized, new Factory());
 
 		$this->assertEquals('address', $deserialized->type->value);
 		$this->assertEquals('test', $deserialized->name->value);
@@ -127,7 +127,7 @@ final class AddressTest extends CompositeTestCase
 			'test.country' => 'Australia'
 		]);
 		$serialized = $field->serialize();
-		$children = $serialized->children();
+		$children = $serialized->fields;
 
 		$this->assertCount(5, $children);
 		$this->assertSerializedChildrenContainsFieldWithNameOf('test.street', $children);

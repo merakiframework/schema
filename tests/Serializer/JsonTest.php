@@ -3,16 +3,16 @@ declare(strict_types=1);
 
 namespace Meraki\Schema;
 
-use Meraki\Schema\Serializer\Json;
-use Meraki\Schema\SchemaSerializer;
+use Meraki\Schema\Serialization\JsonSerializer;
+use Meraki\Schema\Serialization\Serializer;
 use Meraki\Schema\SchemaSerializerTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 
-#[CoversClass(Json::class)]
+#[CoversClass(JsonSerializer::class)]
 final class JsonTest extends SchemaSerializerTestCase
 {
-	public function createSerializer(): SchemaSerializer
+	public function createSerializer(): Serializer
 	{
-		return new Json();
+		return new JsonSerializer();
 	}
 }

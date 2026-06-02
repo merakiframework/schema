@@ -3,16 +3,16 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Deserializer;
 
-use Meraki\Schema\SchemaDeserializer;
-use Meraki\Schema\Deserializer\Json;
+use Meraki\Schema\Deserialization\Deserializer;
+use Meraki\Schema\Deserialization\JsonDeserializer;
 use Meraki\Schema\SchemaDeserializerTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 
-#[CoversClass(Json::class)]
+#[CoversClass(JsonDeserializer::class)]
 final class JsonTest extends SchemaDeserializerTestCase
 {
-	public function createDeserializer(): SchemaDeserializer
+	public function createDeserializer(): Deserializer
 	{
-		return new Json();
+		return new JsonDeserializer();
 	}
 }

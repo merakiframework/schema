@@ -252,7 +252,7 @@ final class DurationTest extends FieldTestCase
 		$this->assertEquals('PT30M', $serialized->step);
 		$this->assertEquals('PT2H30M', $serialized->value);
 
-		$deserialized = Duration::deserialize($serialized);
+		$deserialized = Duration::deserialize($serialized, new Factory());
 
 		$this->assertEquals('duration', $deserialized->type->value);
 		$this->assertEquals('duration', $deserialized->name->value);

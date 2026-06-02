@@ -294,7 +294,7 @@ final class NumberTest extends FieldTestCase
 		$this->assertNull($serialized->scale);
 		$this->assertEquals('27', $serialized->value);
 
-		$deserialized = Number::deserialize($serialized);
+		$deserialized = Number::deserialize($serialized, new Factory());
 
 		$this->assertEquals('number', $deserialized->type->value);
 		$this->assertEquals('number', $deserialized->name->value);

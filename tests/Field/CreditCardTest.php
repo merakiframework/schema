@@ -298,7 +298,7 @@ final class CreditCardTest extends CompositeTestCase
 		$this->assertFalse($serialized->optional);
 		$this->assertEquals($addressNormalized, $serialized->value);
 
-		$deserialized = CreditCard::deserialize($serialized);
+		$deserialized = CreditCard::deserialize($serialized, new Factory());
 
 		$this->assertEquals('credit_card', $deserialized->type->value);
 		$this->assertEquals('credit_card', $deserialized->name->value);
@@ -316,7 +316,7 @@ final class CreditCardTest extends CompositeTestCase
 			'credit_card.security_code' => '511',
 		]);
 		$serialized = $field->serialize();
-		$children = $serialized->children();
+		$children = $serialized->fields;
 
 		$this->assertCount(4, $children);
 		$this->assertSerializedChildrenContainsFieldWithNameOf('credit_card.holder', $children);

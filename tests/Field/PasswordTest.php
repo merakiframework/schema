@@ -279,10 +279,10 @@ final class PasswordTest extends FieldTestCase
 		$this->assertEquals([1, 4], $serialized->uppercase);
 		$this->assertEquals([1, 4], $serialized->digits);
 		$this->assertEquals([2, 2], $serialized->symbols);
-		$this->assertEquals(['digits', 'symbols'], $serialized->anyOf);
+		$this->assertEquals(['digits', 'symbols'], $serialized->any_of);
 		$this->assertEquals('test^1234^CAPS', $serialized->value);
 
-		$deserialized = Password::deserialize($serialized);
+		$deserialized = Password::deserialize($serialized, new Factory());
 
 		$this->assertEquals('password', $deserialized->type->value);
 		$this->assertEquals('sut', $deserialized->name->value);

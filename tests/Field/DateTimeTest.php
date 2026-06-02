@@ -208,10 +208,10 @@ final class DateTimeTest extends FieldTestCase
 		$this->assertEquals('2025-02-28T10:00', $serialized->until);
 		$this->assertEquals('PT1H', $serialized->interval);
 		$this->assertEquals('2025-02-25T11:00:00', $serialized->value);
-		$this->assertEquals('minutes', $serialized->precisionUnit);
-		$this->assertEquals('truncate', $serialized->precisionMode);
+		$this->assertEquals('minutes', $serialized->precision_unit);
+		$this->assertEquals('truncate', $serialized->precision_mode);
 
-		$deserialized = DateTime::deserialize($serialized);
+		$deserialized = DateTime::deserialize($serialized, new Factory());
 
 		$this->assertEquals('date_time', $deserialized->type->value);
 		$this->assertEquals('date_time', $deserialized->name->value);
