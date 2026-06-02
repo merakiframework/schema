@@ -14,8 +14,6 @@ use Meraki\Schema\AggregatedValidationResult;
  */
 final class ValidationResult extends AggregatedValidationResult
 {
-	public ValidationStatus $status;
-
 	public function __construct(
 		public Field $field,
 		ConstraintValidationResult ...$results
@@ -23,11 +21,9 @@ final class ValidationResult extends AggregatedValidationResult
 		parent::__construct(...$results);
 
 		$this->assertResultsAreUnique();
-
-		$this->status = $this->calculateStatus();
 	}
 
-	private function calculateStatus(): ValidationStatus
+	protected function calculateStatus(): ValidationStatus
 	{
 		if ($this->isEmpty() || $this->anyPending()) {
 			return ValidationStatus::Pending;

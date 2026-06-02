@@ -19,13 +19,22 @@ abstract class AggregatedValidationResult implements IteratorAggregate, Countabl
 	 */
 	public array $results;
 
+	public ValidationStatus $status;
+
 	/**
 	 * @param T ...$results
 	 */
 	public function __construct(ValidationResult ...$results)
 	{
 		$this->results = $results;
+		$this->status = $this->calculateStatus();
 	}
+
+	/**
+	 * Derives the aggregate status from the current results. Recomputed after
+	 * every immutable operation so $status never goes stale.
+	 */
+	abstract protected function calculateStatus(): ValidationStatus;
 
 	/**
 	 * @param T $result
@@ -34,6 +43,7 @@ abstract class AggregatedValidationResult implements IteratorAggregate, Countabl
 	{
 		$self = clone $this;
 		$self->results[] = $result;
+		$self->status = $self->calculateStatus();
 
 		return $self;
 	}
@@ -45,6 +55,7 @@ abstract class AggregatedValidationResult implements IteratorAggregate, Countabl
 	{
 		$self = clone $this;
 		$self->results = array_filter($this->results, fn(ValidationResult $r): bool => $r !== $result);
+		$self->status = $self->calculateStatus();
 
 		return $self;
 	}
@@ -161,6 +172,7 @@ abstract class AggregatedValidationResult implements IteratorAggregate, Countabl
 	{
 		$self = clone $this;
 		$self->results = array_merge($this->results, $other->results);
+		$self->status = $self->calculateStatus();
 
 		return $self;
 	}
