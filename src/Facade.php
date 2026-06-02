@@ -224,10 +224,33 @@ final class Facade implements ScopeTarget
 	private function extractData(array|object|null $data): array
 	{
 		if ($data === null) {
-			$data = self::extractDefaultValues($this);
+			return self::extractDefaultValues($this);
 		}
 
-		return is_object($data) ? get_object_vars($data) : $data;
+		if (is_array($data)) {
+			return $data;
+		}
+
+		// get_object_vars() only exposes plain public properties: objects that
+		// expose their values through __get()/accessors would have every field
+		// silently fed null. isset()/?? cannot be used either, as they invoke
+		// __isset() (which value objects often omit), so read each declared
+		// public property directly and fall back to __get() when present.
+		$publicVars = get_object_vars($data);
+		$hasMagicGetter = method_exists($data, '__get');
+		$extracted = [];
+
+		foreach ($this->fields as $field) {
+			$name = (string) $field->name;
+
+			$extracted[$name] = match (true) {
+				array_key_exists($name, $publicVars) => $publicVars[$name],
+				$hasMagicGetter => $data->{$name},
+				default => null,
+			};
+		}
+
+		return $extracted;
 	}
 
 	public function serialize(?Serializer $serializer = null): string

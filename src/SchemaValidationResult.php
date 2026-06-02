@@ -14,12 +14,25 @@ final class SchemaValidationResult extends AggregatedValidationResult
 	{
 		parent::__construct(...$results);
 
-		$this->status = match (true) {
-			$this->pending() => ValidationStatus::Pending,
-			$this->failed() => ValidationStatus::Failed,
-			$this->skipped() => ValidationStatus::Skipped,
-			$this->passed() => ValidationStatus::Passed,
-		};
+		$this->status = $this->calculateStatus();
+	}
+
+	private function calculateStatus(): ValidationStatus
+	{
+		if ($this->pending()) {
+			return ValidationStatus::Pending;
+		}
+
+		if ($this->failed()) {
+			return ValidationStatus::Failed;
+		}
+
+		if ($this->skipped()) {
+			return ValidationStatus::Skipped;
+		}
+
+		// all passed, or a mix of passed and skipped
+		return ValidationStatus::Passed;
 	}
 
 	public function failed(): bool
