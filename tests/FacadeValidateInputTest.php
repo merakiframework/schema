@@ -95,6 +95,25 @@ final class FacadeValidateInputTest extends TestCase
 		$this->assertSame(ValidationStatus::Passed, $result->status);
 	}
 
+	#[Test]
+	public function it_resets_conditional_rule_effects_between_validations(): void
+	{
+		$schema = new Facade('contact');
+		$schema->addBooleanField('has_phone');
+		$schema->addTextField('phone')->makeOptional();
+		$schema->whenAllMatch(
+			fn($rule) => $rule->whenEquals('#/fields/has_phone/value', true)->thenRequire('#/fields/phone')
+		);
+
+		// condition holds -> phone becomes required -> missing phone fails
+		$first = $schema->validate(['has_phone' => true, 'phone' => null]);
+		$this->assertTrue($first->failed());
+
+		// condition no longer holds -> phone must revert to optional -> no failure
+		$second = $schema->validate(['has_phone' => false, 'phone' => null]);
+		$this->assertFalse($second->failed());
+	}
+
 	private function createPersonSchema(): Facade
 	{
 		$schema = new Facade('create-person');

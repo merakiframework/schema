@@ -18,6 +18,10 @@ final class Builder extends Rule
 
 	protected function __construct(ConditionGroup $rootGroup)
 	{
+		// Initialise the inherited Rule state so the readonly $condition/$outcomes
+		// are never left uninitialised. build() produces the authoritative Rule.
+		parent::__construct($rootGroup, []);
+
 		$this->rootGroup = $rootGroup;
 		$this->currentGroup = $this->rootGroup;
 	}

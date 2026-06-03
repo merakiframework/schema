@@ -79,7 +79,11 @@ final class Variant extends Field
 		parent::input($value);
 
 		foreach ($this->fields as $field) {
-			$field->input($value);
+			try {
+				$field->input($value);
+			} catch (InvalidArgumentException $e) {
+				continue;
+			}
 		}
 
 		return $this;
@@ -91,12 +95,12 @@ final class Variant extends Field
 
 		// if the field is optional and no value is provided, skip all constraints
 		if ($this->optional && $value->notProvided()) {
-			return new ValidationResult($this, ConstraintValidationResult::skip('type'));
+			return $this->validationResult = new ValidationResult($this, ConstraintValidationResult::skip('type'));
 		}
 
 		// if the field is not optional and no value provided, return a validation error
 		if ($value->notProvided()) {
-			return new ValidationResult($this, ConstraintValidationResult::fail('type'));
+			return $this->validationResult = new ValidationResult($this, ConstraintValidationResult::fail('type'));
 		}
 
 		$typeIsValid = ($this->type->validator)($value->unwrap());
@@ -109,14 +113,14 @@ final class Variant extends Field
 				if ($result->status === ValidationStatus::Passed) {
 					$this->matchedField = $field;
 					$this->resolvedValue = $field->resolvedValue;
-					return $result;
+					return $this->validationResult = $result;
 				}
 
 				$fieldResults[] = $result;
 			}
 		}
 
-		return new CompositeValidationResult($this, ...$fieldResults);
+		return $this->validationResult = new CompositeValidationResult($this, ...$fieldResults);
 	}
 
 	public function getConstraints(): array

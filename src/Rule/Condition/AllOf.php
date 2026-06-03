@@ -28,6 +28,12 @@ final class AllOf implements ConditionGroup
 	}
 
 	public function matches(array $data, Facade $schema): bool {
+		// An empty group should not fire a rule (matches AnyOf's behaviour),
+		// rather than being vacuously true and always matching.
+		if ($this->conditions === []) {
+			return false;
+		}
+
 		foreach ($this->conditions as $condition) {
 			if (!$condition->matches($data, $schema)) {
 				return false;
