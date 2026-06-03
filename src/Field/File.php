@@ -29,7 +29,9 @@ use InvalidArgumentException;
  * 	allowed_sources: list<string>,
  * 	disallowed_sources: list<string>
  * }
- * @extends AtomicMultiValueField<list<FileMetadata>|null, SerializedFile>
+ * Input may be a single file (a FileMetadata array or a Metadata instance) or a
+ * list of either.
+ * @extends AtomicMultiValueField<list<FileMetadata|Metadata>|FileMetadata|Metadata|null, SerializedFile>
  */
 final class File extends AtomicMultiValueField
 {
@@ -197,23 +199,32 @@ final class File extends AtomicMultiValueField
 	 */
 	protected function cast(mixed $value): array
 	{
-		if (!is_array($value)) {
-			throw new InvalidArgumentException('Expected an array for file input.');
-		}
-
-		if (array_is_list($value)) {
-			foreach ($value as $file) {
-				$this->assertCorrectStructure($file);
-			}
-		} else {
-			$this->assertCorrectStructure($value);
+		// A single file may be given as a Metadata instance or an associative
+		// metadata array; multiple files as a list of either (or a mix).
+		if ($value instanceof Metadata || (is_array($value) && !array_is_list($value))) {
 			$value = [$value];
 		}
 
-		return array_map(
-			fn(array $file): Metadata => new Metadata($file['name'], $file['type'], $file['size'], $file['source']),
-			$value,
-		);
+		if (!is_array($value)) {
+			throw new InvalidArgumentException('Expected file metadata (an array or a Metadata instance) or a list thereof.');
+		}
+
+		return array_map($this->toMetadata(...), $value);
+	}
+
+	private function toMetadata(mixed $file): Metadata
+	{
+		if ($file instanceof Metadata) {
+			return $file;
+		}
+
+		if (!is_array($file)) {
+			throw new InvalidArgumentException('Each file must be an associative metadata array or a Metadata instance.');
+		}
+
+		$this->assertCorrectStructure($file);
+
+		return new Metadata($file['name'], $file['type'], $file['size'], $file['source']);
 	}
 
 	protected function validateType(mixed $value): bool

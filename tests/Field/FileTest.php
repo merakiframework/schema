@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace Meraki\Schema\Field\Type;
 
 use Meraki\Schema\Field\File;
+use Meraki\Schema\Field\File\Metadata;
 use Meraki\Schema\ValidationStatus;
 use Meraki\Schema\Property\Name;
 use Meraki\Schema\FieldTestCase;
@@ -19,6 +20,42 @@ final class FileTest extends FieldTestCase
 	public function createField(): File
 	{
 		return new File(new Name('file'));
+	}
+
+	#[Test]
+	public function it_accepts_a_single_metadata_value_object(): void
+	{
+		$field = $this->createField()->allowTypes('image/png');
+		$field->input(new Metadata('a.png', 'image/png', 123, 'upload'));
+
+		$result = $field->validate();
+
+		$this->assertConstraintValidationResultPassed('type', $result);
+		$this->assertSame(ValidationStatus::Passed, $result->status);
+	}
+
+	#[Test]
+	public function it_accepts_a_list_of_metadata_value_objects(): void
+	{
+		$field = $this->createField();
+		$field->input([
+			new Metadata('a.png', 'image/png', 123, 'upload'),
+			new Metadata('b.png', 'image/png', 456, 'upload'),
+		]);
+
+		$this->assertSame(ValidationStatus::Passed, $field->validate()->status);
+	}
+
+	#[Test]
+	public function it_accepts_a_mix_of_arrays_and_metadata_value_objects(): void
+	{
+		$field = $this->createField();
+		$field->input([
+			['name' => 'a.png', 'type' => 'image/png', 'size' => 123, 'source' => 'upload'],
+			new Metadata('b.png', 'image/png', 456, 'upload'),
+		]);
+
+		$this->assertSame(ValidationStatus::Passed, $field->validate()->status);
 	}
 
 	#[Test]
