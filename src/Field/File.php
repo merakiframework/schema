@@ -14,7 +14,6 @@ use InvalidArgumentException;
  *	name: string,
  *	type: string,
  *	size: int,
- *	source: string,
  * }
  * @phpstan-import-type SerializedField from Field
  * @phpstan-type SerializedFile = SerializedField&object{
@@ -25,9 +24,7 @@ use InvalidArgumentException;
  * 	min_size: int,
  * 	max_size: int,
  * 	allowed_types: list<string>,
- * 	disallowed_types: list<string>,
- * 	allowed_sources: list<string>,
- * 	disallowed_sources: list<string>
+ * 	disallowed_types: list<string>
  * }
  * Input may be a single file (a FileMetadata array or a Metadata instance) or a
  * list of either.
@@ -54,16 +51,6 @@ final class File extends AtomicMultiValueField
 	 * @var list<string>
 	 */
 	public array $disallowedTypes = [];
-
-	/**
-	 * @var list<string>
-	 */
-	public array $allowedSources = [];
-
-	/**
-	 * @var list<string>
-	 */
-	public array $disallowedSources = [];
 
 	public function __construct(
 		Property\Name $name,
@@ -224,7 +211,7 @@ final class File extends AtomicMultiValueField
 
 		$this->assertCorrectStructure($file);
 
-		return new Metadata($file['name'], $file['type'], $file['size'], $file['source']);
+		return new Metadata($file['name'], $file['type'], $file['size']);
 	}
 
 	protected function validateType(mixed $value): bool
@@ -240,13 +227,13 @@ final class File extends AtomicMultiValueField
 
 	private function assertCorrectStructure(array $value): void
 	{
-		foreach (['name', 'type', 'size', 'source'] as $key) {
+		foreach (['name', 'type', 'size'] as $key) {
 			if (!isset($value[$key])) {
 				throw new InvalidArgumentException("Missing '$key' key in file array.");
 			}
 		}
 
-		foreach (['name', 'type', 'source'] as $key) {
+		foreach (['name', 'type'] as $key) {
 			if (!is_string($value[$key]) || $value[$key] === '') {
 				throw new InvalidArgumentException("Key '$key' must be a string in file array.");
 			}
@@ -270,8 +257,6 @@ final class File extends AtomicMultiValueField
 			'disallowed_types' => $this->validateDisallowedTypes(...),
 			'min_size' => $this->validateMinSize(...),
 			'max_size' => $this->validateMaxSize(...),
-			// future: 'allowed_sources' => $this->validateAllowedSources(...),
-			// future: 'disallowed_sources' => $this->validateDisallowedSources(...),
 		];
 	}
 
@@ -357,8 +342,6 @@ final class File extends AtomicMultiValueField
 			'max_size' => $this->maxSize,
 			'allowed_types' => $this->allowedTypes,
 			'disallowed_types' => $this->disallowedTypes,
-			'allowed_sources' => $this->allowedSources,
-			'disallowed_sources' => $this->disallowedSources,
 		];
 	}
 
@@ -373,8 +356,6 @@ final class File extends AtomicMultiValueField
 
 		$fileField = new self(new Property\Name($serialized->name));
 		$fileField->optional = $serialized->optional;
-		$fileField->allowedSources = $serialized->allowed_sources;
-		$fileField->disallowedSources = $serialized->disallowed_sources;
 
 		return $fileField->atLeast($serialized->min_count)
 			->atMost($serialized->max_count)

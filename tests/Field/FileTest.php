@@ -26,7 +26,7 @@ final class FileTest extends FieldTestCase
 	public function it_accepts_a_single_metadata_value_object(): void
 	{
 		$field = $this->createField()->allowTypes('image/png');
-		$field->input(new Metadata('a.png', 'image/png', 123, 'upload'));
+		$field->input(new Metadata('a.png', 'image/png', 123));
 
 		$result = $field->validate();
 
@@ -39,8 +39,8 @@ final class FileTest extends FieldTestCase
 	{
 		$field = $this->createField();
 		$field->input([
-			new Metadata('a.png', 'image/png', 123, 'upload'),
-			new Metadata('b.png', 'image/png', 456, 'upload'),
+			new Metadata('a.png', 'image/png', 123),
+			new Metadata('b.png', 'image/png', 456),
 		]);
 
 		$this->assertSame(ValidationStatus::Passed, $field->validate()->status);
@@ -51,8 +51,8 @@ final class FileTest extends FieldTestCase
 	{
 		$field = $this->createField();
 		$field->input([
-			['name' => 'a.png', 'type' => 'image/png', 'size' => 123, 'source' => 'upload'],
-			new Metadata('b.png', 'image/png', 456, 'upload'),
+			['name' => 'a.png', 'type' => 'image/png', 'size' => 123],
+			new Metadata('b.png', 'image/png', 456),
 		]);
 
 		$this->assertSame(ValidationStatus::Passed, $field->validate()->status);
@@ -78,7 +78,6 @@ final class FileTest extends FieldTestCase
 					'name' => 'file.txt',
 					'type' => 'text/plain',
 					'size' => 1234,
-					'source' => 'file:///temp/file.txt',
 				],
 				ValidationStatus::Passed
 			],
@@ -87,7 +86,6 @@ final class FileTest extends FieldTestCase
 					'name' => '',
 					'type' => 'text/plain',
 					'size' => 1234,
-					'source' => 'file:///temp/file.txt',
 				],
 				ValidationStatus::Failed
 			],
@@ -96,7 +94,6 @@ final class FileTest extends FieldTestCase
 					'name' => 'file.txt',
 					'type' => 'text/plain',
 					'size' => -1234,
-					'source' => 'file:///temp/file.txt',
 				],
 				ValidationStatus::Failed
 			],
@@ -105,7 +102,6 @@ final class FileTest extends FieldTestCase
 					'name' => 'file.txt',
 					'type' => '',
 					'size' => 1234,
-					'source' => 'file:///temp/file.txt',
 				],
 				ValidationStatus::Failed
 			],
@@ -135,13 +131,11 @@ final class FileTest extends FieldTestCase
 						'name' => 'file1.txt',
 						'type' => 'text/plain',
 						'size' => 1234,
-						'source' => 'file:///temp/file1.txt',
 					],
 					[
 						'name' => 'file2.txt',
 						'type' => 'text/plain',
 						'size' => 5678,
-						'source' => 'file:///temp/file2.txt',
 					],
 				],
 				ValidationStatus::Passed
@@ -159,7 +153,6 @@ final class FileTest extends FieldTestCase
 				'name' => 'file1.txt',
 				'type' => 'text/plain',
 				'size' => 1000,
-				'source' => 'file:///tmp/file1.txt',
 			]
 		]);
 
@@ -178,13 +171,11 @@ final class FileTest extends FieldTestCase
 				'name' => 'file1.txt',
 				'type' => 'text/plain',
 				'size' => 1000,
-				'source' => 'file:///tmp/file1.txt',
 			],
 			[
 				'name' => 'file2.txt',
 				'type' => 'text/plain',
 				'size' => 1500,
-				'source' => 'file:///tmp/file2.txt',
 			],
 		]);
 
@@ -203,7 +194,6 @@ final class FileTest extends FieldTestCase
 				'name' => 'video.mp4',
 				'type' => 'video/mp4',
 				'size' => 1000,
-				'source' => 'file:///tmp/video.mp4',
 			],
 		]);
 
@@ -222,7 +212,6 @@ final class FileTest extends FieldTestCase
 				'name' => 'script.js',
 				'type' => 'application/javascript',
 				'size' => 800,
-				'source' => 'file:///tmp/script.js',
 			],
 		]);
 
@@ -241,7 +230,6 @@ final class FileTest extends FieldTestCase
 				'name' => 'tiny.txt',
 				'type' => 'text/plain',
 				'size' => 512,
-				'source' => 'file:///tmp/tiny.txt',
 			],
 		]);
 
@@ -260,7 +248,6 @@ final class FileTest extends FieldTestCase
 				'name' => 'large.txt',
 				'type' => 'text/plain',
 				'size' => 4096,
-				'source' => 'file:///tmp/large.txt',
 			],
 		]);
 
@@ -292,7 +279,6 @@ final class FileTest extends FieldTestCase
 			'name' => 'example.txt',
 			'type' => 'text/plain',
 			'size' => 1234,
-			'source' => 'file:///tmp/example.txt',
 		]];
 		$sut = $this->createField()
 			->atLeast(1)

@@ -9,7 +9,6 @@ final class Metadata
 		public readonly string $name,
 		public readonly string $type,
 		public readonly int $size,
-		public readonly string $source,
 	) {
 	}
 }
