@@ -103,6 +103,24 @@ abstract class AggregatedValidationResultTestCase extends ValidationResultTestCa
 	}
 
 	#[Test]
+	public function it_recomputes_status_when_results_change(): void
+	{
+		$pass = $this->createPassedResult();
+		$fail = $this->createFailedResult();
+
+		$sut = $this->createSubject($pass);
+		$this->assertSame(ValidationStatus::Passed, $sut->status);
+
+		// adding a failed result must update the cached status, not leave it stale
+		$sut = $sut->add($fail);
+		$this->assertSame(ValidationStatus::Failed, $sut->status);
+
+		// removing it again must restore the previous status
+		$sut = $sut->remove($fail);
+		$this->assertSame(ValidationStatus::Passed, $sut->status);
+	}
+
+	#[Test]
 	public function it_reports_all_passed_correctly(): void
 	{
 		$pass1 = $this->createPassedResult();

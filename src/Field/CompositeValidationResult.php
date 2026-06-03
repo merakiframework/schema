@@ -12,24 +12,20 @@ use Meraki\Schema\AggregatedValidationResult;
  */
 final class CompositeValidationResult extends AggregatedValidationResult
 {
-	public readonly ValidationStatus $status;
-
 	public function __construct(
 		public Composite|Variant $composite,
 		FieldValidationResult ...$fieldResults
 	) {
 		parent::__construct(...$fieldResults);
-
-		$this->status = $this->calculateStatus();
 	}
 
-	private function calculateStatus(): ValidationStatus
+	protected function calculateStatus(): ValidationStatus
 	{
 		if ($this->isEmpty() || $this->anyPending()) {
 			return ValidationStatus::Pending;
 		}
 
-		if ($this->allFailed()) {
+		if ($this->anyFailed()) {
 			return ValidationStatus::Failed;
 		}
 

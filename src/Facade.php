@@ -23,6 +23,15 @@ final class Facade implements ScopeTarget
 {
 	public readonly Property\Name $name;
 
+	/**
+	 * Baseline (author-configured) optional state per field name, captured the
+	 * first time a field is seen by applyRules() so rule outcomes can be reset
+	 * before each re-application.
+	 *
+	 * @var array<string, bool>
+	 */
+	private array $baselineOptional = [];
+
 	public function __construct(
 		string $name,
 		public Field\Set $fields = new Field\Set(),
@@ -204,6 +213,19 @@ final class Facade implements ScopeTarget
 
 	public function applyRules(array|object|null $data = null): self
 	{
+		// Reset each field to its baseline optionality before (re-)applying rules
+		// so an outcome from a previous run does not persist when its condition
+		// no longer holds. The first time a field is seen is treated as baseline.
+		foreach ($this->fields as $field) {
+			$name = (string) $field->name;
+
+			if (array_key_exists($name, $this->baselineOptional)) {
+				$this->baselineOptional[$name] ? $field->makeOptional() : $field->require();
+			} else {
+				$this->baselineOptional[$name] = $field->optional;
+			}
+		}
+
 		$this->rules->apply($this->extractData($data), $this);
 
 		return $this;

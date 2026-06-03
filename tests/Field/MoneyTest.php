@@ -8,6 +8,7 @@ use Meraki\Schema\Field;
 use Meraki\Schema\Field\CompositeTestCase;
 use Meraki\Schema\Field\Money;
 use Meraki\Schema\Property\Name;
+use Meraki\Schema\ValidationStatus;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -31,6 +32,18 @@ final class MoneyTest extends CompositeTestCase
 			'AUD' => 2,
 			'USD' => 2,
 		]);
+	}
+
+	#[Test]
+	public function it_fails_overall_when_a_subfield_constraint_is_violated(): void
+	{
+		$field = $this->createSubject()->minOf('AUD', '10.00');
+		$field->input(['cost.currency' => 'AUD', 'cost.amount' => '5.00']); // below the minimum
+
+		$result = $field->validate();
+
+		$this->assertSame(ValidationStatus::Failed, $result->status);
+		$this->assertSame(ValidationStatus::Failed, $result->get('cost.amount')->status);
 	}
 
 	#[Test]

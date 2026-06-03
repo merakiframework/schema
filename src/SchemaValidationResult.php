@@ -8,16 +8,7 @@ use Meraki\Schema\AggregatedValidationResult;
 
 final class SchemaValidationResult extends AggregatedValidationResult
 {
-	public readonly ValidationStatus $status;
-
-	public function __construct(ValidationResult ...$results)
-	{
-		parent::__construct(...$results);
-
-		$this->status = $this->calculateStatus();
-	}
-
-	private function calculateStatus(): ValidationStatus
+	protected function calculateStatus(): ValidationStatus
 	{
 		if ($this->pending()) {
 			return ValidationStatus::Pending;

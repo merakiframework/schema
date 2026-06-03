@@ -32,6 +32,17 @@ final class NumberTest extends FieldTestCase
 		$this->assertConstraintValidationResultPassed('type', $result);
 	}
 
+	#[Test]
+	public function it_accepts_decimals_when_no_step_is_configured(): void
+	{
+		$field = $this->createField()->input('2.5');
+
+		$result = $field->validate();
+
+		// a plain number field must not impose an integer-only step by default
+		$this->assertConstraintValidationResultPassed('step', $result);
+	}
+
 	public static function validNumbers(): array
 	{
 		return [

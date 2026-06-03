@@ -56,7 +56,9 @@ final class Number extends AtomicField
 
 		$this->min = BigDecimal::of(-PHP_FLOAT_MAX);
 		$this->max = BigDecimal::of(PHP_FLOAT_MAX);
-		$this->step = BigDecimal::one();
+		// zero step means "no step constraint" (see validateStep); a default of 1
+		// would otherwise make a plain number field reject all non-integers.
+		$this->step = BigDecimal::zero();
 	}
 
 	public function scaleTo(?int $scale): self
