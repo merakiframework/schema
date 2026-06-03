@@ -48,6 +48,14 @@ final class AllOf implements ConditionGroup
 		return $this;
 	}
 
+	/**
+	 * @return Condition[]
+	 */
+	public function conditions(): array
+	{
+		return $this->conditions;
+	}
+
 	public function getScopes(): array
 	{
 		$scopes = [];
