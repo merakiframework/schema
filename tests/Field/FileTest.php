@@ -158,7 +158,7 @@ final class FileTest extends FieldTestCase
 
 		$result = $field->validate();
 
-		$this->assertConstraintValidationResultFailed('min_count', $result);
+		$this->assertConstraintValidationResultFailed('minCount', $result);
 	}
 
 	#[Test]
@@ -181,7 +181,7 @@ final class FileTest extends FieldTestCase
 
 		$result = $field->validate();
 
-		$this->assertConstraintValidationResultFailed('max_count', $result);
+		$this->assertConstraintValidationResultFailed('maxCount', $result);
 	}
 
 	#[Test]
@@ -199,7 +199,7 @@ final class FileTest extends FieldTestCase
 
 		$result = $field->validate();
 
-		$this->assertConstraintValidationResultFailed('allowed_types', $result);
+		$this->assertConstraintValidationResultFailed('allowedTypes', $result);
 	}
 
 	#[Test]
@@ -217,11 +217,11 @@ final class FileTest extends FieldTestCase
 
 		$result = $field->validate();
 
-		$this->assertConstraintValidationResultFailed('disallowed_types', $result);
+		$this->assertConstraintValidationResultFailed('disallowedTypes', $result);
 	}
 
 	#[Test]
-	public function it_fails_validation_when_file_is_smaller_than_min_size(): void
+	public function it_fails_validation_when_file_is_smaller_than_minSize(): void
 	{
 		$field = new File(new Name('upload'));
 		$field->minFileSizeOf(1024);
@@ -235,11 +235,11 @@ final class FileTest extends FieldTestCase
 
 		$result = $field->validate();
 
-		$this->assertConstraintValidationResultFailed('min_size', $result);
+		$this->assertConstraintValidationResultFailed('minSize', $result);
 	}
 
 	#[Test]
-	public function it_fails_validation_when_file_is_larger_than_max_size(): void
+	public function it_fails_validation_when_file_is_larger_than_maxSize(): void
 	{
 		$field = new File(new Name('upload'));
 		$field->maxFileSizeOf(2048);
@@ -253,7 +253,7 @@ final class FileTest extends FieldTestCase
 
 		$result = $field->validate();
 
-		$this->assertConstraintValidationResultFailed('max_size', $result);
+		$this->assertConstraintValidationResultFailed('maxSize', $result);
 	}
 
 	#[Test]
@@ -296,12 +296,12 @@ final class FileTest extends FieldTestCase
 		$this->assertEquals('file', $serialized->type);
 		$this->assertEquals('file', $serialized->name);
 		$this->assertFalse($serialized->optional);
-		$this->assertEquals(1, $serialized->min_count);
-		$this->assertEquals(3, $serialized->max_count);
-		$this->assertEquals(16, $serialized->min_size);
-		$this->assertEquals(2048, $serialized->max_size);
-		$this->assertEquals($allowedTypes, $serialized->allowed_types);
-		$this->assertEquals($disallowedTypes, $serialized->disallowed_types);
+		$this->assertEquals(1, $serialized->minCount);
+		$this->assertEquals(3, $serialized->maxCount);
+		$this->assertEquals(16, $serialized->minSize);
+		$this->assertEquals(2048, $serialized->maxSize);
+		$this->assertEquals($allowedTypes, $serialized->allowedTypes);
+		$this->assertEquals($disallowedTypes, $serialized->disallowedTypes);
 		$this->assertEquals($files, $serialized->value);
 
 		$deserialized = File::deserialize($serialized, new \Meraki\Schema\Field\Factory());

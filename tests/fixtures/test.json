@@ -8,7 +8,7 @@
 		"contact_method": {
 			"type": "enum",
 			"required": true,
-			"one_of": [
+			"oneOf": [
 				"email",
 				"phone"
 			]

@@ -19,7 +19,7 @@ use InvalidArgumentException;
  * 	max: array<string, string>,
  * 	step: array<string, string>,
  * 	scale: array<string, int>,
- * 	allowed_currencies: array<string>
+ * 	allowedCurrencies: array<string>
  * }
  * @extends CompositeField<array|null, SerializedMoney>
  * @property-read Field\Enum $currency
@@ -257,7 +257,7 @@ final class Money extends CompositeField
 				fn(Field $field): object => $field->serialize(),
 				$this->fields->getIterator()->getArrayCopy()
 			),
-			'allowed_currencies' => $this->allowed,
+			'allowedCurrencies' => $this->allowed,
 			'min' => self::flatten($this->min),
 			'max' => self::flatten($this->max),
 			'step' => self::flatten($this->step),
@@ -292,7 +292,7 @@ final class Money extends CompositeField
 		$deserializedChildren = array_map($fieldFactory->deserialize(...), $data->fields);
 		$field = new self(
 			new Property\Name($data->name),
-			self::combineAllowedAndScale($data->allowed_currencies, $data->scale),
+			self::combineAllowedAndScale($data->allowedCurrencies, $data->scale),
 		);
 		$field->fields = new Field\Set(...$deserializedChildren);
 		$field->optional = $data->optional;

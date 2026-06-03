@@ -18,7 +18,7 @@ use InvalidArgumentException;
  * 	uppercase: array{?int, ?int},
  * 	digits: array{?int, ?int},
  * 	symbols: array{?int, ?int},
- * 	any_of: string[]
+ * 	anyOf: string[]
  * }
  * @extends AtomicField<string|null, SerializedPassword>
  */
@@ -199,7 +199,7 @@ final class Password extends AtomicField
 			'uppercase' => $this->validateUppercase(...),
 			'digits' => $this->validateDigits(...),
 			'symbols' => $this->validateSymbols(...),
-			'any_of' => $this->validateAnyOf(...),
+			'anyOf' => $this->validateAnyOf(...),
 		];
 	}
 
@@ -293,7 +293,7 @@ final class Password extends AtomicField
 			'uppercase' => $this->uppercase->toTuple(),
 			'digits' => $this->digits->toTuple(),
 			'symbols' => $this->symbols->toTuple(),
-			'any_of' => $this->anyOf,
+			'anyOf' => $this->anyOf,
 		];
 	}
 
@@ -313,7 +313,7 @@ final class Password extends AtomicField
 		$field->uppercase = Range::fromTuple($data->uppercase);
 		$field->digits = Range::fromTuple($data->digits);
 		$field->symbols = Range::fromTuple($data->symbols);
-		$field->anyOf = $data->any_of;
+		$field->anyOf = $data->anyOf;
 
 		return $field->prefill($data->value);
 	}

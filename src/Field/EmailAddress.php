@@ -22,8 +22,8 @@ use InvalidArgumentException;
  * 	format: string,
  * 	min: int,
  * 	max: int,
- * 	allowed_domains: list<string>,
- * 	disallowed_domains: list<string>
+ * 	allowedDomains: list<string>,
+ * 	disallowedDomains: list<string>
  * }
  * @extends AtomicMultiValueField<array|string|null, SerializedEmailAddress>
  * @see https://html.spec.whatwg.org/multipage/input.html#valid-e-mail-address
@@ -155,8 +155,8 @@ final class EmailAddress extends AtomicMultiValueField
 		return [
 			'min' => $this->validateMin(...),
 			'max' => $this->validateMax(...),
-			'allowed_domains' => $this->validateAllowedDomains(...),
-			'disallowed_domains' => $this->validateDisallowedDomains(...),
+			'allowedDomains' => $this->validateAllowedDomains(...),
+			'disallowedDomains' => $this->validateDisallowedDomains(...),
 		];
 	}
 
@@ -231,8 +231,8 @@ final class EmailAddress extends AtomicMultiValueField
 			'fields' => [],
 			'min' => $this->min,
 			'max' => $this->max,
-			'allowed_domains' => $this->allowedDomains,
-			'disallowed_domains' => $this->disallowedDomains,
+			'allowedDomains' => $this->allowedDomains,
+			'disallowedDomains' => $this->disallowedDomains,
 		];
 	}
 
@@ -254,8 +254,8 @@ final class EmailAddress extends AtomicMultiValueField
 
 		return $emailField->minLengthOf($serialized->min)
 			->maxLengthOf($serialized->max)
-			->allowDomain(...$serialized->allowed_domains)
-			->disallowDomain(...$serialized->disallowed_domains)
+			->allowDomain(...$serialized->allowedDomains)
+			->disallowDomain(...$serialized->disallowedDomains)
 			->prefill($serialized->value);
 	}
 }

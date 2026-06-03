@@ -19,12 +19,12 @@ use InvalidArgumentException;
  * @phpstan-type SerializedFile = SerializedField&object{
  * 	type: 'file',
  * 	value: list<FileMetadata>|null,
- * 	min_count: int,
- * 	max_count: int,
- * 	min_size: int,
- * 	max_size: int,
- * 	allowed_types: list<string>,
- * 	disallowed_types: list<string>
+ * 	minCount: int,
+ * 	maxCount: int,
+ * 	minSize: int,
+ * 	maxSize: int,
+ * 	allowedTypes: list<string>,
+ * 	disallowedTypes: list<string>
  * }
  * Input may be a single file (a FileMetadata array or a Metadata instance) or a
  * list of either.
@@ -251,12 +251,12 @@ final class File extends AtomicMultiValueField
 	protected function getConstraints(): array
 	{
 		return [
-			'min_count' => $this->validateMinCount(...),
-			'max_count' => $this->validateMaxCount(...),
-			'allowed_types' => $this->validateAllowedTypes(...),
-			'disallowed_types' => $this->validateDisallowedTypes(...),
-			'min_size' => $this->validateMinSize(...),
-			'max_size' => $this->validateMaxSize(...),
+			'minCount' => $this->validateMinCount(...),
+			'maxCount' => $this->validateMaxCount(...),
+			'allowedTypes' => $this->validateAllowedTypes(...),
+			'disallowedTypes' => $this->validateDisallowedTypes(...),
+			'minSize' => $this->validateMinSize(...),
+			'maxSize' => $this->validateMaxSize(...),
 		];
 	}
 
@@ -336,12 +336,12 @@ final class File extends AtomicMultiValueField
 			'optional' => $this->optional,
 			'value' => $this->defaultValue->unwrap(),
 			'fields' => [],
-			'min_count' => $this->minCount,
-			'max_count' => $this->maxCount,
-			'min_size' => $this->minSize,
-			'max_size' => $this->maxSize,
-			'allowed_types' => $this->allowedTypes,
-			'disallowed_types' => $this->disallowedTypes,
+			'minCount' => $this->minCount,
+			'maxCount' => $this->maxCount,
+			'minSize' => $this->minSize,
+			'maxSize' => $this->maxSize,
+			'allowedTypes' => $this->allowedTypes,
+			'disallowedTypes' => $this->disallowedTypes,
 		];
 	}
 
@@ -357,12 +357,12 @@ final class File extends AtomicMultiValueField
 		$fileField = new self(new Property\Name($serialized->name));
 		$fileField->optional = $serialized->optional;
 
-		return $fileField->atLeast($serialized->min_count)
-			->atMost($serialized->max_count)
-			->minFileSizeOf($serialized->min_size)
-			->maxFileSizeOf($serialized->max_size)
-			->allowTypes(...$serialized->allowed_types)
-			->disallowTypes(...$serialized->disallowed_types)
+		return $fileField->atLeast($serialized->minCount)
+			->atMost($serialized->maxCount)
+			->minFileSizeOf($serialized->minSize)
+			->maxFileSizeOf($serialized->maxSize)
+			->allowTypes(...$serialized->allowedTypes)
+			->disallowTypes(...$serialized->disallowedTypes)
 			->prefill($serialized->value);
 	}
 }

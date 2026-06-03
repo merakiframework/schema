@@ -26,8 +26,8 @@ use InvalidArgumentException;
  * 	from: string,
  * 	until: string,
  * 	interval: string,
- * 	precision_unit: string,
- * 	precision_mode: string
+ * 	precisionUnit: string,
+ * 	precisionMode: string
  * }
  * @extends AtomicField<string|null, SerializedDateTime>
  */
@@ -187,8 +187,8 @@ final class DateTime extends AtomicField
 			'optional' => $this->optional,
 			'value' => $this->defaultValue->unwrap(),
 			'fields' => [],
-			'precision_unit' => $this->precision->value,
-			'precision_mode' => $this->getPrecisionMode(),
+			'precisionUnit' => $this->precision->value,
+			'precisionMode' => $this->getPrecisionMode(),
 			'from' => $this->from->__toString(),
 			'until' => $this->until->__toString(),
 			'interval' => $this->interval->__toString(),
@@ -229,8 +229,8 @@ final class DateTime extends AtomicField
 			throw new InvalidArgumentException('Invalid type for DateTime field: ' . $serialized->type);
 		}
 
-		$precision = TimePrecision::from($serialized->precision_unit);
-		$caster = self::getCasterFromPrecisionMode($serialized->precision_mode);
+		$precision = TimePrecision::from($serialized->precisionUnit);
+		$caster = self::getCasterFromPrecisionMode($serialized->precisionMode);
 		$field = new self(new Property\Name($serialized->name), $precision, $caster);
 		$field->optional = $serialized->optional;
 		$field->prefill($serialized->value);

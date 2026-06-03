@@ -140,7 +140,7 @@ final class EmailAddressTest extends FieldTestCase
 
 		$result = $field->validate();
 
-		$this->assertConstraintValidationResultPassed('allowed_domains', $result);
+		$this->assertConstraintValidationResultPassed('allowedDomains', $result);
 	}
 
 	#[Test]
@@ -153,7 +153,7 @@ final class EmailAddressTest extends FieldTestCase
 
 		$result = $field->validate();
 
-		$this->assertConstraintValidationResultFailed('allowed_domains', $result);
+		$this->assertConstraintValidationResultFailed('allowedDomains', $result);
 	}
 
 	#[Test]
@@ -166,7 +166,7 @@ final class EmailAddressTest extends FieldTestCase
 
 		$result = $field->validate();
 
-		$this->assertConstraintValidationResultFailed('disallowed_domains', $result);
+		$this->assertConstraintValidationResultFailed('disallowedDomains', $result);
 	}
 
 	#[Test]
@@ -179,7 +179,7 @@ final class EmailAddressTest extends FieldTestCase
 
 		$result = $field->validate();
 
-		$this->assertConstraintValidationResultPassed('allowed_domains', $result);
+		$this->assertConstraintValidationResultPassed('allowedDomains', $result);
 	}
 
 	public static function domains(): array
@@ -228,8 +228,8 @@ final class EmailAddressTest extends FieldTestCase
 		$this->assertEquals('basic', $serialized->format);
 		$this->assertEquals(5, $serialized->min);
 		$this->assertEquals(128, $serialized->max);
-		$this->assertEquals(['example.org'], $serialized->allowed_domains);
-		$this->assertEquals(['example.com'], $serialized->disallowed_domains);
+		$this->assertEquals(['example.org'], $serialized->allowedDomains);
+		$this->assertEquals(['example.com'], $serialized->disallowedDomains);
 		$this->assertEquals('postmaster@example.org', $serialized->value);
 
 		$deserialized = EmailAddress::deserialize($serialized, new Factory());

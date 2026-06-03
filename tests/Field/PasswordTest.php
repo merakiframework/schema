@@ -52,19 +52,19 @@ final class PasswordTest extends FieldTestCase
 		return [
 			['hello$', ValidationStatus::Passed, 'symbols'],
 			['hello$', ValidationStatus::Skipped, 'digits'],
-			['hello$', ValidationStatus::Passed, 'any_of'],
+			['hello$', ValidationStatus::Passed, 'anyOf'],
 
 			['hello7', ValidationStatus::Skipped, 'symbols'],
 			['hello7', ValidationStatus::Passed, 'digits'],
-			['hello7', ValidationStatus::Passed, 'any_of'],
+			['hello7', ValidationStatus::Passed, 'anyOf'],
 
 			['hel1o$', ValidationStatus::Passed, 'symbols'],
 			['hel1o$', ValidationStatus::Passed, 'digits'],
-			['hel1o$', ValidationStatus::Passed, 'any_of'],
+			['hel1o$', ValidationStatus::Passed, 'anyOf'],
 
 			['hello', ValidationStatus::Skipped, 'symbols'],
 			['hello', ValidationStatus::Skipped, 'digits'],
-			['hello', ValidationStatus::Failed, 'any_of'],
+			['hello', ValidationStatus::Failed, 'anyOf'],
 		];
 	}
 
@@ -105,7 +105,7 @@ final class PasswordTest extends FieldTestCase
 		$this->assertConstraintValidationResultPassed('lowercase', $result);
 		$this->assertConstraintValidationResultPassed('digits', $result);
 		$this->assertConstraintValidationResultPassed('symbols', $result);
-		$this->assertConstraintValidationResultSkipped('any_of', $result);
+		$this->assertConstraintValidationResultSkipped('anyOf', $result);
 	}
 
 	#[Test]
@@ -121,7 +121,7 @@ final class PasswordTest extends FieldTestCase
 		$this->assertConstraintValidationResultPassed('lowercase', $result);
 		$this->assertConstraintValidationResultFailed('digits', $result);
 		$this->assertConstraintValidationResultFailed('symbols', $result);
-		$this->assertConstraintValidationResultSkipped('any_of', $result);
+		$this->assertConstraintValidationResultSkipped('anyOf', $result);
 	}
 
 	#[Test]
@@ -137,7 +137,7 @@ final class PasswordTest extends FieldTestCase
 		$this->assertConstraintValidationResultPassed('lowercase', $result);
 		$this->assertConstraintValidationResultPassed('digits', $result);
 		$this->assertConstraintValidationResultPassed('symbols', $result);
-		$this->assertConstraintValidationResultSkipped('any_of', $result);
+		$this->assertConstraintValidationResultSkipped('anyOf', $result);
 	}
 
 	#[Test]
@@ -153,7 +153,7 @@ final class PasswordTest extends FieldTestCase
 		$this->assertConstraintValidationResultPassed('lowercase', $result);
 		$this->assertConstraintValidationResultFailed('digits', $result);
 		$this->assertConstraintValidationResultFailed('symbols', $result);
-		$this->assertConstraintValidationResultSkipped('any_of', $result);
+		$this->assertConstraintValidationResultSkipped('anyOf', $result);
 	}
 
 	#[Test]
@@ -169,7 +169,7 @@ final class PasswordTest extends FieldTestCase
 		$this->assertConstraintValidationResultPassed('lowercase', $result);
 		$this->assertConstraintValidationResultPassed('digits', $result);
 		$this->assertConstraintValidationResultPassed('symbols', $result);
-		$this->assertConstraintValidationResultSkipped('any_of', $result);
+		$this->assertConstraintValidationResultSkipped('anyOf', $result);
 	}
 
 	#[Test]
@@ -185,7 +185,7 @@ final class PasswordTest extends FieldTestCase
 		$this->assertConstraintValidationResultPassed('lowercase', $result);
 		$this->assertConstraintValidationResultPassed('digits', $result);
 		$this->assertConstraintValidationResultPassed('symbols', $result);
-		$this->assertConstraintValidationResultSkipped('any_of', $result);
+		$this->assertConstraintValidationResultSkipped('anyOf', $result);
 	}
 
 	#[Test]
@@ -201,7 +201,7 @@ final class PasswordTest extends FieldTestCase
 		$this->assertConstraintValidationResultPassed('lowercase', $result);
 		$this->assertConstraintValidationResultSkipped('digits', $result);
 		$this->assertConstraintValidationResultPassed('symbols', $result);
-		$this->assertConstraintValidationResultPassed('any_of', $result);
+		$this->assertConstraintValidationResultPassed('anyOf', $result);
 	}
 
 	#[Test]
@@ -217,7 +217,7 @@ final class PasswordTest extends FieldTestCase
 		$this->assertConstraintValidationResultPassed('lowercase', $result);
 		$this->assertConstraintValidationResultPassed('digits', $result);
 		$this->assertConstraintValidationResultSkipped('symbols', $result);
-		$this->assertConstraintValidationResultPassed('any_of', $result);
+		$this->assertConstraintValidationResultPassed('anyOf', $result);
 	}
 
 	#[Test]
@@ -233,7 +233,7 @@ final class PasswordTest extends FieldTestCase
 		$this->assertConstraintValidationResultPassed('lowercase', $result);
 		$this->assertConstraintValidationResultPassed('digits', $result);
 		$this->assertConstraintValidationResultPassed('symbols', $result);
-		$this->assertConstraintValidationResultSkipped('any_of', $result);
+		$this->assertConstraintValidationResultSkipped('anyOf', $result);
 	}
 
 	#[Test]
@@ -279,7 +279,7 @@ final class PasswordTest extends FieldTestCase
 		$this->assertEquals([1, 4], $serialized->uppercase);
 		$this->assertEquals([1, 4], $serialized->digits);
 		$this->assertEquals([2, 2], $serialized->symbols);
-		$this->assertEquals(['digits', 'symbols'], $serialized->any_of);
+		$this->assertEquals(['digits', 'symbols'], $serialized->anyOf);
 		$this->assertEquals('test^1234^CAPS', $serialized->value);
 
 		$deserialized = Password::deserialize($serialized, new Factory());

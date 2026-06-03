@@ -30,8 +30,8 @@ use InvalidArgumentException;
  * 	from: string,
  * 	until: string,
  * 	step: string,
- * 	precision_unit: string,
- * 	precision_mode: string
+ * 	precisionUnit: string,
+ * 	precisionMode: string
  * }
  * @extends AtomicField<string|null, SerializedTime>
  */
@@ -195,8 +195,8 @@ final class Time extends AtomicField
 			'from' => $this->from->__toString(),
 			'until' => $this->until->__toString(),
 			'step' => $this->step->__toString(),
-			'precision_unit' => $this->precision->value,
-			'precision_mode' => self::getPrecisionModeFromCaster($this->caster),
+			'precisionUnit' => $this->precision->value,
+			'precisionMode' => self::getPrecisionModeFromCaster($this->caster),
 		];
 	}
 
@@ -211,8 +211,8 @@ final class Time extends AtomicField
 
 		$instance = new self(
 			new Property\Name($serialized->name),
-			Precision::from($serialized->precision_unit),
-			self::getCasterFromPrecisionMode($serialized->precision_mode)
+			Precision::from($serialized->precisionUnit),
+			self::getCasterFromPrecisionMode($serialized->precisionMode)
 		);
 
 		$instance->optional = $serialized->optional;

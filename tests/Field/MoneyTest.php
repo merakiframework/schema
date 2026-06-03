@@ -328,7 +328,7 @@ final class MoneyTest extends CompositeTestCase
 		$this->assertEquals('money', $serialized->type);
 		$this->assertEquals('cost', $serialized->name);
 		$this->assertFalse($serialized->optional);
-		$this->assertEquals(['AUD', 'USD'], $serialized->allowed_currencies);
+		$this->assertEquals(['AUD', 'USD'], $serialized->allowedCurrencies);
 		$this->assertEquals(['AUD' => 3, 'USD' => 2], $serialized->scale);
 		$this->assertEquals(['AUD' => '0.000', 'USD' => '20.00'], $serialized->min);
 		$this->assertEquals(['AUD' => '1000.000', 'USD' => '500.00'], $serialized->max);

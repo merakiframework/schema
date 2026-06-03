@@ -102,7 +102,7 @@ final class EnumTest extends FieldTestCase
 		$this->assertEquals('enum', $serialized->type);
 		$this->assertEquals('currency', $serialized->name);
 		$this->assertFalse($serialized->optional);
-		$this->assertEquals(['GBP', 'AUD', 'EUR'], $serialized->one_of);
+		$this->assertEquals(['GBP', 'AUD', 'EUR'], $serialized->oneOf);
 		$this->assertEquals('AUD', $serialized->value);
 
 		$deserialized = Enum::deserialize($serialized, new Factory());

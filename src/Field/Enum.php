@@ -13,7 +13,7 @@ use Meraki\Schema\Property;
  * @phpstan-type SerializedEnum = SerializedField&object{
  * 	type: 'enum',
  * 	value: string|null,
- * 	one_of: list<T>,
+ * 	oneOf: list<T>,
  * }
  * @extends AtomicField<string|null, SerializedEnum>
  */
@@ -60,7 +60,7 @@ final class Enum extends AtomicField
 			'optional' => $this->optional,
 			'value' => $this->defaultValue->unwrap(),
 			'fields' => [],
-			'one_of' => $this->oneOf,
+			'oneOf' => $this->oneOf,
 		];
 	}
 
@@ -75,7 +75,7 @@ final class Enum extends AtomicField
 
 		$enumField = new self(
 			new Property\Name($serialized->name),
-			$serialized->one_of
+			$serialized->oneOf
 		);
 
 		$enumField->optional = $serialized->optional;
