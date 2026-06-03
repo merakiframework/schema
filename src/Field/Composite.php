@@ -246,20 +246,28 @@ abstract class Composite extends Field implements IteratorAggregate, Countable
 
 		if ($value === null) {
 			$value = [];
+		} elseif (is_object($value)) {
+			$value = get_object_vars($value);
 		}
 
 		if (!is_array($value)) {
-			throw new InvalidArgumentException('Input value must be an array or null.');
+			throw new InvalidArgumentException('Input value must be an array, an object, or null.');
 		}
+
+		// Map the incoming value onto the subfields, accepting each subfield's
+		// value keyed by either its full (prefixed) name or its local name. This
+		// lets callers nest naturally, e.g.
+		//   ['price' => ['amount' => '1500', 'currency' => 'AUD']]
+		// as well as supply the fully-qualified keys ('price.amount', ...).
+		$normalized = [];
 
 		foreach ($this->fields as $field) {
-			$fieldName = (string)$field->name;
+			$fullName = (string) $field->name;
+			$localName = (string) $field->name->removePrefix();
 
-			if (!isset($value[$fieldName])) {
-				$value[$fieldName] = null;
-			}
+			$normalized[$fullName] = $value[$fullName] ?? $value[$localName] ?? null;
 		}
 
-		return new Property\Value($value);
+		return new Property\Value($normalized);
 	}
 }

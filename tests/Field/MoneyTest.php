@@ -47,6 +47,48 @@ final class MoneyTest extends CompositeTestCase
 	}
 
 	#[Test]
+	public function it_accepts_subfield_values_keyed_by_local_name(): void
+	{
+		$field = $this->createSubject();
+
+		$field->input(['amount' => '1500', 'currency' => 'AUD']);
+
+		$this->assertSame('AUD', $field->currency->resolvedValue->unwrap());
+		$this->assertSame('1500', $field->amount->resolvedValue->unwrap());
+	}
+
+	#[Test]
+	public function it_accepts_fully_qualified_subfield_keys(): void
+	{
+		$field = $this->createSubject();
+
+		$field->input(['cost.amount' => '1500', 'cost.currency' => 'AUD']);
+
+		$this->assertSame('AUD', $field->currency->resolvedValue->unwrap());
+		$this->assertSame('1500', $field->amount->resolvedValue->unwrap());
+	}
+
+	#[Test]
+	public function it_accepts_an_object_as_the_composite_value(): void
+	{
+		$field = $this->createSubject();
+
+		$field->input((object) ['amount' => '1500', 'currency' => 'AUD']);
+
+		$this->assertSame('AUD', $field->currency->resolvedValue->unwrap());
+		$this->assertSame('1500', $field->amount->resolvedValue->unwrap());
+	}
+
+	#[Test]
+	public function it_accepts_local_subfield_keys_when_prefilling(): void
+	{
+		$field = $this->createSubject()->prefill(['amount' => '1500', 'currency' => 'AUD']);
+
+		$this->assertSame('AUD', $field->currency->defaultValue->unwrap());
+		$this->assertSame('1500', $field->amount->defaultValue->unwrap());
+	}
+
+	#[Test]
 	public function subfields_are_created(): void
 	{
 		$field = $this->createSubject();
