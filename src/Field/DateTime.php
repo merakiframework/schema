@@ -195,6 +195,14 @@ final class DateTime extends AtomicField
 		];
 	}
 
+	/**
+	 * The precision mode ('truncate' or 'preserve') derived from the caster.
+	 */
+	public function precisionMode(): string
+	{
+		return $this->getPrecisionMode();
+	}
+
 	private function getPrecisionMode(): string
 	{
 		return match ($this->caster::class) {

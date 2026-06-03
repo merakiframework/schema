@@ -224,6 +224,14 @@ final class Time extends AtomicField
 			->prefill($serialized->value);
 	}
 
+	/**
+	 * The precision mode ('truncate' or 'preserve') derived from the caster.
+	 */
+	public function precisionMode(): string
+	{
+		return self::getPrecisionModeFromCaster($this->caster);
+	}
+
 	private static function getPrecisionModeFromCaster(PrecisionCaster $caster): string
 	{
 		return match (get_class($caster)) {
