@@ -30,7 +30,7 @@ $userData = isset($_GET['pass']) ? $validUserData : $invalidUserData;
 $schemaResult = $schema->validate($userData);
 
 echo '<pre>';
-if ($schemaResult->passed()) {
+if (!$schemaResult->anyFailed()) {
 	echo 'The data is valid.';
 } else {
 	foreach ($schemaResult->getFailed() as $fieldResult) {

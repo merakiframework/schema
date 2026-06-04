@@ -1,39 +1,28 @@
 <?php
 
+declare(strict_types=1);
+
 require_once __DIR__ . '/../vendor/autoload.php';
 
-$factory = new Meraki\Schema\Field\Factory();
-$textField = $factory->createText('username');
+use Meraki\Schema\Field\Text;
+use Meraki\Schema\Property\Name;
 
-$textField->makeOptional()
-	// ->deferValidation()
-	->matches('/^[a-zA-Z0-9_]+$/')
+// Fields can be built and validated on their own, without a Facade.
+$username = new Text(new Name('username'));
+
+$username->matches('/^[a-zA-Z0-9_]+$/')
 	->minLengthOf(3)
-	->input(123)
-	;
+	->input('ab'); // too short -> the "minLength" constraint will fail
 
-if ($textField->validationResult->passed()) {
-	echo 'All constraints have passed validation.' . PHP_EOL;
+// validate() is a pure query: it returns the result, storing nothing on the field.
+$result = $username->validate();
+
+echo 'Field status: ' . $result->status->name . PHP_EOL;
+
+foreach ($result->getFailed() as $failure) {
+	echo "  failed:  {$failure->name}" . PHP_EOL;
 }
 
-if ($textField->validationResult->skipped()) {
-	echo 'The following constraints have skipped validation: ' . PHP_EOL;
-	foreach ($textField->validationResult->getSkipped() as $skipped) {
-		echo $skipped->constraint::class . PHP_EOL;
-	}
-}
-
-if ($textField->validationResult->pending()) {
-	echo 'Constraint validation is pending.' . PHP_EOL;
-}
-
-if ($textField->validationResult->failed()) {
-	echo 'The following constraints have failed validation: ' . PHP_EOL;
-	foreach ($textField->validationResult->getFailures() as $failure) {
-		echo $failure->constraint::class . PHP_EOL;
-	}
-	echo 'The following constraints have skipped validation: ' . PHP_EOL;
-	foreach ($textField->validationResult->getSkipped() as $skipped) {
-		echo $skipped->constraint::class . PHP_EOL;
-	}
+foreach ($result->getSkipped() as $skipped) {
+	echo "  skipped: {$skipped->name}" . PHP_EOL;
 }

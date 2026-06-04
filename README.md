@@ -44,7 +44,7 @@ $result = $schema->validate([
     'age'      => 25,
 ]);
 
-if ($result->passed()) {
+if (!$result->anyFailed()) {
     // safe to proceed
 }
 ```
@@ -56,15 +56,19 @@ chained fluently.
 ## Reading validation results
 
 `validate()` returns a `SchemaValidationResult` — an aggregate of one result per
-field. It is iterable, and exposes status helpers:
+field. It is iterable, and rolling the per-field results up into a single verdict
+is left to you, via the granular predicates:
 
 ```php
 $result = $schema->validate($data);
 
-$result->passed();   // every field passed (or was skipped)
-$result->failed();   // at least one field failed
-$result->skipped();  // every field was skipped
-$result->pending();  // nothing has been validated yet
+$result->anyFailed();   // at least one field failed
+$result->allPassed();   // every field passed (none skipped)
+$result->anySkipped();  // at least one field was skipped
+$result->anyPending();  // not yet validated
+
+// e.g. "no errors" usually means: nothing failed and nothing is pending
+$ok = !$result->anyFailed() && !$result->anyPending();
 
 foreach ($result->getFailed() as $fieldResult) {
     foreach ($fieldResult->getFailed() as $failure) {
@@ -74,7 +78,8 @@ foreach ($result->getFailed() as $fieldResult) {
 }
 ```
 
-Every result carries a `ValidationStatus`:
+Every result carries a `ValidationStatus`. On aggregate results it is a *computed*
+property derived on demand from the contained results, so it never goes stale:
 
 ```php
 use Meraki\Schema\ValidationStatus;
@@ -82,6 +87,9 @@ use Meraki\Schema\ValidationStatus;
 $fieldResult->status === ValidationStatus::Passed;
 // Passed | Pending | Skipped | Failed
 ```
+
+`validate()` is a pure query: it returns the result and stores nothing on the
+fields. Re-validating is safe and repeatable, and the result tree is yours to keep.
 
 Each field is validated in two phases: first its **value/shape** (reported under
 the constraint name `type`), then its individual constraints. If the shape check
@@ -203,10 +211,21 @@ condition stops holding.
   were removed. A field's type *is* its class, and the shape check is a single
   `validateValue(mixed): bool` method each field implements. `Facade` constructs
   fields directly in its `addXField()` methods.
-- **Immutable results.** `SchemaValidationResult` and the aggregated/field/
-  constraint results are immutable; combinators like `getFailed()`, `add()`, and
-  `merge()` return new instances and recompute their aggregate status, so a
-  result's `status` never goes stale.
+- **Immutable results, computed status.** `SchemaValidationResult` and the
+  aggregated/field/constraint results are immutable; combinators like
+  `getFailed()`, `add()`, and `merge()` return new instances. An aggregate's
+  `status` is computed on demand rather than stored, so it can never drift from
+  its contents.
+- **Pure `validate()`.** Validation returns a result and stores nothing on the
+  fields — no per-request state hangs off the schema definition. (HTML rendering
+  threads the returned result through instead of reading it back off the field.)
+- **The caller owns the roll-up.** Aggregate results expose granular predicates
+  (`anyFailed()`, `allPassed()`, `anyPending()`, ...) rather than a single
+  opinionated `passed()`/`failed()`. Whether "all passed", "no failures", or
+  "nothing pending" counts as success is a decision the library leaves to you.
+- **Composite input nests by local name.** Sub-field values are supplied nested
+  under the composite (`['price' => ['amount' => ...]]`); fully-qualified flat
+  keys are not accepted.
 - **Skip vs. fail.** Missing input on an optional field skips its constraints; a
   failed shape check skips (rather than fails) the dependent constraints. This
   keeps error reports focused on the real problem.

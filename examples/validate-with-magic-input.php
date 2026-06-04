@@ -88,11 +88,11 @@ echo 'direct access $input->name: ' . $input->name . '<br>' . '<br>';
 
 echo '== Path 1: Facade::validate() (buggy) ==' . '<br>';
 $viaFacade = makeSchema()->validate($input);
-echo 'any failures? ' . var_export($viaFacade->failed(), true) . '<br>';   // true (BUG: valid input)
+echo 'any failures? ' . var_export($viaFacade->anyFailed(), true) . '<br>';   // true (BUG: valid input)
 printFailures($viaFacade);
 echo '<br><br>';
 
 echo '== Path 2: manual loop workaround ==' . '<br>';
 $viaWorkaround = getResults(makeSchema(), $input);
-echo 'any failures? ' . var_export($viaWorkaround->failed(), true) . '<br>'; // false (name passed, dateOfBirth skipped)
+echo 'any failures? ' . var_export($viaWorkaround->anyFailed(), true) . '<br>'; // false (name passed, dateOfBirth skipped)
 printFailures($viaWorkaround);
