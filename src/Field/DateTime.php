@@ -42,7 +42,7 @@ final class DateTime extends AtomicField
 		public readonly TimePrecision $precision = TimePrecision::Minutes,
 		private PrecisionCaster $caster = new TruncatePrecision(),
 	) {
-		parent::__construct(new Property\Type('date_time', $this->validateType(...)), $name);
+		parent::__construct($name);
 
 		$this->from = LocalDateTime::min();
 		$this->until = LocalDateTime::max();
@@ -112,7 +112,7 @@ final class DateTime extends AtomicField
 		return $this;
 	}
 
-	protected function validateType(mixed $value): bool
+	public function validateValue(mixed $value): bool
 	{
 		if (!is_string($value)) {
 			return false;
@@ -175,26 +175,6 @@ final class DateTime extends AtomicField
 
 		return $inputNanos->minus($fromNanos)->remainder($stepNanos)->isZero();
 	}
-
-	/**
-	 * @return SerializedDateTime
-	 */
-	public function serialize(): object
-	{
-		return (object)[
-			'type' => $this->type->value,
-			'name' => $this->name->value,
-			'optional' => $this->optional,
-			'value' => $this->defaultValue->unwrap(),
-			'fields' => [],
-			'precisionUnit' => $this->precision->value,
-			'precisionMode' => $this->getPrecisionMode(),
-			'from' => $this->from->__toString(),
-			'until' => $this->until->__toString(),
-			'interval' => $this->interval->__toString(),
-		];
-	}
-
 	/**
 	 * The precision mode ('truncate' or 'preserve') derived from the caster.
 	 */
@@ -218,26 +198,5 @@ final class DateTime extends AtomicField
 			'preserve' => new PreservePrecision(),
 			default => throw new InvalidArgumentException("Unknown precision mode: $precisionMode"),
 		};
-	}
-
-	/**
-	 * @param SerializedDateTime $serialized
-	 */
-	public static function deserialize(object $serialized, Field\Factory $fieldFactory): static
-	{
-		if ($serialized->type !== 'date_time') {
-			throw new InvalidArgumentException('Invalid type for DateTime field: ' . $serialized->type);
-		}
-
-		$precision = TimePrecision::from($serialized->precisionUnit);
-		$caster = self::getCasterFromPrecisionMode($serialized->precisionMode);
-		$field = new self(new Property\Name($serialized->name), $precision, $caster);
-		$field->optional = $serialized->optional;
-		$field->prefill($serialized->value);
-		$field->from($serialized->from);
-		$field->until($serialized->until);
-		$field->inIncrementsOf($serialized->interval);
-
-		return $field;
 	}
 }

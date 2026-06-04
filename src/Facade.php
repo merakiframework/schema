@@ -14,10 +14,6 @@ use Meraki\Schema\SchemaValidator;
 use Meraki\Schema\SchemaValidationResult;
 use Meraki\Schema\Rule\Condition;
 use Meraki\Schema\Rule\Builder;
-use Meraki\Schema\Deserialization\Deserializer;
-use Meraki\Schema\Deserialization\JsonDeserializer;
-use Meraki\Schema\Serialization\JsonSerializer;
-use Meraki\Schema\Serialization\Serializer;
 
 final class Facade implements ScopeTarget
 {
@@ -36,19 +32,9 @@ final class Facade implements ScopeTarget
 		string $name,
 		public Field\Set $fields = new Field\Set(),
 		public Rule\Set $rules = new Rule\Set(),
-		private readonly Field\Factory $fieldFactory = new Field\Factory(),
-		// public readonly Rule\Factory $ruleFactory = new Rule\Factory(),
 	) {
 		$this->name = new Property\Name($name);
 	}
-
-	public static function deserialize(string $data, ?Deserializer $deserializer = null): self
-	{
-		$schema = ($deserializer ?? new JsonDeserializer())->deserialize($data);
-
-		return $schema->applyRules();
-	}
-
 	private static function extractDefaultValues(self $schema): array
 	{
 		$data = [];
@@ -82,47 +68,47 @@ final class Facade implements ScopeTarget
 
 	public function addAddressField(string $name, ?Closure $configurator = null): self|Field\Address
 	{
-		return $this->addField($this->fieldFactory->createAddress($name), $configurator);
+		return $this->addField(new Field\Address(new Property\Name($name)), $configurator);
 	}
 
 	public function addBooleanField(string $name, ?Closure $configurator = null): self|Field\Boolean
 	{
-		return $this->addField($this->fieldFactory->createBoolean($name), $configurator);
+		return $this->addField(new Field\Boolean(new Property\Name($name)), $configurator);
 	}
 
 	public function addCreditCardField(string $name, ?Closure $configurator = null): self|Field\CreditCard
 	{
-		return $this->addField($this->fieldFactory->createCreditCard($name), $configurator);
+		return $this->addField(new Field\CreditCard(new Property\Name($name)), $configurator);
 	}
 
 	public function addDateField(string $name, ?Closure $configurator = null): self|Field\Date
 	{
-		return $this->addField($this->fieldFactory->createDate($name), $configurator);
+		return $this->addField(new Field\Date(new Property\Name($name)), $configurator);
 	}
 
 	public function addDateTimeField(string $name, ?Closure $configurator = null): self|Field\DateTime
 	{
-		return $this->addField($this->fieldFactory->createDateTime($name), $configurator);
+		return $this->addField(new Field\DateTime(new Property\Name($name)), $configurator);
 	}
 
 	public function addDurationField(string $name, ?Closure $configurator = null): self|Field\Duration
 	{
-		return $this->addField($this->fieldFactory->createDuration($name), $configurator);
+		return $this->addField(new Field\Duration(new Property\Name($name)), $configurator);
 	}
 
 	public function addEmailAddressField(string $name, ?Closure $configurator = null): self|Field\EmailAddress
 	{
-		return $this->addField($this->fieldFactory->createEmailAddress($name), $configurator);
+		return $this->addField(new Field\EmailAddress(new Property\Name($name)), $configurator);
 	}
 
 	public function addEnumField(string $name, array $options, ?Closure $configurator = null): self|Field\Enum
 	{
-		return $this->addField($this->fieldFactory->createEnum($name, $options), $configurator);
+		return $this->addField(new Field\Enum(new Property\Name($name), $options), $configurator);
 	}
 
 	public function addFileField(string $name, ?Closure $configurator = null): self|Field\File
 	{
-		return $this->addField($this->fieldFactory->createFile($name), $configurator);
+		return $this->addField(new Field\File(new Property\Name($name)), $configurator);
 	}
 
 	/**
@@ -130,52 +116,52 @@ final class Facade implements ScopeTarget
 	 */
 	public function addMoneyField(string $name, array $allowedCurrencies, ?Closure $configurator = null): self|Field\Money
 	{
-		return $this->addField($this->fieldFactory->createMoney($name, $allowedCurrencies), $configurator);
+		return $this->addField(new Field\Money(new Property\Name($name), $allowedCurrencies), $configurator);
 	}
 
 	public function addNameField(string $name, ?Closure $configurator = null): self|Field\Name
 	{
-		return $this->addField($this->fieldFactory->createName($name), $configurator);
+		return $this->addField(new Field\Name(new Property\Name($name)), $configurator);
 	}
 
 	public function addNumberField(string $name, ?Closure $configurator = null): self|Field\Number
 	{
-		return $this->addField($this->fieldFactory->createNumber($name), $configurator);
+		return $this->addField(new Field\Number(new Property\Name($name)), $configurator);
 	}
 
 	public function addPassphraseField(string $name, ?Closure $configurator = null): self|Field\Passphrase
 	{
-		return $this->addField($this->fieldFactory->createPassphrase($name), $configurator);
+		return $this->addField(new Field\Passphrase(new Property\Name($name)), $configurator);
 	}
 
 	public function addPasswordField(string $name, ?Closure $configurator = null): self|Field\Password
 	{
-		return $this->addField($this->fieldFactory->createPassword($name), $configurator);
+		return $this->addField(new Field\Password(new Property\Name($name)), $configurator);
 	}
 
 	public function addPhoneNumberField(string $name, ?Closure $configurator = null): self|Field\PhoneNumber
 	{
-		return $this->addField($this->fieldFactory->createPhoneNumber($name), $configurator);
+		return $this->addField(new Field\PhoneNumber(new Property\Name($name)), $configurator);
 	}
 
 	public function addTextField(string $name, ?Closure $configurator = null): self|Field\Text
 	{
-		return $this->addField($this->fieldFactory->createText($name), $configurator);
+		return $this->addField(new Field\Text(new Property\Name($name)), $configurator);
 	}
 
 	public function addTimeField(string $name, ?Closure $configurator = null): self|Field\Time
 	{
-		return $this->addField($this->fieldFactory->createTime($name), $configurator);
+		return $this->addField(new Field\Time(new Property\Name($name)), $configurator);
 	}
 
 	public function addUriField(string $name, ?Closure $configurator = null): self|Field\Uri
 	{
-		return $this->addField($this->fieldFactory->createUri($name), $configurator);
+		return $this->addField(new Field\Uri(new Property\Name($name)), $configurator);
 	}
 
 	public function addUuidField(string $name, ?Closure $configurator = null): self|Field\Uuid
 	{
-		return $this->addField($this->fieldFactory->createUuid($name), $configurator);
+		return $this->addField(new Field\Uuid(new Property\Name($name)), $configurator);
 	}
 
 	/**
@@ -183,7 +169,7 @@ final class Facade implements ScopeTarget
 	 */
 	public function addVariantField(string $name, array $fields, ?Closure $configurator = null): self|Field\Variant
 	{
-		return $this->addField($this->fieldFactory->createVariant($name, ...$fields), $configurator);
+		return $this->addField(new Field\Variant(new Property\Name($name), ...$fields), $configurator);
 	}
 
 	public function input(array|object $data): self
@@ -274,14 +260,6 @@ final class Facade implements ScopeTarget
 
 		return $extracted;
 	}
-
-	public function serialize(?Serializer $serializer = null): string
-	{
-		$this->applyRules();
-
-		return ($serializer ?? new JsonSerializer())->serialize($this);
-	}
-
 	public function whenAllMatch(Closure $configurator): self
 	{
 		$this->addRule($configurator(Builder::whenAllOf()));

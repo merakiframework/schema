@@ -46,7 +46,7 @@ final class EmailAddress extends AtomicMultiValueField
 		Property\Name $name,
 		public Format $format = Format::Basic,
 	) {
-		parent::__construct(new Property\Type('email_address', $this->validateType(...)), $name);
+		parent::__construct($name);
 
 		$this->min = $this->format->getAllowableMinLengthTotal();
 		$this->max = $this->format->getAllowableMaxLengthTotal();
@@ -129,7 +129,7 @@ final class EmailAddress extends AtomicMultiValueField
 		return $value;
 	}
 
-	protected function validateType(mixed $value): bool
+	public function validateValue(mixed $value): bool
 	{
 		$value = $this->cast($value);
 
@@ -215,47 +215,5 @@ final class EmailAddress extends AtomicMultiValueField
 		$regex = '/^' . str_replace('\*', '[^.]+', $escapedPattern) . '$/i';
 
 		return (bool)preg_match($regex, $domain);
-	}
-
-	/**
-	 * @return SerializedEmailAddress
-	 */
-	public function serialize(): object
-	{
-		return (object)[
-			'type' => $this->type->value,
-			'name' => $this->name->value,
-			'format' => $this->format->value,
-			'optional' => $this->optional,
-			'value' => $this->defaultValue->unwrap(),
-			'fields' => [],
-			'min' => $this->min,
-			'max' => $this->max,
-			'allowedDomains' => $this->allowedDomains,
-			'disallowedDomains' => $this->disallowedDomains,
-		];
-	}
-
-	/**
-	 * @param SerializedEmailAddress $serialized
-	 */
-	public static function deserialize(object $serialized, Field\Factory $fieldFactory): static
-	{
-		if ($serialized->type !== 'email_address') {
-			throw new InvalidArgumentException('Invalid serialized data for EmailAddress.');
-		}
-
-		$emailField = new self(
-			new Property\Name($serialized->name),
-			Format::from($serialized->format)
-		);
-
-		$emailField->optional = $serialized->optional;
-
-		return $emailField->minLengthOf($serialized->min)
-			->maxLengthOf($serialized->max)
-			->allowDomain(...$serialized->allowedDomains)
-			->disallowDomain(...$serialized->disallowedDomains)
-			->prefill($serialized->value);
 	}
 }

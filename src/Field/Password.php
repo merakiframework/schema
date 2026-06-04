@@ -42,7 +42,7 @@ final class Password extends AtomicField
 	public function __construct(
 		Property\Name $name,
 	) {
-		parent::__construct(new Property\Type('password', $this->validateType(...)), $name);
+		parent::__construct($name);
 
 		$this->length = Range::unrestricted();
 		$this->lowercase = Range::unrestricted();
@@ -184,7 +184,7 @@ final class Password extends AtomicField
 		return $this;
 	}
 
-	protected function validateType(mixed $value): bool
+	public function validateValue(mixed $value): bool
 	{
 		$this->anyOfPassed = false;
 
@@ -275,46 +275,5 @@ final class Password extends AtomicField
 		}
 
 		return $this->anyOfPassed;
-	}
-
-	/**
-	 * @return SerializedPassword
-	 */
-	public function serialize(): object
-	{
-		return (object)[
-			'type' => $this->type->value,
-			'name' => $this->name->value,
-			'optional' => $this->optional,
-			'value' => $this->defaultValue->unwrap(),
-			'fields' => [],
-			'length' => $this->length->toTuple(),
-			'lowercase' => $this->lowercase->toTuple(),
-			'uppercase' => $this->uppercase->toTuple(),
-			'digits' => $this->digits->toTuple(),
-			'symbols' => $this->symbols->toTuple(),
-			'anyOf' => $this->anyOf,
-		];
-	}
-
-	/**
-	 * @param SerializedPassword $data
-	 */
-	public static function deserialize(object $data, Field\Factory $fieldFactory): static
-	{
-		if ($data->type !== 'password') {
-			throw new InvalidArgumentException('Invalid serialized data for Password.');
-		}
-
-		$field = new self(new Property\Name($data->name));
-		$field->optional = $data->optional;
-		$field->length = Range::fromTuple($data->length);
-		$field->lowercase = Range::fromTuple($data->lowercase);
-		$field->uppercase = Range::fromTuple($data->uppercase);
-		$field->digits = Range::fromTuple($data->digits);
-		$field->symbols = Range::fromTuple($data->symbols);
-		$field->anyOf = $data->anyOf;
-
-		return $field->prefill($data->value);
 	}
 }

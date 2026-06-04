@@ -27,7 +27,7 @@ final class Enum extends AtomicField
 		 */
 		public array $oneOf,
 	) {
-		parent::__construct(new Property\Type('enum', $this->validateType(...)), $name);
+		parent::__construct($name);
 	}
 
 	public function allow(mixed $value): self
@@ -39,7 +39,7 @@ final class Enum extends AtomicField
 		return $this;
 	}
 
-	protected function validateType(mixed $value): bool
+	public function validateValue(mixed $value): bool
 	{
 		return in_array($value, $this->oneOf, true);
 	}
@@ -47,39 +47,5 @@ final class Enum extends AtomicField
 	protected function getConstraints(): array
 	{
 		return [];
-	}
-
-	/**
-	 * @return SerializedEnum
-	 */
-	public function serialize(): object
-	{
-		return (object)[
-			'type' => $this->type->value,
-			'name' => $this->name->value,
-			'optional' => $this->optional,
-			'value' => $this->defaultValue->unwrap(),
-			'fields' => [],
-			'oneOf' => $this->oneOf,
-		];
-	}
-
-	/**
-	 * @param SerializedEnum $serialized
-	 */
-	public static function deserialize(object $serialized, Field\Factory $fieldFactory): static
-	{
-		if ($serialized->type !== 'enum') {
-			throw new \InvalidArgumentException('Invalid serialized data for Enum.');
-		}
-
-		$enumField = new self(
-			new Property\Name($serialized->name),
-			$serialized->oneOf
-		);
-
-		$enumField->optional = $serialized->optional;
-
-		return $enumField->prefill($serialized->value);
 	}
 }

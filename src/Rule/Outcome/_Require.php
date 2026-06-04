@@ -43,27 +43,4 @@ final class _Require implements Outcome
 	{
 		return $this->scope;
 	}
-
-	/**
-	 * @return SerializedRequire
-	 */
-	public function serialize(): object
-	{
-		return (object) [
-			'action' => 'require',
-			'field' => (string) $this->scope,
-		];
-	}
-
-	/**
-	 * @param SerializedRequire $data
-	 */
-	public static function deserialize(object $data): static
-	{
-		if ($data->action !== 'require') {
-			throw new InvalidArgumentException('Invalid serialized outcome type: ' . $data->action);
-		}
-
-		return new self($data->field);
-	}
 }

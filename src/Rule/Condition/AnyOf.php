@@ -59,36 +59,4 @@ final class AnyOf implements ConditionGroup
 		}
 		return $scopes;
 	}
-
-	/**
-	 * @return SerializedAnyOf
-	 */
-	public function serialize(): object
-	{
-		return (object)[
-			'type' => 'any_of',
-			'conditions' => array_map(
-				fn(Condition $condition): object => $condition->serialize(),
-				$this->conditions
-			)
-		];
-	}
-
-	/**
-	 * @param SerializedAnyOf $data
-	 */
-	public static function deserialize(object $data, ?ConditionFactory $conditionFactory = new ConditionFactory()): static
-	{
-		if ($data->type !== 'any_of') {
-			throw new InvalidArgumentException('Invalid serialized condition type: ' . $data->type);
-		}
-
-		$conditions = [];
-
-		foreach ($data->conditions as $conditionData) {
-			$conditions[] = $conditionFactory->deserialize($conditionData);
-		}
-
-		return new self(...$conditions);
-	}
 }

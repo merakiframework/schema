@@ -55,7 +55,7 @@ final class File extends AtomicMultiValueField
 	public function __construct(
 		Property\Name $name,
 	) {
-		parent::__construct(new Property\Type('file', $this->validateType(...)), $name);
+		parent::__construct($name);
 	}
 
 	public function atLeast(int $minFiles): self
@@ -214,7 +214,7 @@ final class File extends AtomicMultiValueField
 		return new Metadata($file['name'], $file['type'], $file['size']);
 	}
 
-	protected function validateType(mixed $value): bool
+	public function validateValue(mixed $value): bool
 	{
 		try {
 			$files = $this->cast($value);
@@ -323,46 +323,5 @@ final class File extends AtomicMultiValueField
 		}
 
 		return true;
-	}
-
-	/**
-	 * @return SerializedFile
-	 */
-	public function serialize(): object
-	{
-		return (object)[
-			'type' => $this->type->value,
-			'name' => $this->name->value,
-			'optional' => $this->optional,
-			'value' => $this->defaultValue->unwrap(),
-			'fields' => [],
-			'minCount' => $this->minCount,
-			'maxCount' => $this->maxCount,
-			'minSize' => $this->minSize,
-			'maxSize' => $this->maxSize,
-			'allowedTypes' => $this->allowedTypes,
-			'disallowedTypes' => $this->disallowedTypes,
-		];
-	}
-
-	/**
-	 * @param SerializedFile $serialized
-	 */
-	public static function deserialize(object $serialized, Field\Factory $fieldFactory): static
-	{
-		if ($serialized->type !== 'file') {
-			throw new InvalidArgumentException('Invalid serialized data for File.');
-		}
-
-		$fileField = new self(new Property\Name($serialized->name));
-		$fileField->optional = $serialized->optional;
-
-		return $fileField->atLeast($serialized->minCount)
-			->atMost($serialized->maxCount)
-			->minFileSizeOf($serialized->minSize)
-			->maxFileSizeOf($serialized->maxSize)
-			->allowTypes(...$serialized->allowedTypes)
-			->disallowTypes(...$serialized->disallowedTypes)
-			->prefill($serialized->value);
 	}
 }

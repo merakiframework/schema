@@ -43,27 +43,4 @@ final class MakeOptional implements Outcome
 	{
 		return $this->scope;
 	}
-
-	/**
-	 * @return SerializedMakeOptional
-	 */
-	public function serialize(): object
-	{
-		return (object)[
-			'action' => 'make_optional',
-			'field' => (string)$this->scope,
-		];
-	}
-
-	/**
-	 * @param SerializedMakeOptional $data
-	 */
-	public static function deserialize(object $data): static
-	{
-		if ($data->action !== 'make_optional') {
-			throw new InvalidArgumentException('Invalid serialized outcome type: ' . $data->action);
-		}
-
-		return new self($data->field);
-	}
 }

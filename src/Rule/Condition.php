@@ -20,14 +20,4 @@ interface Condition
 	 * @return array<Scope>
 	 */
 	public function getScopes(): array;
-
-	/**
-	 * @return T
-	 */
-	public function serialize(): object;
-
-	/**
-	 * @param T $data
-	 */
-	public static function deserialize(object $data): static;
 }

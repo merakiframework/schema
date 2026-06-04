@@ -52,7 +52,7 @@ final class Number extends AtomicField
 		Property\Name $name,
 		public ?int $scale = null,
 	) {
-		parent::__construct(new Property\Type('number', $this->validateType(...)), $name);
+		parent::__construct($name);
 
 		$this->min = BigDecimal::of(-PHP_FLOAT_MAX);
 		$this->max = BigDecimal::of(PHP_FLOAT_MAX);
@@ -104,7 +104,7 @@ final class Number extends AtomicField
 		return $value;
 	}
 
-	protected function validateType(mixed $value): bool
+	public function validateValue(mixed $value): bool
 	{
 		try {
 			$this->cast($value);
@@ -153,48 +153,5 @@ final class Number extends AtomicField
 		} catch (MathException $e) {
 			return false;
 		}
-	}
-
-	/**
-	 * @return SerializedNumber
-	 */
-	public function serialize(): object
-	{
-		// normalise integers and floats to strings
-		$defaultValue = $this->defaultValue->unwrap() !== null ? $this->cast($this->defaultValue->unwrap())->__tostring() : null;
-
-		return (object)[
-			'type' => $this->type->value,
-			'name' => $this->name->value,
-			'optional' => $this->optional,
-			'value' => $defaultValue,
-			'fields' => [],
-			'min' => $this->min->__toString(),
-			'max' => $this->max->__toString(),
-			'step' => $this->step->__toString(),
-			'scale' => $this->scale,
-		];
-	}
-
-	/**
-	 * @param SerializedNumber $data
-	 */
-	public static function deserialize(object $data, Field\Factory $fieldFactory): static
-	{
-		if ($data->type !== 'number') {
-			throw new TypeError('Expected instance of SerializedNumber');
-		}
-
-		$field = new self(
-			name: new Property\Name($data->name),
-			scale: $data->scale
-		);
-
-		$field->optional = $data->optional;
-
-		return $field->minOf($data->min)
-			->maxOf($data->max)
-			->inIncrementsOf($data->step)
-			->prefill($data->value);
 	}
 }

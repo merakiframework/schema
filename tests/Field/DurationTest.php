@@ -20,15 +20,6 @@ final class DurationTest extends FieldTestCase
 	{
 		return new Duration(new Name('duration'));
 	}
-
-	#[Test]
-	public function it_has_the_correct_type(): void
-	{
-		$type = $this->createField();
-
-		$this->assertSame('duration', $type->type->value);
-	}
-
 	#[Test]
 	public function default_min_constraint_is_zero(): void
 	{
@@ -231,35 +222,5 @@ final class DurationTest extends FieldTestCase
 		$field = $this->createField();
 
 		$this->assertNull($field->defaultValue->unwrap());
-	}
-
-	#[Test]
-	public function it_serializes_and_deserializes(): void
-	{
-		$sut = $this->createField()
-			->minOf('PT1H')
-			->maxOf('PT5H')
-			->inIncrementsOf('PT30M')
-			->prefill('PT2H30M');
-
-		$serialized = $sut->serialize();
-
-		$this->assertEquals('duration', $serialized->type);
-		$this->assertEquals('duration', $serialized->name);
-		$this->assertFalse($serialized->optional);
-		$this->assertEquals('PT1H', $serialized->min);
-		$this->assertEquals('PT5H', $serialized->max);
-		$this->assertEquals('PT30M', $serialized->step);
-		$this->assertEquals('PT2H30M', $serialized->value);
-
-		$deserialized = Duration::deserialize($serialized, new Factory());
-
-		$this->assertEquals('duration', $deserialized->type->value);
-		$this->assertEquals('duration', $deserialized->name->value);
-		$this->assertFalse($deserialized->optional);
-		$this->assertEquals('PT1H', $deserialized->min->__toString());
-		$this->assertEquals('PT5H', $deserialized->max->__toString());
-		$this->assertEquals('PT30M', $deserialized->step->__toString());
-		$this->assertEquals('PT2H30M', $deserialized->defaultValue->unwrap());
 	}
 }

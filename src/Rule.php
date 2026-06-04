@@ -35,35 +35,4 @@ class Rule
 			}
 		}
 	}
-
-	/**
-	 * @return SerializedRule
-	 */
-	public function serialize(): object
-	{
-		return (object)[
-			'when' => $this->condition->serialize(),
-			'then' => array_map(
-				fn(Outcome $outcome): object => $outcome->serialize(),
-				$this->outcomes
-			),
-		];
-	}
-
-	/**
-	 * @param SerializedRule $data
-	 */
-	public static function deserialize(
-		object $data,
-		ConditionFactory $conditionFactory = new ConditionFactory(),
-		OutcomeFactory $outcomeFactory = new OutcomeFactory()
-	): static {
-		return new self(
-			$conditionFactory->deserialize($data->when),
-			array_map(
-				fn(object $serializedOutcome): Outcome => $outcomeFactory->deserialize($serializedOutcome),
-				$data->then
-			)
-		);
-	}
 }

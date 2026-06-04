@@ -44,7 +44,7 @@ final class Passphrase extends AtomicField
 		public string $method = 'standard',
 		public string $dictionary = 'none',
 	) {
-		parent::__construct(new Property\Type('passphrase', $this->validateType(...)), $name);
+		parent::__construct($name);
 
 		if ($entropy < 1) {
 			throw new InvalidArgumentException('Entropy must be a positive integer.');
@@ -161,7 +161,7 @@ final class Passphrase extends AtomicField
 		);
 	}
 
-	protected function validateType(mixed $value): bool
+	public function validateValue(mixed $value): bool
 	{
 		return is_string($value);
 	}
@@ -237,39 +237,5 @@ final class Passphrase extends AtomicField
 	{
 		return self::DEFAULT_ENTROPY[$method][$level]
 			?? throw new InvalidArgumentException("No default entropy defined for method: $method and level: $level");
-	}
-
-	/**
-	 * @return SerializedPassphrase
-	 */
-	public function serialize(): object
-	{
-		return (object)[
-			'type' => $this->type->value,
-			'name' => $this->name->value,
-			'optional' => $this->optional,
-			'value' => $this->defaultValue->unwrap(),
-			'fields' => [],
-			'entropy' => $this->entropy,
-			'method' => $this->method,
-			'dictionary' => $this->dictionary,
-		];
-	}
-
-	/**
-	 * @param SerializedPassphrase $serialized
-	 */
-	public static function deserialize(object $serialized, Field\Factory $fieldFactory): static
-	{
-		if ($serialized->type !== 'passphrase') {
-			throw new InvalidArgumentException('Invalid serialized data for Passphrase.');
-		}
-
-		return (new self(
-			new Property\Name($serialized->name),
-			$serialized->entropy,
-			$serialized->method,
-			$serialized->dictionary,
-		))->prefill($serialized->value);
 	}
 }

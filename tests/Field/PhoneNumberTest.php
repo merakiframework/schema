@@ -21,15 +21,6 @@ final class PhoneNumberTest extends FieldTestCase
 	{
 		return new PhoneNumber(new Name('test'));
 	}
-
-	#[Test]
-	public function it_has_the_correct_type(): void
-	{
-		$field = $this->createField();
-
-		$this->assertSame('phone_number', $field->type->value);
-	}
-
 	#[Test]
 	public function it_has_the_correct_name(): void
 	{
@@ -113,28 +104,5 @@ final class PhoneNumberTest extends FieldTestCase
 		$field = $this->createField();
 
 		$this->assertNull($field->defaultValue->unwrap());
-	}
-
-	#[Test]
-	public function it_serializes_and_deserializes(): void
-	{
-		$sut = $this->createField()
-			->makeOptional()
-			->prefill('+61 3 1234 5678');
-
-		$serialized = $sut->serialize();
-
-		// serializing normalises the phone number
-		$this->assertEquals('phone_number', $serialized->type);
-		$this->assertEquals('test', $serialized->name);
-		$this->assertTrue($serialized->optional);
-		$this->assertEquals('+61312345678', $serialized->value);
-
-		$deserialized = PhoneNumber::deserialize($serialized, new Factory());
-
-		$this->assertEquals('phone_number', $deserialized->type->value);
-		$this->assertEquals('test', $deserialized->name->value);
-		$this->assertTrue($deserialized->optional);
-		$this->assertEquals('+61312345678', $deserialized->defaultValue->unwrap());
 	}
 }

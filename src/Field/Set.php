@@ -101,11 +101,11 @@ class Set implements IteratorAggregate, Countable
 		$types = [];
 
 		foreach ($this->fields as $field) {
-			if (in_array((string)$field->type, $types, true)) {
+			if (in_array($field::class, $types, true)) {
 				return true;
 			}
 
-			$types[] = (string)$field->type;
+			$types[] = $field::class;
 		}
 
 		return false;

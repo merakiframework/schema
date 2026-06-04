@@ -31,7 +31,7 @@ final class PhoneNumber extends AtomicField
 	public function __construct(
 		Property\Name $name,
 	) {
-		parent::__construct(new Property\Type('phone_number', $this->validateType(...)), $name);
+		parent::__construct($name);
 	}
 
 	protected function cast(string $value): string
@@ -39,7 +39,7 @@ final class PhoneNumber extends AtomicField
 		return preg_replace('/[^\d\+]/', '', $value);
 	}
 
-	protected function validateType(mixed $value): bool
+	public function validateValue(mixed $value): bool
 	{
 		if (!is_string($value)) {
 			return false;
@@ -58,34 +58,5 @@ final class PhoneNumber extends AtomicField
 	protected function getConstraints(): array
 	{
 		return [];
-	}
-
-	/**
-	 * @return SerializedPhoneNumber
-	 */
-	public function serialize(): object
-	{
-		return (object)[
-			'type' => $this->type->value,
-			'name' => $this->name->value,
-			'optional' => $this->optional,
-			'value' => $this->defaultValue->unwrap() !== null ? $this->cast($this->defaultValue->unwrap()) : null,
-			'fields' => [],
-		];
-	}
-
-	/**
-	 * @param SerializedPhoneNumber $data
-	 */
-	public static function deserialize(object $data, Field\Factory $fieldFactory): static
-	{
-		if ($data->type !== 'phone_number') {
-			throw new \InvalidArgumentException('Invalid serialized data for PhoneNumber.');
-		}
-
-		$field = new self(new Property\Name($data->name));
-		$field->optional = $data->optional;
-
-		return $field->prefill($data->value);
 	}
 }

@@ -28,7 +28,6 @@ final class CreditCard extends CompositeField
 		Property\Name $name,
 	) {
 		parent::__construct(
-			new Property\Type('credit_card', $this->validateType(...)),
 			$name,
 			$this->createHolderField(),
 			$this->createNumberField(),
@@ -115,39 +114,5 @@ final class CreditCard extends CompositeField
 		}
 
 		return new Property\Value($value);
-	}
-
-	/**
-	 * @return SerializedCreditCard
-	 */
-	public function serialize(): object
-	{
-		return (object)[
-			'type' => $this->type->value,
-			'name' => $this->name->value,
-			'optional' => $this->optional,
-			'value' => $this->defaultValue->unwrap(),
-			'fields' => array_map(
-				fn(Field $field): object => $field->serialize(),
-				$this->fields->getIterator()->getArrayCopy()
-			),
-		];
-	}
-
-	/**
-	 * @param SerializedCreditCard $serialized
-	 */
-	public static function deserialize(object $serialized, Field\Factory $fieldFactory): static
-	{
-		if ($serialized->type !== 'credit_card') {
-			throw new \InvalidArgumentException('Invalid serialized data for CreditCard');
-		}
-
-		$deserializedChildren = array_map($fieldFactory->deserialize(...), $serialized->fields);
-		$field = new self(new Property\Name($serialized->name));
-		$field->optional = $serialized->optional;
-		$field->fields = new Field\Set(...$deserializedChildren);
-
-		return $field->prefill($serialized->value);
 	}
 }

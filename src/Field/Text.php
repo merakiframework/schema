@@ -31,7 +31,7 @@ final class Text extends AtomicField
 	public function __construct(
 		Property\Name $name,
 	) {
-		parent::__construct(new Property\Type('text', $this->validateType(...)), $name);
+		parent::__construct($name);
 	}
 
 	public function minLengthOf(int $minChars): self
@@ -93,7 +93,7 @@ final class Text extends AtomicField
 		return $value;
 	}
 
-	protected function validateType(mixed $value): bool
+	public function validateValue(mixed $value): bool
 	{
 		return is_string($value);
 	}
@@ -124,40 +124,5 @@ final class Text extends AtomicField
 		}
 
 		return preg_match($this->pattern, $value) === 1;
-	}
-
-	/**
-	 * @return SerializedText
-	 */
-	public function serialize(): object
-	{
-		return (object)[
-			'type' => $this->type->value,
-			'name' => $this->name->value,
-			'optional' => $this->optional,
-			'value' => $this->defaultValue->unwrap(),
-			'fields' => [],
-			'min' => $this->min,
-			'max' => $this->max,
-			'pattern' => $this->pattern,
-		];
-	}
-
-	/**
-	 * @param SerializedText $data
-	 */
-	public static function deserialize(object $data, Field\Factory $fieldFactory): static
-	{
-		if ($data->type !== 'text') {
-			throw new InvalidArgumentException('Invalid type for Text field.');
-		}
-
-		$field = new static(new Property\Name($data->name));
-		$field->optional = $data->optional;
-
-		return $field->minLengthOf($data->min)
-			->maxLengthOf($data->max)
-			->matches($data->pattern)
-			->prefill($data->value);
 	}
 }

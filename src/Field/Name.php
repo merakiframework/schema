@@ -40,7 +40,7 @@ final class Name extends AtomicField
 	public function __construct(
 		Property\Name $name,
 	) {
-		parent::__construct(new Property\Type('name', $this->validateType(...)), $name);
+		parent::__construct($name);
 	}
 
 	public function minLengthOf(int $minChars): self
@@ -62,7 +62,7 @@ final class Name extends AtomicField
 		return (string)$value;
 	}
 
-	protected function validateType(mixed $value): bool
+	public function validateValue(mixed $value): bool
 	{
 		return is_string($value) && preg_match(self::PATTERN, $value) === 1;
 	}
@@ -83,38 +83,5 @@ final class Name extends AtomicField
 	private function validateMax(string $value): bool
 	{
 		return mb_strlen($value) <= $this->max;
-	}
-
-	/**
-	 * @return SerializedName
-	 */
-	public function serialize(): object
-	{
-		return (object)[
-			'type' => $this->type->value,
-			'name' => $this->name->value,
-			'optional' => $this->optional,
-			'value' => $this->defaultValue->unwrap(),
-			'fields' => [],
-			'min' => $this->min,
-			'max' => $this->max,
-		];
-	}
-
-	/**
-	 * @param SerializedName $serialized
-	 */
-	public static function deserialize(object $serialized, Field\Factory $fieldFactory): static
-	{
-		if ($serialized->type !== 'name') {
-			throw new \InvalidArgumentException('Invalid type for Name field: ' . $serialized->type);
-		}
-
-		$field = new self(new Property\Name($serialized->name));
-		$field->optional = $serialized->optional;
-
-		return $field->minLengthOf($serialized->min)
-			->maxLengthOf($serialized->max)
-			->prefill($serialized->value);
 	}
 }

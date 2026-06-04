@@ -30,7 +30,7 @@ final class Date extends AtomicField
 	public function __construct(
 		Property\Name $name,
 	) {
-		parent::__construct(new Property\Type('date', $this->validateType(...)), $name);
+		parent::__construct($name);
 
 		$this->from = LocalDate::min();
 		$this->until = LocalDate::max();
@@ -79,7 +79,7 @@ final class Date extends AtomicField
 		return LocalDate::parse($value);
 	}
 
-	protected function validateType(mixed $value): bool
+	public function validateValue(mixed $value): bool
 	{
 		if (!is_string($value)) {
 			return false;
@@ -145,41 +145,5 @@ final class Date extends AtomicField
 		}
 
 		return false;
-	}
-
-	/**
-	 * @return SerializedDate
-	 */
-	public function serialize(): object
-	{
-		return (object)[
-			'type' => $this->type->value,
-			'name' => $this->name->value,
-			'optional' => $this->optional,
-			'value' => $this->defaultValue->unwrap(),
-			'fields' => [],
-			'from' => $this->from->__toString(),
-			'until' => $this->until->__toString(),
-			'interval' => $this->interval->__toString(),
-		];
-	}
-
-	/**
-	 * @param SerializedDate $serialized
-	 */
-	public static function deserialize(object $serialized, Field\Factory $fieldFactory): static
-	{
-		if ($serialized->type !== 'date') {
-			throw new \InvalidArgumentException('Invalid type for Date field: ' . $serialized->type);
-		}
-
-		$field = new self(new Property\Name($serialized->name));
-		$field->optional = $serialized->optional;
-		$field->prefill($serialized->value);
-		$field->from($serialized->from);
-		$field->until($serialized->until);
-		$field->atIntervalsOf($serialized->interval);
-
-		return $field;
 	}
 }

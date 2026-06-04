@@ -17,15 +17,6 @@ use PHPUnit\Framework\Attributes\Group;
 abstract class FieldTestCase extends TestCase
 {
 	abstract public function createField(): Field;
-
-	#[Test]
-	public function it_has_a_type(): void
-	{
-		$field = $this->createField();
-
-		$this->assertInstanceOf(Property\Type::class, $field->type);
-	}
-
 	#[Test]
 	public function it_has_a_name(): void
 	{

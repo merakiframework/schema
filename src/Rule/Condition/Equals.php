@@ -48,28 +48,4 @@ final class Equals implements Condition
 	{
 		return [$this->scope];
 	}
-
-	/**
-	 * @return SerializedEquals
-	 */
-	public function serialize(): object
-	{
-		return (object)[
-			'type' => 'equals',
-			'target' => $this->target,
-			'expected' => $this->expected,
-		];
-	}
-
-	/**
-	 * @param SerializedEquals $data
-	 */
-	public static function deserialize(object $data): static
-	{
-		if ($data->type !== 'equals') {
-			throw new InvalidArgumentException('Invalid serialized condition type: ' . $data->type);
-		}
-
-		return new self($data->target, $data->expected);
-	}
 }

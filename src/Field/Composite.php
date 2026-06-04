@@ -22,12 +22,12 @@ abstract class Composite extends Field implements IteratorAggregate, Countable
 {
 	public Field\Set $fields;
 
-	public function __construct(Property\Type $type, Property\Name $name, AtomicField ...$fields)
+	public function __construct(Property\Name $name, AtomicField ...$fields)
 	{
 		$this->fields = new Field\Set(...$fields);
 		$this->fields->prefixNamesWith($name);
 
-		parent::__construct($type, $name);
+		parent::__construct($name);
 	}
 
 	public function rename(Property\Name $name): static
@@ -91,14 +91,14 @@ abstract class Composite extends Field implements IteratorAggregate, Countable
 
 		// skip validation of all fields if the type validation fails
 		// or if the value is not provided and field is optional
-		if (($this->optional && !$this->valueProvided($value)) || !($this->type->validator)($value->unwrap())) {
+		if (($this->optional && !$this->valueProvided($value)) || !$this->validateValue($value->unwrap())) {
 			return $this->validationResult = $this->skipValidationOfAllFields();
 		}
 
 		// First validate types of each subfield
 		foreach ($this->fields as $field) {
 			$fieldName = (string)$field->name;
-			$result = ($field->type->validator)($field->resolvedValue->unwrap());
+			$result = $field->validateValue($field->resolvedValue->unwrap());
 
 			if ($result === true) {
 				$fieldResults[$fieldName] = new FieldValidationResult($field, new ConstraintValidationResult(ValidationStatus::Passed, 'type'));
@@ -227,7 +227,7 @@ abstract class Composite extends Field implements IteratorAggregate, Countable
 		throw new InvalidArgumentException("Field '$name' does not exist.");
 	}
 
-	protected function validateType(mixed $value): bool
+	public function validateValue(mixed $value): bool
 	{
 		return true;
 	}

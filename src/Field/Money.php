@@ -66,7 +66,6 @@ final class Money extends CompositeField
 		$this->allowed = array_keys($this->scale);
 
 		parent::__construct(
-			new Property\Type('money', $this->validateType(...)),
 			$name,
 			new Field\Enum(new Property\Name('currency'), $this->allowed),
 			(new Field\Number(new Property\Name('amount')))->inIncrementsOf(0),		// just a dummy field essentially
@@ -235,36 +234,6 @@ final class Money extends CompositeField
 	{
 		return (new Property\Name('amount'))->prefixWith($this->name)->__toString();
 	}
-
-	/**
-	 * @return SerializedMoney
-	 */
-	public function serialize(): object
-	{
-		$currencyFieldName = $this->getCurrencyFieldName();
-		$amountFieldName = $this->getAmountFieldName();
-		[$currencyFieldName => $currency, $amountFieldName => $amount] = $this->defaultValue->unwrap();
-
-		return (object)[
-			'type' => $this->type->value,
-			'name' => $this->name->value,
-			'optional' => $this->optional,
-			'value' => [
-				$currencyFieldName => $currency,
-				$amountFieldName => $amount !== null ? (string)$this->toDecimal($currency, $amount) : null,
-			],
-			'fields' => array_map(
-				fn(Field $field): object => $field->serialize(),
-				$this->fields->getIterator()->getArrayCopy()
-			),
-			'allowedCurrencies' => $this->allowed,
-			'min' => self::flatten($this->min),
-			'max' => self::flatten($this->max),
-			'step' => self::flatten($this->step),
-			'scale' => $this->scale,
-		];
-	}
-
 	/**
 	 * Flattens the array of currency amounts to a string representation.
 	 *
@@ -279,39 +248,6 @@ final class Money extends CompositeField
 		}
 		return $flattened;
 	}
-
-	/**
-	 * @param SerializedMoney $data
-	 */
-	public static function deserialize(object $data, Field\Factory $fieldFactory): static
-	{
-		if ($data->type !== 'money') {
-			throw new InvalidArgumentException('Expected instance of SerializedMoney');
-		}
-
-		$deserializedChildren = array_map($fieldFactory->deserialize(...), $data->fields);
-		$field = new self(
-			new Property\Name($data->name),
-			self::combineAllowedAndScale($data->allowedCurrencies, $data->scale),
-		);
-		$field->fields = new Field\Set(...$deserializedChildren);
-		$field->optional = $data->optional;
-
-		foreach ($data->min as $currency => $amount) {
-			$field->minOf($currency, $amount);
-		}
-
-		foreach ($data->max as $currency => $amount) {
-			$field->maxOf($currency, $amount);
-		}
-
-		foreach ($data->step as $currency => $amount) {
-			$field->inIncrementsOf($currency, $amount);
-		}
-
-		return $field->prefill($data->value);
-	}
-
 	/** combine $allowed and $scale together into array that constructor accepts $allowedCurrencies */
 	private static function combineAllowedAndScale(array $allowed, array $scale): array
 	{

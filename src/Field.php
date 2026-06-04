@@ -9,7 +9,6 @@ use Meraki\Schema\AggregatedValidationResult;
 use Meraki\Schema\Field\ValidationResult;
 use Meraki\Schema\Field\CompositeValidationResult;
 use Meraki\Schema\Field\ConstraintValidationResult;
-use Meraki\Schema\Field\Factory as FieldFactory;
 use InvalidArgumentException;
 
 /**
@@ -26,15 +25,6 @@ use InvalidArgumentException;
  */
 abstract class Field implements ScopeTarget
 {
-	/**
-	 * The type of the field, which defines the expected data type.
-	 *
-	 * This is used to validate the input value against the
-	 * expected type. The validator function should return true
-	 * if the value is of the expected type, or false otherwise.
-	 */
-	public readonly Property\Type $type;
-
 	/**
 	 * The name of the field.
 	 *
@@ -103,10 +93,8 @@ abstract class Field implements ScopeTarget
 	public bool $optional;
 
 	public function __construct(
-		Property\Type $type,
 		Property\Name $name,
 	) {
-		$this->type = $type;
 		$this->name = $name;
 		$this->value = $this->process(null);
 		$this->defaultValue = $this->process(null);
@@ -266,7 +254,7 @@ abstract class Field implements ScopeTarget
 			return $this->validationResult = new ValidationResult($this, ConstraintValidationResult::fail('type'));
 		}
 
-		$typeIsValid = ($this->type->validator)($value->unwrap());
+		$typeIsValid = $this->validateValue($value->unwrap());
 
 		if ($typeIsValid) {
 			$results = [ConstraintValidationResult::pass('type')];
@@ -350,12 +338,7 @@ abstract class Field implements ScopeTarget
 	abstract protected function getConstraints(): array;
 
 	/**
-	 * @return TSerialized
+	 * Returns true if the given value is a valid instance of this field's type.
 	 */
-	abstract public function serialize(): object;
-
-	/**
-	 * @param TSerialized $serialized
-	 */
-	abstract public static function deserialize(object $serialized, FieldFactory $fieldFactory): static;
+	abstract public function validateValue(mixed $value): bool;
 }

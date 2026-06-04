@@ -17,14 +17,4 @@ interface Outcome
 	public function apply(Facade $schema): void;
 
 	public function getScope(): Scope;
-
-	/**
-	 * @return T
-	 */
-	public function serialize(): object;
-
-	/**
-	 * @param T
-	 */
-	public static function deserialize(object $data): static;
 }

@@ -38,7 +38,7 @@ final class Variant extends Field
 		Property\Name $name,
 		AtomicField ...$fields
 	) {
-		parent::__construct(new Property\Type('variant', $this->validateType(...)), $name);
+		parent::__construct($name);
 
 		$this->fields = new Field\Set(...$fields);
 
@@ -103,7 +103,7 @@ final class Variant extends Field
 			return $this->validationResult = new ValidationResult($this, ConstraintValidationResult::fail('type'));
 		}
 
-		$typeIsValid = ($this->type->validator)($value->unwrap());
+		$typeIsValid = $this->validateValue($value->unwrap());
 		$fieldResults = [];
 
 		if ($typeIsValid) {
@@ -147,7 +147,7 @@ final class Variant extends Field
 		throw new InvalidArgumentException("Field '$name' does not exist.");
 	}
 
-	protected function validateType(mixed $value): bool
+	public function validateValue(mixed $value): bool
 	{
 		return true;
 	}
@@ -155,36 +155,5 @@ final class Variant extends Field
 	private static function camelCaseToSnakeCase(string $input): string
 	{
 		return strtolower(preg_replace('/[A-Z]/', '_$0', lcfirst($input)));
-	}
-
-	/**
-	 * @return SerializedVariant
-	 */
-	public function serialize(): object
-	{
-		return (object)[
-			'type' => $this->type->value,
-			'name' => $this->name->value,
-			'optional' => $this->optional,
-			'value' => $this->defaultValue->unwrap(),
-			'fields' => array_map(
-				fn(Field $field): object => $field->serialize(),
-				$this->fields->getIterator()->getArrayCopy()
-			),
-		];
-	}
-
-	/** @param SerializedVariant $serialized */
-	public static function deserialize(object $serialized, Field\Factory $fieldFactory): static
-	{
-		if ($serialized->type !== 'variant') {
-			throw new InvalidArgumentException('Invalid type for Variant field: ' . $serialized->type);
-		}
-
-		$deserializedChildren = array_map($fieldFactory->deserialize(...), $serialized->fields);
-		$field = new self(new Property\Name($serialized->name), ...$deserializedChildren);
-		$field->optional = $serialized->optional;
-
-		return $field->prefill($serialized->value);
 	}
 }

@@ -48,7 +48,7 @@ final class Time extends AtomicField
 		public readonly Precision $precision = Precision::Minutes,
 		private PrecisionCaster $caster = new TruncatePrecision(),
 	) {
-		parent::__construct(new Property\Type('time', $this->validateType(...)), $name);
+		parent::__construct($name);
 
 		$this->from = LocalTime::min();
 		$this->until = LocalTime::max();
@@ -123,7 +123,7 @@ final class Time extends AtomicField
 		return $this->caster->cast($value, $this->precision);
 	}
 
-	protected function validateType(mixed $value): bool
+	public function validateValue(mixed $value): bool
 	{
 		if (!is_string($value)) {
 			return false;
@@ -180,50 +180,6 @@ final class Time extends AtomicField
 
 		return $inputNanos->minus($fromNanos)->remainder($stepNanos)->isZero();
 	}
-
-	/**
-	 * @return SerializedTime
-	 */
-	public function serialize(): object
-	{
-		return (object)[
-			'type' => $this->type->value,
-			'name' => $this->name->value,
-			'optional' => $this->optional,
-			'value' => $this->defaultValue->unwrap() !== null ? $this->cast($this->defaultValue->unwrap())->__toString() : null,
-			'fields' => [],
-			'from' => $this->from->__toString(),
-			'until' => $this->until->__toString(),
-			'step' => $this->step->__toString(),
-			'precisionUnit' => $this->precision->value,
-			'precisionMode' => self::getPrecisionModeFromCaster($this->caster),
-		];
-	}
-
-	/**
-	 * @param SerializedTime $serialized
-	 */
-	public static function deserialize(object $serialized, Field\Factory $fieldFactory): static
-	{
-		if ($serialized->type !== 'time') {
-			throw new InvalidArgumentException('Invalid serialized type for Time field.');
-		}
-
-		$instance = new self(
-			new Property\Name($serialized->name),
-			Precision::from($serialized->precisionUnit),
-			self::getCasterFromPrecisionMode($serialized->precisionMode)
-		);
-
-		$instance->optional = $serialized->optional;
-
-		return $instance
-			->from($serialized->from)
-			->until($serialized->until)
-			->inIncrementsOf($serialized->step)
-			->prefill($serialized->value);
-	}
-
 	/**
 	 * The precision mode ('truncate' or 'preserve') derived from the caster.
 	 */

@@ -5,7 +5,6 @@ namespace Meraki\Schema\Field;
 
 use Meraki\Schema\Field;
 use Meraki\Schema\Field\Composite as CompositeField;
-use Meraki\Schema\Field\Factory as FieldFactory;
 use Meraki\Schema\Field\ValidationResult as FieldValidationResult;
 use Meraki\Schema\Field\ConstraintValidationResult;
 use Meraki\Schema\ValidationResult;
@@ -76,32 +75,11 @@ class CompositeValidationResultTest extends AggregatedValidationResultTestCase
 	{
 		return new class extends CompositeField {
 			public function __construct() {
-				parent::__construct(new Property\Type('mock', $this->validateMockType(...)), new Property\Name('mock'));
+				parent::__construct(new Property\Name('mock'));
 			}
 
 			public function getConstraints(): array {
 				return [];
-			}
-
-			private function validateMockType(): bool {
-				return true;
-			}
-
-			public function serialize(): object {
-				return (object)[
-					'type' => 'mock',
-					'name' => 'mock',
-					'optional' => false,
-					'value' => null,
-					'fields' => [],
-				];
-			}
-
-			public static function deserialize(object $serialized, FieldFactory $fieldFactory): static {
-				if ($serialized->type !== 'mock') {
-					throw new \InvalidArgumentException('Invalid type for Mock field: ' . $serialized->type);
-				}
-				return new self();
 			}
 		};
 	}

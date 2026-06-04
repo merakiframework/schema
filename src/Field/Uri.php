@@ -34,7 +34,7 @@ final class Uri extends AtomicField
 	public function __construct(
 		Property\Name $name,
 	) {
-		parent::__construct(new Property\Type('uri', $this->validateType(...)), $name);
+		parent::__construct($name);
 	}
 
 	public function minLengthOf(int $minChars): self
@@ -76,7 +76,7 @@ final class Uri extends AtomicField
 		return $value;
 	}
 
-	protected function validateType(mixed $value): bool
+	public function validateValue(mixed $value): bool
 	{
 		return is_string($value) && preg_match(self::PATTERN, $value) === 1;
 	}
@@ -97,39 +97,5 @@ final class Uri extends AtomicField
 	private function validateMax(mixed $value): bool
 	{
 		return mb_strlen($value) <= $this->max;
-	}
-
-	/**
-	 * @return SerializedUri
-	 */
-	public function serialize(): object
-	{
-		return (object)[
-			'type' => $this->type->value,
-			'name' => $this->name->value,
-			'optional' => $this->optional,
-			'value' => $this->defaultValue->unwrap(),
-			'fields' => [],
-			'min' => $this->min,
-			'max' => $this->max,
-		];
-	}
-
-	/**
-	 * @param SerializedUri $serialized
-	 */
-	public static function deserialize(object $serialized, Field\Factory $fieldFactory): static
-	{
-		if ($serialized->type !== 'uri') {
-			throw new InvalidArgumentException('Invalid serialized type for Uri field.');
-		}
-
-		$instance = new self(new Property\Name($serialized->name));
-		$instance->optional = $serialized->optional;
-
-		return $instance
-			->minLengthOf($serialized->min)
-			->maxLengthOf($serialized->max)
-			->prefill($serialized->value);
 	}
 }

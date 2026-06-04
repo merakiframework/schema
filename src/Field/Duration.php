@@ -31,7 +31,7 @@ final class Duration extends AtomicField
 	public function __construct(
 		Property\Name $name,
 	) {
-		parent::__construct(new Property\Type('duration', $this->validateType(...)), $name);
+		parent::__construct($name);
 
 		$this->min = DateTime\Duration::zero();
 		$this->max = DateTime\Duration::ofDays(1);
@@ -59,7 +59,7 @@ final class Duration extends AtomicField
 		return $this;
 	}
 
-	protected function validateType(mixed $value): bool
+	public function validateValue(mixed $value): bool
 	{
 		if (!is_string($value)) {
 			return false;
@@ -108,41 +108,5 @@ final class Duration extends AtomicField
 		}
 
 		return ($value - $min) % $step === 0;
-	}
-
-	/**
-	 * @return SerializedDuration
-	 */
-	public function serialize(): object
-	{
-		return (object)[
-			'type' => $this->type->value,
-			'name' => $this->name->value,
-			'optional' => $this->optional,
-			'value' => $this->defaultValue->unwrap(),
-			'fields' => [],
-			'min' => $this->min->__toString(),
-			'max' => $this->max->__toString(),
-			'step' => $this->step->__toString(),
-		];
-	}
-
-	/**
-	 * @param SerializedDuration $serialized
-	 */
-	public static function deserialize(object $serialized, Field\Factory $fieldFactory): static
-	{
-		if ($serialized->type !== 'duration') {
-			throw new \InvalidArgumentException('Invalid type for Duration field: ' . $serialized->type);
-		}
-
-		$field = new self(new Property\Name($serialized->name));
-		$field->optional = $serialized->optional;
-		$field->prefill($serialized->value);
-		$field->minOf($serialized->min);
-		$field->maxOf($serialized->max);
-		$field->inIncrementsOf($serialized->step);
-
-		return $field;
 	}
 }

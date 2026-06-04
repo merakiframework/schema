@@ -24,15 +24,6 @@ final class AddressTest extends CompositeTestCase
 	{
 		return new Address(new Property\Name('test'));
 	}
-
-	#[Test]
-	public function it_has_the_correct_type(): void
-	{
-		$field = $this->createField();
-
-		$this->assertSame('address', (string)$field->type);
-	}
-
 	#[Test]
 	public function it_has_the_correct_name(): void
 	{
@@ -85,55 +76,5 @@ final class AddressTest extends CompositeTestCase
 		$this->assertEquals(null, $field->state->value->unwrap());
 		$this->assertEquals(null, $field->postalCode->value->unwrap());
 		$this->assertEquals(null, $field->country->value->unwrap());
-	}
-
-	#[Test]
-	public function it_serializes_and_deserializes(): void
-	{
-		$address = [
-			'test.street' => '123 Main St',
-			'test.city' => 'Craigmore',
-			'test.state' => 'SA',
-			'test.postal_code' => '5112',
-			'test.country' => 'Australia'
-		];
-		$sut = $this->createSubject()
-			->prefill($address);
-
-		$serialized = $sut->serialize();
-
-		// serializing normalises time strings
-		$this->assertEquals('address', $serialized->type);
-		$this->assertEquals('test', $serialized->name);
-		$this->assertFalse($serialized->optional);
-		$this->assertEquals($address, $serialized->value);
-
-		$deserialized = Address::deserialize($serialized, new Factory());
-
-		$this->assertEquals('address', $deserialized->type->value);
-		$this->assertEquals('test', $deserialized->name->value);
-		$this->assertFalse($deserialized->optional);
-		$this->assertEquals($address, $deserialized->defaultValue->unwrap());
-	}
-
-	#[Test]
-	public function children_returns_serialized_fields(): void
-	{
-		$field = $this->createSubject()->prefill([
-			'test.street' => '123 Main St',
-			'test.city' => 'Craigmore',
-			'test.state' => 'SA',
-			'test.postal_code' => '5112',
-			'test.country' => 'Australia'
-		]);
-		$serialized = $field->serialize();
-		$children = $serialized->fields;
-
-		$this->assertCount(5, $children);
-		$this->assertSerializedChildrenContainsFieldWithNameOf('test.street', $children);
-		$this->assertSerializedChildrenContainsFieldWithNameOf('test.city', $children);
-		$this->assertSerializedChildrenContainsFieldWithNameOf('test.state', $children);
-		$this->assertSerializedChildrenContainsFieldWithNameOf('test.postal_code', $children);
-		$this->assertSerializedChildrenContainsFieldWithNameOf('test.country', $children);
 	}
 }
