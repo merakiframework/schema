@@ -6,7 +6,6 @@ namespace Meraki\Schema\Field;
 use InvalidArgumentException;
 use Meraki\Schema\Field;
 use Meraki\Schema\Field\ConstraintValidationResult;
-use Meraki\Schema\ValidationStatus;
 use Meraki\Schema\AggregatedValidationResult;
 
 /**
@@ -21,28 +20,6 @@ final class ValidationResult extends AggregatedValidationResult
 		parent::__construct(...$results);
 
 		$this->assertResultsAreUnique();
-	}
-
-	protected function calculateStatus(): ValidationStatus
-	{
-		if ($this->isEmpty() || $this->anyPending()) {
-			return ValidationStatus::Pending;
-		}
-
-		if ($this->anyFailed()) {
-			return ValidationStatus::Failed;
-		}
-
-		if ($this->allPassed()) {
-			return ValidationStatus::Passed;
-		}
-
-		if ($this->allSkipped()) {
-			return ValidationStatus::Skipped;
-		}
-
-		// some passed, some were skipped
-		return ValidationStatus::Passed;	// maybe a ValidationStatus::Partial or something like that?
 	}
 
 	public function __clone(): void

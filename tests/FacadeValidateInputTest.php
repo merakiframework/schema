@@ -27,8 +27,8 @@ final class FacadeValidateInputTest extends TestCase
 
 		$result = $schema->validate($input);
 
-		$this->assertFalse($result->failed(), 'Valid input must not produce failures');
-		$this->assertTrue($result->passed());
+		$this->assertFalse($result->anyFailed(), 'Valid input must not produce failures');
+		$this->assertTrue($result->allPassed());
 	}
 
 	#[Test]
@@ -52,8 +52,8 @@ final class FacadeValidateInputTest extends TestCase
 
 		$result = $schema->validate($input);
 
-		$this->assertFalse($result->failed(), 'Magic-accessor input must not produce failures');
-		$this->assertTrue($result->passed());
+		$this->assertFalse($result->anyFailed(), 'Magic-accessor input must not produce failures');
+		$this->assertTrue($result->allPassed());
 	}
 
 	#[Test]
@@ -65,7 +65,7 @@ final class FacadeValidateInputTest extends TestCase
 		// (treated as null), not raise a warning about an undefined property.
 		$result = $schema->validate(new \stdClass());
 
-		$this->assertTrue($result->failed());
+		$this->assertTrue($result->anyFailed());
 	}
 
 	#[Test]
@@ -91,7 +91,7 @@ final class FacadeValidateInputTest extends TestCase
 
 		$result = $schema->validate($input);
 
-		$this->assertFalse($result->failed());
+		$this->assertFalse($result->anyFailed());
 		$this->assertSame(ValidationStatus::Passed, $result->status);
 	}
 
@@ -107,11 +107,11 @@ final class FacadeValidateInputTest extends TestCase
 
 		// condition holds -> phone becomes required -> missing phone fails
 		$first = $schema->validate(['has_phone' => true, 'phone' => null]);
-		$this->assertTrue($first->failed());
+		$this->assertTrue($first->anyFailed());
 
 		// condition no longer holds -> phone must revert to optional -> no failure
 		$second = $schema->validate(['has_phone' => false, 'phone' => null]);
-		$this->assertFalse($second->failed());
+		$this->assertFalse($second->anyFailed());
 	}
 
 	private function createPersonSchema(): Facade

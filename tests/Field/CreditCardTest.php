@@ -53,10 +53,10 @@ final class CreditCardTest extends CompositeTestCase
 	public function it_validates_valid_credit_cards(string $holder, string $number, string $expiry, string $securityCode): void
 	{
 		$field = $this->createSubject()->input([
-			'credit_card.holder' => $holder,
-			'credit_card.number' => $number,
-			'credit_card.expiry' => $expiry,
-			'credit_card.security_code' => $securityCode,
+			'holder' =>$holder,
+			'number' =>$number,
+			'expiry' =>$expiry,
+			'security_code' =>$securityCode,
 		]);
 
 		$result = $field->validate();
@@ -97,10 +97,10 @@ final class CreditCardTest extends CompositeTestCase
 	public function it_fails_if_holder_is_not_provided(): void
 	{
 		$field = $this->createSubject()->input([
-			'credit_card.holder' => '',
-			'credit_card.number' => '4014 1828 2909 8805',
-			'credit_card.expiry' => '2027-10',
-			'credit_card.security_code' => '936',
+			'holder' =>'',
+			'number' =>'4014 1828 2909 8805',
+			'expiry' =>'2027-10',
+			'security_code' =>'936',
 		]);
 
 		$result = $field->validate();
@@ -112,10 +112,10 @@ final class CreditCardTest extends CompositeTestCase
 	public function it_fails_if_number_is_not_provided(): void
 	{
 		$field = $this->createSubject()->input([
-			'credit_card.holder' => 'Kenneth Miller MD',
-			'credit_card.number' => '',
-			'credit_card.expiry' => '2027-10',
-			'credit_card.security_code' => '936',
+			'holder' =>'Kenneth Miller MD',
+			'number' =>'',
+			'expiry' =>'2027-10',
+			'security_code' =>'936',
 		]);
 
 		$result = $field->validate();
@@ -127,10 +127,10 @@ final class CreditCardTest extends CompositeTestCase
 	public function it_fails_if_number_is_too_short(): void
 	{
 		$field = $this->createSubject()->input([
-			'credit_card.holder' => 'Kenneth Miller MD',
-			'credit_card.number' => '4014 1828 2909',
-			'credit_card.expiry' => '2027-10',
-			'credit_card.security_code' => '936',
+			'holder' =>'Kenneth Miller MD',
+			'number' =>'4014 1828 2909',
+			'expiry' =>'2027-10',
+			'security_code' =>'936',
 		]);
 
 		$result = $field->validate();
@@ -142,10 +142,10 @@ final class CreditCardTest extends CompositeTestCase
 	public function it_fails_if_number_is_too_long(): void
 	{
 		$field = $this->createSubject()->input([
-			'credit_card.holder' => 'Kenneth Miller MD',
-			'credit_card.number' => '4958 5581 8834 3371 5812',
-			'credit_card.expiry' => '2027-10',
-			'credit_card.security_code' => '936',
+			'holder' =>'Kenneth Miller MD',
+			'number' =>'4958 5581 8834 3371 5812',
+			'expiry' =>'2027-10',
+			'security_code' =>'936',
 		]);
 
 		$result = $field->validate();
@@ -157,10 +157,10 @@ final class CreditCardTest extends CompositeTestCase
 	public function it_fails_if_security_code_is_not_provided(): void
 	{
 		$field = $this->createSubject()->input([
-			'credit_card.holder' => 'Kenneth Miller MD',
-			'credit_card.number' => '4014 1828 2909 8805',
-			'credit_card.expiry' => '2027-10',
-			'credit_card.security_code' => '',
+			'holder' =>'Kenneth Miller MD',
+			'number' =>'4014 1828 2909 8805',
+			'expiry' =>'2027-10',
+			'security_code' =>'',
 		]);
 
 		$result = $field->validate();
@@ -172,10 +172,10 @@ final class CreditCardTest extends CompositeTestCase
 	public function it_fails_if_security_code_is_too_short(): void
 	{
 		$field = $this->createSubject()->input([
-			'credit_card.holder' => 'Kenneth Miller MD',
-			'credit_card.number' => '4014 1828 2909 8805',
-			'credit_card.expiry' => '2027-10',
-			'credit_card.security_code' => '93',
+			'holder' =>'Kenneth Miller MD',
+			'number' =>'4014 1828 2909 8805',
+			'expiry' =>'2027-10',
+			'security_code' =>'93',
 		]);
 
 		$result = $field->validate();
@@ -187,10 +187,10 @@ final class CreditCardTest extends CompositeTestCase
 	public function it_fails_if_security_code_is_too_long(): void
 	{
 		$field = $this->createSubject()->input([
-			'credit_card.holder' => 'Kenneth Miller MD',
-			'credit_card.number' => '4014 1828 2909 8805',
-			'credit_card.expiry' => '2027-10',
-			'credit_card.security_code' => '93675',
+			'holder' =>'Kenneth Miller MD',
+			'number' =>'4014 1828 2909 8805',
+			'expiry' =>'2027-10',
+			'security_code' =>'93675',
 		]);
 
 		$result = $field->validate();
@@ -232,10 +232,10 @@ final class CreditCardTest extends CompositeTestCase
 	public function it_fails_if_expiry_is_not_provided(): void
 	{
 		$field = $this->createSubject()->input([
-			'credit_card.holder' => 'Kenneth Miller MD',
-			'credit_card.number' => '4014 1828 2909 8805',
-			'credit_card.expiry' => '',
-			'credit_card.security_code' => '936',
+			'holder' =>'Kenneth Miller MD',
+			'number' =>'4014 1828 2909 8805',
+			'expiry' =>'',
+			'security_code' =>'936',
 		]);
 
 		$result = $field->validate();
@@ -247,10 +247,10 @@ final class CreditCardTest extends CompositeTestCase
 	public function it_fails_if_expiry_is_in_the_past(): void
 	{
 		$field = $this->createSubject()->input([
-			'credit_card.holder' => 'Kenneth Miller MD',
-			'credit_card.number' => '4014 1828 2909 8805',
-			'credit_card.expiry' => '2020-01',
-			'credit_card.security_code' => '936',
+			'holder' =>'Kenneth Miller MD',
+			'number' =>'4014 1828 2909 8805',
+			'expiry' =>'2020-01',
+			'security_code' =>'936',
 		]);
 
 		$result = $field->validate();
@@ -262,10 +262,10 @@ final class CreditCardTest extends CompositeTestCase
 	public function end_of_month_day_is_automatically_added_to_end_of_expiry_date(): void
 	{
 		$field = $this->createSubject()->input([
-			'credit_card.holder' => 'Kenneth Miller MD',
-			'credit_card.number' => '4014 1828 2909 8805',
-			'credit_card.expiry' => '2029-07',
-			'credit_card.security_code' => '936',
+			'holder' =>'Kenneth Miller MD',
+			'number' =>'4014 1828 2909 8805',
+			'expiry' =>'2029-07',
+			'security_code' =>'936',
 		]);
 
 		$result = $field->validate();

@@ -3,46 +3,13 @@ declare(strict_types=1);
 
 namespace Meraki\Schema;
 
-use Meraki\Schema\ValidationResult;
-use Meraki\Schema\AggregatedValidationResult;
-
+/**
+ * The result of validating a whole schema: an aggregate of one result per field.
+ *
+ * Status roll-up is intentionally left to the caller. Use the granular predicates
+ * inherited from {@see AggregatedValidationResult} — e.g. `anyFailed()`,
+ * `allPassed()`, `anyPending()` — to decide what "valid" means for your use case.
+ */
 final class SchemaValidationResult extends AggregatedValidationResult
 {
-	protected function calculateStatus(): ValidationStatus
-	{
-		if ($this->pending()) {
-			return ValidationStatus::Pending;
-		}
-
-		if ($this->failed()) {
-			return ValidationStatus::Failed;
-		}
-
-		if ($this->skipped()) {
-			return ValidationStatus::Skipped;
-		}
-
-		// all passed, or a mix of passed and skipped
-		return ValidationStatus::Passed;
-	}
-
-	public function failed(): bool
-	{
-		return $this->anyFailed();
-	}
-
-	public function passed(): bool
-	{
-		return $this->allPassed();
-	}
-
-	public function skipped(): bool
-	{
-		return $this->allSkipped();
-	}
-
-	public function pending(): bool
-	{
-		return $this->isEmpty() || $this->anyPending();
-	}
 }

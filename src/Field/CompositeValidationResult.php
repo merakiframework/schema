@@ -4,7 +4,6 @@ declare(strict_types=1);
 namespace Meraki\Schema\Field;
 
 use Meraki\Schema\Field\ValidationResult as FieldValidationResult;
-use Meraki\Schema\ValidationStatus;
 use Meraki\Schema\AggregatedValidationResult;
 
 /**
@@ -17,23 +16,6 @@ final class CompositeValidationResult extends AggregatedValidationResult
 		FieldValidationResult ...$fieldResults
 	) {
 		parent::__construct(...$fieldResults);
-	}
-
-	protected function calculateStatus(): ValidationStatus
-	{
-		if ($this->isEmpty() || $this->anyPending()) {
-			return ValidationStatus::Pending;
-		}
-
-		if ($this->anyFailed()) {
-			return ValidationStatus::Failed;
-		}
-
-		if ($this->allSkipped()) {
-			return ValidationStatus::Skipped;
-		}
-
-		return ValidationStatus::Passed;
 	}
 
 	public function get(string $fieldName): ?FieldValidationResult

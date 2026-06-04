@@ -71,14 +71,6 @@ abstract class Field implements ScopeTarget
 	public Property\Value $resolvedValue;
 
 	/**
-	 * This property holds the result of the last validation run.
-	 * It is set to null if no validation has been performed yet.
-	 *
-	 * @readonly External code should not modify this property
-	 */
-	public ValidationResult|CompositeValidationResult|null $validationResult = null;
-
-	/**
 	 * Indicates whether input has been given for this field.
 	 *
 	 * @readonly External code should not modify this property
@@ -251,7 +243,7 @@ abstract class Field implements ScopeTarget
 		}
 
 		if ($valueNotProvided) {
-			return $this->validationResult = new ValidationResult($this, ConstraintValidationResult::fail('type'));
+			return new ValidationResult($this, ConstraintValidationResult::fail('type'));
 		}
 
 		$typeIsValid = $this->validateValue($value->unwrap());
@@ -267,7 +259,7 @@ abstract class Field implements ScopeTarget
 				};
 			}
 
-			return $this->validationResult = new ValidationResult($this, ...$results);
+			return new ValidationResult($this, ...$results);
 		}
 
 		$results = [ConstraintValidationResult::fail('type')];
@@ -276,7 +268,7 @@ abstract class Field implements ScopeTarget
 			$results[] = ConstraintValidationResult::skip($constraintName);
 		}
 
-		return $this->validationResult = new ValidationResult($this, ...$results);
+		return new ValidationResult($this, ...$results);
 	}
 
 	/**

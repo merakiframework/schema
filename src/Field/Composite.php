@@ -92,7 +92,7 @@ abstract class Composite extends Field implements IteratorAggregate, Countable
 		// skip validation of all fields if the type validation fails
 		// or if the value is not provided and field is optional
 		if (($this->optional && !$this->valueProvided($value)) || !$this->validateValue($value->unwrap())) {
-			return $this->validationResult = $this->skipValidationOfAllFields();
+			return $this->skipValidationOfAllFields();
 		}
 
 		// First validate types of each subfield
@@ -168,7 +168,7 @@ abstract class Composite extends Field implements IteratorAggregate, Countable
 			}
 		}
 
-		return $this->validationResult = new CompositeValidationResult($this, ...array_values($fieldResults));
+		return new CompositeValidationResult($this, ...array_values($fieldResults));
 	}
 
 	/**
@@ -254,18 +254,17 @@ abstract class Composite extends Field implements IteratorAggregate, Countable
 			throw new InvalidArgumentException('Input value must be an array, an object, or null.');
 		}
 
-		// Map the incoming value onto the subfields, accepting each subfield's
-		// value keyed by either its full (prefixed) name or its local name. This
-		// lets callers nest naturally, e.g.
+		// Map the incoming value onto the subfields, keyed by each subfield's
+		// local name. Callers nest naturally, e.g.
 		//   ['price' => ['amount' => '1500', 'currency' => 'AUD']]
-		// as well as supply the fully-qualified keys ('price.amount', ...).
+		// Fully-qualified keys ('price.amount', ...) are not accepted.
 		$normalized = [];
 
 		foreach ($this->fields as $field) {
 			$fullName = (string) $field->name;
 			$localName = (string) $field->name->removePrefix();
 
-			$normalized[$fullName] = $value[$fullName] ?? $value[$localName] ?? null;
+			$normalized[$fullName] = $value[$localName] ?? null;
 		}
 
 		return new Property\Value($normalized);

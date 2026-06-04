@@ -19,7 +19,16 @@ abstract class AggregatedValidationResult implements IteratorAggregate, Countabl
 	 */
 	public array $results;
 
-	public ValidationStatus $status;
+	/**
+	 * The aggregate status, derived on demand from the current results. It is a
+	 * computed (virtual) property rather than stored state, so it can never go
+	 * stale after an immutable operation. Callers that want to make their own
+	 * decision should prefer the granular predicates (anyFailed(), allPassed(),
+	 * ...) over this single rolled-up value.
+	 */
+	public ValidationStatus $status {
+		get => $this->calculateStatus();
+	}
 
 	/**
 	 * @param T ...$results
@@ -27,14 +36,30 @@ abstract class AggregatedValidationResult implements IteratorAggregate, Countabl
 	public function __construct(ValidationResult ...$results)
 	{
 		$this->results = $results;
-		$this->status = $this->calculateStatus();
 	}
 
 	/**
-	 * Derives the aggregate status from the current results. Recomputed after
-	 * every immutable operation so $status never goes stale.
+	 * Derives the aggregate status from the current results.
+	 *
+	 * Pending wins over Failed wins over Skipped; anything else (all passed, or
+	 * a mix of passed and skipped) is Passed. An empty result is Pending.
 	 */
-	abstract protected function calculateStatus(): ValidationStatus;
+	protected function calculateStatus(): ValidationStatus
+	{
+		if ($this->isEmpty() || $this->anyPending()) {
+			return ValidationStatus::Pending;
+		}
+
+		if ($this->anyFailed()) {
+			return ValidationStatus::Failed;
+		}
+
+		if ($this->allSkipped()) {
+			return ValidationStatus::Skipped;
+		}
+
+		return ValidationStatus::Passed;
+	}
 
 	/**
 	 * @param T $result
@@ -43,7 +68,6 @@ abstract class AggregatedValidationResult implements IteratorAggregate, Countabl
 	{
 		$self = clone $this;
 		$self->results[] = $result;
-		$self->status = $self->calculateStatus();
 
 		return $self;
 	}
@@ -55,7 +79,6 @@ abstract class AggregatedValidationResult implements IteratorAggregate, Countabl
 	{
 		$self = clone $this;
 		$self->results = array_filter($this->results, fn(ValidationResult $r): bool => $r !== $result);
-		$self->status = $self->calculateStatus();
 
 		return $self;
 	}
@@ -172,7 +195,6 @@ abstract class AggregatedValidationResult implements IteratorAggregate, Countabl
 	{
 		$self = clone $this;
 		$self->results = array_merge($this->results, $other->results);
-		$self->status = $self->calculateStatus();
 
 		return $self;
 	}
