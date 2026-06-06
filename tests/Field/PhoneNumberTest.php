@@ -3,24 +3,28 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Field;
 
-
 use Meraki\Schema\Field\PhoneNumber;
+use Meraki\Schema\Field\PhoneNumber\Type;
 use Meraki\Schema\Property\Name;
 use Meraki\Schema\Field\Atomic as AtomicField;
 use Meraki\Schema\FieldTestCase;
+use libphonenumber\PhoneNumberUtil;
+use libphonenumber\PhoneNumberType;
+use libphonenumber\PhoneNumberFormat;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\Attributes\CoversClass;
-use PHPUnit\Framework\Attributes\DataProvider;
 
 #[Group('field')]
 #[CoversClass(PhoneNumber::class)]
+#[CoversClass(Type::class)]
 final class PhoneNumberTest extends FieldTestCase
 {
 	public function createField(): PhoneNumber
 	{
 		return new PhoneNumber(new Name('test'));
 	}
+
 	#[Test]
 	public function it_has_the_correct_name(): void
 	{
@@ -38,56 +42,118 @@ final class PhoneNumberTest extends FieldTestCase
 	}
 
 	#[Test]
-	#[DataProvider('validPhoneNumbers')]
-	public function it_validates_valid_phone_numbers(string $phoneNumber): void
+	public function with_no_allowed_countries_it_accepts_a_valid_international_number(): void
 	{
-		$type = $this->createField()
-			->input($phoneNumber);
-
-		$result = $type->validate();
+		$result = (new PhoneNumber(new Name('test')))
+			->input($this->example('AU', PhoneNumberType::MOBILE, PhoneNumberFormat::E164))
+			->validate();
 
 		$this->assertConstraintValidationResultPassed('type', $result);
 	}
 
 	#[Test]
-	#[DataProvider('invalidPhoneNumbers')]
-	public function it_does_not_validate_invalid_phone_numbers(string $phoneNumber): void
+	public function with_no_allowed_countries_it_rejects_a_local_number(): void
 	{
-		$type = $this->createField()
-			->input($phoneNumber);
-
-		$result = $type->validate();
+		// A national-format number has no country context to validate against.
+		$result = (new PhoneNumber(new Name('test')))
+			->input($this->example('AU', PhoneNumberType::MOBILE, PhoneNumberFormat::NATIONAL))
+			->validate();
 
 		$this->assertConstraintValidationResultFailed('type', $result);
 	}
 
-	public static function validPhoneNumbers(): array
+	#[Test]
+	public function it_rejects_a_value_that_is_not_a_phone_number(): void
 	{
-		return [
-			'minimum length no spaces' => ['+61'],
-			'maximum length no spaces' => ['+613123456789012'],
-			'minimum length with spaces' => ['+6 3'],
-			'maximum length with spaces' => ['+61 3 1234 5678 9012'],
-			'parentheses' => ['+61 (3) 1234 5678'],
-			'hyphens' => ['+61-3-1234-5678'],
-			'periods' => ['+61.3.1234.5678'],
-			'mixed separators' => ['+61 (3) 1234-5678'],
-			'mixed separators at max length' => ['+61 (3) 1234 5678 9012'],
-		];
+		$result = (new PhoneNumber(new Name('test'), ['AU']))
+			->input('0000')
+			->validate();
+
+		$this->assertConstraintValidationResultFailed('type', $result);
 	}
 
-	public static function invalidPhoneNumbers(): array
+	#[Test]
+	public function it_accepts_a_local_number_for_an_allowed_country(): void
 	{
-		return [
-			'missing "+" prefix' => ['61 3 1234 5678'],
-			'with invalid characters' => ['+61 3 1234 5678a'],
-			'too short' => ['+6'],
-			'too long' => ['+6131234567890123'],
-			'with invalid separators' => ['+61/3/1234/5678'],
-			'too long with separators' => ['+61 (3) 1234 5678 90123'],
-			'contains formatting characters proceeding country code' => ['+ 61 3 1234 5678'],
-			'contains formatting characters around country code' => ['+(61) 3 1234 5678'],
-		];
+		$result = (new PhoneNumber(new Name('test'), ['AU']))
+			->input($this->example('AU', PhoneNumberType::MOBILE, PhoneNumberFormat::NATIONAL))
+			->validate();
+
+		$this->assertConstraintValidationResultPassed('type', $result);
+		$this->assertConstraintValidationResultPassed('allowedCountries', $result);
+	}
+
+	#[Test]
+	public function it_accepts_an_international_number_for_an_allowed_country(): void
+	{
+		$result = (new PhoneNumber(new Name('test'), ['AU']))
+			->input($this->example('AU', PhoneNumberType::MOBILE, PhoneNumberFormat::E164))
+			->validate();
+
+		$this->assertConstraintValidationResultPassed('type', $result);
+		$this->assertConstraintValidationResultPassed('allowedCountries', $result);
+	}
+
+	#[Test]
+	public function it_rejects_an_international_number_from_a_disallowed_country(): void
+	{
+		// A valid number, but from outside the allowed set: the shape is fine, the
+		// country is not.
+		$result = (new PhoneNumber(new Name('test'), ['AU']))
+			->input($this->example('US', PhoneNumberType::FIXED_LINE_OR_MOBILE, PhoneNumberFormat::E164))
+			->validate();
+
+		$this->assertConstraintValidationResultPassed('type', $result);
+		$this->assertConstraintValidationResultFailed('allowedCountries', $result);
+	}
+
+	#[Test]
+	public function allowed_countries_is_skipped_when_none_are_configured(): void
+	{
+		$result = (new PhoneNumber(new Name('test')))
+			->input($this->example('AU', PhoneNumberType::MOBILE, PhoneNumberFormat::E164))
+			->validate();
+
+		$this->assertConstraintValidationResultSkipped('allowedCountries', $result);
+	}
+
+	#[Test]
+	public function it_accepts_a_number_of_the_required_type(): void
+	{
+		$result = (new PhoneNumber(new Name('test'), ['AU']))->ofType(Type::Mobile)
+			->input($this->example('AU', PhoneNumberType::MOBILE, PhoneNumberFormat::NATIONAL))
+			->validate();
+
+		$this->assertConstraintValidationResultPassed('numberType', $result);
+	}
+
+	#[Test]
+	public function it_rejects_a_number_of_the_wrong_type(): void
+	{
+		$result = (new PhoneNumber(new Name('test'), ['AU']))->ofType(Type::Mobile)
+			->input($this->example('AU', PhoneNumberType::FIXED_LINE, PhoneNumberFormat::NATIONAL))
+			->validate();
+
+		$this->assertConstraintValidationResultPassed('type', $result);
+		$this->assertConstraintValidationResultFailed('numberType', $result);
+	}
+
+	#[Test]
+	public function number_type_is_skipped_when_unrestricted(): void
+	{
+		$result = (new PhoneNumber(new Name('test'), ['AU']))
+			->input($this->example('AU', PhoneNumberType::FIXED_LINE, PhoneNumberFormat::NATIONAL))
+			->validate();
+
+		$this->assertConstraintValidationResultSkipped('numberType', $result);
+	}
+
+	#[Test]
+	public function it_throws_when_allowing_an_unsupported_region(): void
+	{
+		$this->expectException(\InvalidArgumentException::class);
+
+		new PhoneNumber(new Name('test'), ['ZZ']);
 	}
 
 	#[Test]
@@ -104,5 +170,12 @@ final class PhoneNumberTest extends FieldTestCase
 		$field = $this->createField();
 
 		$this->assertNull($field->defaultValue->unwrap());
+	}
+
+	private function example(string $region, int $type, int $format): string
+	{
+		$util = PhoneNumberUtil::getInstance();
+
+		return $util->format($util->getExampleNumberForType($region, $type), $format);
 	}
 }

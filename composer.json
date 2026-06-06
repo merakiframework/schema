@@ -25,7 +25,8 @@
     "require": {
 		"php": "^8.2",
         "brick/date-time": "^0.7.0",
-        "brick/math": "^0.12.1"
+        "brick/math": "^0.12.1",
+        "giggsey/libphonenumber-for-php-lite": "^8.13"
 	},
 	"scripts": {
 		"test": "phpunit"

@@ -139,9 +139,12 @@ final class Facade implements ScopeTarget
 		return $this->addField(new Field\Password(new Property\Name($name)), $configurator);
 	}
 
-	public function addPhoneNumberField(string $name, ?Closure $configurator = null): self|Field\PhoneNumber
+	/**
+	 * @param array<string> $allowedCountries ISO 3166-1 alpha-2 region codes
+	 */
+	public function addPhoneNumberField(string $name, array $allowedCountries = [], ?Closure $configurator = null): self|Field\PhoneNumber
 	{
-		return $this->addField(new Field\PhoneNumber(new Property\Name($name)), $configurator);
+		return $this->addField(new Field\PhoneNumber(new Property\Name($name), $allowedCountries), $configurator);
 	}
 
 	public function addTextField(string $name, ?Closure $configurator = null): self|Field\Text
