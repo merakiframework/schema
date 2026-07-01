@@ -22,7 +22,7 @@ abstract class Composite extends Field implements IteratorAggregate, Countable
 {
 	public Field\Set $fields;
 
-	public function __construct(Property\Name $name, AtomicField ...$fields)
+	public function __construct(Property\Name $name, Field ...$fields)
 	{
 		$this->fields = new Field\Set(...$fields);
 		$this->fields->prefixNamesWith($name);
@@ -32,8 +32,16 @@ abstract class Composite extends Field implements IteratorAggregate, Countable
 
 	public function rename(Property\Name $name): static
 	{
+		// Re-prefix each sub-field under the new (possibly nested) name, replacing the
+		// sub-field's current prefix rather than stacking onto it. This lets a composite
+		// be nested inside another composite/collection (e.g. a per-lesson address)
+		// without doubling its own segment (`lessons.pickup.pickup.street`). For a
+		// sub-field that is itself a composite, rename() recurses.
+		foreach ($this->fields as $field) {
+			$field->rename($field->name->removePrefix()->prefixWith($name));
+		}
+
 		$this->name = $name;
-		$this->fields->prefixNamesWith($name);
 
 		return $this;
 	}

@@ -15,31 +15,24 @@ final class Scope implements Stringable, Countable, Iterator
 
 	private int $position;
 
-	/** @var string[] */
-	public readonly array $segments;	// always normalised to snake_case
-
-	/** @var string[] */
-	private readonly array $segmentsAsCamelCase;
+	/** @var string[] Segments are stored verbatim — names are matched exactly. */
+	public readonly array $segments;
 
 	public function __construct(string $path, int $position = 0)
 	{
-		$normalizedPath = strtolower(rtrim($path, '/'));
+		$path = rtrim($path, '/');
 
-		if (!preg_match('/^#\//', $normalizedPath)) {
+		if (!preg_match('/^#\//', $path)) {
 			throw new \InvalidArgumentException("Invalid path '$path'. Must start with '#/'.");
 		}
 
-		$this->path = $normalizedPath;
+		// Names are NOT normalised: a consumer may name fields however they like and a
+		// scope must reference them exactly (case-sensitive).
+		$this->path = $path;
 		$this->position = $position;
-		$this->segments = explode('/', substr($normalizedPath, 2)); // remove leading '#/'
-		$this->segmentsAsCamelCase = array_map($this->snakeCaseToCamelCase(...), $this->segments);
+		$this->segments = explode('/', substr($path, 2)); // remove leading '#/'
 
 		$this->assertPositionInBounds();
-	}
-
-	private function snakeCaseToCamelCase(string $segment): string
-	{
-		return lcfirst(str_replace('_', '', ucwords($segment, '_')));
 	}
 
 	public function get(int $index): string
@@ -82,9 +75,10 @@ final class Scope implements Stringable, Countable, Iterator
 		return $this->path === '#/';
 	}
 
+	/** @deprecated names are matched verbatim now; this returns the exact segment. */
 	public function currentAsCamelCase(): ?string
 	{
-		return $this->segmentsAsCamelCase[$this->position] ?? null;
+		return $this->segments[$this->position] ?? null;
 	}
 
 	public function currentAsSnakeCase(): ?string
@@ -103,10 +97,13 @@ final class Scope implements Stringable, Countable, Iterator
 		return $this->remainingAsSnakeCase();
 	}
 
-	/** @return string[] */
+	/**
+	 * @deprecated names are matched verbatim now; this returns the exact segments.
+	 * @return string[]
+	 */
 	public function remainingAsCamelCase(): array
 	{
-		return array_slice($this->segmentsAsCamelCase, $this->position);
+		return array_slice($this->segments, $this->position);
 	}
 
 	/** @return string[] */

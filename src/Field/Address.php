@@ -23,7 +23,7 @@ use InvalidArgumentException;
  * @property-read Field\Text $street
  * @property-read Field\Text $city
  * @property-read Field\Text $state
- * @property-read Field\Text $postalCode
+ * @property-read Field\Text $postcode
  * @property-read Field\Text $country
  */
 final class Address extends CompositeField
@@ -35,7 +35,7 @@ final class Address extends CompositeField
 			new Field\Text(new Property\Name('street')),
 			new Field\Text(new Property\Name('city')),
 			new Field\Text(new Property\Name('state')),
-			new Field\Text(new Property\Name('postal_code')),
+			new Field\Text(new Property\Name('postcode')),
 			new Field\Text(new Property\Name('country')),
 		);
 	}

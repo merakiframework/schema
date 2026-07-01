@@ -54,6 +54,8 @@ final class Facade implements ScopeTarget
 	 */
 	public function addField(Field $field, ?Closure $configurator = null): self|Field
 	{
+		$field->schema = $this;
+
 		if ($configurator !== null) {
 			$configurator($field);
 			$this->fields = $this->fields->add($field);
@@ -79,6 +81,25 @@ final class Facade implements ScopeTarget
 	public function addCreditCardField(string $name, ?Closure $configurator = null): self|Field\CreditCard
 	{
 		return $this->addField(new Field\CreditCard(new Property\Name($name)), $configurator);
+	}
+
+	/**
+	 * Adds a repeatable collection field. The $template callback configures one
+	 * item's fields on the supplied builder (a Facade), e.g.
+	 *   $schema->addCollectionField('lessons', fn($item) => $item->addDateField('date'))
+	 *           ->minItems(1);
+	 *
+	 * @param callable(self): void $template
+	 */
+	public function addCollectionField(string $name, callable $template, ?Closure $configurator = null): self|Field\Collection
+	{
+		$item = new self('item');
+		$template($item);
+
+		return $this->addField(
+			new Field\Collection(new Property\Name($name), ...$item->fields->__toArray()),
+			$configurator,
+		);
 	}
 
 	public function addDateField(string $name, ?Closure $configurator = null): self|Field\Date
@@ -207,6 +228,9 @@ final class Facade implements ScopeTarget
 		// no longer holds. The first time a field is seen is treated as baseline.
 		foreach ($this->fields as $field) {
 			$name = (string) $field->name;
+
+			// No field ignores input at baseline; rules re-apply ignore each run.
+			$field->acceptInput();
 
 			if (array_key_exists($name, $this->baselineOptional)) {
 				$this->baselineOptional[$name] ? $field->makeOptional() : $field->require();

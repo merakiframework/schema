@@ -17,10 +17,25 @@ use Meraki\Schema\Property;
  */
 final class Boolean extends AtomicField
 {
+	public private(set) bool $mustBeAccepted = false;
+
 	public function __construct(
 		Property\Name $name,
 	) {
 		parent::__construct($name);
+	}
+
+	/**
+	 * Requires the field to be present and `true` (e.g. an "I agree to the terms"
+	 * checkbox). Makes the field required and adds an `accepted` constraint that
+	 * fails on `false`.
+	 */
+	public function mustBeAccepted(): self
+	{
+		$this->mustBeAccepted = true;
+		$this->require();
+
+		return $this;
 	}
 
 	protected function cast(mixed $value): bool
@@ -37,6 +52,12 @@ final class Boolean extends AtomicField
 
 	protected function getConstraints(): array
 	{
-		return [];
+		if (!$this->mustBeAccepted) {
+			return [];
+		}
+
+		return [
+			'accepted' => fn(mixed $value): ?bool => is_bool($value) ? $value === true : null,
+		];
 	}
 }

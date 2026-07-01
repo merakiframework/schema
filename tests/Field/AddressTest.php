@@ -49,13 +49,13 @@ final class AddressTest extends CompositeTestCase
 			'test.street' => null,
 			'test.city' => null,
 			'test.state' => null,
-			'test.postal_code' => null,
+			'test.postcode' => null,
 			'test.country' => null,
 		], $field->value->unwrap());
 		$this->assertEquals(null, $field->street->value->unwrap());
 		$this->assertEquals(null, $field->city->value->unwrap());
 		$this->assertEquals(null, $field->state->value->unwrap());
-		$this->assertEquals(null, $field->postalCode->value->unwrap());
+		$this->assertEquals(null, $field->postcode->value->unwrap());
 		$this->assertEquals(null, $field->country->value->unwrap());
 	}
 
@@ -68,13 +68,13 @@ final class AddressTest extends CompositeTestCase
 			'test.street' => null,
 			'test.city' => null,
 			'test.state' => null,
-			'test.postal_code' => null,
+			'test.postcode' => null,
 			'test.country' => null,
 		], $field->defaultValue->unwrap());
 		$this->assertEquals(null, $field->street->value->unwrap());
 		$this->assertEquals(null, $field->city->value->unwrap());
 		$this->assertEquals(null, $field->state->value->unwrap());
-		$this->assertEquals(null, $field->postalCode->value->unwrap());
+		$this->assertEquals(null, $field->postcode->value->unwrap());
 		$this->assertEquals(null, $field->country->value->unwrap());
 	}
 }

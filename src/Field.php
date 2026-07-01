@@ -9,7 +9,10 @@ use Meraki\Schema\AggregatedValidationResult;
 use Meraki\Schema\Field\ValidationResult;
 use Meraki\Schema\Field\CompositeValidationResult;
 use Meraki\Schema\Field\ConstraintValidationResult;
+use Meraki\Schema\Rule\FieldBuilder;
+use Closure;
 use InvalidArgumentException;
+use LogicException;
 
 /**
  * @phpstan-type AcceptedType = mixed
@@ -84,6 +87,18 @@ abstract class Field implements ScopeTarget
 	 */
 	public bool $optional;
 
+	/**
+	 * When true, any submitted input is treated as not provided (the field validates
+	 * as empty). Set by the `ignore` rule outcome / {@see self::ignoreInput()}.
+	 */
+	public private(set) bool $inputIgnored = false;
+
+	/**
+	 * The schema this field belongs to, set when added via {@see Facade::addField()}.
+	 * Enables {@see self::pairWith()} to add a paired field and register rules.
+	 */
+	public ?Facade $schema = null;
+
 	public function __construct(
 		Property\Name $name,
 	) {
@@ -122,6 +137,58 @@ abstract class Field implements ScopeTarget
 	public function require(): static
 	{
 		$this->optional = false;
+
+		return $this;
+	}
+
+	/**
+	 * Discards any submitted input: the field resolves as empty and validates as
+	 * not-provided (pair with {@see self::makeOptional()} to skip it entirely).
+	 */
+	public function ignoreInput(): static
+	{
+		$this->inputIgnored = true;
+		$this->value = $this->process(null);
+		$this->inputGiven = false;
+
+		$this->resolveValue();
+
+		return $this;
+	}
+
+	public function acceptInput(): static
+	{
+		$this->inputIgnored = false;
+
+		return $this;
+	}
+
+	/**
+	 * Declare a relationship with another field. The paired field is added to this
+	 * field's schema (a duplicate name throws). The configurator runs immediately,
+	 * bound so `$this` is this field, and uses the supplied {@see FieldBuilder} to
+	 * capture declarative rules (which therefore serialize like any other rule).
+	 *
+	 * @param Closure(FieldBuilder, Field, Facade): void $configurator
+	 */
+	public function pairWith(Field $paired, Closure $configurator): static
+	{
+		if ($this->schema === null) {
+			throw new LogicException('pairWith() requires the owner field to be added to a schema first.');
+		}
+
+		if ($this->schema->fields->findByName($paired->name) !== null) {
+			throw new InvalidArgumentException("A field named '{$paired->name}' already exists.");
+		}
+
+		$this->schema->addField($paired);
+
+		$builder = new FieldBuilder();
+		$configurator->call($this, $builder, $paired, $this->schema);
+
+		foreach ($builder->rules() as $rule) {
+			$this->schema->addRule($rule);
+		}
 
 		return $this;
 	}
@@ -236,7 +303,7 @@ abstract class Field implements ScopeTarget
 	public function validate(): AggregatedValidationResult
 	{
 		$value = $this->resolvedValue;
-		$valueNotProvided = !$this->valueProvided($value);
+		$valueNotProvided = !$this->valueProvided($value) || $this->inputIgnored;
 
 		if ($this->optional && $valueNotProvided) {
 			return $this->skipAllConstraints();

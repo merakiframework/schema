@@ -86,6 +86,21 @@ final class Builder extends Rule
 		return $this->orWhen(new Condition\Equals($target, $expected));
 	}
 
+	public function whenNotEquals(string $target, mixed $expected): self
+	{
+		return $this->when(new Condition\NotEquals($target, $expected));
+	}
+
+	public function andWhenNotEquals(string $target, mixed $expected): self
+	{
+		return $this->andWhen(new Condition\NotEquals($target, $expected));
+	}
+
+	public function orWhenNotEquals(string $target, mixed $expected): self
+	{
+		return $this->orWhen(new Condition\NotEquals($target, $expected));
+	}
+
 	public function then(Outcome ...$outcomes): self
 	{
 		$this->outcomesToAdd = array_merge($this->outcomesToAdd, $outcomes);
@@ -100,6 +115,11 @@ final class Builder extends Rule
 	public function thenRequire(string $scope): self
 	{
 		return $this->then(new Outcome\_Require($scope));
+	}
+
+	public function thenIgnore(string $scope): self
+	{
+		return $this->then(new Outcome\Ignore($scope));
 	}
 
 	public function build(): Rule

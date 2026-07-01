@@ -67,4 +67,29 @@ final class BooleanTest extends FieldTestCase
 
 		$this->assertNull($field->defaultValue->unwrap());
 	}
+
+	#[Test]
+	public function requiring_acceptance_makes_the_field_required(): void
+	{
+		$field = $this->createField()->makeOptional()->mustBeAccepted();
+
+		$this->assertFalse($field->optional);
+		$this->assertTrue($field->mustBeAccepted);
+	}
+
+	#[Test]
+	public function acceptance_passes_when_the_value_is_true(): void
+	{
+		$result = $this->createField()->mustBeAccepted()->input(true)->validate();
+
+		$this->assertConstraintValidationResultPassed('accepted', $result);
+	}
+
+	#[Test]
+	public function acceptance_fails_when_the_value_is_false(): void
+	{
+		$result = $this->createField()->mustBeAccepted()->input(false)->validate();
+
+		$this->assertConstraintValidationResultFailed('accepted', $result);
+	}
 }

@@ -114,6 +114,26 @@ final class FacadeValidateInputTest extends TestCase
 		$this->assertFalse($second->anyFailed());
 	}
 
+	#[Test]
+	public function declarative_rule_can_ignore_a_field_when_a_not_equals_condition_holds(): void
+	{
+		$schema = new Facade('booking');
+		$schema->addEnumField('vehicle', ['school', 'own']);
+		$schema->addEnumField('transmission', ['automatic', 'manual'])->makeOptional();
+		// transmission only matters for a school vehicle: otherwise make it optional AND ignore
+		// its input, so a stale/invalid value never fails.
+		$schema->whenAllMatch(
+			fn($rule) => $rule->whenNotEquals('#/fields/vehicle/value', 'school')
+				->thenMakeOptional('#/fields/transmission')
+				->thenIgnore('#/fields/transmission')
+		);
+
+		// own vehicle -> an invalid transmission is ignored (does not fail)
+		$this->assertFalse($schema->validate(['vehicle' => 'own', 'transmission' => 'bogus'])->anyFailed());
+		// school vehicle -> transmission is validated again
+		$this->assertTrue($schema->validate(['vehicle' => 'school', 'transmission' => 'bogus'])->anyFailed());
+	}
+
 	private function createPersonSchema(): Facade
 	{
 		$schema = new Facade('create-person');

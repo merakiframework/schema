@@ -1,0 +1,46 @@
+<?php
+declare(strict_types=1);
+
+namespace Meraki\Schema\Rule\Outcome;
+
+use Meraki\Schema\Rule\Outcome;
+use Meraki\Schema\Scope;
+use Meraki\Schema\Facade;
+use Meraki\Schema\Field;
+use InvalidArgumentException;
+
+/**
+ * @phpstan-import-type SerializedOutcome from Outcome
+ * @phpstan-type SerializedIgnore = SerializedOutcome&object{
+ * 	action: 'ignore',
+ * 	field: string
+ * }
+ * @implements Outcome<SerializedIgnore>
+ */
+final class Ignore implements Outcome
+{
+	private Scope $scope;
+
+	public function __construct(public readonly string $field)
+	{
+		$this->scope = new Scope($this->field);
+	}
+
+	public function apply(Facade $schema): void
+	{
+		$target = $this->scope->resolve($schema)->value;
+
+		if ($target instanceof Field) {
+			$target->ignoreInput();
+
+			return;
+		}
+
+		throw new InvalidArgumentException("Ignore can only be applied to fields.");
+	}
+
+	public function getScope(): Scope
+	{
+		return $this->scope;
+	}
+}
