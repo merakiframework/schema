@@ -291,6 +291,19 @@ abstract class Field implements ScopeTarget
 	}
 
 	/**
+	 * Whether this field has a value to validate: a resolved value that this field's
+	 * own {@see self::valueProvided()} accepts, and input that has not been ignored.
+	 *
+	 * Callers outside the field (notably {@see Composite::validate()}, deciding whether
+	 * an optional sub-field was filled in) must use this rather than `valueProvided()`,
+	 * which is protected and therefore resolves to the *caller's* implementation.
+	 */
+	public function hasValue(): bool
+	{
+		return !$this->inputIgnored && $this->valueProvided($this->resolvedValue);
+	}
+
+	/**
 	 * Validates the field against its type and constraints.
 	 *
 	 * This method checks if the value provided matches the expected type

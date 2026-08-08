@@ -50,7 +50,7 @@ abstract class CompositeTestCase extends FieldTestCase
 	#[Test]
 	public function all_constraints_are_skipped_for_optional_sub_field_when_no_value_provided(): void
 	{
-		$this->markTestSkipped('Most composite fields will require all sub-fields. This behaviour has been implemented though.');
+		$this->markTestSkipped('Cannot be written generically: supplying valid values for the *other* sub-fields differs per composite. Covered directly against Composite by CompositeOptionalSubFieldTest.');
 	}
 
 	public function assertConstraintValidationResultFailedForField(string $fieldName, string $constraintName, CompositeValidationResult $result): void

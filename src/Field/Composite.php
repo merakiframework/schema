@@ -106,6 +106,16 @@ abstract class Composite extends Field implements IteratorAggregate, Countable
 		// First validate types of each subfield
 		foreach ($this->fields as $field) {
 			$fieldName = (string)$field->name;
+
+			// An optional sub-field that was left empty is not an error. Skip it outright
+			// rather than type-checking the null (which every field type rejects), and mark
+			// it so its constraints below are skipped too.
+			if ($field->optional && !$field->hasValue()) {
+				$fieldResults[$fieldName] = new FieldValidationResult($field, new ConstraintValidationResult(ValidationStatus::Skipped, 'type'));
+				$fieldsToSkip[$fieldName] = $field;
+				continue;
+			}
+
 			$result = $field->validateValue($field->resolvedValue->unwrap());
 
 			if ($result === true) {
@@ -129,8 +139,10 @@ abstract class Composite extends Field implements IteratorAggregate, Countable
 			$fieldValidationResult = $fieldResults[$fieldName];
 			$field = $fieldValidationResult->field;
 
-			// Skip constraint if the field failed/skipped type validation
-			if (isset($fieldsToSkip[$fieldName]) || ($field->optional && !$this->valueProvided($field->resolvedValue))) {
+			// Skip constraint if the field failed/skipped type validation. An optional
+			// sub-field left empty is already in $fieldsToSkip; one that *was* filled in
+			// must still have its constraints run.
+			if (isset($fieldsToSkip[$fieldName])) {
 				$fieldResults[$fieldName] = $fieldValidationResult->add(new ConstraintValidationResult(ValidationStatus::Skipped, $constraintName));
 				continue;
 			}
@@ -156,7 +168,7 @@ abstract class Composite extends Field implements IteratorAggregate, Countable
 
 			// Validate each field's constraints
 			foreach ($field->getConstraints() as $constraintName => $constraintValidator) {
-				if (isset($fieldsToSkip[$fieldName]) || ($field->optional && !$this->valueProvided($field->resolvedValue))) {
+				if (isset($fieldsToSkip[$fieldName])) {
 					$fieldResults[$fieldName] = $fieldResults[$fieldName]->add(new ConstraintValidationResult(ValidationStatus::Skipped, $constraintName));
 					continue;
 				}
@@ -182,17 +194,20 @@ abstract class Composite extends Field implements IteratorAggregate, Countable
 	/**
 	 * Resolves the constraint name to the corresponding field name.
 	 *
-	 * All constraint names in this class are expected to be prefixed with the field name.
+	 * Constraint names are '{fully-qualified sub-field name}.{constraint}', so the field
+	 * is everything up to the last segment. Taken from the right rather than the left so
+	 * that it keeps working when the composite is itself nested — a per-item address in a
+	 * collection names its constraints 'lessons.pickup.line1.type'.
 	 */
 	private function resolveConstraintNameToFieldName(string $constraintName): string
 	{
-		$parts = explode('.', $constraintName, 3);
+		$separator = strrpos($constraintName, Property\Name::PREFIX_SEPARATOR);
 
-		if (count($parts) < 3) {
-			throw new InvalidArgumentException("Invalid constraint name: '$constraintName'. Expected format is 'compositeFieldName.subFieldName.constraintName'.");
+		if ($separator === false) {
+			throw new InvalidArgumentException("Invalid constraint name: '$constraintName'. Expected format is 'subFieldName.constraintName'.");
 		}
 
-		return $parts[0] . '.' . $parts[1];
+		return substr($constraintName, 0, $separator);
 	}
 
 	private function skipValidationOfAllFields(): CompositeValidationResult
