@@ -129,6 +129,12 @@ final class Scope implements Stringable, Countable, Iterator
 
 	public function resolve(Facade $schema): mixed
 	{
+		// Resolving walks the cursor to the end (traverse() advances it segment by
+		// segment), so a scope kept around and resolved again — as rule outcomes do, since
+		// they build their scope once in the constructor — would start from an exhausted
+		// cursor. Resolution is a whole-path operation, so it always starts at the top.
+		$this->rewind();
+
 		if ($this->isRoot()) {
 			return $schema;
 		}
