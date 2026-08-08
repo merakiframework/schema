@@ -28,12 +28,46 @@ final class Facade implements ScopeTarget
 	 */
 	private array $baselineOptional = [];
 
+	/**
+	 * Default countries for region-aware fields added *after* {@see self::for()} is
+	 * called, as ISO 3166-1 alpha-2 codes. Empty means each field decides for itself.
+	 *
+	 * @var array<string>
+	 */
+	private array $defaultCountries = [];
+
 	public function __construct(
 		string $name,
 		public Field\Set $fields = new Field\Set(),
 		public Rule\Set $rules = new Rule\Set(),
 	) {
 		$this->name = new Property\Name($name);
+	}
+
+	/**
+	 * Declares the countries this schema is for, so region-aware fields need not repeat
+	 * them:
+	 *
+	 *     $schema = (new Facade('checkout'))->for('AU');
+	 *     $schema->addAddressField('billing');           // restricted to AU
+	 *     $schema->addPhoneNumberField('mobile');        // ditto
+	 *     $schema->addAddressField('shipping', ['NZ']);  // an explicit list still wins
+	 *     $schema->addAddressField('other', []);         // and an explicit [] means free-form
+	 *
+	 * Applies to {@see Field\Address} and {@see Field\PhoneNumber} — the fields whose
+	 * rules are jurisdictional. Deliberately not to {@see Field\Money}: currency does not
+	 * follow from a region (a country may use several, and the euro spans twenty).
+	 *
+	 * Only fields added afterwards, and only via the typed `addXField()` helpers, inherit
+	 * it; a field built by hand and passed to {@see self::addField()} does not.
+	 *
+	 * @param string ...$countries ISO 3166-1 alpha-2 region codes
+	 */
+	public function for(string ...$countries): self
+	{
+		$this->defaultCountries = array_values(array_unique(array_map(strtoupper(...), $countries)));
+
+		return $this;
 	}
 	private static function extractDefaultValues(self $schema): array
 	{
@@ -68,9 +102,16 @@ final class Facade implements ScopeTarget
 		return $field;
 	}
 
-	public function addAddressField(string $name, ?Closure $configurator = null): self|Field\Address
+	/**
+	 * @param array<string>|null $allowedCountries ISO 3166-1 alpha-2 region codes; null
+	 *        inherits the schema's own (see {@see self::for()}), [] means free-form.
+	 */
+	public function addAddressField(string $name, ?array $allowedCountries = null, ?Closure $configurator = null): self|Field\Address
 	{
-		return $this->addField(new Field\Address(new Property\Name($name)), $configurator);
+		return $this->addField(
+			new Field\Address(new Property\Name($name), $allowedCountries ?? $this->defaultCountries),
+			$configurator,
+		);
 	}
 
 	public function addBooleanField(string $name, ?Closure $configurator = null): self|Field\Boolean
@@ -161,11 +202,15 @@ final class Facade implements ScopeTarget
 	}
 
 	/**
-	 * @param array<string> $allowedCountries ISO 3166-1 alpha-2 region codes
+	 * @param array<string>|null $allowedCountries ISO 3166-1 alpha-2 region codes; null
+	 *        inherits the schema's own (see {@see self::for()}), [] means international-only.
 	 */
-	public function addPhoneNumberField(string $name, array $allowedCountries = [], ?Closure $configurator = null): self|Field\PhoneNumber
+	public function addPhoneNumberField(string $name, ?array $allowedCountries = null, ?Closure $configurator = null): self|Field\PhoneNumber
 	{
-		return $this->addField(new Field\PhoneNumber(new Property\Name($name), $allowedCountries), $configurator);
+		return $this->addField(
+			new Field\PhoneNumber(new Property\Name($name), $allowedCountries ?? $this->defaultCountries),
+			$configurator,
+		);
 	}
 
 	public function addTextField(string $name, ?Closure $configurator = null): self|Field\Text

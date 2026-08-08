@@ -118,16 +118,16 @@ final class CollectionTest extends TestCase
 		})->minItems(1);
 
 		// the composite's leaves are prefixed under the collection, without doubling the
-		// composite's own segment (would otherwise be `lessons.pickup.pickup.street`).
+		// composite's own segment (would otherwise be `lessons.pickup.pickup.line1`).
 		$pickup = $field->fields->findByName('lessons.pickup');
-		$this->assertContains('lessons.pickup.street', $pickup->fields->listFieldNames());
+		$this->assertContains('lessons.pickup.line1', $pickup->fields->listFieldNames());
 
-		$addr = ['street' => '1 King St', 'city' => 'Brisbane', 'state' => 'QLD', 'postcode' => '4000', 'country' => 'AU'];
+		$addr = ['line1' => '1 King St', 'locality' => 'Brisbane', 'administrative_area' => 'QLD', 'postal_code' => '4000', 'country_code' => 'AU'];
 		$valid = ['lessons' => [['when' => '2026-03-01T10:00:00', 'pickup' => $addr]]];
 		$this->assertFalse($schema->validate($valid)->anyFailed());
 
 		// a missing required address leaf fails through the collection
-		$invalid = ['lessons' => [['when' => '2026-03-01T10:00:00', 'pickup' => ['city' => null] + $addr]]];
+		$invalid = ['lessons' => [['when' => '2026-03-01T10:00:00', 'pickup' => ['line1' => null] + $addr]]];
 		$this->assertTrue($schema->validate($invalid)->anyFailed());
 	}
 }

@@ -26,9 +26,15 @@
 		"php": "^8.4",
         "brick/date-time": "^0.7.0",
         "brick/math": "^0.12.1",
+        "commerceguys/addressing": "^2.0",
         "giggsey/libphonenumber-for-php-lite": "^8.13"
 	},
 	"scripts": {
 		"test": "phpunit"
+	},
+	"extra": {
+		"branch-alias": {
+			"dev-main": "1.13.x-dev"
+		}
 	}
 }

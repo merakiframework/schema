@@ -147,14 +147,14 @@ $schema->validate($data);    // input + validate in one step
 | `addDurationField` | `Duration` | `minOf`, `maxOf`, `inIncrementsOf` |
 | `addMoneyField` | `Money` | `allow`, `minOf`, `maxOf`, `inIncrementsOf` |
 | `addEmailAddressField` | `EmailAddress` | `minLengthOf`, `maxLengthOf`, `allowDomain`, `disallowDomain` |
-| `addPhoneNumberField` | `PhoneNumber` | — |
+| `addPhoneNumberField` | `PhoneNumber` | `allow` (countries), `ofType` |
 | `addUriField` | `Uri` | `minLengthOf`, `maxLengthOf` |
 | `addUuidField` | `Uuid` | `restrictToVersion` |
 | `addCreditCardField` | `CreditCard` | — |
 | `addPasswordField` | `Password` | length + `minNumberOf*`/`maxNumberOf*` (lowercase, uppercase, digits, symbols), `satisfyAnyOf` |
 | `addPassphraseField` | `Passphrase` | — |
 | `addFileField` | `File` | `atLeast`, `atMost`, `minFileSizeOf`, `maxFileSizeOf`, `allowTypes`, `disallowTypes`, `allowImages`, `allowVideos`, `allowDocuments`, `disallowScripts` |
-| `addAddressField` | `Address` (composite) | — |
+| `addAddressField` | `Address` (composite) | `allow` (countries), `ofType` |
 | `addVariantField` | `Variant` | accepts any of several atomic field types |
 
 Composite fields (e.g. `Address`) group sub-fields; their values can be nested
@@ -164,6 +164,72 @@ under either the local name or the fully-qualified name:
 $schema->addMoneyField('price', ['AUD' => 2]);
 $schema->validate(['price' => ['amount' => '1500', 'currency' => 'AUD']]);
 ```
+
+### Addresses
+
+An address is a composite of `organization`, `line1`, `line2`,
+`dependent_locality`, `locality`, `administrative_area`, `postal_code` and
+`country_code`. Values are always codes, never names: `AU`, not `Australia`.
+
+With no countries allowed it is free-form — anything goes, and only `line1` is
+required. Allowing one or more countries applies that country's rules, taken from
+Google's libaddressinput data via `commerceguys/addressing`:
+
+```php
+$schema->addAddressField('billing', ['AU']);
+
+// four-digit postcode, suburb and state required, country settled as AU
+$schema->validate(['billing' => [
+    'line1' => '1 Queen St',
+    'locality' => 'Brisbane',
+    'administrative_area' => 'QLD',
+    'postal_code' => '4000',
+]]);
+```
+
+A single allowed country **determines** the country: it is prefilled, reported by
+`determined()`, and needs no input (`meraki/schema-html` renders it hidden), but
+it is still part of the value so the address never serializes without it.
+
+Countries differ in more than their postcodes. Singapore has no administrative
+area and Hong Kong has no postal code, so neither is required there. Allow
+several countries and each part is required only if *every* one of them requires
+it, while validation applies the rules of whichever country was actually chosen.
+
+`ofType()` says what the address is for, using HL7 FHIR's `Address.type`
+vocabulary plus `either` for "no restriction":
+
+| Type | Meaning | PO box |
+| --- | --- | --- |
+| `Either` | either purpose is fine (**default**) | accepted |
+| `Postal` | must be mailable | accepted |
+| `Physical` | must be somewhere you can go | rejected |
+| `Both` | must be mailable *and* visitable | rejected |
+
+> **This validates shape, not existence.** A postcode matching `\d{4}` is a
+> well-formed Australian postcode, not a real one, and a postcode never implies a
+> state — Queensland is 4xxx *and* 9xxx, and the ACT's 2600–2618 sits inside New
+> South Wales' 2xxx. Confirming an address exists needs a licensed verification
+> service (Australia Post PAF, Loqate, USPS DPV).
+
+### Declaring the schema's region
+
+Rather than repeating a country list on every field that needs one, a schema can
+declare it once. Fields added afterwards inherit it:
+
+```php
+$schema = (new Facade('checkout'))->for('AU');
+
+$schema->addAddressField('billing');            // restricted to AU
+$schema->addPhoneNumberField('mobile');         // ditto
+$schema->addAddressField('shipping', ['NZ']);   // an explicit list still wins
+$schema->addAddressField('other', []);          // an explicit [] means free-form
+```
+
+This applies to `Address` and `PhoneNumber` — the fields whose rules are
+jurisdictional — and only via the typed `addXField()` helpers. It deliberately
+does not apply to `Money`: currency does not follow from a region, since a
+country may use several and the euro spans twenty.
 
 A `Variant` field accepts a value that may match one of several atomic field
 types; the first matching type wins:
@@ -232,14 +298,50 @@ condition stops holding.
 - **camelCase keys.** Serialized field keys and constraint names use camelCase
   (e.g. `minLength`, `minCount`); `uri` is the canonical term for URL-style
   fields. (The serialized form itself is produced by `meraki/schema-json`.)
+- **Standards data over hand-typed tables.** Where a field's rules are a matter of
+  public record, they come from a library that curates them rather than from
+  constants here: phone numbers from libphonenumber, addresses from Google's
+  libaddressinput (via `commerceguys/addressing`). It also means the *data* stays
+  in the core while the *words* — "Suburb" or "Prefecture" for an administrative
+  area — stay in `meraki/schema-html`, which is the only consumer that needs them.
+
+## Breaking changes
+
+### `Address` sub-fields renamed
+
+`Address` now follows libaddressinput's field set. Existing call sites and stored
+values need updating:
+
+| Old | New |
+| --- | --- |
+| `street` | `line1` (and a new `line2` for a unit or level) |
+| `city` | `locality` |
+| `state` | `administrative_area` |
+| `postcode` | `postal_code` |
+| `country` | `country_code` — now an ISO 3166-1 alpha-2 code, not a free-text name |
+
+`organization` and `dependent_locality` are new and optional.
+
+Property access under an old name (`$address->street`) throws. An *input* array
+under an old name is a quieter failure: unrecognised keys are ignored, so
+`['street' => '1 King St']` leaves `line1` empty and fails its required check.
+Worth grepping for the old names rather than relying on tests to catch it.
 
 ## Examples
 
 Runnable scripts live in [`examples/`](examples/):
 
 - [`validate.php`](examples/validate.php) — basic field validation.
+- [`validate-field.php`](examples/validate-field.php) — validating a single field
+  on its own, without a schema.
+- [`validate-with-rules.php`](examples/validate-with-rules.php) — conditional
+  rules, where one field's requiredness depends on another's value.
 - [`validate-with-magic-input.php`](examples/validate-with-magic-input.php) —
   validating a `__get`-based value object.
+
+Serializing and rendering are not part of this package, so their examples live
+with the package that owns them: [`meraki/schema-json/examples`](../schema-json/examples)
+and [`meraki/schema-html/examples`](../schema-html/examples).
 
 ## Testing
 
