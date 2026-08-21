@@ -23,6 +23,12 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   outcomes name operations rather than carrying modified fields, and why closure-backed
   conditions were rejected.
 
+- `docs/API-REVIEW.md` — the per-feature, per-constraint API confirmation checklist for
+  `1.14`, covering the definition, rule and resolved-field surfaces. Records that `type`
+  stops being reported as a constraint, and catalogues the naming inconsistencies
+  (six spellings of "minimum", four meanings of `allow()`) that have to be settled before
+  the API freeze.
+
 ### Documented
 
 - **B8** — a scope path stepping into `Field::$schema` recurses until memory is exhausted,

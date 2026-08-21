@@ -500,6 +500,8 @@ concurrent requests leaks data between them.
   in the meantime. Read this before adopting.
 - **[docs/ROADMAP.md](docs/ROADMAP.md)** — the release ladder to `1.14.0`, the first
   stable release, and the architecture change that gets there.
+- **[docs/API-REVIEW.md](docs/API-REVIEW.md)** — the per-feature API confirmation
+  checklist that has to be complete before the `1.14.0` freeze.
 - **[docs/COMPARISON.md](docs/COMPARISON.md)** — how this compares with the alternatives,
   including when to pick one of them instead.
 - **[CHANGELOG.md](CHANGELOG.md)** — release history, including breaking changes. (The

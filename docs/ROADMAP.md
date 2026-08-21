@@ -6,6 +6,7 @@ No dates. The ordering is real; the timing is not promised.
 - [The release ladder](#the-release-ladder)
 - [Architecture: immutable definition + `ResolvedField`](#architecture-immutable-definition--resolvedfield)
 - [Rule authoring in 1.14](#rule-authoring)
+- [API review](API-REVIEW.md) — the per-feature confirmation checklist
 - [Planned features](#planned-features)
 
 ---
@@ -38,7 +39,7 @@ None of it is a rewrite. It is a cleanup release.
 | `1.14.0-beta.1` | B1–B8 fixed, including the scope-traversal recursion. Dead code deleted. CI running the suite on PHP 8.4 and 8.5. Static analysis green. `composer audit` clean. |
 | `1.14.0-beta.2` | The `ResolvedField` seam (below): per-request state moves off the fields, fixing B7 together with the purity and mutation defects. Scopes become typed and immutable. `meraki/schema-html` updated in step. |
 | `1.14.0-beta.3` | Definition sealed. Indexed paths for collection results. `transformed` populated per field type. [Matcher-based rule authoring](#rule-authoring). Docs accurate. |
-| `1.14.0-rc.1` | Public API frozen, **including constraint names**. Changelog complete. Both sibling packages green against it. |
+| `1.14.0-rc.1` | Public API frozen, **including constraint names** — every row in [API-REVIEW.md](API-REVIEW.md) confirmed. `type` no longer reported as a constraint. Changelog complete. Both sibling packages green against it. |
 | `1.14.0` | First stable release. The semantic-versioning commitment starts here. |
 
 `beta.3` is separable — once the seam exists, sealing and indexed results are additive and
@@ -318,6 +319,13 @@ not needed.
 Cost: 14 references across six files, of which only two are in `src/` (the method itself
 and `Rule\FieldBuilder`). The rest are tests in this package, `schema-html` and
 `schema-json`.
+### `type` stops being a constraint
+
+Every other constraint narrows a value that is already the right shape; `type` decides
+whether there *is* a usable value at all, which is the precondition for the rest. It also
+conflates "no value was supplied" with "a value was supplied but is the wrong shape",
+which downstream code currently has to disentangle by hand. Both become structurally
+distinct on `ResolvedField`. See [API-REVIEW.md](API-REVIEW.md) for the consequences.
 ### What does and does not change
 
 **Unchanged:** the serialized form. `#/fields/x/value` stays the wire format, conditions
