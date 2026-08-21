@@ -15,17 +15,7 @@ use InvalidArgumentException;
  * Validates the email address format according to the HTML specification,
  * which is a subset (and saner version) of the format specified in RFC 5322.
  *
- * @phpstan-import-type SerializedField from Field
- * @phpstan-type SerializedEmailAddress = SerializedField&object{
- * 	type: 'email_address',
- * 	value: array|string|null,
- * 	format: string,
- * 	min: int,
- * 	max: int,
- * 	allowedDomains: list<string>,
- * 	disallowedDomains: list<string>
- * }
- * @extends AtomicMultiValueField<array|string|null, SerializedEmailAddress>
+ * @extends AtomicMultiValueField<array|string|null>
  * @see https://html.spec.whatwg.org/multipage/input.html#valid-e-mail-address
  */
 final class EmailAddress extends AtomicMultiValueField

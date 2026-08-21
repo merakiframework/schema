@@ -19,13 +19,7 @@ use Meraki\Schema\Property;
  * 	- each "word" must be at least one character long
  *  - should use Roman Numerals to represent numbers (e.g. John Doe IV)
  *
- * @phpstan-import-type SerializedField from Field
- * @phpstan-type SerializedName = SerializedField&object{
- * 	type: 'name',
- * 	min: int,
- * 	max: int
- * }
- * @extends AtomicField<string|null, SerializedName>
+ * @extends AtomicField<string|null>
  * @see https://www.w3.org/International/questions/qa-personal-names
  * @see https://shinesolutions.com/2018/01/08/falsehoods-programmers-believe-about-names-with-examples/
  */

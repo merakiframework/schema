@@ -10,15 +10,7 @@ use Brick\DateTime;
 use Brick\DateTime\DateTimeException;
 
 /**
- * @phpstan-import-type SerializedField from Field
- * @phpstan-type SerializedDuration = SerializedField&object{
- * 	type: 'duration',
- * 	value: string|null,
- * 	min: string,
- * 	max: string,
- * 	step: string
- * }
- * @extends AtomicField<string|null, SerializedDuration>
+ * @extends AtomicField<string|null>
  */
 final class Duration extends AtomicField
 {

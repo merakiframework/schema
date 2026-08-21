@@ -28,14 +28,7 @@ use InvalidArgumentException;
  * implies a state (Queensland is 4xxx *and* 9xxx; the ACT's 2600-2618 sits inside New
  * South Wales' 2xxx). Verifying an address actually exists needs a licensed service.
  *
- * @phpstan-import-type SerializedField from Field
- * @phpstan-type SerializedAddress = SerializedField&object{
- * 	type: 'address',
- * 	value: array|null,
- * 	allowedCountries: array<string>,
- * 	addressType: string,
- * }
- * @extends CompositeField<array|null, SerializedAddress>
+ * @extends CompositeField<array|null>
  *
  * @property-read Field\Text $organization
  * @property-read Field\Text $line1
@@ -79,11 +72,9 @@ final class Address extends CompositeField
 	 * any input is accepted and only `line1` is required.
 	 *
 	 * @var array<string>
-	 * @readonly
 	 */
 	public array $allowed = [];
 
-	/** @readonly */
 	public Type $type = Type::Either;
 
 	/** @param array<string> $allowedCountries */

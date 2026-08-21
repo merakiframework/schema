@@ -8,15 +8,6 @@ use Meraki\Schema\Property;
 use Meraki\Schema\Rule\Condition;
 use Meraki\Schema\Scope;
 
-/**
- * @phpstan-import-type SerializedCondition from Condition
- * @phpstan-type SerializedNotEquals = SerializedCondition&object{
- * 	type: 'not_equals',
- * 	target: string,
- * 	expected: mixed,
- * }
- * @implements Condition<SerializedNotEquals>
- */
 final class NotEquals implements Condition
 {
 	public readonly string $target;

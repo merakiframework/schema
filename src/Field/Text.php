@@ -9,14 +9,7 @@ use Meraki\Schema\Property;
 use InvalidArgumentException;
 
 /**
- * @phpstan-import-type SerializedField from Field
- * @phpstan-type SerializedText = SerializedField&object{
- * 	type: 'text',
- * 	min: int,
- * 	max: int,
- * 	pattern: string|null
- * }
- * @extends AtomicField<string|null, SerializedText>
+ * @extends AtomicField<string|null>
  */
 final class Text extends AtomicField
 {

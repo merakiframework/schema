@@ -15,20 +15,9 @@ use InvalidArgumentException;
  *	type: string,
  *	size: int,
  * }
- * @phpstan-import-type SerializedField from Field
- * @phpstan-type SerializedFile = SerializedField&object{
- * 	type: 'file',
- * 	value: list<FileMetadata>|null,
- * 	minCount: int,
- * 	maxCount: int,
- * 	minSize: int,
- * 	maxSize: int,
- * 	allowedTypes: list<string>,
- * 	disallowedTypes: list<string>
- * }
  * Input may be a single file (a FileMetadata array or a Metadata instance) or a
  * list of either.
- * @extends AtomicMultiValueField<list<FileMetadata|Metadata>|FileMetadata|Metadata|null, SerializedFile>
+ * @extends AtomicMultiValueField<list<FileMetadata|Metadata>|FileMetadata|Metadata|null>
  */
 final class File extends AtomicMultiValueField
 {

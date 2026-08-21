@@ -13,16 +13,7 @@ use Brick\Math\Exception\RoundingNecessaryException;
 use InvalidArgumentException;
 
 /**
- * @phpstan-import-type SerializedField from Field
- * @phpstan-type SerializedMoney = SerializedField&object{
- * 	type: 'money',
- * 	min: array<string, string>,
- * 	max: array<string, string>,
- * 	step: array<string, string>,
- * 	scale: array<string, int>,
- * 	allowedCurrencies: array<string>
- * }
- * @extends CompositeField<array|null, SerializedMoney>
+ * @extends CompositeField<array|null>
  * @property-read Field\Enum $currency
  * @property-read Field\Number $amount
  */
@@ -30,31 +21,26 @@ final class Money extends CompositeField
 {
 	/**
 	 * @var array<string, BigDecimal>
-	 * @readonly
 	 */
 	public array $min = [];
 
 	/**
 	 * @var array<string, BigDecimal>
-	 * @readonly
 	 */
 	public array $max = [];
 
 	/**
 	 * @var array<string, BigDecimal>
-	 * @readonly
 	 */
 	public array $step = [];
 
 	/**
 	 * @var array<string, int>
-	 * @readonly
 	 */
 	public array $scale = [];
 
 	/**
 	 * @var array<string>
-	 * @readonly
 	 */
 	public array $allowed = [];
 

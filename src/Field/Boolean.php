@@ -8,12 +8,7 @@ use Meraki\Schema\Field;
 use Meraki\Schema\Property;
 
 /**
- * @phpstan-import-type SerializedField from Field
- * @phpstan-type SerializedBoolean = SerializedField&object{
- * 	type: 'boolean',
- * 	value: bool|null
- * }
- * @extends AtomicField<bool|null, SerializedBoolean>
+ * @extends AtomicField<bool|null>
  */
 final class Boolean extends AtomicField
 {

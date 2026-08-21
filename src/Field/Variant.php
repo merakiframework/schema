@@ -21,12 +21,8 @@ use InvalidArgumentException;
  * The first field that matches the value is the one that is used. (e.g. if a value can match a password and a passphrase field, but
  * the passphrase field was added first, then the passphrase field result is returned.)
  *
- * @phpstan-import-type SerializedField from Field
- * @phpstan-type SerializedVariant = SerializedField&object{
- * 	type: 'variant'
- * }
  * @template AcceptedType of mixed
- * @extends Field<AcceptedType|null, SerializedVariant>
+ * @extends Field<AcceptedType|null>
  */
 final class Variant extends Field
 {

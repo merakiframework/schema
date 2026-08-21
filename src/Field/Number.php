@@ -30,15 +30,7 @@ use TypeError;
  *	- to force decimals, set the scale property to more than 0
  *	- exponent notation is always converted to canonical decimal form (if safe to do so)
  *
- * @phpstan-import-type SerializedField from Field
- * @phpstan-type SerializedNumber = SerializedField&object{
- * 	type: 'number',
- * 	min: int,
- * 	max: int,
- * 	step: int,
- * 	scale: int|null
- * }
- * @extends AtomicField<float|int|string|null, SerializedNumber>
+ * @extends AtomicField<float|int|string|null>
  */
 final class Number extends AtomicField
 {

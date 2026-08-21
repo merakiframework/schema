@@ -9,14 +9,6 @@ use Meraki\Schema\Facade;
 use Meraki\Schema\Field;
 use InvalidArgumentException;
 
-/**
- * @phpstan-import-type SerializedOutcome from Outcome
- * @phpstan-type SerializedMakeOptional = SerializedOutcome&object{
- * 	action: 'make_optional',
- * 	field: string
- * }
- * @implements Outcome<SerializedMakeOptional>
- */
 final class MakeOptional implements Outcome
 {
 	private Scope $scope;

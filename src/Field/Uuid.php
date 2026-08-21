@@ -9,12 +9,7 @@ use Meraki\Schema\Property;
 use InvalidArgumentException;
 
 /**
- * @phpstan-import-type SerializedField from Field
- * @phpstan-type SerializedUuid = SerializedField&object{
- * 	type: 'uuid',
- * 	versions: int[]
- * }
- * @extends AtomicField<string|null, SerializedUuid>
+ * @extends AtomicField<string|null>
  */
 final class Uuid extends AtomicField
 {

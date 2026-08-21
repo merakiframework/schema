@@ -15,8 +15,7 @@ use InvalidArgumentException;
  * Each item is validated individually against the template; `minItems`/`maxItems`
  * bound the list length.
  *
- * @phpstan-import-type SerializedField from \Meraki\Schema\Field
- * @extends Composite<list<array<string, mixed>>, SerializedField>
+ * @extends Composite<list<array<string, mixed>>>
  */
 final class Collection extends Composite
 {

@@ -9,14 +9,6 @@ use Meraki\Schema\Facade;
 use Meraki\Schema\Field;
 use InvalidArgumentException;
 
-/**
- * @phpstan-import-type SerializedOutcome from Outcome
- * @phpstan-type SerializedIgnore = SerializedOutcome&object{
- * 	action: 'ignore',
- * 	field: string
- * }
- * @implements Outcome<SerializedIgnore>
- */
 final class Ignore implements Outcome
 {
 	private Scope $scope;

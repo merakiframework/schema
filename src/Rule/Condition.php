@@ -6,12 +6,6 @@ namespace Meraki\Schema\Rule;
 use Meraki\Schema\Facade;
 use Meraki\Schema\Scope;
 
-/**
- * @phpstan-type SerializedCondition = object{
- * 	type: string,
- * }
- * @template T of SerializedCondition
- */
 interface Condition
 {
 	public function matches(array $data, Facade $schema): bool;

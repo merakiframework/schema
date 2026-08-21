@@ -9,14 +9,6 @@ use Meraki\Schema\Facade;
 use Meraki\Schema\Field;
 use InvalidArgumentException;
 
-/**
- * @phpstan-import-type SerializedOutcome from Outcome
- * @phpstan-type SerializedRequire = SerializedOutcome&object{
- * 	action: 'require',
- * 	field: string
- * }
- * @implements Outcome<SerializedRequire>
- */
 final class _Require implements Outcome
 {
 	private Scope $scope;

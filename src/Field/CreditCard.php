@@ -11,12 +11,7 @@ use Brick\DateTime\ZonedDateTime;
 use DateTimeImmutable;
 
 /**
- * @phpstan-import-type SerializedField from Field
- * @phpstan-type SerializedCreditCard = SerializedField&object{
- * 	type: 'credit_card',
- * 	value: array|null
- * }
- * @extends CompositeField<array|null, SerializedCreditCard>
+ * @extends CompositeField<array|null>
  * @property-read Field\Name $holder
  * @property-read Field\Text $number
  * @property-read Field\Date $expiry

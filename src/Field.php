@@ -15,16 +15,7 @@ use InvalidArgumentException;
 use LogicException;
 
 /**
- * @phpstan-type AcceptedType = mixed
- * @phpstan-type SerializedField = object{
- * 	type: string,
- * 	name: string,
- * 	optional: bool,
- * 	value: AcceptedType|null,
- * 	fields: array<SerializedField>
- * }
  * @template AcceptedType of mixed
- * @template TSerialized of SerializedField
  */
 abstract class Field implements ScopeTarget
 {

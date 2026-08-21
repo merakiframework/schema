@@ -9,14 +9,6 @@ use Meraki\Schema\Rule\ConditionGroup;
 use Meraki\Schema\Rule\ConditionFactory;
 use InvalidArgumentException;
 
-/**
- * @phpstan-import-type SerializedCondition from Condition
- * @phpstan-type SerializedAnyOf = SerializedCondition&object{
- * 	type: 'any_of',
- * 	conditions: array<SerializedCondition>
- * }
- * @implements ConditionGroup<SerializedAnyOf>
- */
 final class AnyOf implements ConditionGroup
 {
 	/** @var Condition[] */

@@ -30,11 +30,9 @@ final class PhoneNumber extends AtomicField
 	 * international-only (no national/local parsing).
 	 *
 	 * @var array<string>
-	 * @readonly
 	 */
 	public array $allowed = [];
 
-	/** @readonly */
 	public Type $allowedType = Type::Any;
 
 	public function __construct(

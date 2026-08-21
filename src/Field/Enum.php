@@ -9,13 +9,7 @@ use Meraki\Schema\Property;
 
 /**
  * @template T of scalar
- * @phpstan-import-type SerializedField from Field
- * @phpstan-type SerializedEnum = SerializedField&object{
- * 	type: 'enum',
- * 	value: string|null,
- * 	oneOf: list<T>,
- * }
- * @extends AtomicField<string|null, SerializedEnum>
+ * @extends AtomicField<string|null>
  */
 final class Enum extends AtomicField
 {

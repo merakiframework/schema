@@ -19,17 +19,7 @@ use Brick\DateTime\Duration;
 use InvalidArgumentException;
 
 /**
- * @phpstan-import-type SerializedField from Field
- * @phpstan-type SerializedDateTime = SerializedField&object{
- * 	type: 'date_time',
- * 	value: string|null,
- * 	from: string,
- * 	until: string,
- * 	interval: string,
- * 	precisionUnit: string,
- * 	precisionMode: string
- * }
- * @extends AtomicField<string|null, SerializedDateTime>
+ * @extends AtomicField<string|null>
  */
 final class DateTime extends AtomicField
 {

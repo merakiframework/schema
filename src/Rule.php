@@ -8,14 +8,6 @@ use Meraki\Schema\Rule\Condition;
 use Meraki\Schema\Rule\ConditionGroup;
 use Meraki\Schema\Rule\Outcome;
 
-/**
- * @phpstan-import-type SerializedCondition from Condition
- * @phpstan-import-type SerializedOutcome from Outcome
- * @phpstan-type SerializedRule = object{
- * 	when: SerializedCondition,
- * 	then: array<SerializedOutcome>,
- * }
- */
 class Rule
 {
 	public function __construct(

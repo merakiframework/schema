@@ -16,7 +16,11 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
-- PHPStan at level 5 (`phpstan.neon`), as a development dependency.
+- Continuous integration (`.github/workflows/tests.yml`): the suite on PHP 8.4 and 8.5,
+  PHPStan, `composer validate --strict` and `composer audit`, plus a weekly scheduled run
+  so a newly-published advisory surfaces without waiting for a push.
+- PHPStan as a development dependency, enforced at level 1 — what the codebase passes
+  cleanly today. Raising it is tracked in `docs/ROADMAP.md`; no baseline file, by design.
 
 - `docs/ROADMAP.md` documents the rule authoring API planned for `1.14`: Jasmine-style
   matchers (`expect(...)->toBe(...)`, `toBeAtLeast`, `toBeOneOf`, `toMatch`, ...),
@@ -41,6 +45,11 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- Dead `@phpstan-type Serialized*` annotations across 43 files, left behind when
+  serialization moved to `meraki/schema-json` in `1.12.0-alpha`. They described a shape the
+  core no longer produces and were circular or unresolvable.
+- `@readonly` on nine properties that carry defaults and are written by the fluent setters,
+  so the annotation was simply false.
 - `Field\Money` caught `MathException` and `TypeError` without importing them, so they
   resolved to `Meraki\Schema\Field\*` and those catch clauses could never match. Latent
   rather than live — the shape check rejects bad amounts before the constraints run.

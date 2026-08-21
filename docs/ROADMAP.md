@@ -36,7 +36,7 @@ None of it is a rewrite. It is a cleanup release.
 
 | Stage | Gate |
 | --- | --- |
-| `1.14.0-beta.1` | B1–B8 fixed, including the scope-traversal recursion. Dead code deleted. CI running the suite on PHP 8.4 and 8.5. Static analysis green. `composer audit` clean. |
+| `1.14.0-beta.1` | B1–B8 fixed, including the scope-traversal recursion. Dead code deleted. CI running the suite on PHP 8.4 and 8.5. PHPStan raised from its level-1 floor to at least level 5, green. `composer audit` clean. |
 | `1.14.0-beta.2` | The `ResolvedField` seam (below): per-request state moves off the fields, fixing B7 together with the purity and mutation defects. Scopes become typed and immutable. `meraki/schema-html` updated in step. |
 | `1.14.0-beta.3` | Definition sealed. Indexed paths for collection results. `transformed` populated per field type. [Matcher-based rule authoring](#rule-authoring). Docs accurate. |
 | `1.14.0-rc.1` | Public API frozen, **including constraint names** — every row in [API-REVIEW.md](API-REVIEW.md) confirmed. `type` no longer reported as a constraint. Changelog complete. Both sibling packages green against it. |

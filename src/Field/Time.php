@@ -24,16 +24,7 @@ use InvalidArgumentException;
  * The HTML standard does not have any time formats that have exact intersections
  * with the ISO 8601 and RFC 3339/9557 standards.
  *
- * @phpstan-import-type SerializedField from Field
- * @phpstan-type SerializedTime = SerializedField&object{
- * 	type: 'time',
- * 	from: string,
- * 	until: string,
- * 	step: string,
- * 	precisionUnit: string,
- * 	precisionMode: string
- * }
- * @extends AtomicField<string|null, SerializedTime>
+ * @extends AtomicField<string|null>
  */
 final class Time extends AtomicField
 {

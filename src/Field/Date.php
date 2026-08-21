@@ -11,15 +11,7 @@ use Brick\DateTime\Period;
 use Brick\DateTime\LocalDate;
 
 /**
- * @phpstan-import-type SerializedField from Field
- * @phpstan-type SerializedDate = SerializedField&object{
- * 	type: 'date',
- * 	value: string|null,
- * 	from: string,
- * 	until: string,
- * 	interval: string
- * }
- * @extends AtomicField<string|null, SerializedDate>
+ * @extends AtomicField<string|null>
  */
 final class Date extends AtomicField
 {

@@ -9,15 +9,6 @@ use Meraki\Schema\Rule\Condition;
 use Meraki\Schema\Scope;
 use InvalidArgumentException;
 
-/**
- * @phpstan-import-type SerializedCondition from Condition
- * @phpstan-type SerializedEquals = SerializedCondition&object{
- * 	type: 'equals',
- * 	target: string,
- * 	expected: mixed,
- * }
- * @implements Condition<SerializedEquals>
- */
 final class Equals implements Condition
 {
 	public readonly string $target;

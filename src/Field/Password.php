@@ -10,17 +10,7 @@ use Meraki\Schema\Property;
 use InvalidArgumentException;
 
 /**
- * @phpstan-import-type SerializedField from Field
- * @phpstan-type SerializedPassword = SerializedField&object{
- * 	type: 'password',
- * 	length: array{?int, ?int},
- * 	lowercase: array{?int, ?int},
- * 	uppercase: array{?int, ?int},
- * 	digits: array{?int, ?int},
- * 	symbols: array{?int, ?int},
- * 	anyOf: string[]
- * }
- * @extends AtomicField<string|null, SerializedPassword>
+ * @extends AtomicField<string|null>
  */
 final class Password extends AtomicField
 {
