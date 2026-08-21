@@ -164,10 +164,13 @@ schema document you did not author can hang the process that loads it.
 **Work around it** by not accepting schema JSON from untrusted sources, or by rejecting
 any rule target whose path contains a `schema` segment before deserializing.
 
-The fix is narrow: the back-reference does not belong in a field's public API (it exists
-only for `pairWith()`), and the unconditional `rewind()` is what turns a cycle into an
-infinite one. Addressing a field's other public properties — `#/fields/x/min`,
-`#/fields/x/optional` — is intentional and stays.
+The fix is narrow. `Field::$schema` is the only property on a field whose type implements
+`ScopeTarget`, so the recursion branch exists solely to step into it — remove the
+back-reference and the branch is dead. It exists only for `pairWith()`, which is a schema
+operation in a field's clothing and is being removed with it. The unconditional `rewind()`
+is what turns the cycle into an infinite one. Addressing a field's other public properties
+— `#/fields/x/min`, `#/fields/x/optional` — is intentional and stays.
+
 <a id="b7"></a>
 
 ### B7 — Sharing one schema across concurrent requests leaks data between them

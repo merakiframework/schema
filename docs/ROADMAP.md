@@ -133,50 +133,64 @@ else — building schemas, reading constraint configuration, serializing — is 
 Rules keep their current semantics and their serialized form. What changes is how they
 are written, and where mistakes surface.
 
-### Jasmine-style matchers
+### A fluent matcher vocabulary
 
-Conditions become a named matcher vocabulary rather than a handful of `whenEquals`
-variants, read as `expect(subject).matcher(...)`:
+Jasmine-*like* rather than Jasmine: the point is that a rule reads as a sentence, not
+that it copies `expect().toBe()`. Conditions become a named matcher vocabulary instead of
+a handful of `whenEquals` variants.
 
-```php
-$hasLogBook  = $schema->createBooleanField('has_log_book');
-$logBookTime = $schema->createDurationField('log_book_time_completed');
-
-$schema->createRuleFor($hasLogBook)
-    ->toBe(true)
-    ->thenRequire($logBookTime)
-    ->otherwiseMakeOptional($logBookTime);
-```
-
-Several subjects, combined explicitly:
+A rule with one subject reads straight through:
 
 ```php
-$schema->createRule()
-    ->expect($whoFor)->toBe('someone_else')
-    ->andExpect($whoManages)->toBe('participant')
-    ->thenRequire($email)
-    ->otherwiseIgnore($email);
+$age     = $schema->createNumberField('age');
+$licence = $schema->createTextField('licence_number');
+
+$schema->createRuleFor($age)
+    ->whenItIsAtLeast(18)
+    ->thenRequire($licence)
+    ->otherwiseMakeOptional($licence);
 ```
+
+Several subjects name each one:
+
+```php
+$schema->addRule(
+    Rule::allOf()
+        ->when($whoFor)->equals('someone_else')
+        ->andWhen($whoManages)->equals('participant')
+        ->thenRequire($email)
+        ->otherwiseIgnore($email)
+);
+```
+
+`Rule::allOf()` and `Rule::anyOf()` replace `Facade::whenAllMatch()`/`whenAnyMatch()`,
+building the rule standalone so it can be composed and added explicitly — which fits the
+create-then-add shape the rest of the API moves to.
 
 The vocabulary, each entry serializing to a condition type and translatable to
 client-side JavaScript:
 
-| Matcher | Condition type | Typical subject |
-| --- | --- | --- |
-| `toBe` / `toEqual` | `equals` | any |
-| `notToBe` | `not_equals` | any |
-| `toBeAtLeast` / `toBeGreaterThan` | `at_least` / `greater_than` | number, date, time, duration |
-| `toBeAtMost` / `toBeLessThan` | `at_most` / `less_than` | number, date, time, duration |
-| `toBeBetween` | `between` | number, date, time, duration |
-| `toBeOneOf` | `in` | any |
-| `toContain` | `contains` | text, collection |
-| `toMatch` | `matches` | text |
-| `toBeEmpty` / `notToBeEmpty` | `is_empty` / `is_not_empty` | any |
+| Matcher | Shorthand | Condition type | Typical subject |
+| --- | --- | --- | --- |
+| `equals` | `whenItEquals` | `equals` | any |
+| `notEquals` | `whenItDoesNotEqual` | `not_equals` | any |
+| `isAtLeast` | `whenItIsAtLeast` | `at_least` | number, date, time, duration |
+| `isGreaterThan` | `whenItIsGreaterThan` | `greater_than` | number, date, time, duration |
+| `isAtMost` | `whenItIsAtMost` | `at_most` | number, date, time, duration |
+| `isLessThan` | `whenItIsLessThan` | `less_than` | number, date, time, duration |
+| `isBetween` | `whenItIsBetween` | `between` | number, date, time, duration |
+| `isIn` | `whenItIsIn` | `in` | any |
+| `contains` | `whenItContains` | `contains` | text, collection |
+| `matches` | `whenItMatches` | `matches` | text |
+| `isEmpty` | `whenItIsEmpty` | `is_empty` | any |
+| `isNotEmpty` | `whenItIsNotEmpty` | `is_not_empty` | any |
 
-Only `equals` and `not_equals` exist today, so everything below the second row is new
-capability rather than a rename. The set is open — adding a matcher means adding a
+The shorthand column is the single-subject form, where `createRuleFor()` has already
+bound the subject and `it` refers to it. Both spellings produce the same condition object.
+
+Only `equals` and `not_equals` exist today, so everything from the third row down is new
+capability rather than a rename. The set is open: adding a matcher means adding a
 condition class and a serializer case, with no change to the rule engine.
-
 ### `otherwise()`
 
 An else-branch of outcomes, which today requires a second rule with a hand-inverted
@@ -245,12 +259,79 @@ or `#/fields/x/optional` are legitimate targets. What changes:
 Sub-field and collection-item addressing — `#/fields/addr/line1`, `#/fields/items/1/sku` —
 becomes expressible for the first time, and lines up with the indexed result paths.
 
-### What does not change
+### Resolution moves out of the field classes
 
-Existing rule authoring keeps working. String scopes remain accepted (parsed and
-validated at definition time instead of carried raw), `pairWith()`/`FieldBuilder` is
-already object-based, and serialized JSON round-trips identically.
----
+`Field` and `Facade` are the only two `ScopeTarget` implementations, and path resolution
+lives on them as `traverse()`. It moves to a dedicated resolver that walks the working set
+(field name → effective definition, plus resolved values). Fields become plain definitions
+with no knowledge of paths.
+
+`ScopeTarget`, `ScopeResolutionResult`, `Field::traverse()` and `Facade::traverse()` — and
+with them the unconditional cursor rewind — all go.
+
+Open addressing survives unchanged: the resolver reads a field's public properties, so
+`#/fields/x/min` and `#/fields/x/optional` keep working. It simply reads them rather than
+asking the field to resolve itself.
+
+This also makes B8 structurally impossible rather than patched. A resolver walking a
+name-keyed map has no reason to follow a parent pointer, and the
+`instanceof ScopeTarget` branch that currently recurses exists *only* to step into
+`Field::$schema` — nothing else reachable from a field implements the interface. Remove
+the back-reference and the branch is already dead.
+
+Sub-field and collection-item addressing — `#/fields/addr/line1`, `#/fields/items/1/sku` —
+gets one place to be implemented, closing both gaps at once.
+
+### `Field::$schema` and `pairWith()`
+
+The back-reference goes. It exists only for `pairWith()`, which uses it to check for a
+duplicate name, add the paired field, pass the schema to the configurator, and register
+rules — all schema operations wearing a field's clothes. Under create-then-add it is
+incoherent anyway: a field returned by `createBooleanField()` is not attached yet, so
+there would be no schema to reference.
+
+`pairWith()` goes with it, because the matcher API covers what it did:
+
+```php
+// before
+$schema->addEnumField('contact_method', ['email', 'phone'])
+    ->pairWith(new Field\EmailAddress(new Name('email_address')),
+        function (FieldBuilder $rule, Field\EmailAddress $email): void {
+            $rule->when($this)->notEquals('email')->thenMakeOptional($email)->thenIgnore($email);
+        });
+
+// after
+$method = $schema->createEnumField('contact_method', ['email', 'phone']);
+$email  = $schema->createEmailAddressField('email_address');
+
+$schema->addRule(
+    Rule::allOf()->when($method)->notEquals('email')
+        ->then(fn(Outcomes $o) => $o->makeOptional($email)->ignore($email))
+);
+```
+
+No `$this` rebinding, no back-reference, and the paired field is an ordinary field. If the
+colocation is worth keeping as sugar it belongs on the schema (`$schema->pair(...)`), where
+the schema is already in hand — but the plain form reads well enough that it probably is
+not needed.
+
+Cost: 14 references across six files, of which only two are in `src/` (the method itself
+and `Rule\FieldBuilder`). The rest are tests in this package, `schema-html` and
+`schema-json`.
+### What does and does not change
+
+**Unchanged:** the serialized form. `#/fields/x/value` stays the wire format, conditions
+and outcomes keep their `type`/`action` shapes, and existing documents round-trip
+identically. String scopes remain accepted in the authoring API — parsed and validated at
+definition time rather than carried raw — so string-based rules keep working.
+
+**Changed:** `Facade::whenAllMatch()`/`whenAnyMatch()` give way to `Rule::allOf()`/
+`anyOf()` and `createRuleFor()`; `addXField()` becomes `createXField()` plus an explicit
+add; `pairWith()` and `Field::$schema` are removed; per-request state is read from the
+result rather than off the field.
+
+All of it lands in the same breaking release as the seam, so there is one migration
+rather than three.---
 
 <a id="planned-features"></a>
 

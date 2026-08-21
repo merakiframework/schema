@@ -18,7 +18,8 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 - `docs/ROADMAP.md` documents the rule authoring API planned for `1.14`: Jasmine-style
   matchers (`expect(...)->toBe(...)`, `toBeAtLeast`, `toBeOneOf`, `toMatch`, ...),
-  `otherwise()` as an else-branch of outcomes, and typed immutable scopes. Records why
+  `otherwise()` as an else-branch of outcomes, and typed immutable scopes. Path resolution
+  moves out of the field classes; `Field::$schema` and `pairWith()` are removed. Records why
   outcomes name operations rather than carrying modified fields, and why closure-backed
   conditions were rejected.
 
