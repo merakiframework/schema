@@ -10,7 +10,6 @@ use Meraki\Schema\ScopeTarget;
 use Meraki\Schema\Field\Atomic;
 use Meraki\Schema\Property;
 use Meraki\Schema\Rule;
-use Meraki\Schema\SchemaValidator;
 use Meraki\Schema\SchemaValidationResult;
 use Meraki\Schema\Rule\Condition;
 use Meraki\Schema\Rule\Builder;

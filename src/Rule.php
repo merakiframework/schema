@@ -5,10 +5,8 @@ namespace Meraki\Schema;
 
 use Meraki\Schema\Facade;
 use Meraki\Schema\Rule\Condition;
-use Meraki\Schema\Rule\ConditionFactory;
 use Meraki\Schema\Rule\ConditionGroup;
 use Meraki\Schema\Rule\Outcome;
-use Meraki\Schema\Rule\OutcomeFactory;
 
 /**
  * @phpstan-import-type SerializedCondition from Condition

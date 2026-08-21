@@ -16,6 +16,8 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- PHPStan at level 5 (`phpstan.neon`), as a development dependency.
+
 - `docs/ROADMAP.md` documents the rule authoring API planned for `1.14`: Jasmine-style
   matchers (`expect(...)->toBe(...)`, `toBeAtLeast`, `toBeOneOf`, `toMatch`, ...),
   `otherwise()` as an else-branch of outcomes, and typed immutable scopes. Path resolution
@@ -28,6 +30,21 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   stops being reported as a constraint, and catalogues the naming inconsistencies
   (six spellings of "minimum", four meanings of `allow()`) that have to be settled before
   the API freeze.
+
+### Removed
+
+- **BREAKING —** the unreachable validator subsystem: `Meraki\Schema\Validator` and
+  everything under `Validator\`, `Field\Validator`, the root `ConstraintValidationResult`,
+  `ValidationResultMessageProvider`, `Field\Placeholder`, `Field\Structured`, and the four
+  exceptions used only by it. These referenced classes that no longer existed and were a
+  fatal error to touch. Nothing on the supported API path reached them.
+
+### Fixed
+
+- `Field\Money` caught `MathException` and `TypeError` without importing them, so they
+  resolved to `Meraki\Schema\Field\*` and those catch clauses could never match. Latent
+  rather than live — the shape check rejects bad amounts before the constraints run.
+- Stale imports of classes that no longer exist, in `Facade`, `Rule` and `Rule\Condition\Equals`.
 
 ### Documented
 

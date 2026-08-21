@@ -7,7 +7,6 @@ use Meraki\Schema\Facade;
 use Meraki\Schema\Property;
 use Meraki\Schema\Rule\Condition;
 use Meraki\Schema\Scope;
-use Meraki\Schema\Comparison;
 use InvalidArgumentException;
 
 /**

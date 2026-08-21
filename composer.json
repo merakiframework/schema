@@ -33,7 +33,8 @@
         "giggsey/libphonenumber-for-php-lite": "^8.13"
     },
     "require-dev": {
-        "phpunit/phpunit": "^11.3"
+        "phpunit/phpunit": "^11.3",
+        "phpstan/phpstan": "^2.2"
     },
     "suggest": {
         "meraki/schema-json": "Serialize a schema to JSON and back, so one definition can drive non-PHP consumers",

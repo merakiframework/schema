@@ -8,6 +8,7 @@ use Meraki\Schema\Field;
 use Meraki\Schema\Property;
 use Brick\Math\BigDecimal;
 use Brick\Math\RoundingMode;
+use Brick\Math\Exception\MathException;
 use Brick\Math\Exception\RoundingNecessaryException;
 use InvalidArgumentException;
 
@@ -153,7 +154,7 @@ final class Money extends CompositeField
 			$diff = $value->minus($min);
 
 			return $diff->remainder($step)->isZero();
-		} catch (MathException|TypeError|RoundingNecessaryException) {
+		} catch (MathException|\TypeError|RoundingNecessaryException) {
 			return false;
 		}
 	}
@@ -169,7 +170,7 @@ final class Money extends CompositeField
 
 		try {
 			return $this->toDecimal($currency, $amount)->isLessThanOrEqualTo($this->max[$currency]);
-		} catch (MathException|TypeError | RoundingNecessaryException) {
+		} catch (MathException|\TypeError|RoundingNecessaryException) {
 			return false;
 		}
 	}
@@ -185,7 +186,7 @@ final class Money extends CompositeField
 
 		try {
 			return $this->toDecimal($currency, $amount)->isGreaterThanOrEqualTo($this->min[$currency]);
-		} catch (MathException|TypeError|RoundingNecessaryException) {
+		} catch (MathException|\TypeError|RoundingNecessaryException) {
 			return false;
 		}
 	}
@@ -200,7 +201,7 @@ final class Money extends CompositeField
 
 		try {
 			return $this->toDecimal($currency, $amount)->getScale() === $this->scale[$currency];
-		} catch (MathException|TypeError|RoundingNecessaryException) {
+		} catch (MathException|\TypeError|RoundingNecessaryException) {
 			return false;
 		}
 	}
