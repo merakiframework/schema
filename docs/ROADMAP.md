@@ -140,54 +140,59 @@ Jasmine-*like* rather than Jasmine: the point is that a rule reads as a sentence
 that it copies `expect().toBe()`. Conditions become a named matcher vocabulary instead of
 a handful of `whenEquals` variants.
 
-A rule with one subject reads straight through:
+Rules are built as **values**, then added. `$schema->when($field)` starts a condition;
+attaching outcomes completes a rule; `allOf()`/`anyOf()` compose conditions.
 
 ```php
-$age     = $schema->createNumberField('age');
-$licence = $schema->createTextField('licence_number');
-
-$schema->createRuleFor($age)
-    ->whenItIsAtLeast(18)
-    ->thenRequire($licence)
-    ->otherwiseMakeOptional($licence);
-```
-
-Several subjects name each one:
-
-```php
+// one condition
 $schema->addRule(
-    Rule::allOf()
-        ->when($whoFor)->equals('someone_else')
-        ->andWhen($whoManages)->equals('participant')
-        ->thenRequire($email)
-        ->otherwiseIgnore($email)
+    $schema->when($hasLogBook)->equals(true)
+        ->thenRequire($logBookTime)
+        ->otherwiseMakeOptional($logBookTime)
 );
+
+// several conditions combined into one rule
+$schema->addRule(
+    $schema->allOf(
+        $schema->when($whoFor)->equals('someone_else'),
+        $schema->when($whoManages)->equals('participant'),
+    )->thenRequire($email)->otherwiseIgnore($email)
+);
+
+// several independent rules at once
+$schema->addRules($ruleA, $ruleB);
 ```
 
-`Rule::allOf()` and `Rule::anyOf()` replace `Facade::whenAllMatch()`/`whenAnyMatch()`,
-building the rule standalone so it can be composed and added explicitly — which fits the
-create-then-add shape the rest of the API moves to.
+`allOf()`/`anyOf()` take **conditions**, never rules — outcomes attach to the composed
+rule, so there is exactly one `then`/`otherwise` per rule and no question of whose
+outcomes fire. Because a rule is a value, it can be held in a variable, built elsewhere,
+and reused.
+
+This replaces `Facade::whenAllMatch()`/`whenAnyMatch()`, whose closure-configurator form
+made a rule something you could only declare inline.
 
 The vocabulary, each entry serializing to a condition type and translatable to
 client-side JavaScript:
 
-| Matcher | Shorthand | Condition type | Typical subject |
-| --- | --- | --- | --- |
-| `equals` | `whenItEquals` | `equals` | any |
-| `notEquals` | `whenItDoesNotEqual` | `not_equals` | any |
-| `isAtLeast` | `whenItIsAtLeast` | `at_least` | number, date, time, duration |
-| `isGreaterThan` | `whenItIsGreaterThan` | `greater_than` | number, date, time, duration |
-| `isAtMost` | `whenItIsAtMost` | `at_most` | number, date, time, duration |
-| `isLessThan` | `whenItIsLessThan` | `less_than` | number, date, time, duration |
-| `isBetween` | `whenItIsBetween` | `between` | number, date, time, duration |
-| `isIn` | `whenItIsIn` | `in` | any |
-| `contains` | `whenItContains` | `contains` | text, collection |
-| `matches` | `whenItMatches` | `matches` | text |
-| `isEmpty` | `whenItIsEmpty` | `is_empty` | any |
-| `isNotEmpty` | `whenItIsNotEmpty` | `is_not_empty` | any |
+| Matcher | Condition type | Typical subject |
+| --- | --- | --- |
+| `equals` | `equals` | any |
+| `notEquals` | `not_equals` | any |
+| `isAtLeast` | `at_least` | number, date, time, duration |
+| `isGreaterThan` | `greater_than` | number, date, time, duration |
+| `isAtMost` | `at_most` | number, date, time, duration |
+| `isLessThan` | `less_than` | number, date, time, duration |
+| `isBetween` | `between` | number, date, time, duration |
+| `isIn` | `in` | any |
+| `contains` | `contains` | text, collection |
+| `matches` | `matches` | text |
+| `isEmpty` | `is_empty` | any |
+| `isNotEmpty` | `is_not_empty` | any |
 
-The shorthand column is the single-subject form, where `createRuleFor()` has already
-bound the subject and `it` refers to it. Both spellings produce the same condition object.
+One spelling per matcher. An earlier sketch had a `createRuleFor($f)->whenItIsAtLeast(18)`
+shorthand alongside `when($f)->isAtLeast(18)`; it is dropped, because two names for one
+constraint is precisely what [API-REVIEW.md](API-REVIEW.md) exists to remove (see `until()`
+vs `to()` on `Date`).
 
 Only `equals` and `not_equals` exist today, so everything from the third row down is new
 capability rather than a rename. The set is open: adding a matcher means adding a
@@ -306,8 +311,9 @@ $method = $schema->createEnumField('contact_method', ['email', 'phone']);
 $email  = $schema->createEmailAddressField('email_address');
 
 $schema->addRule(
-    Rule::allOf()->when($method)->notEquals('email')
-        ->then(fn(Outcomes $o) => $o->makeOptional($email)->ignore($email))
+    $schema->when($method)->notEquals('email')
+        ->thenMakeOptional($email)
+        ->thenIgnore($email)
 );
 ```
 
@@ -333,10 +339,11 @@ and outcomes keep their `type`/`action` shapes, and existing documents round-tri
 identically. String scopes remain accepted in the authoring API — parsed and validated at
 definition time rather than carried raw — so string-based rules keep working.
 
-**Changed:** `Facade::whenAllMatch()`/`whenAnyMatch()` give way to `Rule::allOf()`/
-`anyOf()` and `createRuleFor()`; `addXField()` becomes `createXField()` plus an explicit
-add; `pairWith()` and `Field::$schema` are removed; per-request state is read from the
-result rather than off the field.
+**Changed:** `Facade::whenAllMatch()`/`whenAnyMatch()` give way to rules built as values
+(`$schema->when(...)`, composed with `allOf()`/`anyOf()`, then `addRule()`/`addRules()`);
+`addXField()` becomes `createXField()` plus an explicit add; `pairWith()` and
+`Field::$schema` are removed; per-request state is read from the result rather than off
+the field.
 
 All of it lands in the same breaking release as the seam, so there is one migration
 rather than three.---
