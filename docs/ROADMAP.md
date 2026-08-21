@@ -5,6 +5,7 @@ No dates. The ordering is real; the timing is not promised.
 - [Release verdict](#release-verdict) — why this is still pre-release
 - [The release ladder](#the-release-ladder)
 - [Architecture: immutable definition + `ResolvedField`](#architecture-immutable-definition--resolvedfield)
+- [Rule authoring in 1.14](#rule-authoring)
 - [Planned features](#planned-features)
 
 ---
@@ -34,9 +35,9 @@ None of it is a rewrite. It is a cleanup release.
 
 | Stage | Gate |
 | --- | --- |
-| `1.14.0-beta.1` | B1–B6 fixed. Dead code deleted. CI running the suite on PHP 8.4 and 8.5. Static analysis green. `composer audit` clean. |
-| `1.14.0-beta.2` | The `ResolvedField` seam (below): per-request state moves off the fields, fixing B7 together with the purity and mutation defects. `meraki/schema-html` updated in step. |
-| `1.14.0-beta.3` | Definition sealed. Indexed paths for collection results. `transformed` populated per field type. Docs accurate. |
+| `1.14.0-beta.1` | B1–B8 fixed, including the scope-traversal recursion. Dead code deleted. CI running the suite on PHP 8.4 and 8.5. Static analysis green. `composer audit` clean. |
+| `1.14.0-beta.2` | The `ResolvedField` seam (below): per-request state moves off the fields, fixing B7 together with the purity and mutation defects. Scopes become typed and immutable. `meraki/schema-html` updated in step. |
+| `1.14.0-beta.3` | Definition sealed. Indexed paths for collection results. `transformed` populated per field type. [Matcher-based rule authoring](#rule-authoring). Docs accurate. |
 | `1.14.0-rc.1` | Public API frozen, **including constraint names**. Changelog complete. Both sibling packages green against it. |
 | `1.14.0` | First stable release. The semantic-versioning commitment starts here. |
 
@@ -123,6 +124,132 @@ If you read values back off a field after validating, that moves to the result. 
 else — building schemas, reading constraint configuration, serializing — is unchanged.
 `meraki/schema-json` needs no changes at all, since it only ever reads definition state.
 
+---
+
+<a id="rule-authoring"></a>
+
+## Rule authoring in 1.14
+
+Rules keep their current semantics and their serialized form. What changes is how they
+are written, and where mistakes surface.
+
+### Jasmine-style matchers
+
+Conditions become a named matcher vocabulary rather than a handful of `whenEquals`
+variants, read as `expect(subject).matcher(...)`:
+
+```php
+$hasLogBook  = $schema->createBooleanField('has_log_book');
+$logBookTime = $schema->createDurationField('log_book_time_completed');
+
+$schema->createRuleFor($hasLogBook)
+    ->toBe(true)
+    ->thenRequire($logBookTime)
+    ->otherwiseMakeOptional($logBookTime);
+```
+
+Several subjects, combined explicitly:
+
+```php
+$schema->createRule()
+    ->expect($whoFor)->toBe('someone_else')
+    ->andExpect($whoManages)->toBe('participant')
+    ->thenRequire($email)
+    ->otherwiseIgnore($email);
+```
+
+The vocabulary, each entry serializing to a condition type and translatable to
+client-side JavaScript:
+
+| Matcher | Condition type | Typical subject |
+| --- | --- | --- |
+| `toBe` / `toEqual` | `equals` | any |
+| `notToBe` | `not_equals` | any |
+| `toBeAtLeast` / `toBeGreaterThan` | `at_least` / `greater_than` | number, date, time, duration |
+| `toBeAtMost` / `toBeLessThan` | `at_most` / `less_than` | number, date, time, duration |
+| `toBeBetween` | `between` | number, date, time, duration |
+| `toBeOneOf` | `in` | any |
+| `toContain` | `contains` | text, collection |
+| `toMatch` | `matches` | text |
+| `toBeEmpty` / `notToBeEmpty` | `is_empty` / `is_not_empty` | any |
+
+Only `equals` and `not_equals` exist today, so everything below the second row is new
+capability rather than a rename. The set is open — adding a matcher means adding a
+condition class and a serializer case, with no change to the rule engine.
+
+### `otherwise()`
+
+An else-branch of outcomes, which today requires a second rule with a hand-inverted
+condition that drifts out of step with the first. It is as declarative as `then`, so it
+serializes the same way.
+
+### Outcomes name operations, not states
+
+`->thenRequire($field)` records an operation. The tempting alternative —
+`->then($field->require())`, handing over an already-modified field — does not work, for
+two reasons worth writing down so the idea is not revisited:
+
+- **Snapshots do not compose.** If one rule stores a copy that is required and another
+  stores a copy with a new minimum, both derived from the authored field, whichever
+  applies last wins the whole field and the other change is silently lost. Operations
+  compose; whole-object replacement clobbers.
+- **Snapshots lose intent.** `FormRenderer::deriveRuleEffects()` asks
+  `$outcome instanceof MakeOptional` to decide what a matched rule did. A replaced field
+  has no operation to match on, so `HideOptionalFieldsResolvedByRules` would stop working.
+
+The same reasoning rules out closure-backed conditions, which were considered and
+rejected: a retained closure cannot be serialized to JSON for another runtime, cannot be
+introspected via `Condition::getScopes()` (which the renderer needs in order to know
+which fields a condition depends on), and would make deserializing a schema equivalent to
+deserializing code. Builder closures that run once at definition time and record
+declarative objects — the existing `whenAllMatch(fn($rule) => …)` form — are unaffected;
+the distinction is whether the schema holds data or code once definition finishes.
+
+### Build against the definition, apply against the resolution
+
+- **Authoring** references the authored definition, capturing the field's **name** rather
+  than the instance — under the modified-copy model the effective definition is a
+  different object, so an instance reference would resolve against a stale one.
+- **Application** reads the working set: effective definitions (post earlier outcomes)
+  and resolved values. The authored definition is never mutated.
+
+Rules observably read each other's writes today — two rules registered in opposite orders
+produce different results — so the working set is threaded through rule application in
+order, and each outcome replaces a field's effective definition with a modified copy.
+
+Because an outcome produces a copy of the *same class*, the property set is invariant
+between authoring and application: a scope validated when the rule is built cannot become
+invalid when it is applied. That is what makes definition-time validation of scopes sound,
+which in turn moves scope typos from a 500 on a user request to an error where the rule is
+written.
+
+### Scopes become typed and immutable
+
+Addressing stays open — a field's public properties *are* its API, and `#/fields/x/min`
+or `#/fields/x/optional` are legitimate targets. What changes:
+
+- **`Property\Name` identifies the field**, not a `Field` instance.
+- **Distinct scope types for distinct targets**, so passing a value scope to
+  `thenRequire()` is a type error rather than a runtime "Require can only be applied to
+  fields".
+- **The property segment is validated at definition time** against the field's real
+  public properties.
+- **Immutable — no iterator cursor.** The current `Scope` mutates its position while
+  resolving, which two downstream workarounds already exist to paper over:
+  `Html\Wizard\RuleScopes` (four call sites, whose docblock says it "makes those
+  re-applications safe without touching core") and `FormRenderer:486`, which stringifies
+  an outcome's scope and rebuilds it to avoid disturbing the shared one. Both are deleted.
+- **String form unchanged.** `__toString()` and a strict `parse()` keep
+  `#/fields/x/value` as the wire format, so `meraki/schema-json` is unaffected.
+
+Sub-field and collection-item addressing — `#/fields/addr/line1`, `#/fields/items/1/sku` —
+becomes expressible for the first time, and lines up with the indexed result paths.
+
+### What does not change
+
+Existing rule authoring keeps working. String scopes remain accepted (parsed and
+validated at definition time instead of carried raw), `pairWith()`/`FieldBuilder` is
+already object-based, and serialized JSON round-trips identically.
 ---
 
 <a id="planned-features"></a>

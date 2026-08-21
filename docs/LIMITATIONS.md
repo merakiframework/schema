@@ -8,6 +8,7 @@ The library is **pre-release**. See [ROADMAP.md](ROADMAP.md) for the release lad
 [the release verdict](ROADMAP.md#release-verdict) for why.
 
 - [Known defects](#known-defects) — things that are broken, with the release that fixes them
+  (B1–B6 field and schema defects, [B7](#b7) concurrency, [B8](#b8) scope traversal)
 - [Design constraints](#design-constraints) — intentional behaviour that will surprise you
 - [Not yet implemented](#not-yet-implemented) — advertised but inert
 - [Rough edges](#rough-edges) — smaller API warts
@@ -135,6 +136,38 @@ count($schema->fields);   // 1 — the EmailAddress field was discarded
 **Work around it** by asserting `count($schema->fields)` matches the number of fields you
 added, or by checking `$schema->fields->findByName($name) === null` first.
 
+<a id="b8"></a>
+
+### B8 — A scope path can exhaust memory and hang the process
+
+**Fixed in:** `1.14.0-beta.1`
+
+`Field::$schema` is a public back-reference to the owning `Facade`, and `Facade::traverse()`
+rewinds the scope cursor on entry. A scope path that steps into it therefore loops
+Field → Facade → Field, restarting the path each lap, until memory runs out:
+
+```php
+$schema = new Meraki\Schema\Facade('booking');
+$schema->addBooleanField('has_log_book');
+
+(new Meraki\Schema\Scope('#/fields/has_log_book/schema'))->resolve($schema);
+// PHP Fatal error: Allowed memory size exhausted
+//   #0 Facade.php(380): Field->traverse()
+//   #1 Field.php(266):  Facade->traverse()
+//   ... repeating
+```
+
+**This is reachable from data.** `meraki/schema-json` deserializes rule targets straight
+into scope strings — `new Equals($data->target, …)`, `new _Require($data->field)` — so a
+schema document you did not author can hang the process that loads it.
+
+**Work around it** by not accepting schema JSON from untrusted sources, or by rejecting
+any rule target whose path contains a `schema` segment before deserializing.
+
+The fix is narrow: the back-reference does not belong in a field's public API (it exists
+only for `pairWith()`), and the unconditional `rewind()` is what turns a cycle into an
+infinite one. Addressing a field's other public properties — `#/fields/x/min`,
+`#/fields/x/optional` — is intentional and stays.
 <a id="b7"></a>
 
 ### B7 — Sharing one schema across concurrent requests leaks data between them
@@ -307,6 +340,9 @@ Smaller warts, listed so they are not surprises. All are slated for the `1.14.0`
 | Constraint config is publicly mutable | `$field->min = -5` bypasses the validation in `minLengthOf()`. Use the fluent setters. |
 | `Rule\Outcome\_Require` has a leading underscore | Working around the `require` keyword. It will be renamed before the API freezes. |
 | No `remove()` on `Field\Set` | Fields can be added to a schema but not removed. |
+| Rules cannot target composite sub-fields | Neither `#/fields/addr/line1` nor `#/fields/addr.line1` resolves — `Facade::traverse()` only searches the top-level field set. Collection items (`#/fields/items/0/sku`) are likewise unreachable. |
+| `Scope` carries a mutable cursor | Resolving advances an internal position, so a scope held by a rule outcome is shared mutable state. `meraki/schema-html` works around this in two places. Unsafe under concurrency. |
+| The root scope `#/` cannot be constructed | The constructor trims the trailing slash, leaving `#`, which fails its own format check — so `Scope::isRoot()` and both root branches that call it are unreachable. |
 
 ---
 

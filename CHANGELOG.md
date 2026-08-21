@@ -14,7 +14,21 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
-Nothing yet.
+### Added
+
+- `docs/ROADMAP.md` documents the rule authoring API planned for `1.14`: Jasmine-style
+  matchers (`expect(...)->toBe(...)`, `toBeAtLeast`, `toBeOneOf`, `toMatch`, ...),
+  `otherwise()` as an else-branch of outcomes, and typed immutable scopes. Records why
+  outcomes name operations rather than carrying modified fields, and why closure-backed
+  conditions were rejected.
+
+### Documented
+
+- **B8** — a scope path stepping into `Field::$schema` recurses until memory is exhausted,
+  and is reachable from a deserialized schema document. See
+  [docs/LIMITATIONS.md](docs/LIMITATIONS.md#b8).
+- Rules cannot target composite sub-fields or collection items; `Scope` carries a mutable
+  cursor that is unsafe under concurrency; the root scope `#/` cannot be constructed.
 
 ## [1.13.1-alpha] — 2026-08-21
 
