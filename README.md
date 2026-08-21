@@ -1,5 +1,22 @@
 # meraki/schema
 
+<!-- Uncomment once CI lands (see docs/ROADMAP.md).
+[![Tests](https://github.com/merakiframework/schema/actions/workflows/tests.yml/badge.svg)](https://github.com/merakiframework/schema/actions/workflows/tests.yml)
+[![Packagist](https://img.shields.io/packagist/v/meraki/schema)](https://packagist.org/packages/meraki/schema)
+[![License](https://img.shields.io/packagist/l/meraki/schema)](LICENSE)
+-->
+
+> ### ⚠️ Pre-release
+>
+> This package is tagged **alpha** and the public API is not yet stable. It is usable —
+> 957 tests, and the standards-backed field types are solid — but there are known defects
+> serious enough to block a stable release, including uncaught exceptions on malformed
+> input to composite fields and a data leak when one schema is shared across concurrent
+> requests.
+>
+> **Read [docs/LIMITATIONS.md](docs/LIMITATIONS.md) before adopting.** The path to the
+> first stable release (`1.14.0`) is in [docs/ROADMAP.md](docs/ROADMAP.md).
+
 A flexible, UI-agnostic library for **defining and validating** form schemas in PHP.
 
 You describe a form once — its fields, their constraints, and the rules that wire
@@ -12,6 +29,26 @@ concerns live in sibling packages so the domain stays small and stable:
 | [`meraki/schema`](https://github.com/merakiframework/schema) | Define + validate schemas (this package) |
 | [`meraki/schema-json`](https://github.com/merakiframework/schema-json) | JSON serialization / deserialization |
 | [`meraki/schema-html`](https://github.com/merakiframework/schema-html) | Render a schema as an HTML form + normalize request input |
+
+## Why this library
+
+Define a form **once**, as a serializable, UI-agnostic schema, with real domain field
+types — addresses, phone numbers, money, credit cards — validated against curated
+standards data rather than hand-rolled regexes. Nothing else in PHP occupies that spot.
+
+| Instead of | You get |
+| --- | --- |
+| Re-declaring the same rules in PHP and again in JavaScript | One definition that serializes, driving an HTML form, a JSON API, or a native client |
+| A regex that approximates a postcode | Per-country address rules from Google's libaddressinput, and phone numbers from libphonenumber |
+| Stringly-typed rules (`'age' => 'required|integer|min:18'`) | Typed field objects your IDE and static analyser can see |
+| A validator welded to one framework | A core that knows nothing about HTTP, HTML or JSON |
+
+The honest counterweight: every mature alternative ships error messages and translations,
+and this library deliberately does not — see
+[Where error messages come from](#where-error-messages-come-from). It is also far less
+mature than any of them. [docs/COMPARISON.md](docs/COMPARISON.md) works through
+`symfony/validator`, `symfony/form`, `nette/forms`, Laravel, `respect/validation`,
+`cuyz/valinor` and `opis/json-schema` in detail.
 
 ## Requirements
 
@@ -72,7 +109,7 @@ $ok = !$result->anyFailed() && !$result->anyPending();
 
 foreach ($result->getFailed() as $fieldResult) {
     foreach ($fieldResult->getFailed() as $failure) {
-        // $failure->name  -> the constraint that failed (e.g. 'minLength', 'type')
+        // $failure->name  -> the constraint that failed (e.g. 'min', 'pattern', 'type')
         echo "\"{$failure->name}\" failed for field \"{$fieldResult->field->name}\"\n";
     }
 }
@@ -88,12 +125,54 @@ $fieldResult->status === ValidationStatus::Passed;
 // Passed | Pending | Skipped | Failed
 ```
 
-`validate()` is a pure query: it returns the result and stores nothing on the
-fields. Re-validating is safe and repeatable, and the result tree is yours to keep.
+`validate()` stores no *result* on the fields, so re-validating is safe and repeatable
+and the result tree is yours to keep. It does, however, write the submitted input onto
+the fields, so **a schema instance is per-request state, not a shared singleton** — see
+[Long-lived processes](#long-lived-processes). Making validation genuinely pure is a
+`1.14.0-beta.2` goal; see the
+[roadmap](docs/ROADMAP.md#architecture-immutable-definition--resolvedfield).
 
 Each field is validated in two phases: first its **value/shape** (reported under
 the constraint name `type`), then its individual constraints. If the shape check
 fails, the remaining constraints are skipped rather than failed.
+
+## Where error messages come from
+
+**Not from this package, by design.** The core reports *which constraint failed* and
+nothing else. Turning `min` on a `Text` field into "must be at least 3 characters" — in a
+particular language, tone and medium — is presentation, and lives in the presentation
+package.
+
+`meraki/schema-html` ships the reference implementation:
+
+```php
+use Meraki\Schema\Html\ValidationMessages;
+
+$messages = new ValidationMessages();
+$result = $schema->validate(['username' => 'ab']);   // too short, and email is missing
+
+foreach ($result as $fieldResult) {
+    foreach ($messages->errorsFor($fieldResult->field, $fieldResult) as $error) {
+        echo $error, "\n";
+    }
+}
+
+// Value is too short: Expected at least 3 characters
+// This is required
+```
+
+`ValidationMessageProvider` is the extension point — implement
+`errorsFor(Field, ?ValidationResult): string[]` for your own wording or language.
+
+This is a deliberate trade. You give up "install one package, get English error strings";
+you get a core that can drive an HTML form, a JSON API and a native client from one
+definition without any of them inheriting another medium's phrasing. The cost is real: if
+you use the core on its own, you write a message provider. Today only `schema-html` ships
+one — `meraki/schema-json` does not yet, and that is
+[on the roadmap](docs/ROADMAP.md#planned-features).
+
+Because downstream providers match on them, **constraint names are public API**. They are
+listed under [Constraint names](#constraint-names).
 
 ## Optional fields and default values
 
@@ -131,6 +210,24 @@ $schema->prefill($defaults); // default values
 $schema->input($data);       // user input (applies rules)
 $schema->validate($data);    // input + validate in one step
 ```
+
+## Input expectations
+
+The core expects **typed PHP values**, not raw request strings. It performs no coercion:
+
+```php
+$schema->addBooleanField('subscribe');
+
+$schema->validate(['subscribe' => 'on'])->anyFailed();    // true  — a raw form value
+$schema->validate(['subscribe' => true])->anyFailed();    // false
+```
+
+Rule conditions compare with `===` for the same reason, so
+`whenEquals('#/fields/x/value', true)` will not match the string `"1"`.
+
+This is intentional: normalizing an HTTP request is `meraki/schema-html`'s job. If you
+point the core straight at `$_POST`, normalize first — or use `schema-html`, which does
+it for you.
 
 ## Field types
 
@@ -241,6 +338,47 @@ $schema->addVariantField('secret', [
 ]);
 ```
 
+### Constraint names
+
+A failed constraint is reported by name (`$failure->name`), and message providers match
+on those names, so they are part of the public API. Every field also reports `type` for
+its value/shape check.
+
+| Field | Constraint names |
+| --- | --- |
+| `Text` | `type`, `min`, `max`, `pattern` |
+| `Name` | `type`, `min`, `max` |
+| `Number` | `type`, `min`, `max`, `step` |
+| `Boolean` | `type` |
+| `Enum` | `type` |
+| `Date` | `type`, `from`, `until`, `interval` |
+| `Time` | `type`, `from`, `until`, `step` |
+| `DateTime` | `type`, `from`, `until`, `interval` |
+| `Duration` | `type`, `min`, `max`, `step` |
+| `EmailAddress` | `type`, `min`, `max`, `allowedDomains`, `disallowedDomains` |
+| `PhoneNumber` | `type`, `allowedCountries`, `numberType` |
+| `Uri` | `type`, `min`, `max` |
+| `Uuid` | `type`, `version` |
+| `Password` | `type`, `length`, `lowercase`, `uppercase`, `digits`, `symbols`, `anyOf` |
+| `Passphrase` | `type`, `entropy`, `dictionary` |
+| `File` | `type`, `minCount`, `maxCount`, `allowedTypes`, `disallowedTypes`, `minSize`, `maxSize` |
+| `Collection` | `type`, `minItems`, `maxItems` |
+
+Note that `min`/`max` mean *length* on `Text`, `Name`, `EmailAddress` and `Uri`, but
+*value* on `Number` and `Duration`.
+
+Composite fields report against their **sub-fields**, which carry both their own bare
+constraint names and the qualified ones the composite applies to them:
+
+| Field | Reported as |
+| --- | --- |
+| `Money` (as `price`) | on `price.amount`: `price.amount.scale`, `price.amount.min`, `price.amount.max`, `price.amount.step`, plus `min`, `max`, `step`; on `price.currency`: `type` |
+| `Address` (as `addr`) | on each part: `addr.<part>.required`, plus `addr.postal_code.format`, `addr.line1.visitable`, `addr.administrative_area.allowed`, `addr.country_code.allowed` |
+| `CreditCard` (as `card`) | each sub-field reports its own — `card.number` gives `min`, `max`, `pattern`; `card.expiry` gives `from`, `until`, `interval` |
+
+> `Enum` reports only `type`: an out-of-range value fails the shape check rather than a
+> separate constraint. `Boolean` and `CreditCard` have no constraints of their own.
+
 ## Conditional rules
 
 Rules make one field's requirements depend on another field's value. Targets are
@@ -266,12 +404,49 @@ Rules are re-applied on each `input()`/`validate()` call, and each field is rese
 to its author-configured optionality first, so an outcome never lingers once its
 condition stops holding.
 
+## Long-lived processes
+
+Swoole, RoadRunner and FrankenPHP are a supported target, but **only serial reuse is safe
+today**.
+
+```php
+// Safe: one request at a time over one instance (RoadRunner's worker model).
+$schema->validate($requestA);
+$schema->validate($requestB);   // correct, order-independent
+
+// NOT safe: one instance shared across concurrent coroutines.
+// Field state is instance state, so one request can read another's data.
+```
+
+Until `1.14.0-beta.2`, **build the schema per request**. It is cheap — a seven-field
+checkout schema with two addresses, a phone number, money and a collection builds in
+about 0.25 ms, against 0.43 ms to validate it once, so rebuilding costs less than
+validating.
+
+Two traps worth knowing:
+
+- **`clone` does not isolate.** A cloned `Facade` shares the same field objects, so
+  validating the clone mutates the original. Use `unserialize(serialize($schema))` if you
+  need a genuine copy of a prototype.
+- **Register a factory, not an instance,** in your DI container. Registering a schema as
+  a service shares one instance by default, which is exactly the unsafe case.
+
+From `1.14.0-beta.2` the definition becomes immutable and per-request state moves into a
+`ResolvedField` returned by `validate()`, making a shared instance safe by construction.
+Details in [docs/LIMITATIONS.md#b7](docs/LIMITATIONS.md#b7) and
+[docs/ROADMAP.md](docs/ROADMAP.md#architecture-immutable-definition--resolvedfield).
+
 ## Design decisions
 
 - **Single-purpose core.** Serialization and rendering are *not* in this package.
   JSON lives in `meraki/schema-json`; HTML rendering and request normalization
   live in `meraki/schema-html`. The core depends on neither and exposes a stable
   public API they both consume.
+- **Messages are a UI concern.** The core reports constraint *names*; the words a user
+  reads live in the presentation package, because the right phrasing depends on the
+  medium and the language. That makes **constraint names public API** — downstream
+  providers match on them. See
+  [Where error messages come from](#where-error-messages-come-from).
 - **No `Property\Type`, no `Field\Factory`.** Earlier versions modelled a field's
   type as a `Property\Type` value object and built fields through a factory. Both
   were removed. A field's type *is* its class, and the shape check is a single
@@ -282,9 +457,12 @@ condition stops holding.
   `getFailed()`, `add()`, and `merge()` return new instances. An aggregate's
   `status` is computed on demand rather than stored, so it can never drift from
   its contents.
-- **Pure `validate()`.** Validation returns a result and stores nothing on the
-  fields — no per-request state hangs off the schema definition. (HTML rendering
-  threads the returned result through instead of reading it back off the field.)
+- **Validation should be a pure query.** The intent is that validating returns a
+  result and leaves the schema untouched, so no per-request state hangs off the
+  definition. Today only half of that holds: no *result* is stored, but the submitted
+  input is written onto the fields. Closing the gap is the main work of the `1.14`
+  line — the definition becomes immutable and per-request state moves into a
+  `ResolvedField`. See [ROADMAP.md](docs/ROADMAP.md#architecture-immutable-definition--resolvedfield).
 - **The caller owns the roll-up.** Aggregate results expose granular predicates
   (`anyFailed()`, `allPassed()`, `anyPending()`, ...) rather than a single
   opinionated `passed()`/`failed()`. Whether "all passed", "no failures", or
@@ -295,9 +473,13 @@ condition stops holding.
 - **Skip vs. fail.** Missing input on an optional field skips its constraints; a
   failed shape check skips (rather than fails) the dependent constraints. This
   keeps error reports focused on the real problem.
-- **camelCase keys.** Serialized field keys and constraint names use camelCase
-  (e.g. `minLength`, `minCount`); `uri` is the canonical term for URL-style
-  fields. (The serialized form itself is produced by `meraki/schema-json`.)
+- **camelCase keys, with qualified paths for sub-fields.** Serialized field keys and
+  constraint names use camelCase (e.g. `minCount`, `allowedTypes`); `uri` is the
+  canonical term for URL-style fields. Constraints a composite applies to one of its
+  sub-fields are named by path instead, using the sub-field's own name verbatim —
+  `addr.postal_code.format`, `price.amount.scale`. See
+  [Constraint names](#constraint-names) for the full list. (The serialized form itself
+  is produced by `meraki/schema-json`.)
 - **Standards data over hand-typed tables.** Where a field's rules are a matter of
   public record, they come from a library that curates them rather than from
   constants here: phone numbers from libphonenumber, addresses from Google's
@@ -305,27 +487,24 @@ condition stops holding.
   in the core while the *words* — "Suburb" or "Prefecture" for an administrative
   area — stay in `meraki/schema-html`, which is the only consumer that needs them.
 
-## Breaking changes
+## Status and limitations
 
-### `Address` sub-fields renamed
+This package is **pre-release**. The architecture is settled and the standards-backed
+field types are well covered, but a short list of specific defects blocks a stable
+release — malformed input to a composite field raises an uncaught exception, `Uri`
+accepts anything, `CreditCard` performs no Luhn check, and a schema shared across
+concurrent requests leaks data between them.
 
-`Address` now follows libaddressinput's field set. Existing call sites and stored
-values need updating:
-
-| Old | New |
-| --- | --- |
-| `street` | `line1` (and a new `line2` for a unit or level) |
-| `city` | `locality` |
-| `state` | `administrative_area` |
-| `postcode` | `postal_code` |
-| `country` | `country_code` — now an ISO 3166-1 alpha-2 code, not a free-text name |
-
-`organization` and `dependent_locality` are new and optional.
-
-Property access under an old name (`$address->street`) throws. An *input* array
-under an old name is a quieter failure: unrecognised keys are ignored, so
-`['street' => '1 King St']` leaves `line1` empty and fails its required check.
-Worth grepping for the old names rather than relying on tests to catch it.
+- **[docs/LIMITATIONS.md](docs/LIMITATIONS.md)** — every known defect with a runnable
+  reproducer, the intentional behaviour that will surprise you, and what to do about each
+  in the meantime. Read this before adopting.
+- **[docs/ROADMAP.md](docs/ROADMAP.md)** — the release ladder to `1.14.0`, the first
+  stable release, and the architecture change that gets there.
+- **[docs/COMPARISON.md](docs/COMPARISON.md)** — how this compares with the alternatives,
+  including when to pick one of them instead.
+- **[CHANGELOG.md](CHANGELOG.md)** — release history, including breaking changes. (The
+  `Address` sub-field rename previously documented here now lives in the
+  [`1.13.0-alpha` entry](CHANGELOG.md).)
 
 ## Examples
 
@@ -340,8 +519,8 @@ Runnable scripts live in [`examples/`](examples/):
   validating a `__get`-based value object.
 
 Serializing and rendering are not part of this package, so their examples live
-with the package that owns them: [`meraki/schema-json/examples`](../schema-json/examples)
-and [`meraki/schema-html/examples`](../schema-html/examples).
+with the package that owns them: [`meraki/schema-json/examples`](https://github.com/merakiframework/schema-json/tree/main/examples)
+and [`meraki/schema-html/examples`](https://github.com/merakiframework/schema-html/tree/main/examples).
 
 ## Testing
 
