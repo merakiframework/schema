@@ -44,7 +44,7 @@ Essentially today's API, with the defects gone. No architectural change.
 
 | Stage | Gate |
 | --- | --- |
-| `1.14.0-beta.1` | B2 and B3 fixed (B1, B4, B5, B6 and B8 already done in `1.13.2-alpha`). Dead code deleted. CI on PHP 8.4 and 8.5. PHPStan raised from its level-1 floor to at least level 5, green. `composer audit` clean. |
+| `1.14.0-beta.1` | B3 fixed (B1, B2, B4, B5, B6 and B8 already done). Requires PHP 8.5. Dead code deleted. CI on PHP 8.4 and 8.5. PHPStan raised from its level-1 floor to at least level 5, green. `composer audit` clean. |
 | `1.14.0-rc.1` | Docs accurate. Changelog complete. Both sibling packages green against it. |
 | `1.14.0` | **First stable release.** The semantic-versioning commitment starts here. |
 

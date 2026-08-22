@@ -8,7 +8,7 @@ The library is **pre-release**. See [ROADMAP.md](ROADMAP.md) for the release lad
 [the release verdict](ROADMAP.md#release-verdict) for why.
 
 - [Known defects](#known-defects) — things that are broken, with the release that fixes them
-  ([B2](#known-defects) and [B3](#known-defects) field defects, [B7](#b7) concurrency; B1, B4, B5, B6 and B8 are fixed)
+  ([B3](#known-defects) the last field defect, [B7](#b7) concurrency; B1, B2, B4, B5, B6 and B8 are fixed)
 - [Design constraints](#design-constraints) — intentional behaviour that will surprise you
 - [Not yet implemented](#not-yet-implemented) — advertised but inert
 - [Rough edges](#rough-edges) — smaller API warts
@@ -16,26 +16,6 @@ The library is **pre-release**. See [ROADMAP.md](ROADMAP.md) for the release lad
 ---
 
 ## Known defects
-
-### B2 — `Uri` validates nothing
-
-**Fixed in:** `1.14.0`
-
-Every group in the URI pattern is optional, so it collapses to `is_string()`. There is
-also no scheme allowlist, which makes a URI field an XSS or open-redirect foot-gun for
-anything that renders the value back.
-
-```php
-$schema = new Meraki\Schema\Facade('link');
-$schema->addUriField('url');
-
-$schema->validate(['url' => 'not a url at all !!'])->anyFailed();                 // false
-$schema->validate(['url' => 'javascript:alert(document.cookie)'])->anyFailed();   // false
-$schema->validate(['url' => 'data:text/html;base64,PHNjcmlwdD4='])->anyFailed();  // false
-```
-
-**Work around it** with a `Text` field and your own pattern, plus `filter_var($v,
-FILTER_VALIDATE_URL)` and an explicit scheme check before you render or follow the value.
 
 ### B3 — `CreditCard` has no Luhn check
 
@@ -221,6 +201,24 @@ Fixed in `2.0.0`, where a structured value carries its own shape rather than bei
 
 ## Recently fixed
 
+### B2 — `Uri` validated nothing
+
+**Fixed in `1.14.0`.** Every group in the field's pattern was optional, so it collapsed to
+`is_string()` and `'not a url at all !!'` passed.
+
+It now parses with PHP's own `Uri\Rfc3986\Uri` rather than a pattern of this library's
+making — the grammar is a matter of public record, which is exactly the case for taking it
+from the platform. Absolute and relative references, URLs and URNs all parse; malformed
+input does not.
+
+`allowSchemes()` is new. Without it any scheme is accepted, because a URI field is not
+always a web link and `urn:`, `mailto:` and `tel:` are legitimate. Anything rendered back
+into a page or followed as a redirect should declare one:
+
+```php
+$schema->addUriField('website')->allowSchemes('http', 'https');
+// javascript: and data: now fail
+```
 ### B1 — malformed input on a composite field threw instead of failing
 
 **Fixed in `1.13.2-alpha`.** `Money`, `Address`, `CreditCard` and `Collection` raised an

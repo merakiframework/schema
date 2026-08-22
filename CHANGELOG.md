@@ -16,6 +16,8 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- **BREAKING —** requires PHP 8.5, for `Uri\Rfc3986\Uri`.
+
 - **BREAKING —** field and schema names are validated. A name must start with a letter
   or underscore and contain only letters, digits, underscores and hyphens; `.` is allowed
   only where a composite joins its sub-field names, and a top-level field carrying one is
@@ -24,6 +26,11 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   silently discarding the definition (**B6**).
 
 ### Fixed
+
+- **B2** — `Uri` accepted any string: every group in its pattern was optional, so it
+  collapsed to `is_string()`. It now parses with PHP's own `Uri\Rfc3986\Uri`. Adds
+  `allowSchemes()`, which a caller should declare for anything rendered back into a page
+  or followed as a redirect.
 
 - **B1** — `Money`, `Address`, `CreditCard` and `Collection` raised an uncaught
   exception when handed a value that was not a set of sub-field values, turning a crafted

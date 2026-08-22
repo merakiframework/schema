@@ -52,7 +52,7 @@ mature than any of them. [docs/COMPARISON.md](docs/COMPARISON.md) works through
 
 ## Requirements
 
-- PHP 8.4+
+- PHP 8.5+
 
 ## Installation
 

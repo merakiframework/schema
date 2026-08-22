@@ -26,7 +26,7 @@
         "source": "https://github.com/merakiframework/schema"
     },
     "require": {
-        "php": "^8.4",
+        "php": "^8.5",
         "brick/date-time": "^0.7.0",
         "brick/math": "^0.12.1",
         "commerceguys/addressing": "^2.0",

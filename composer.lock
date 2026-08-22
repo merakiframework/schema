@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "d1451fe4c1bc84a6a79a49b740a743e1",
+    "content-hash": "04b956db4cd0754364dfea2789d083a0",
     "packages": [
         {
             "name": "brick/date-time",
@@ -2422,7 +2422,7 @@
     "prefer-stable": false,
     "prefer-lowest": false,
     "platform": {
-        "php": "^8.4"
+        "php": "^8.5"
     },
     "platform-dev": {},
     "plugin-api-version": "2.6.0"
