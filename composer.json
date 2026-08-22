@@ -56,7 +56,10 @@
             "@putenv XDEBUG_MODE=coverage",
             "phpunit --coverage-text"
         ],
-        "analyse": "phpstan analyse --no-progress --memory-limit=1G",
+        "analyse": [
+            "phpstan analyse --no-progress --memory-limit=1G",
+            "phpstan analyse -c phpstan-tests.neon --no-progress --memory-limit=1G"
+        ],
         "ci": [
             "@composer validate --strict",
             "@composer audit",

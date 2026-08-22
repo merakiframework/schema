@@ -20,16 +20,12 @@ use InvalidArgumentException;
  */
 final class EmailAddress extends AtomicMultiValueField
 {
-	/** @readonly */
 	public int $min;
 
-	/** @readonly */
 	public int $max;
 
-	/** @readonly */
 	public array $allowedDomains;
 
-	/** @readonly */
 	public array $disallowedDomains;
 
 	public function __construct(

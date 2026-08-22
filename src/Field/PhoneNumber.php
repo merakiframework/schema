@@ -21,7 +21,7 @@ use InvalidArgumentException;
  * countries a number may belong to. An optional number-type restriction (mobile,
  * landline, or either) can be applied on top.
  *
- * @extends AtomicField<string|null, object>
+ * @extends AtomicField<string|null>
  */
 final class PhoneNumber extends AtomicField
 {

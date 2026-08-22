@@ -9,13 +9,12 @@ use Countable;
 
 /**
  * @template T of ValidationResult
- * @extends IteratorAggregate<int, T>
+ * @implements IteratorAggregate<int, T>
  */
 abstract class AggregatedValidationResult implements IteratorAggregate, Countable, ValidationResult
 {
 	/**
 	 * @var list<T> $results
-	 * @readonly
 	 */
 	public array $results;
 

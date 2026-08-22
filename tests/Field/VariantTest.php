@@ -169,17 +169,4 @@ final class VariantTest extends FieldTestCase
 		$this->assertEquals($value, $sut->passphrase->value->unwrap());
 		$this->assertEquals($value, $sut->password->value->unwrap());
 	}
-	/**
-	 * @param array<Serialized> $serializedChildren
-	 */
-	public function assertSerializedChildrenContainsFieldWithNameOf(string $fieldName, array $serializedChildren): void
-	{
-		foreach ($serializedChildren as $child) {
-			if ($child->name === $fieldName) {
-				return;
-			}
-		}
-
-		$this->fail("Serialized children does not contain a field with name '$fieldName'. Serialized children: " . json_encode($serializedChildren, JSON_PRETTY_PRINT));
-	}
 }

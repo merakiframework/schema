@@ -1,0 +1,11 @@
+# Tests are held one level below src. What blocks level 2 is twelve accesses to magic
+# __get properties — $composite->nickname, $variant->password — which PHPStan cannot type
+# and which are the point of the tests doing it.
+#
+# That magic goes away in 2.0 along with Composite, so annotating around it now would be
+# work thrown away. Revisit once the structured types own their own values.
+parameters:
+    level: 1
+    paths:
+        - tests
+    treatPhpDocTypesAsCertain: false

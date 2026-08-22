@@ -25,7 +25,7 @@ abstract class Field implements ScopeTarget
 	 * This is used to identify the field in the schema and
 	 * should be unique within a schema.
 	 *
-	 * @readonly External code should not modify this property
+	 * External code should not modify this property
 	 */
 	public Property\Name $name;
 
@@ -36,7 +36,7 @@ abstract class Field implements ScopeTarget
 	 * and should not be relied on for determining if input was given.
 	 * Use the `inputGiven` property to check if input was provided.
 	 *
-	 * @readonly External code should not modify this property
+	 * External code should not modify this property
 	 */
 	public Property\Value $value;
 
@@ -45,7 +45,7 @@ abstract class Field implements ScopeTarget
 	 *
 	 * This property is used when no input was given.
 	 *
-	 * @readonly External code should not modify this property
+	 * External code should not modify this property
 	 */
 	public Property\Value $defaultValue;
 
@@ -60,21 +60,21 @@ abstract class Field implements ScopeTarget
 	 * default value given, and no input value given yet, then this
 	 * property will contain the default value.
 	 *
-	 * @readonly External code should not modify this property
+	 * External code should not modify this property
 	 */
 	public Property\Value $resolvedValue;
 
 	/**
 	 * Indicates whether input has been given for this field.
 	 *
-	 * @readonly External code should not modify this property
+	 * External code should not modify this property
 	 */
 	public bool $inputGiven;
 
 	/**
 	 * Indicates whether this field requires input.
 	 *
-	 * @readonly External code should not modify this property
+	 * External code should not modify this property
 	 */
 	public bool $optional;
 

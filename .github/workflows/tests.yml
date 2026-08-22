@@ -65,8 +65,11 @@ jobs:
       - name: Install dependencies
         uses: ramsey/composer-install@v3
 
-      - name: Run PHPStan
+      - name: Run PHPStan (src)
         run: vendor/bin/phpstan analyse --no-progress --memory-limit=1G
+
+      - name: Run PHPStan (tests)
+        run: vendor/bin/phpstan analyse -c phpstan-tests.neon --no-progress --memory-limit=1G
 
   audit:
     name: Security advisories

@@ -16,7 +16,6 @@ final class Enum extends AtomicField
 	public function __construct(
 		Property\Name $name,
 		/**
-		 * @readonly
 		 * @param list<T> $oneOf
 		 */
 		public array $oneOf,

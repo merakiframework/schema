@@ -82,7 +82,7 @@ final class Facade implements ScopeTarget
 	/**
 	 * @template T of Field
 	 * @param T $field
-	 * @param Closure<T>|null $configurator
+	 * @param (Closure(T): void)|null $configurator
 	 * @return T|self
 	 */
 	public function addField(Field $field, ?Closure $configurator = null): self|Field

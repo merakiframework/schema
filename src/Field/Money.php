@@ -44,7 +44,7 @@ final class Money extends CompositeField
 	 */
 	public array $allowed = [];
 
-	/** @param non-empty-array<string, int> $allowedCurrencies */
+	/** @param array<string, int> $allowedCurrencies an empty list leaves the currency unrestricted */
 	public function __construct(
 		Property\Name $name,
 		array $allowedCurrencies = [],
