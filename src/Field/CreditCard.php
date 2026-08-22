@@ -73,6 +73,13 @@ final class CreditCard extends CompositeField
 	protected function process($value): Property\Value
 	{
 		$value = parent::process($value);
+
+		// Unusable input is passed through untouched, so there are no sub-field values to
+		// tidy up. validate() reports it as a shape failure on the composite.
+		if (!is_array($value->unwrap())) {
+			return $value;
+		}
+
 		$value = $this->addDayToExpiry($value);
 		$value = $this->removeWhitespaceFromNumber($value);
 

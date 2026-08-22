@@ -50,6 +50,12 @@ abstract class Composite extends Field implements IteratorAggregate, Countable
 		parent::prefill($value);
 		$value = $this->defaultValue->unwrap();
 
+		// Unusable input is kept as it came (see process()), so there is nothing to hand
+		// the sub-fields. validate() reports it against the composite.
+		if (!is_array($value)) {
+			return $this;
+		}
+
 		foreach ($this->fields as $field) {
 			$field->prefill($value[(string)$field->name]);
 		}
@@ -63,6 +69,12 @@ abstract class Composite extends Field implements IteratorAggregate, Countable
 		parent::input($value);
 		$value = $this->resolvedValue->unwrap();
 
+		// Unusable input is kept as it came (see process()), so there is nothing to hand
+		// the sub-fields. validate() reports it against the composite.
+		if (!is_array($value)) {
+			return $this;
+		}
+
 		foreach ($this->fields as $field) {
 			$field->input($value[(string)$field->name]);
 		}
@@ -72,8 +84,11 @@ abstract class Composite extends Field implements IteratorAggregate, Countable
 
 	protected function valueProvided(Property\Value $value): bool
 	{
+		// Input that could not be mapped onto the sub-fields is still input. Treating it
+		// as absent would fall back to the default and quietly validate something the
+		// caller never sent; it has to reach validate() to be reported.
 		if (!is_array($value->unwrap())) {
-			return false;
+			return $value->unwrap() !== null;
 		}
 
 		// For composite fields, we consider the value provided if at least one subfield has a value other than null.
@@ -95,9 +110,14 @@ abstract class Composite extends Field implements IteratorAggregate, Countable
 
 		$value = $this->resolvedValue;
 
-		// skip validation of all fields if the type validation fails
-		// or if the value is not provided and field is optional
-		if (($this->optional && !$this->valueProvided($value)) || !$this->validateValue($value->unwrap())) {
+		// Unusable input is a shape failure on the composite, reported before anything
+		// else: being optional excuses an absent value, never a malformed one.
+		if (!$this->validateValue($value->unwrap())) {
+			return $this->failShapeOfAllFields();
+		}
+
+		// An optional composite that was left empty is skipped, not failed.
+		if ($this->optional && !$this->valueProvided($value)) {
 			return $this->skipValidationOfAllFields();
 		}
 
@@ -219,6 +239,22 @@ abstract class Composite extends Field implements IteratorAggregate, Countable
 		return new CompositeValidationResult($this, ...$fieldResults);
 	}
 
+	/**
+	 * The value could not be mapped onto the sub-fields at all, so the failure belongs to
+	 * the composite. The sub-fields are skipped rather than failed: nothing reached them,
+	 * and reporting a fault against each one would bury the single real problem.
+	 */
+	private function failShapeOfAllFields(): CompositeValidationResult
+	{
+		$fieldResults = [new ValidationResult($this, ConstraintValidationResult::fail('type'))];
+
+		foreach ($this->fields as $field) {
+			$fieldResults[] = new ValidationResult($field, ConstraintValidationResult::skip('type'));
+		}
+
+		return new CompositeValidationResult($this, ...$fieldResults);
+	}
+
 	public function getIterator(): \Traversable
 	{
 		return $this->fields->getIterator();
@@ -250,7 +286,9 @@ abstract class Composite extends Field implements IteratorAggregate, Countable
 
 	public function validateValue(mixed $value): bool
 	{
-		return true;
+		// process() maps a usable value onto the sub-fields and leaves anything else
+		// untouched, so a non-array here is input that was never a set of sub-field values.
+		return is_array($value);
 	}
 
 	private static function camelCaseToSnakeCase(string $input): string
@@ -271,8 +309,12 @@ abstract class Composite extends Field implements IteratorAggregate, Countable
 			$value = get_object_vars($value);
 		}
 
+		// Input that is not a set of sub-field values cannot be mapped onto them. Keep it
+		// as it came rather than raising: form input is attacker-controlled, so this has
+		// to surface as a validation failure and not as a fatal. validateValue() rejects
+		// anything that is not an array, and validate() reports it against the composite.
 		if (!is_array($value)) {
-			throw new InvalidArgumentException('Input value must be an array, an object, or null.');
+			return new Property\Value($value);
 		}
 
 		// Map the incoming value onto the subfields, keyed by each subfield's

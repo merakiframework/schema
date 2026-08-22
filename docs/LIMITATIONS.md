@@ -8,7 +8,7 @@ The library is **pre-release**. See [ROADMAP.md](ROADMAP.md) for the release lad
 [the release verdict](ROADMAP.md#release-verdict) for why.
 
 - [Known defects](#known-defects) — things that are broken, with the release that fixes them
-  (B1, B2 and B3 field defects, [B7](#b7) concurrency; B4, B5, B6 and B8 are fixed)
+  ([B2](#known-defects) and [B3](#known-defects) field defects, [B7](#b7) concurrency; B1, B4, B5, B6 and B8 are fixed)
 - [Design constraints](#design-constraints) — intentional behaviour that will surprise you
 - [Not yet implemented](#not-yet-implemented) — advertised but inert
 - [Rough edges](#rough-edges) — smaller API warts
@@ -16,30 +16,6 @@ The library is **pre-release**. See [ROADMAP.md](ROADMAP.md) for the release lad
 ---
 
 ## Known defects
-
-### B1 — Malformed input on a composite field throws instead of failing
-
-**Affects:** `Money`, `Address`, `CreditCard`, `Collection`. **Fixed in:** `1.14.0-beta.1`
-
-A validation library must never fatal on user input, but a composite field whose value is
-not an array, object or `null` raises an uncaught exception. Since form input is
-attacker-controlled, any form using one of these field types is one crafted request away
-from a 500.
-
-```php
-$schema = new Meraki\Schema\Facade('checkout');
-$schema->addMoneyField('price', ['AUD' => 2]);
-
-$schema->validate(['price' => 'not-an-array']);
-// InvalidArgumentException: Input value must be an array, an object, or null.
-```
-
-**Work around it** by coercing composite values to arrays before validating:
-
-```php
-$price = $request['price'] ?? null;
-$request['price'] = is_array($price) || is_object($price) ? $price : null;
-```
 
 ### B2 — `Uri` validates nothing
 
@@ -245,6 +221,20 @@ Fixed in `1.14.0-beta.3`, where results gain indexed paths (`items[1].qty.min`).
 
 ## Recently fixed
 
+### B1 — malformed input on a composite field threw instead of failing
+
+**Fixed in `1.13.2-alpha`.** `Money`, `Address`, `CreditCard` and `Collection` raised an
+uncaught exception when handed a value that was not a set of sub-field values, so a
+crafted request became a 500 rather than a validation error.
+
+Unusable input is now kept as it came instead of being rejected during processing, the
+shape check refuses anything that is not an array, and the failure is reported as `type`
+against the composite itself while its sub-fields are skipped — nothing reached them, so
+faulting each one would bury the single real problem.
+
+Being optional no longer excuses it either: an absent value is skipped, a malformed one
+fails. Previously such input was treated as absent, which quietly fell back to the default
+and validated something the caller never sent.
 ### B5 — field names were not validated
 
 **Fixed in `1.13.2-alpha`.** Empty names, and names containing the scope separators `/`

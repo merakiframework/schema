@@ -23,6 +23,14 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - **BREAKING —** adding a second field under an existing name now throws instead of
   silently discarding the definition (**B6**).
 
+### Fixed
+
+- **B1** — `Money`, `Address`, `CreditCard` and `Collection` raised an uncaught
+  exception when handed a value that was not a set of sub-field values, turning a crafted
+  request into a 500. It is now reported as a `type` failure against the composite, with
+  its sub-fields skipped. Being optional no longer excuses malformed input: an absent
+  value is skipped, a bad one fails.
+
 ### Security
 
 - **B8** — a scope path stepping into `Field::$schema` recursed `Field` → `Facade` →

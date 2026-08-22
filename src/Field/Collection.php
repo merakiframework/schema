@@ -43,7 +43,13 @@ final class Collection extends Composite
 	{
 		$items = $value->unwrap();
 
-		return is_array($items) && $items !== [];
+		// Input that was never a list is still input. Treating it as absent would fall
+		// back to the default and quietly validate an empty list instead of reporting it.
+		if (!is_array($items)) {
+			return $items !== null;
+		}
+
+		return $items !== [];
 	}
 
 	/**
@@ -75,7 +81,18 @@ final class Collection extends Composite
 	public function validate(): CompositeValidationResult
 	{
 		$items = $this->resolvedValue->unwrap();
-		$items = is_array($items) ? $items : [];
+
+		// Input that was never a list fails the shape check, and the count constraints
+		// have nothing to count, so they are skipped rather than failed.
+		if (!$this->validateValue($items)) {
+			$own = [ConstraintValidationResult::fail('type')];
+
+			foreach (array_keys($this->getConstraints()) as $name) {
+				$own[] = ConstraintValidationResult::skip($name);
+			}
+
+			return new CompositeValidationResult($this, new ValidationResult($this, ...$own));
+		}
 
 		// The collection's own result: type + the min/max-count constraints.
 		$own = [ConstraintValidationResult::pass('type')];
@@ -169,8 +186,11 @@ final class Collection extends Composite
 			$value = get_object_vars($value);
 		}
 
+		// Input that is not a list cannot be split into items. Keep it as it came rather
+		// than raising: form input is attacker-controlled, so this has to surface as a
+		// validation failure and not as a fatal. validate() reports it against the field.
 		if (!is_array($value)) {
-			throw new InvalidArgumentException('Collection value must be a list of items, an object, or null.');
+			return new Property\Value($value);
 		}
 
 		$items = [];
@@ -180,7 +200,10 @@ final class Collection extends Composite
 				$rawItem = get_object_vars($rawItem);
 			}
 
+			// An item that is not a set of field values is kept as it came, for the same
+			// reason. Dropping it here would silently shorten the list instead.
 			if (!is_array($rawItem)) {
+				$items[] = $rawItem;
 				continue;
 			}
 

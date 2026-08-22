@@ -287,6 +287,13 @@ final class Address extends CompositeField
 	protected function process($value): Property\Value
 	{
 		$value = parent::process($value)->unwrap();
+
+		// Unusable input is passed through untouched, so there is no country to settle.
+		// validate() reports it as a shape failure on the composite.
+		if (!is_array($value)) {
+			return new Property\Value($value);
+		}
+
 		$key = (string) (new Property\Name('country_code'))->prefixWith($this->name);
 		$country = $value[$key] ?? null;
 
