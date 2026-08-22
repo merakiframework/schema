@@ -306,6 +306,90 @@ abstract class Field implements ScopeTarget
 	}
 
 	/**
+	 * Resolves a submitted value against this field, without checking it.
+	 *
+	 * This is the seam: the one place a value meets a field. Nothing is written back, so
+	 * the field is unchanged and safe to share — resolving the same field concurrently
+	 * with different values cannot interfere.
+	 *
+	 * The result is {@see ValidationStatus::Pending}: a form is rendered before it is
+	 * submitted, and that state needs a name.
+	 *
+	 * @param AcceptedType|null $given exactly what was submitted, or null if nothing was
+	 * @param list<Rule\AppliedOutcome> $appliedOutcomes rules that altered this field
+	 */
+	public function resolveWith(mixed $given, array $appliedOutcomes = []): ResolvedField
+	{
+		$submitted = $this->process($given);
+		$value = $this->valueProvided($submitted) ? $submitted : $this->defaultValue;
+
+		return new ResolvedField($this, $given, $value->unwrap(), $appliedOutcomes);
+	}
+
+	/**
+	 * Resolves a submitted value and checks it against this field's constraints.
+	 *
+	 * @param AcceptedType|null $given
+	 * @param list<Rule\AppliedOutcome> $appliedOutcomes
+	 */
+	public function validateWith(mixed $given, array $appliedOutcomes = []): ResolvedField
+	{
+		$resolved = $this->resolveWith($given, $appliedOutcomes);
+
+		return $resolved->withResults(...$this->check(new Property\Value($resolved->value)));
+	}
+
+	/**
+	 * Evaluates this field's shape and constraints against an already-resolved value.
+	 *
+	 * Shape first: if there is no usable value, the constraints have nothing to speak to
+	 * and are skipped rather than failed, so an error report names the real problem once
+	 * instead of once per constraint.
+	 *
+	 * @return list<ConstraintValidationResult>
+	 */
+	protected function check(Property\Value $value): array
+	{
+		$notProvided = !$this->valueProvided($value);
+
+		if ($notProvided) {
+			// Absent input is only acceptable when the field says so.
+			$shape = $this->optional
+				? ConstraintValidationResult::skip('type')
+				: ConstraintValidationResult::fail('type');
+
+			return [$shape, ...$this->skipEveryConstraint()];
+		}
+
+		if (!$this->validateValue($value->unwrap())) {
+			return [ConstraintValidationResult::fail('type'), ...$this->skipEveryConstraint()];
+		}
+
+		$results = [ConstraintValidationResult::pass('type')];
+
+		foreach ($this->evaluateConstraints($value) as $name => $passed) {
+			$results[] = match ($passed) {
+				true => ConstraintValidationResult::pass($name),
+				false => ConstraintValidationResult::fail($name),
+				default => ConstraintValidationResult::skip($name),
+			};
+		}
+
+		return $results;
+	}
+
+	/**
+	 * @return list<ConstraintValidationResult>
+	 */
+	private function skipEveryConstraint(): array
+	{
+		return array_map(
+			static fn(string $name): ConstraintValidationResult => ConstraintValidationResult::skip($name),
+			array_keys($this->getConstraints()),
+		);
+	}
+
+	/**
 	 * Validates the field against its type and constraints.
 	 *
 	 * This method checks if the value provided matches the expected type
@@ -313,6 +397,8 @@ abstract class Field implements ScopeTarget
 	 * optional and no value is provided, it skips all constraints. The
 	 * value validated is always the resolved value.
 	 *
+	 * @deprecated Superseded by {@see self::validateWith()}, which stores nothing on the
+	 *             field. Removed once every caller has moved.
 	 * @return AggregatedValidationResult The result of the validation.
 	 */
 	public function validate(): AggregatedValidationResult
@@ -398,6 +484,23 @@ abstract class Field implements ScopeTarget
 	protected function process($value): Property\Value
 	{
 		return new Property\Value($value);
+	}
+
+	/**
+	 * The value in whatever type this field is really about — a `BigDecimal` for money, a
+	 * `LocalDate` for a date, a parsed phone number. Read through
+	 * {@see ResolvedField::$transformed}, and only ever called with a value that already
+	 * passed validation.
+	 *
+	 * The default is the identity: a field that has no richer type to offer says so by not
+	 * overriding this. Types are filled in per field from 2.1 onwards; the parsing already
+	 * happens inside the constraints today and is simply discarded.
+	 *
+	 * @param AcceptedType $value
+	 */
+	public function transform(mixed $value): mixed
+	{
+		return $value;
 	}
 
 	/**
