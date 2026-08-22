@@ -38,7 +38,52 @@ final class CreditCard extends CompositeField
 
 	protected function getConstraints(): array
 	{
-		return [];
+		$number = (string) (new Property\Name('number'))->prefixWith($this->name);
+
+		return [
+			$number . '.checksum' => $this->validateChecksum(...),
+		];
+	}
+
+	/**
+	 * The Luhn check digit (ISO/IEC 7812-1). Every card number carries one, so a number
+	 * that fails it is not a card number — no processor will accept it, and catching that
+	 * here saves a round trip.
+	 *
+	 * Returns null when the number is not yet in a state the checksum can speak to; the
+	 * digit and length rules on the sub-field report that instead.
+	 *
+	 * @param array<string, mixed> $value
+	 */
+	private function validateChecksum(array $value): ?bool
+	{
+		$number = $value[(string) (new Property\Name('number'))->prefixWith($this->name)] ?? null;
+
+		if (!is_string($number) || preg_match('/^\d{13,19}$/', $number) !== 1) {
+			return null;
+		}
+
+		$sum = 0;
+		$double = false;
+
+		// Right to left: double every second digit, and cast a resulting 10-18 back down
+		// by subtracting 9 (equivalent to summing its two digits).
+		for ($i = strlen($number) - 1; $i >= 0; $i--) {
+			$digit = (int) $number[$i];
+
+			if ($double) {
+				$digit *= 2;
+
+				if ($digit > 9) {
+					$digit -= 9;
+				}
+			}
+
+			$sum += $digit;
+			$double = !$double;
+		}
+
+		return $sum % 10 === 0;
 	}
 
 	private function createHolderField(): Field\Name

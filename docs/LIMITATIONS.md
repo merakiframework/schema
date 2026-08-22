@@ -7,8 +7,7 @@ a reproducer you can paste into a script and run.
 The library is **pre-release**. See [ROADMAP.md](ROADMAP.md) for the release ladder and
 [the release verdict](ROADMAP.md#release-verdict) for why.
 
-- [Known defects](#known-defects) — things that are broken, with the release that fixes them
-  ([B3](#known-defects) the last field defect, [B7](#b7) concurrency; B1, B2, B4, B5, B6 and B8 are fixed)
+- [Known defects](#known-defects) — [B7](#b7) only; every field defect is fixed
 - [Design constraints](#design-constraints) — intentional behaviour that will surprise you
 - [Not yet implemented](#not-yet-implemented) — advertised but inert
 - [Rough edges](#rough-edges) — smaller API warts
@@ -16,28 +15,6 @@ The library is **pre-release**. See [ROADMAP.md](ROADMAP.md) for the release lad
 ---
 
 ## Known defects
-
-### B3 — `CreditCard` has no Luhn check
-
-**Fixed in:** `1.14.0`
-
-The field validates the shape of its parts but never the checksum, so it accepts numbers
-that no payment processor will.
-
-```php
-$schema = new Meraki\Schema\Facade('payment');
-$schema->addCreditCardField('card');
-
-$schema->validate(['card' => [
-    'holder' => 'Jane Doe',
-    'number' => '4111111111111112',   // invalid Luhn checksum
-    'expiry' => '2030-01',
-    'security_code' => '123',
-]])->anyFailed();   // false
-```
-
-**Work around it** by running your own Luhn check on the number before trusting the
-result.
 
 <a id="b7"></a>
 
@@ -201,6 +178,20 @@ Fixed in `2.0.0`, where a structured value carries its own shape rather than bei
 
 ## Recently fixed
 
+### B3 — `CreditCard` had no Luhn check
+
+**Fixed in `1.14.0`.** The field checked that a number was 13–19 digits but never its
+check digit, so `4111111111111112` passed. Every card number carries a Luhn check digit
+(ISO/IEC 7812-1), so one that fails it is not a card number and no processor will take it.
+
+Reported as `<name>.number.checksum`, and skipped rather than failed when the number is
+not yet in a state the checksum can speak to — the digit and length rules report that
+instead.
+
+Worth knowing if you had tests of your own: every card number in this package's own
+fixtures failed the check. They were generated numbers that had never been valid, and the
+suite asserted they were. They have been repaired by recomputing the final digit, which
+keeps each brand's prefix and length intact.
 ### B2 — `Uri` validated nothing
 
 **Fixed in `1.14.0`.** Every group in the field's pattern was optional, so it collapsed to

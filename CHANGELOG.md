@@ -27,6 +27,10 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **B3** — `CreditCard` verified a number's shape but never its Luhn check digit, so
+  `4111111111111112` passed. Reported as `<name>.number.checksum`. Note that every card
+  number in this package's own fixtures failed the check and has been repaired.
+
 - **B2** — `Uri` accepted any string: every group in its pattern was optional, so it
   collapsed to `is_string()`. It now parses with PHP's own `Uri\Rfc3986\Uri`. Adds
   `allowSchemes()`, which a caller should declare for anything rendered back into a page

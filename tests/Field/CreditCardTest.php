@@ -78,18 +78,18 @@ final class CreditCardTest extends CompositeTestCase
 	{
 		// https://www.creditscardgenerator.com/
 		return [
-			'visa (13 digits)' => ['Matthew James', '4267 7724 0310 5', '2026-04', '242'],
-			'visa (16 digits)' => ['Kenneth Miller MD', '4014 1828 2909 8805', '2027-10', '936'],
-			'visa (19 digits)' => ['Ryan Hall', '4958 5581 8834 3371 581', '2027-12', '449'],
-			'mastercard' => ['Brandon Ramirez', '2720 0792 6056 8243', '2026-12', '594'],
-			'amex' => ['Elizabeth Cooper', '3407 769523 04418', '2029-04', '9635'],
-			'discover (16 digits)' => ['Mark Lopez', '6466 5921 0488 9007', '2027-02', '960'],
-			'discover (19 digits)' => ['Skylar Reed', '6469 8745 3650 4031 159', '2028-03', '289'],
-			'diners club (14 digits)' => ['William Morgan', '3038 4195 6843 35', '2028-09', '038'],
-			'diners club (16 digits)' => ['Audrey Price III', '3882 2342 3459 5627', '2028-08', '803'],
-			'diners club (19 digits)' => ['William Murphy Jr.', '3049 1782 8122 4673 771', '2030-05', '067'],
-			'jcb (16 digits)' => ['Mark Williams PhD', '3529 7754 7388 9646', '2027-07', '446'],
-			'jcb (19 digits)' => ['Victoria Smith', '3579 7188 3488 3186 615', '2026-10', '198'],
+			'visa (13 digits)' => ['Matthew James', '4267 7724 0310 2', '2026-04', '242'],
+			'visa (16 digits)' => ['Kenneth Miller MD', '4014 1828 2909 8807', '2027-10', '936'],
+			'visa (19 digits)' => ['Ryan Hall', '4958 5581 8834 3371 583', '2027-12', '449'],
+			'mastercard' => ['Brandon Ramirez', '2720 0792 6056 8240', '2026-12', '594'],
+			'amex' => ['Elizabeth Cooper', '3407 769523 04412', '2029-04', '9635'],
+			'discover (16 digits)' => ['Mark Lopez', '6466 5921 0488 9001', '2027-02', '960'],
+			'discover (19 digits)' => ['Skylar Reed', '6469 8745 3650 4031 151', '2028-03', '289'],
+			'diners club (14 digits)' => ['William Morgan', '3038 4195 6843 39', '2028-09', '038'],
+			'diners club (16 digits)' => ['Audrey Price III', '3882 2342 3459 5629', '2028-08', '803'],
+			'diners club (19 digits)' => ['William Murphy Jr.', '3049 1782 8122 4673 778', '2030-05', '067'],
+			'jcb (16 digits)' => ['Mark Williams PhD', '3529 7754 7388 9643', '2027-07', '446'],
+			'jcb (19 digits)' => ['Victoria Smith', '3579 7188 3488 3186 616', '2026-10', '198'],
 		];
 	}
 
@@ -98,7 +98,7 @@ final class CreditCardTest extends CompositeTestCase
 	{
 		$field = $this->createSubject()->input([
 			'holder' =>'',
-			'number' =>'4014 1828 2909 8805',
+			'number' =>'4014 1828 2909 8807',
 			'expiry' =>'2027-10',
 			'security_code' =>'936',
 		]);
@@ -143,7 +143,7 @@ final class CreditCardTest extends CompositeTestCase
 	{
 		$field = $this->createSubject()->input([
 			'holder' =>'Kenneth Miller MD',
-			'number' =>'4958 5581 8834 3371 5812',
+			'number' =>'4958 5581 8834 3371 5819',
 			'expiry' =>'2027-10',
 			'security_code' =>'936',
 		]);
@@ -158,7 +158,7 @@ final class CreditCardTest extends CompositeTestCase
 	{
 		$field = $this->createSubject()->input([
 			'holder' =>'Kenneth Miller MD',
-			'number' =>'4014 1828 2909 8805',
+			'number' =>'4014 1828 2909 8807',
 			'expiry' =>'2027-10',
 			'security_code' =>'',
 		]);
@@ -173,7 +173,7 @@ final class CreditCardTest extends CompositeTestCase
 	{
 		$field = $this->createSubject()->input([
 			'holder' =>'Kenneth Miller MD',
-			'number' =>'4014 1828 2909 8805',
+			'number' =>'4014 1828 2909 8807',
 			'expiry' =>'2027-10',
 			'security_code' =>'93',
 		]);
@@ -188,7 +188,7 @@ final class CreditCardTest extends CompositeTestCase
 	{
 		$field = $this->createSubject()->input([
 			'holder' =>'Kenneth Miller MD',
-			'number' =>'4014 1828 2909 8805',
+			'number' =>'4014 1828 2909 8807',
 			'expiry' =>'2027-10',
 			'security_code' =>'93675',
 		]);
@@ -233,7 +233,7 @@ final class CreditCardTest extends CompositeTestCase
 	{
 		$field = $this->createSubject()->input([
 			'holder' =>'Kenneth Miller MD',
-			'number' =>'4014 1828 2909 8805',
+			'number' =>'4014 1828 2909 8807',
 			'expiry' =>'',
 			'security_code' =>'936',
 		]);
@@ -248,7 +248,7 @@ final class CreditCardTest extends CompositeTestCase
 	{
 		$field = $this->createSubject()->input([
 			'holder' =>'Kenneth Miller MD',
-			'number' =>'4014 1828 2909 8805',
+			'number' =>'4014 1828 2909 8807',
 			'expiry' =>'2020-01',
 			'security_code' =>'936',
 		]);
@@ -263,7 +263,7 @@ final class CreditCardTest extends CompositeTestCase
 	{
 		$field = $this->createSubject()->input([
 			'holder' =>'Kenneth Miller MD',
-			'number' =>'4014 1828 2909 8805',
+			'number' =>'4014 1828 2909 8807',
 			'expiry' =>'2029-07',
 			'security_code' =>'936',
 		]);
