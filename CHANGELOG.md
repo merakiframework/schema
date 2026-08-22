@@ -27,6 +27,10 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- Restored `Field\Placeholder`, removed in error with the dead validator subsystem. It is
+  unreachable from this package but `meraki/schema-json` serializes it. It is a
+  presentation concern and goes in `2.0.0` with the rest of the HTML-form legacy.
+
 - **B3** — `CreditCard` verified a number's shape but never its Luhn check digit, so
   `4111111111111112` passed. Reported as `<name>.number.checksum`. Note that every card
   number in this package's own fixtures failed the check and has been repaired.

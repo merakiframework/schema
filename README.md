@@ -1,21 +1,21 @@
 # meraki/schema
 
-<!-- Uncomment once CI lands (see docs/ROADMAP.md).
 [![Tests](https://github.com/merakiframework/schema/actions/workflows/tests.yml/badge.svg)](https://github.com/merakiframework/schema/actions/workflows/tests.yml)
 [![Packagist](https://img.shields.io/packagist/v/meraki/schema)](https://packagist.org/packages/meraki/schema)
 [![License](https://img.shields.io/packagist/l/meraki/schema)](LICENSE)
--->
 
-> ### ⚠️ Pre-release
+> ### Stable, with one documented limitation
 >
-> This package is tagged **alpha** and the public API is not yet stable. It is usable —
-> 957 tests, and the standards-backed field types are solid — but there are known defects
-> serious enough to block a stable release, including uncaught exceptions on malformed
-> input to composite fields and a data leak when one schema is shared across concurrent
-> requests.
+> `1.14.0` is the first stable release: every field defect found in the audit is fixed and
+> the public API is committed to semantic versioning.
 >
-> **Read [docs/LIMITATIONS.md](docs/LIMITATIONS.md) before adopting.** The path to the
-> first stable release (`1.14.0`) is in [docs/ROADMAP.md](docs/ROADMAP.md).
+> **One limitation to know about.** A schema instance holds per-request state, so one
+> shared across *concurrent* requests leaks data between them. Serial reuse is safe, and
+> building a schema per request costs about 0.25 ms. The structural fix lands in `2.0.0`.
+> See [long-lived processes](#long-lived-processes) and
+> [docs/LIMITATIONS.md](docs/LIMITATIONS.md#b7).
+>
+> `2.0.0` reworks the field model — see [docs/ROADMAP.md](docs/ROADMAP.md).
 
 A flexible, UI-agnostic library for **defining and validating** form schemas in PHP.
 
@@ -129,7 +129,7 @@ $fieldResult->status === ValidationStatus::Passed;
 and the result tree is yours to keep. It does, however, write the submitted input onto
 the fields, so **a schema instance is per-request state, not a shared singleton** — see
 [Long-lived processes](#long-lived-processes). Making validation genuinely pure is a
-`1.14.0-beta.2` goal; see the
+`2.0.0` goal; see the
 [roadmap](docs/ROADMAP.md#architecture-immutable-definition--resolvedfield).
 
 Each field is validated in two phases: first its **value/shape** (reported under
@@ -245,9 +245,9 @@ it for you.
 | `addMoneyField` | `Money` | `allow`, `minOf`, `maxOf`, `inIncrementsOf` |
 | `addEmailAddressField` | `EmailAddress` | `minLengthOf`, `maxLengthOf`, `allowDomain`, `disallowDomain` |
 | `addPhoneNumberField` | `PhoneNumber` | `allow` (countries), `ofType` |
-| `addUriField` | `Uri` | `minLengthOf`, `maxLengthOf` |
+| `addUriField` | `Uri` | `minLengthOf`, `maxLengthOf`, `allowSchemes` |
 | `addUuidField` | `Uuid` | `restrictToVersion` |
-| `addCreditCardField` | `CreditCard` | — |
+| `addCreditCardField` | `CreditCard` | Luhn check digit, verified automatically |
 | `addPasswordField` | `Password` | length + `minNumberOf*`/`maxNumberOf*` (lowercase, uppercase, digits, symbols), `satisfyAnyOf` |
 | `addPassphraseField` | `Passphrase` | — |
 | `addFileField` | `File` | `atLeast`, `atMost`, `minFileSizeOf`, `maxFileSizeOf`, `allowTypes`, `disallowTypes`, `allowImages`, `allowVideos`, `allowDocuments`, `disallowScripts` |
@@ -338,6 +338,23 @@ $schema->addVariantField('secret', [
 ]);
 ```
 
+### URIs and schemes
+
+A `Uri` field parses with PHP's own RFC 3986 implementation, so absolute and relative
+references, URLs and URNs are all accepted and malformed input is not.
+
+Any scheme is allowed until you say otherwise — a URI is not always a web link, and
+`urn:`, `mailto:` and `tel:` are ordinary values. `allowSchemes()` restricts it, and
+behaves like every other allowlist in the library: empty means unrestricted, and naming
+one blocks everything else.
+
+```php
+$schema->addUriField('homepage')->allowSchemes('http', 'https');
+// javascript: and data: now fail
+```
+
+Declare one for anything you render back into a page or follow as a redirect. What counts
+as safe is the application's call, not the library's, which is why there is no default.
 ### Constraint names
 
 A failed constraint is reported by name (`$failure->name`), and message providers match
@@ -357,7 +374,7 @@ its value/shape check.
 | `Duration` | `type`, `min`, `max`, `step` |
 | `EmailAddress` | `type`, `min`, `max`, `allowedDomains`, `disallowedDomains` |
 | `PhoneNumber` | `type`, `allowedCountries`, `numberType` |
-| `Uri` | `type`, `min`, `max` |
+| `Uri` | `type`, `min`, `max`, `scheme` |
 | `Uuid` | `type`, `version` |
 | `Password` | `type`, `length`, `lowercase`, `uppercase`, `digits`, `symbols`, `anyOf` |
 | `Passphrase` | `type`, `entropy`, `dictionary` |
@@ -374,7 +391,7 @@ constraint names and the qualified ones the composite applies to them:
 | --- | --- |
 | `Money` (as `price`) | on `price.amount`: `price.amount.scale`, `price.amount.min`, `price.amount.max`, `price.amount.step`, plus `min`, `max`, `step`; on `price.currency`: `type` |
 | `Address` (as `addr`) | on each part: `addr.<part>.required`, plus `addr.postal_code.format`, `addr.line1.visitable`, `addr.administrative_area.allowed`, `addr.country_code.allowed` |
-| `CreditCard` (as `card`) | each sub-field reports its own — `card.number` gives `min`, `max`, `pattern`; `card.expiry` gives `from`, `until`, `interval` |
+| `CreditCard` (as `card`) | `card.number.checksum` for the Luhn digit; each sub-field also reports its own — `card.number` gives `min`, `max`, `pattern`; `card.expiry` gives `from`, `until`, `interval` |
 
 > `Enum` reports only `type`: an out-of-range value fails the shape check rather than a
 > separate constraint. `Boolean` and `CreditCard` have no constraints of their own.
@@ -418,7 +435,7 @@ $schema->validate($requestB);   // correct, order-independent
 // Field state is instance state, so one request can read another's data.
 ```
 
-Until `1.14.0-beta.2`, **build the schema per request**. It is cheap — a seven-field
+**Build the schema per request**, or reuse one instance serially. It is cheap — a seven-field
 checkout schema with two addresses, a phone number, money and a collection builds in
 about 0.25 ms, against 0.43 ms to validate it once, so rebuilding costs less than
 validating.
@@ -431,7 +448,7 @@ Two traps worth knowing:
 - **Register a factory, not an instance,** in your DI container. Registering a schema as
   a service shares one instance by default, which is exactly the unsafe case.
 
-From `1.14.0-beta.2` the definition becomes immutable and per-request state moves into a
+From `2.0.0` the definition becomes immutable and per-request state moves into a
 `ResolvedField` returned by `validate()`, making a shared instance safe by construction.
 Details in [docs/LIMITATIONS.md#b7](docs/LIMITATIONS.md#b7) and
 [docs/ROADMAP.md](docs/ROADMAP.md#architecture-immutable-definition--resolvedfield).
@@ -460,8 +477,7 @@ Details in [docs/LIMITATIONS.md#b7](docs/LIMITATIONS.md#b7) and
 - **Validation should be a pure query.** The intent is that validating returns a
   result and leaves the schema untouched, so no per-request state hangs off the
   definition. Today only half of that holds: no *result* is stored, but the submitted
-  input is written onto the fields. Closing the gap is the main work of the `1.14`
-  line — the definition becomes immutable and per-request state moves into a
+  input is written onto the fields. Closing the gap is the main work of `2.0.0` — the definition becomes immutable and per-request state moves into a
   `ResolvedField`. See [ROADMAP.md](docs/ROADMAP.md#architecture-immutable-definition--resolvedfield).
 - **The caller owns the roll-up.** Aggregate results expose granular predicates
   (`anyFailed()`, `allPassed()`, `anyPending()`, ...) rather than a single
@@ -489,19 +505,21 @@ Details in [docs/LIMITATIONS.md#b7](docs/LIMITATIONS.md#b7) and
 
 ## Status and limitations
 
-This package is **pre-release**. The architecture is settled and the standards-backed
-field types are well covered, but a short list of specific defects blocks a stable
-release — malformed input to a composite field raises an uncaught exception, `Uri`
-accepts anything, `CreditCard` performs no Luhn check, and a schema shared across
-concurrent requests leaks data between them.
+**`1.14.0` is stable.** Every field defect the audit found is fixed: composite fields
+report malformed input instead of raising, `Uri` validates against RFC 3986, `CreditCard`
+verifies its check digit, field names are validated and duplicates rejected.
+
+One limitation remains and is documented rather than fixed: a schema shared across
+concurrent requests leaks data between them, because the instance holds per-request
+state. Serial reuse is safe. The structural fix is the `2.0.0` redesign.
 
 - **[docs/LIMITATIONS.md](docs/LIMITATIONS.md)** — every known defect with a runnable
   reproducer, the intentional behaviour that will surprise you, and what to do about each
   in the meantime. Read this before adopting.
-- **[docs/ROADMAP.md](docs/ROADMAP.md)** — the release ladder to `1.14.0`, the first
-  stable release, and the architecture change that gets there.
+- **[docs/ROADMAP.md](docs/ROADMAP.md)** — what `2.0.0` changes and why, and the feature
+  releases after it.
 - **[docs/API-REVIEW.md](docs/API-REVIEW.md)** — the per-feature API confirmation
-  checklist that has to be complete before the `1.14.0` freeze.
+  checklist, to be settled before the `2.0.0` freeze.
 - **[docs/COMPARISON.md](docs/COMPARISON.md)** — how this compares with the alternatives,
   including when to pick one of them instead.
 - **[CHANGELOG.md](CHANGELOG.md)** — release history, including breaking changes. (The
