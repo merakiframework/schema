@@ -19,7 +19,7 @@ The library is **pre-release**. See [ROADMAP.md](ROADMAP.md) for the release lad
 
 ### B2 — `Uri` validates nothing
 
-**Fixed in:** `1.14.0-beta.1`
+**Fixed in:** `1.14.0`
 
 Every group in the URI pattern is optional, so it collapses to `is_string()`. There is
 also no scheme allowlist, which makes a URI field an XSS or open-redirect foot-gun for
@@ -39,7 +39,7 @@ FILTER_VALIDATE_URL)` and an explicit scheme check before you render or follow t
 
 ### B3 — `CreditCard` has no Luhn check
 
-**Fixed in:** `1.14.0-beta.1`
+**Fixed in:** `1.14.0`
 
 The field validates the shape of its parts but never the checksum, so it accepts numbers
 that no payment processor will.
@@ -63,7 +63,7 @@ result.
 
 ### B7 — Sharing one schema across concurrent requests leaks data between them
 
-**Fixed in:** `1.14.0-beta.2`
+**Fixed in:** `2.0.0` — see the note below
 
 The library is meant to be usable in long-lived workers (Swoole, RoadRunner, FrankenPHP),
 where a schema is built once at boot and reused. Today that is only half true.
@@ -138,7 +138,7 @@ instance.
 
 #### What changes
 
-From `1.14.0-beta.2` the definition becomes immutable and per-request state moves into a
+From `2.0.0` the definition becomes immutable and per-request state moves into a
 `ResolvedField` returned by `validate()`, which makes a shared instance safe by
 construction rather than by discipline. See
 [the architecture decision](ROADMAP.md#architecture-immutable-definition--resolvedfield).
@@ -171,7 +171,7 @@ is not a string will fail.
 The intended design is that validation is a pure query. Today it stores no *result* on
 the fields, but it does write the submitted input onto them, which is the root cause of
 [B7](#b7). Treat a `Facade` as per-request state, not a shared singleton, until
-`1.14.0-beta.2`.
+`2.0.0`.
 
 ### Rules are single-pass and order-dependent
 
@@ -215,7 +215,7 @@ $result = $schema->validate(['items' => [['qty' => 50], ['qty' => 1]]]);
 $result->anyFailed();   // true — but nothing says it was item 1
 ```
 
-Fixed in `1.14.0-beta.3`, where results gain indexed paths (`items[1].qty.min`).
+Fixed in `2.0.0`, where a structured value carries its own shape rather than being flattened into sub-field results.
 
 ---
 

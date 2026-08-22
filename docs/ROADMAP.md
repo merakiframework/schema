@@ -2,10 +2,10 @@
 
 No dates. The ordering is real; the timing is not promised.
 
-- [Release verdict](#release-verdict) — why this is still pre-release
-- [The release ladder](#the-release-ladder)
+- [Release verdict](#release-verdict) — 1.14.0 stable, then 2.0.0 for the redesign
+- [The releases](#the-release-ladder)
 - [Architecture: immutable definition + `ResolvedField`](#architecture-immutable-definition--resolvedfield)
-- [Rule authoring in 1.14](#rule-authoring)
+- [Rule authoring in 2.0](#rule-authoring)
 - [API review](API-REVIEW.md) — the per-feature confirmation checklist
 - [Planned features](#planned-features)
 
@@ -15,36 +15,73 @@ No dates. The ordering is real; the timing is not promised.
 
 ## Release verdict
 
-**Not ready for a stable release. Still pre-release — but no more alphas.**
+**`1.14.0` ships the defect fixes and is stable. The redesign lands separately, as
+`2.0.0`.**
 
-The architecture is sound: the domain model is good, the package separation holds, and
-the field types backed by curated standards data (`Money`, `Date`, `PhoneNumber`,
-`Address`, `Uuid`) are correct and well covered by 957 tests.
+The architecture is sound: the domain model is good, the package separation holds, and the
+field types backed by curated standards data (`Money`, `Date`, `PhoneNumber`, `Address`,
+`Uuid`) are correct and well covered by the suite. What blocked a stable release was a
+short list of specific defects, not anything structural — see
+[LIMITATIONS.md](LIMITATIONS.md).
 
-What blocks a `1.0`-style commitment is a short list of specific defects, not anything
-structural — see [LIMITATIONS.md](LIMITATIONS.md). Two of them would be enough on their
-own: composite fields throw an uncaught exception on hostile input (B1), and a schema
-shared across concurrent requests leaks data between them (B7) despite long-lived process
-support being a stated goal. Committing to semantic versioning with those in place would
-lock in an API that has to break to fix them.
+Those are nearly done, so stable is close. The redesign that follows — an immutable
+definition, per-request state in a `ResolvedField`, structured types that own their whole
+value — is a genuine improvement but a large one, and folding it into the same release
+would keep stable permanently out of reach. The library has been alpha for sixteen tags;
+that is long enough.
 
-None of it is a rewrite. It is a cleanup release.
+So the two are separated. `1.14.0` is the release that answers "can I use this?". `2.0.0`
+is the release that answers "is this the shape it should have been?" — and it gets to be
+right rather than rushed, because a supported stable release is standing while it happens.
 
 <a id="the-release-ladder"></a>
 
-## The release ladder
+## The releases
+
+### `1.14.0` — the defects, then stable
+
+Essentially today's API, with the defects gone. No architectural change.
 
 | Stage | Gate |
 | --- | --- |
-| `1.14.0-beta.1` | B2 and B3 fixed (B1, B4, B5, B6 and B8 already done in `1.13.2-alpha`). Dead code deleted. CI running the suite on PHP 8.4 and 8.5. PHPStan raised from its level-1 floor to at least level 5, green. `composer audit` clean. |
-| `1.14.0-beta.2` | The `ResolvedField` seam (below): per-request state moves off the fields, fixing B7 together with the purity and mutation defects. Scopes become typed and immutable. `meraki/schema-html` updated in step. |
-| `1.14.0-beta.3` | Definition sealed. Indexed paths for collection results. `transformed` populated per field type. [Matcher-based rule authoring](#rule-authoring). Docs accurate. |
-| `1.14.0-rc.1` | Public API frozen, **including constraint names** — every row in [API-REVIEW.md](API-REVIEW.md) confirmed. `type` no longer reported as a constraint. Changelog complete. Both sibling packages green against it. |
-| `1.14.0` | First stable release. The semantic-versioning commitment starts here. |
+| `1.14.0-beta.1` | B2 and B3 fixed (B1, B4, B5, B6 and B8 already done in `1.13.2-alpha`). Dead code deleted. CI on PHP 8.4 and 8.5. PHPStan raised from its level-1 floor to at least level 5, green. `composer audit` clean. |
+| `1.14.0-rc.1` | Docs accurate. Changelog complete. Both sibling packages green against it. |
+| `1.14.0` | **First stable release.** The semantic-versioning commitment starts here. |
 
-`beta.3` is separable — once the seam exists, sealing and indexed results are additive and
-could slip to `1.15.0` without blocking stability. The seam itself cannot slip; it is the
-fix for B7.
+**B7 is the exception, and it is deliberate.** Sharing one schema across concurrent
+requests leaks data between them, and the real fix is the `ResolvedField` seam, which
+belongs to `2.0.0`. `1.14.0` therefore ships with B7 documented rather than fixed: serial
+reuse is safe, concurrent reuse is not, and building the schema per request costs 0.25 ms.
+That is an honest limitation with a cheap workaround, not a reason to hold up every other
+fix behind a rewrite.
+
+### `2.0.0` — the redesign
+
+Breaking by construction, so a major version regardless.
+
+| Theme | What changes |
+| --- | --- |
+| **The seam** | Immutable definition; per-request state moves into [`ResolvedField`](#architecture-immutable-definition--resolvedfield). Fixes B7 along with the purity and mutation defects. `Field` sheds `input()`, `ignoreInput()`, `acceptInput()` and its value properties. |
+| **Real PHP types** | The core takes arrays, lists, objects and scalars; the UI layer converts. `EmailAddress` takes one address; `Field\AtomicMultiValue` and the comma-splitting in `EmailAddress::parseValue()` go — both are `<input type="email" multiple>` leaking into the domain. |
+| **Structured types** | `Composite` is removed. `Address`, `Money` and `CreditCard` become distinct types with their own public API, each taking an object shape and validating it. Dotted constraint names (`addr.postal_code.format`) go with it, so the replacements have to be chosen deliberately — downstream message providers match on them. `Variant` stays: it is a union type, not conditional logic. |
+| **Scopes** | Typed and immutable; resolution moves out of the field classes. `ScopeTarget`, `traverse()` and `Wizard\RuleScopes` all go. |
+| **Rules** | [Matcher vocabulary](#rule-authoring), `otherwise()`, rules built as values. Enough expressiveness that a type like `Address` no longer hand-rolls its per-country conditionals as constraint closures. |
+| **API surface** | `addXField()` becomes `createXField()` plus an explicit add; `pairWith()` and `Field::$schema` are removed; `type` stops being reported as a constraint; every row in [API-REVIEW.md](API-REVIEW.md) confirmed and the public API frozen. |
+
+### `2.1`, `2.2`, … — feature releases
+
+Additive, after the redesign has settled. Each is a minor version.
+
+| Feature | Notes |
+| --- | --- |
+| **Richer `Uri`** | Absolute and relative, URL and URN, RFC 3986 and WHATWG, and the plain shape check. Built on PHP's native `Uri\Rfc3986\Uri` and `Uri\WhatWg\Url` rather than a hand-rolled pattern — which is the "standards data over hand-typed tables" principle applied to the one field that most violates it. Requires PHP 8.5. |
+| **`Duration` on PHP's own class** | PHP 8.6 is expected to add a native duration type; adopt it in place of the current handling. Requires PHP 8.6. |
+| **Typed value extraction** | `transformed` populated per field type — `BigDecimal`, `LocalDate`, a parsed phone number, an address value object. |
+| **Cross-field constraints** | `confirm_password === password`, `end_date > start_date`. |
+| **The rest** | Custom constraints on built-in fields, validation groups, normalisation, external validation hooks, field metadata for the UI, JSON Schema interoperability, a dictionary/map field. |
+
+Because these gate on newer PHP versions, they are minors rather than patches: `2.0`
+keeps the `2.0` floor, and a release that needs 8.5 or 8.6 says so.
 
 ### Why `1.14` and not `1.0.0` or `0.14.0`
 
@@ -129,7 +166,7 @@ else — building schemas, reading constraint configuration, serializing — is 
 
 <a id="rule-authoring"></a>
 
-## Rule authoring in 1.14
+## Rule authoring in 2.0
 
 Rules keep their current semantics and their serialized form. What changes is how they
 are written, and where mistakes surface.
@@ -352,61 +389,15 @@ rather than three.---
 
 ## Planned features
 
-> **Not on this list: error messages and translations.** Those are a UI concern and are
+Everything planned is in [the release table above](#the-release-ladder): defects in
+`1.14.0`, the redesign in `2.0.0`, additive features from `2.1` onwards. This section
+records only what is deliberately *not* planned, and the one item that belongs to a
+sibling package.
+
+> **Not on the list: error messages and translations.** Those are a UI concern and are
 > deliberately outside the core — see
 > [Where error messages come from](../README.md#where-error-messages-come-from). The core
 > emits constraint names; presentation packages turn them into prose.
-
-### `1.14.0` — blockers
-
-Everything in [Known defects](LIMITATIONS.md#known-defects), plus the architecture change
-above. Nothing here is a new feature; it is all correctness.
-
-### `1.15.0` — the two that unlock the most
-
-**Typed value extraction (hydration).** The library validates but does not transform:
-after a successful `validate()` you get your raw input back, not a `BigDecimal`, a
-`LocalDate`, or a parsed phone number — even though the parsing already happened
-internally and was discarded. The `ResolvedField` seam gives this a home in
-`transformed`, which is why it follows immediately after `1.14.0`.
-
-**Cross-field constraints.** There is currently no way to express
-`confirm_password === password` or `end_date > start_date`. Rules can only toggle
-optionality; they cannot express a constraint *between* two fields. This is the single
-most commonly missed capability for real forms.
-
-### Later
-
-**Custom constraints on built-in fields.** Adding one rule to a `Text` field currently
-means subclassing `Text`. An `addConstraint(string $name, callable $check)` would cover
-the long tail without a new field type.
-
-**Validation groups / partial validation.** No way to validate a subset of fields, which
-multi-step wizards need — and `meraki/schema-html` already has wizard state that would
-use it.
-
-**Normalization.** No trimming, case-folding or Unicode normalization before validation.
-Deliberately absent so far (an earlier sanitization layer was removed in `1.6.0-alpha`),
-but worth revisiting as an explicit, opt-in step.
-
-**Richer rule conditions and outcomes.** Conditions are limited to `Equals`/`NotEquals`
-and outcomes to `Require`/`MakeOptional`/`Ignore`. `GreaterThan`, `In`, `Matches`,
-`IsEmpty` and a `SetValue` outcome are all natural additions — and under the architecture
-above, new outcomes need no per-property plumbing.
-
-**External validation hooks.** Checking a value against a database (is this email already
-registered?) has no extension point, so the one check almost every signup form needs has
-to live outside the schema.
-
-**Field metadata for the UI.** Labels, help text and placeholders currently have to be
-maintained separately from the schema that describes the same fields.
-
-**JSON Schema interoperability.** Exporting to — and importing from — JSON Schema would
-let a `meraki` schema drive non-PHP consumers directly. A natural fit for
-`meraki/schema-json`.
-
-**A dictionary/map field.** `Collection` covers lists; arbitrary string-keyed maps have no
-field type.
 
 ### Sibling packages
 
