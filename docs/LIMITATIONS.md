@@ -8,7 +8,7 @@ The library is **pre-release**. See [ROADMAP.md](ROADMAP.md) for the release lad
 [the release verdict](ROADMAP.md#release-verdict) for why.
 
 - [Known defects](#known-defects) — things that are broken, with the release that fixes them
-  (B1–B6 field and schema defects, [B7](#b7) concurrency, [B8](#b8) scope traversal)
+  (B1–B6 field and schema defects, [B7](#b7) concurrency; [B8](#b8) is fixed)
 - [Design constraints](#design-constraints) — intentional behaviour that will surprise you
 - [Not yet implemented](#not-yet-implemented) — advertised but inert
 - [Rough edges](#rough-edges) — smaller API warts
@@ -135,41 +135,6 @@ count($schema->fields);   // 1 — the EmailAddress field was discarded
 
 **Work around it** by asserting `count($schema->fields)` matches the number of fields you
 added, or by checking `$schema->fields->findByName($name) === null` first.
-
-<a id="b8"></a>
-
-### B8 — A scope path can exhaust memory and hang the process
-
-**Fixed in:** `1.14.0-beta.1`
-
-`Field::$schema` is a public back-reference to the owning `Facade`, and `Facade::traverse()`
-rewinds the scope cursor on entry. A scope path that steps into it therefore loops
-Field → Facade → Field, restarting the path each lap, until memory runs out:
-
-```php
-$schema = new Meraki\Schema\Facade('booking');
-$schema->addBooleanField('has_log_book');
-
-(new Meraki\Schema\Scope('#/fields/has_log_book/schema'))->resolve($schema);
-// PHP Fatal error: Allowed memory size exhausted
-//   #0 Facade.php(380): Field->traverse()
-//   #1 Field.php(266):  Facade->traverse()
-//   ... repeating
-```
-
-**This is reachable from data.** `meraki/schema-json` deserializes rule targets straight
-into scope strings — `new Equals($data->target, …)`, `new _Require($data->field)` — so a
-schema document you did not author can hang the process that loads it.
-
-**Work around it** by not accepting schema JSON from untrusted sources, or by rejecting
-any rule target whose path contains a `schema` segment before deserializing.
-
-The fix is narrow. `Field::$schema` is the only property on a field whose type implements
-`ScopeTarget`, so the recursion branch exists solely to step into it — remove the
-back-reference and the branch is dead. It exists only for `pairWith()`, which is a schema
-operation in a field's clothing and is being removed with it. The unconditional `rewind()`
-is what turns the cycle into an infinite one. Addressing a field's other public properties
-— `#/fields/x/min`, `#/fields/x/optional` — is intentional and stays.
 
 <a id="b7"></a>
 
@@ -331,6 +296,22 @@ Fixed in `1.14.0-beta.3`, where results gain indexed paths (`items[1].qty.min`).
 
 ---
 
+## Recently fixed
+
+<a id="b8"></a>
+
+### B8 — a scope path could exhaust memory and hang the process
+
+**Fixed in `1.13.2-alpha`.** `Field::$schema` is a back-reference to the owning `Facade`,
+and it was the only property on a field whose type implemented `ScopeTarget` — so a scope
+stepping into it climbed back to the root and walked the same path forever. It was
+reachable from data, since `meraki/schema-json` deserialises rule targets straight into
+scope strings.
+
+The back-reference is now rejected as a scope target, the recursion branch that existed
+solely to enable it is gone, and `Facade::traverse()` no longer rewinds the cursor on
+entry. Addressing a field's other public properties — `#/fields/x/min`,
+`#/fields/x/optional` — is unaffected, because a field's public properties are its API.
 ## Rough edges
 
 Smaller warts, listed so they are not surprises. All are slated for the `1.14.0` line.

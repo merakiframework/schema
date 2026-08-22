@@ -90,6 +90,16 @@ abstract class Field implements ScopeTarget
 	 */
 	public ?Facade $schema = null;
 
+	/**
+	 * Properties that exist for internal wiring rather than as part of the field's
+	 * addressable API. {@see self::$schema} points back at the field's owner, so a
+	 * scope stepping into it would climb to the root and walk the path forever.
+	 *
+	 * Everything else public on a field stays addressable: a field's public properties
+	 * are its API, and '#/fields/x/min' or '#/fields/x/optional' are valid targets.
+	 */
+	private const NOT_ADDRESSABLE = ['schema'];
+
 	public function __construct(
 		Property\Name $name,
 	) {
@@ -244,17 +254,18 @@ abstract class Field implements ScopeTarget
 			throw new InvalidArgumentException("No property '{$propertyNameAsSnakeCase} ($propertyName)' on field '{$this->name}'");
 		}
 
+		if (in_array($propertyName, self::NOT_ADDRESSABLE, true)) {
+			throw new InvalidArgumentException(
+				"Property '{$propertyNameAsSnakeCase}' on field '{$this->name}' is internal "
+				. "wiring, not part of the field's addressable API."
+			);
+		}
+
 		$property = $this->{$propertyName};
 
 		// value always resolves to resolved value
 		if ($propertyName === 'value') {
 			$property = $this->resolvedValue;
-		}
-
-		if ($property instanceof ScopeTarget) {
-			$scope->next();
-
-			return $property->traverse($scope);
 		}
 
 		return new ScopeResolutionResult($this, $property);

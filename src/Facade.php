@@ -363,7 +363,8 @@ final class Facade implements ScopeTarget
 			return new ScopeResolutionResult($this, $this);
 		}
 
-		$scope->rewind();
+		// Deliberately no rewind(): traverse() walks from the cursor, and Scope::resolve()
+		// is the entry point that puts it back to the start.
 		$first = $scope->currentAsSnakeCase();
 
 		if ($first === 'fields') {

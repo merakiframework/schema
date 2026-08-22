@@ -14,6 +14,19 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Security
+
+- **B8** — a scope path stepping into `Field::$schema` recursed `Field` → `Facade` →
+  `Field`, restarting the path each lap because `Facade::traverse()` rewound the cursor on
+  entry, until memory was exhausted. Reachable from data: `meraki/schema-json`
+  deserialises rule targets straight into scope strings, so a schema document from an
+  untrusted source could hang the process loading it.
+
+  The back-reference is now rejected as a scope target. It was the only property on a
+  field whose type implemented `ScopeTarget`, so the recursion branch existed solely to
+  enable the loop and is removed; `Facade::traverse()` no longer rewinds. Addressing a
+  field's other public properties (`#/fields/x/min`, `#/fields/x/optional`) is unaffected.
+
 ### Added
 
 - Continuous integration (`.github/workflows/tests.yml`): the suite on PHP 8.4 and 8.5,
