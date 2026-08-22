@@ -45,6 +45,11 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- CI failed on PHP 8.4 and 8.5 with hundreds of "executed code that is not listed as code
+  to be covered" errors. `beStrictAboutCoverageMetadata` was on but had never taken effect
+  locally, because it only applies when a coverage driver is present and none was
+  installed; enabling coverage in CI switched it on. Turned off, with the reasoning
+  recorded in `phpunit.xml`. `requireCoverageMetadata` stays on.
 - Dead `@phpstan-type Serialized*` annotations across 43 files, left behind when
   serialization moved to `meraki/schema-json` in `1.12.0-alpha`. They described a shape the
   core no longer produces and were circular or unresolvable.

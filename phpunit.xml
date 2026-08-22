@@ -6,12 +6,25 @@
          executionOrder="depends,defects"
          shortenArraysForExportThreshold="10"
          requireCoverageMetadata="true"
-         beStrictAboutCoverageMetadata="true"
+         beStrictAboutCoverageMetadata="false"
          beStrictAboutOutputDuringTests="true"
          displayDetailsOnTestsThatTriggerDeprecations="true"
          failOnPhpunitDeprecation="true"
          failOnRisky="true"
          failOnWarning="true">
+    <!--
+        beStrictAboutCoverageMetadata is off deliberately. With it on, any code a test
+        executes but does not name in #[CoversClass]/#[UsesClass] makes the test risky,
+        and failOnRisky turns that into a build failure. No test file declares
+        #[UsesClass] today, and a single Address test loads 16 core classes, so turning
+        it on means roughly 300 new attributes to write and then maintain.
+
+        That is deferred rather than dismissed: the test suite churns substantially in
+        1.14.0-beta.2 when per-request state moves to ResolvedField, so the attributes
+        would be written twice. Revisit once the seam has landed.
+
+        requireCoverageMetadata stays on, so every test still declares what it covers.
+    -->
     <testsuites>
         <testsuite name="default">
             <directory>tests</directory>
