@@ -87,12 +87,23 @@ class Set implements IteratorAggregate, Countable
 		return $this->indexOf($field) !== null;
 	}
 
+	/**
+	 * @throws InvalidArgumentException if a field with the same name is already present
+	 */
 	public function mutableAdd(Field ...$fields): void
 	{
 		foreach ($fields as $field) {
-			if (!$this->exists($field)) {
-				$this->fields[] = $field;
+			// Names identify fields, so a second one under an existing name is a mistake
+			// in the schema definition. Silently discarding it loses the definition and
+			// gives no clue where it went.
+			if ($this->exists($field)) {
+				throw new InvalidArgumentException(sprintf(
+					'A field named "%s" already exists.',
+					(string) $field->name,
+				));
 			}
+
+			$this->fields[] = $field;
 		}
 	}
 

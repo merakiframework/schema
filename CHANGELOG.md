@@ -14,6 +14,15 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+
+- **BREAKING —** field and schema names are validated. A name must start with a letter
+  or underscore and contain only letters, digits, underscores and hyphens; `.` is allowed
+  only where a composite joins its sub-field names, and a top-level field carrying one is
+  rejected. Empty names, whitespace, `/` and `#` were previously accepted (**B5**).
+- **BREAKING —** adding a second field under an existing name now throws instead of
+  silently discarding the definition (**B6**).
+
 ### Security
 
 - **B8** — a scope path stepping into `Field::$schema` recursed `Field` → `Facade` →

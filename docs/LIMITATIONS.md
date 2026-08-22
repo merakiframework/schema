@@ -8,7 +8,7 @@ The library is **pre-release**. See [ROADMAP.md](ROADMAP.md) for the release lad
 [the release verdict](ROADMAP.md#release-verdict) for why.
 
 - [Known defects](#known-defects) — things that are broken, with the release that fixes them
-  (B1–B6 field and schema defects, [B7](#b7) concurrency; [B8](#b8) is fixed)
+  (B1, B2 and B3 field defects, [B7](#b7) concurrency; B4, B5, B6 and B8 are fixed)
 - [Design constraints](#design-constraints) — intentional behaviour that will surprise you
 - [Not yet implemented](#not-yet-implemented) — advertised but inert
 - [Rough edges](#rough-edges) — smaller API warts
@@ -82,59 +82,6 @@ $schema->validate(['card' => [
 
 **Work around it** by running your own Luhn check on the number before trusting the
 result.
-
-### B4 — Some shipped classes reference types that do not exist
-
-**Fixed in:** `1.14.0-beta.1`
-
-Around fifteen files under `src/` are left over from an earlier design and refer to
-classes that were deleted (`ValidatorName`, `Constraint`, `Field\Type`, `SchemaValidator`,
-`ConditionFactory`, `OutcomeFactory`, `Comparison`). They are unreachable from the public
-API, but they ship in the package and appear in IDE autocompletion, and touching one is a
-fatal error.
-
-Affected: everything under `src/Validator/`, plus `src/ConstraintValidationResult.php`,
-`src/ValidationResultMessageProvider.php`, `src/Field/Validator.php`,
-`src/Field/Placeholder.php`, `src/Field/Structured.php`, `src/Field/AtomicMultiValue.php`.
-
-**Work around it** by using only what the README documents. Nothing in the supported API
-path reaches these classes.
-
-### B5 — Field names are not validated
-
-**Fixed in:** `1.14.0-beta.1`
-
-Any string is accepted as a field name, including the empty string and names containing
-the separators the library itself uses: `.` separates a composite from its sub-fields, and
-`/` separates segments of a rule scope path.
-
-```php
-$schema = new Meraki\Schema\Facade('clash');
-$schema->addMoneyField('price', ['AUD' => 2]);   // creates price.amount, price.currency
-$schema->addTextField('price.amount');            // accepted; now collides
-
-$schema->addTextField('');                        // also accepted
-```
-
-**Work around it** by restricting your own field names to `[a-z][a-z0-9_]*`.
-
-### B6 — Duplicate field names are silently dropped
-
-**Fixed in:** `1.14.0-beta.1`
-
-Adding a second field with an existing name is a no-op. No exception, no warning — the
-second definition simply vanishes.
-
-```php
-$schema = new Meraki\Schema\Facade('dupes');
-$schema->addTextField('email');
-$schema->addEmailAddressField('email');
-
-count($schema->fields);   // 1 — the EmailAddress field was discarded
-```
-
-**Work around it** by asserting `count($schema->fields)` matches the number of fields you
-added, or by checking `$schema->fields->findByName($name) === null` first.
 
 <a id="b7"></a>
 
@@ -298,6 +245,26 @@ Fixed in `1.14.0-beta.3`, where results gain indexed paths (`items[1].qty.min`).
 
 ## Recently fixed
 
+### B5 — field names were not validated
+
+**Fixed in `1.13.2-alpha`.** Empty names, and names containing the scope separators `/`
+and `#`, whitespace or a leading digit, are now rejected by `Property\Name`. A name may
+still contain `.`, because that is how a composite names its sub-fields, but a *top-level*
+field carrying one is rejected — it would be indistinguishable from an `addr.line1`
+belonging to some composite. Hyphens remain valid, so `create-person` is still a usable
+schema name.
+
+### B6 — duplicate field names were silently dropped
+
+**Fixed in `1.13.2-alpha`.** Adding a second field under an existing name now throws
+instead of discarding the definition without a word.
+
+### B4 — some shipped classes referenced types that do not exist
+
+**Fixed in `1.13.2-alpha`.** The unreachable validator subsystem — `Meraki\Schema\Validator`
+and everything under `Validator\`, `Field\Validator`, the root `ConstraintValidationResult`,
+`ValidationResultMessageProvider`, `Field\Placeholder`, `Field\Structured` — has been
+deleted, along with the four exceptions used only by it.
 <a id="b8"></a>
 
 ### B8 — a scope path could exhaust memory and hang the process

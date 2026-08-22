@@ -87,6 +87,17 @@ final class Facade implements ScopeTarget
 	 */
 	public function addField(Field $field, ?Closure $configurator = null): self|Field
 	{
+		// A dot separates a composite from its sub-fields, so a top-level field carrying
+		// one would be indistinguishable from an addr.line1 or price.amount belonging to
+		// some composite. Sub-fields get their dotted names from Composite, never here.
+		if (str_contains((string) $field->name, Property\Name::PREFIX_SEPARATOR)) {
+			throw new InvalidArgumentException(sprintf(
+				'"%s" cannot be a top-level field name: "%s" is reserved for the sub-fields of a composite.',
+				(string) $field->name,
+				Property\Name::PREFIX_SEPARATOR,
+			));
+		}
+
 		$field->schema = $this;
 
 		if ($configurator !== null) {

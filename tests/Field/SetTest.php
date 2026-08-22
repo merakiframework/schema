@@ -6,6 +6,7 @@ namespace Meraki\Schema\Field;
 use Meraki\Schema\Property\Name;
 use Meraki\Schema\Field;
 use Meraki\Schema\Field\Set;
+use InvalidArgumentException;
 use PHPUnit\Framework\TestCase;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -50,15 +51,35 @@ final class SetTest extends TestCase
 	}
 
 	#[Test]
-	public function duplicate_fields_are_not_added(): void
+	public function a_duplicate_field_name_is_rejected(): void
 	{
+		// Previously the second field was silently discarded, which lost the definition
+		// and gave no clue where it went.
 		$field = $this->createStub(Field::class);
 		$field->name = new Name('first');
 
 		$set = new Set($field);
-		$set->mutableAdd($field); // should not add again
 
-		$this->assertCount(1, $set);
+		$this->expectException(InvalidArgumentException::class);
+		$this->expectExceptionMessage('A field named "first" already exists.');
+
+		$set->mutableAdd($field);
+	}
+
+	#[Test]
+	public function a_different_field_sharing_a_name_is_also_rejected(): void
+	{
+		// Identity is the name, not the object: two distinct fields cannot share one.
+		$first = $this->createStub(Field::class);
+		$first->name = new Name('email');
+		$second = $this->createStub(Field::class);
+		$second->name = new Name('email');
+
+		$set = new Set($first);
+
+		$this->expectException(InvalidArgumentException::class);
+
+		$set->mutableAdd($second);
 	}
 
 	#[Test]
