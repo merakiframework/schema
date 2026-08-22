@@ -5,14 +5,22 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this
 project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-> **The project is pre-release.** Every release so far is an alpha and the public API is
-> not yet stable. See [docs/ROADMAP.md](docs/ROADMAP.md) for the path to `1.14.0`, the
-> first stable release, and [docs/LIMITATIONS.md](docs/LIMITATIONS.md) for what is
-> currently broken.
->
-> Entries before `1.10.0-alpha` are summarised rather than itemised.
+> `1.14.0` is the first stable release. Everything before it is an alpha, and entries
+> before `1.10.0-alpha` are summarised rather than itemised.
 
 ## [Unreleased]
+
+Nothing yet.
+
+## [1.14.0] — 2026-08-22
+
+**The first stable release.** Every field defect found in the audit is fixed, and the
+public API is now committed to semantic versioning.
+
+One limitation ships documented rather than fixed: a schema shared across *concurrent*
+requests leaks data between them, because the instance holds per-request state. Serial
+reuse is safe, and building a schema per request costs about 0.25 ms. The structural fix
+is the `2.0.0` redesign — see [docs/ROADMAP.md](docs/ROADMAP.md).
 
 ### Changed
 
@@ -318,7 +326,8 @@ Documentation only. No source or test changes, and no behaviour change.
 
 Initial release.
 
-[Unreleased]: https://github.com/merakiframework/schema/compare/v1.13.1-alpha...HEAD
+[Unreleased]: https://github.com/merakiframework/schema/compare/v1.14.0...HEAD
+[1.14.0]: https://github.com/merakiframework/schema/compare/v1.13.1-alpha...v1.14.0
 [1.13.1-alpha]: https://github.com/merakiframework/schema/compare/v1.13.0-alpha...v1.13.1-alpha
 [1.13.0-alpha]: https://github.com/merakiframework/schema/compare/v1.12.1-alpha...v1.13.0-alpha
 [1.12.1-alpha]: https://github.com/merakiframework/schema/compare/v1.12.0-alpha...v1.12.1-alpha
