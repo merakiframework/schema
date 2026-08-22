@@ -43,7 +43,15 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   exceptions used only by it. These referenced classes that no longer existed and were a
   fatal error to touch. Nothing on the supported API path reached them.
 
+- Composer scripts: `test`, `test:coverage`, `analyse`, and `ci` (which runs everything
+  CI runs, in the same order, so a build can be reproduced locally before pushing).
+
 ### Fixed
+
+- Two `#[CoversClass]` attributes named `Meraki\Schema\ValidationResult`, an interface,
+  which is not a valid coverage target. The one on `Field\ValidationResultTest` meant the
+  `Field\ValidationResult` class; the one on the abstract `ValidationResultTestCase` was
+  redundant, since its subclass already covers `AggregatedValidationResult`.
 
 - CI failed on PHP 8.4 and 8.5 with hundreds of "executed code that is not listed as code
   to be covered" errors. `beStrictAboutCoverageMetadata` was on but had never taken effect

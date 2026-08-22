@@ -11,7 +11,6 @@ use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\Attributes\Group;
 
 #[Group('validation')]
-#[CoversClass(ValidationResult::class)]
 abstract class ValidationResultTestCase extends TestCase
 {
 	/**

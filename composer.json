@@ -51,11 +51,28 @@
         }
     },
     "scripts": {
-        "test": "phpunit"
+        "test": "phpunit",
+        "test:coverage": [
+            "@putenv XDEBUG_MODE=coverage",
+            "phpunit --coverage-text"
+        ],
+        "analyse": "phpstan analyse --no-progress --memory-limit=1G",
+        "ci": [
+            "@composer validate --strict",
+            "@composer audit",
+            "@analyse",
+            "@test:coverage"
+        ]
     },
     "extra": {
         "branch-alias": {
             "dev-main": "1.13.x-dev"
         }
+    },
+    "scripts-descriptions": {
+        "test": "Run the test suite.",
+        "test:coverage": "Run the suite with coverage (needs Xdebug or pcov).",
+        "analyse": "Run PHPStan.",
+        "ci": "Run everything CI runs, in the same order."
     }
 }

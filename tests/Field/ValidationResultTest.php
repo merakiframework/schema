@@ -15,7 +15,7 @@ use PHPUnit\Framework\Attributes\Group;
 
 #[Group('field')]
 #[Group('validation')]
-#[CoversClass(ValidationResult::class)]
+#[CoversClass(FieldValidationResult::class)]
 final class ValidationResultTest extends AggregatedValidationResultTestCase
 {
 	public function createSubject(ValidationResult ...$results): FieldValidationResult
