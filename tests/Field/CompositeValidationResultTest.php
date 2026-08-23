@@ -57,17 +57,19 @@ class CompositeValidationResultTest extends AggregatedValidationResultTestCase
 	}
 
 	#[Test]
-	public function composite_field_is_cloned_correctly(): void
+	public function filtering_keeps_the_same_composite(): void
 	{
+		// It used to deep-clone, so a filtered result pointed at a copy of the field
+		// rather than the one in the schema — anyone comparing by identity, or reading
+		// state back off it, was quietly looking at something else.
 		$passedResult = $this->createPassedResult();
 		$failedResult = $this->createFailedResult();
 		$composite = $this->mockComposite();
 		$compositeResult = new CompositeValidationResult($composite, $passedResult, $failedResult);
-		$filtered = $compositeResult->getPassed(); // Should clone and return only passed results
+		$filtered = $compositeResult->getPassed();
 
 		$this->assertNotSame($compositeResult, $filtered, 'Filtered result must be a new instance.');
-		$this->assertNotSame($compositeResult->composite, $filtered->composite, 'Composite object must be cloned.');
-		$this->assertEquals($compositeResult->composite->name, $filtered->composite->name, 'Composite name must be preserved.');
+		$this->assertSame($composite, $filtered->composite, 'Filtering must not detach the composite.');
 		$this->assertCount(1, $filtered->results, 'Only one passed result should remain.');
 	}
 

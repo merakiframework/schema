@@ -5,6 +5,8 @@ namespace Meraki\Schema\Field;
 
 use Meraki\Schema\Field;
 use Meraki\Schema\Field\ValidationResult as FieldValidationResult;
+use Meraki\Schema\AggregatedValidationResult;
+use Meraki\Schema\ResolvedField;
 use Meraki\Schema\ValidationStatus;
 use Meraki\Schema\Field\Atomic as AtomicField;
 use Meraki\Schema\Property;
@@ -99,6 +101,194 @@ abstract class Composite extends Field implements IteratorAggregate, Countable
 		}
 
 		return false;
+	}
+
+	/**
+	 * Resolves each sub-field against its slice of the submitted value, without checking
+	 * anything and without writing to any of them.
+	 *
+	 * @param list<\Meraki\Schema\Rule\AppliedOutcome> $appliedOutcomes
+	 */
+	public function resolveWith(mixed $given, array $appliedOutcomes = []): CompositeValidationResult
+	{
+		$value = $this->resolvedValueFor($given)->unwrap();
+		$resolved = [];
+
+		foreach ($this->fields as $field) {
+			// Unusable input has nothing to hand the sub-fields; validateWith() reports it
+			// against the composite.
+			$slice = is_array($value) ? ($value[(string) $field->name] ?? null) : null;
+
+			foreach ($this->flatten($field->resolveWith($slice)) as $leaf) {
+				$resolved[] = $leaf;
+			}
+		}
+
+		return new CompositeValidationResult($this, ...$resolved);
+	}
+
+	/**
+	 * @param list<\Meraki\Schema\Rule\AppliedOutcome> $appliedOutcomes
+	 */
+	public function validateWith(mixed $given, array $appliedOutcomes = []): CompositeValidationResult
+	{
+		$value = $this->resolvedValueFor($given);
+		$raw = $value->unwrap();
+
+		// Unusable input is a shape failure on the composite, reported before anything
+		// else: being optional excuses an absent value, never a malformed one.
+		if (!$this->validateValue($raw)) {
+			return $this->failShapeOf($given, $appliedOutcomes);
+		}
+
+		// An optional composite that was left empty is skipped, not failed.
+		if ($this->optional && !$this->valueProvided($value)) {
+			return $this->skipEveryFieldOf($given, $appliedOutcomes);
+		}
+
+		/** @var array<string, ResolvedField> $byName */
+		$byName = [];
+		/** @var array<string, true> $unusable */
+		$unusable = [];
+
+		// The shape of each sub-field first, so a constraint never speaks to a value that
+		// was never there.
+		foreach ($this->fields as $field) {
+			$name = (string) $field->name;
+			$slice = $raw[$name] ?? null;
+			$resolved = $field->resolveWith($slice);
+
+			if (!$resolved instanceof ResolvedField) {
+				throw new InvalidArgumentException(sprintf(
+					'Sub-field "%s" of "%s" is itself composite, which is not supported.',
+					$name,
+					(string) $this->name,
+				));
+			}
+
+			// An optional sub-field left empty is not an error: skip it outright rather
+			// than type-checking a null that every field type rejects.
+			if ($field->optional && !$field->accepts($resolved->value)) {
+				$byName[$name] = $resolved->withResults(ConstraintValidationResult::skip('type'));
+				$unusable[$name] = true;
+				continue;
+			}
+
+			$shape = $field->validateValue($resolved->value);
+			$status = match ($shape) {
+				true => ValidationStatus::Passed,
+				false => ValidationStatus::Failed,
+				default => ValidationStatus::Skipped,
+			};
+
+			$byName[$name] = $resolved->withResults(new ConstraintValidationResult($status, 'type'));
+
+			if ($shape !== true) {
+				$unusable[$name] = true;
+			}
+		}
+
+		// Constraints the composite applies across its parts, named for the part they
+		// speak about.
+		foreach ($this->getConstraints() as $constraintName => $check) {
+			$name = $this->resolveConstraintNameToFieldName($constraintName);
+
+			if (!isset($byName[$name])) {
+				throw new InvalidArgumentException("Constraint '$constraintName' does not correspond to any field in the composite.");
+			}
+
+			if (isset($unusable[$name])) {
+				$byName[$name] = $byName[$name]->add(ConstraintValidationResult::skip($constraintName));
+				continue;
+			}
+
+			$outcome = $check($raw);
+			$byName[$name] = $byName[$name]->add(match ($outcome) {
+				true => ConstraintValidationResult::pass($constraintName),
+				false => ConstraintValidationResult::fail($constraintName),
+				default => ConstraintValidationResult::skip($constraintName),
+			});
+
+			if ($outcome === false) {
+				$unusable[$name] = true;
+			}
+		}
+
+		// Each sub-field's own constraints.
+		foreach ($this->fields as $field) {
+			$name = (string) $field->name;
+
+			foreach ($field->getConstraints() as $constraintName => $check) {
+				if (isset($unusable[$name])) {
+					$byName[$name] = $byName[$name]->add(ConstraintValidationResult::skip($constraintName));
+					continue;
+				}
+
+				$byName[$name] = $byName[$name]->add(match ($check($byName[$name]->value)) {
+					true => ConstraintValidationResult::pass($constraintName),
+					false => ConstraintValidationResult::fail($constraintName),
+					default => ConstraintValidationResult::skip($constraintName),
+				});
+			}
+		}
+
+		return new CompositeValidationResult($this, ...array_values($byName));
+	}
+
+	/**
+	 * The value could not be mapped onto the sub-fields at all, so the failure belongs to
+	 * the composite and the sub-fields are skipped: nothing reached them.
+	 *
+	 * @param list<\Meraki\Schema\Rule\AppliedOutcome> $appliedOutcomes
+	 */
+	private function failShapeOf(mixed $given, array $appliedOutcomes): CompositeValidationResult
+	{
+		$results = [(new ResolvedField($this, $given, $given, $appliedOutcomes))
+			->withResults(ConstraintValidationResult::fail('type'))];
+
+		foreach ($this->fields as $field) {
+			$results[] = (new ResolvedField($field, null, null))
+				->withResults(ConstraintValidationResult::skip('type'));
+		}
+
+		return new CompositeValidationResult($this, ...$results);
+	}
+
+	/**
+	 * @param list<\Meraki\Schema\Rule\AppliedOutcome> $appliedOutcomes
+	 */
+	private function skipEveryFieldOf(mixed $given, array $appliedOutcomes): CompositeValidationResult
+	{
+		$value = $this->resolvedValueFor($given)->unwrap();
+		$results = [];
+
+		foreach ($this->fields as $field) {
+			$slice = is_array($value) ? ($value[(string) $field->name] ?? null) : null;
+			$results[] = (new ResolvedField($field, $slice, $slice))
+				->withResults(ConstraintValidationResult::skip('type'));
+		}
+
+		return new CompositeValidationResult($this, ...$results);
+	}
+
+	/**
+	 * @return list<ResolvedField>
+	 */
+	private function flatten(AggregatedValidationResult $result): array
+	{
+		if ($result instanceof ResolvedField) {
+			return [$result];
+		}
+
+		$flat = [];
+
+		foreach ($result as $child) {
+			foreach ($this->flatten($child) as $leaf) {
+				$flat[] = $leaf;
+			}
+		}
+
+		return $flat;
 	}
 
 	public function validate(): CompositeValidationResult

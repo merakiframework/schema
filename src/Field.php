@@ -300,6 +300,18 @@ abstract class Field implements ScopeTarget
 	 * an optional sub-field was filled in) must use this rather than `valueProvided()`,
 	 * which is protected and therefore resolves to the *caller's* implementation.
 	 */
+	/**
+	 * Whether this field regards the given value as one it was actually handed, as opposed
+	 * to nothing at all. The value-taking counterpart to {@see self::hasValue()}, for
+	 * callers that hold a resolved value rather than reading one off the field.
+	 *
+	 * @param AcceptedType|null $value
+	 */
+	public function accepts(mixed $value): bool
+	{
+		return $this->valueProvided(new Property\Value($value));
+	}
+
 	public function hasValue(): bool
 	{
 		return !$this->inputIgnored && $this->valueProvided($this->resolvedValue);
@@ -318,12 +330,22 @@ abstract class Field implements ScopeTarget
 	 * @param AcceptedType|null $given exactly what was submitted, or null if nothing was
 	 * @param list<Rule\AppliedOutcome> $appliedOutcomes rules that altered this field
 	 */
-	public function resolveWith(mixed $given, array $appliedOutcomes = []): ResolvedField
+	public function resolveWith(mixed $given, array $appliedOutcomes = []): AggregatedValidationResult
+	{
+		return new ResolvedField($this, $given, $this->resolvedValueFor($given)->unwrap(), $appliedOutcomes);
+	}
+
+	/**
+	 * What this field would actually validate, given what was submitted: the submitted
+	 * value, or the author's default when nothing usable was.
+	 *
+	 * @param AcceptedType|null $given
+	 */
+	final protected function resolvedValueFor(mixed $given): Property\Value
 	{
 		$submitted = $this->process($given);
-		$value = $this->valueProvided($submitted) ? $submitted : $this->defaultValue;
 
-		return new ResolvedField($this, $given, $value->unwrap(), $appliedOutcomes);
+		return $this->valueProvided($submitted) ? $submitted : $this->defaultValue;
 	}
 
 	/**
@@ -332,11 +354,14 @@ abstract class Field implements ScopeTarget
 	 * @param AcceptedType|null $given
 	 * @param list<Rule\AppliedOutcome> $appliedOutcomes
 	 */
-	public function validateWith(mixed $given, array $appliedOutcomes = []): ResolvedField
+	public function validateWith(mixed $given, array $appliedOutcomes = []): AggregatedValidationResult
 	{
-		$resolved = $this->resolveWith($given, $appliedOutcomes);
+		// Built here rather than through resolveWith(), which subclasses widen to return a
+		// result per sub-field; this also resolves the value once instead of twice.
+		$value = $this->resolvedValueFor($given);
 
-		return $resolved->withResults(...$this->check(new Property\Value($resolved->value)));
+		return (new ResolvedField($this, $given, $value->unwrap(), $appliedOutcomes))
+			->withResults(...$this->check($value));
 	}
 
 	/**

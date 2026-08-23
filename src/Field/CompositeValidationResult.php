@@ -3,34 +3,46 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Field;
 
-use Meraki\Schema\Field\ValidationResult as FieldValidationResult;
 use Meraki\Schema\AggregatedValidationResult;
+use Meraki\Schema\ResolvedField;
 
 /**
- * @extends AggregatedValidationResult<FieldValidationResult>
+ * A composite resolved against one request: one {@see ResolvedField} per sub-field.
+ *
+ * This exists because a composite is currently *made of* fields, so its result is made of
+ * their results. That model goes in 2.0 proper, when `Address`, `Money` and `CreditCard`
+ * become distinct types owning their whole value and reporting their own constraint names
+ * — and this class goes with it.
+ *
+ * @extends AggregatedValidationResult<ResolvedField>
  */
 final class CompositeValidationResult extends AggregatedValidationResult
 {
+	/**
+	 * Children are typed as the shared supertype only while the deprecated
+	 * {@see Composite::validate()} path still produces {@see ValidationResult}s. Once that
+	 * goes, this narrows to `ResolvedField ...$fieldResults`.
+	 *
+	 * @param ResolvedField|ValidationResult ...$fieldResults
+	 */
 	public function __construct(
-		public Composite|Variant $composite,
-		FieldValidationResult ...$fieldResults
+		public readonly Composite|Variant $composite,
+		AggregatedValidationResult ...$fieldResults,
 	) {
 		parent::__construct(...$fieldResults);
 	}
 
-	public function get(string $fieldName): ?FieldValidationResult
+	/**
+	 * One sub-field's result, by its fully-qualified name — `price.amount`, not `amount`.
+	 */
+	public function get(string $fieldName): ResolvedField|ValidationResult|null
 	{
 		foreach ($this->results as $result) {
-			if ((string)$result->field->name === $fieldName) {
+			if ((string) $result->field->name === $fieldName) {
 				return $result;
 			}
 		}
 
 		return null;
-	}
-
-	public function __clone(): void
-	{
-		$this->composite = clone $this->composite;
 	}
 }
