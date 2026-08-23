@@ -296,22 +296,12 @@ abstract class Field implements ScopeTarget
 	 * Whether this field has a value to validate: a resolved value that this field's
 	 * own {@see self::valueProvided()} accepts, and input that has not been ignored.
 	 *
-	 * Callers outside the field (notably {@see Composite::validate()}, deciding whether
-	 * an optional sub-field was filled in) must use this rather than `valueProvided()`,
-	 * which is protected and therefore resolves to the *caller's* implementation.
+	 * This reads the value off the field, so it only answers for one currently holding
+	 * input — which is exactly what the seam removes. Code holding a resolved value should
+	 * ask about that value instead: from inside this hierarchy through
+	 * {@see self::valueProvided()}, which is reachable on a sibling field and dispatches on
+	 * the object it is called on, and from outside through the resolved result.
 	 */
-	/**
-	 * Whether this field regards the given value as one it was actually handed, as opposed
-	 * to nothing at all. The value-taking counterpart to {@see self::hasValue()}, for
-	 * callers that hold a resolved value rather than reading one off the field.
-	 *
-	 * @param AcceptedType|null $value
-	 */
-	public function accepts(mixed $value): bool
-	{
-		return $this->valueProvided(new Property\Value($value));
-	}
-
 	public function hasValue(): bool
 	{
 		return !$this->inputIgnored && $this->valueProvided($this->resolvedValue);

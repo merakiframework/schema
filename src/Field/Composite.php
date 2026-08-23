@@ -168,7 +168,7 @@ abstract class Composite extends Field implements IteratorAggregate, Countable
 
 			// An optional sub-field left empty is not an error: skip it outright rather
 			// than type-checking a null that every field type rejects.
-			if ($field->optional && !$field->accepts($resolved->value)) {
+			if ($field->optional && !$field->valueProvided(new Property\Value($resolved->value))) {
 				$byName[$name] = $resolved->withResults(ConstraintValidationResult::skip('type'));
 				$unusable[$name] = true;
 				continue;
