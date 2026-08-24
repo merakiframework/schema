@@ -85,8 +85,13 @@ Invariants are checked before the clone, so an invalid field cannot be construct
 
 **No `__clone()`.** Deep-cloning `$name` there would break identity — verified that
 `$original->name === $clone->name` becomes false — which is the detached-copy bug already
-found and fixed twice in this codebase. `Property\Name` should be genuinely immutable
-instead, so there is never a reason to copy it.
+found and fixed twice in this codebase.
+
+And `Property\Name` stops being mutable at all. Its one mutable part, `$prefix`, exists
+solely so a composite can rename its sub-fields to `addr.line1`. Once structured types own
+their whole value and their parts are internal rather than schema-registered fields,
+nothing prefixes anything — `prefixWith()`, `removePrefix()` and `$prefix` all go, and a
+name becomes a plain immutable value with no reason to copy it.
 
 ---
 
@@ -132,7 +137,20 @@ configured, it is what an email address means. `accepts()` answers this.
 `allowedSchemes`.
 
 The core enforces the consequence: **if the shape is wrong, constraints are skipped, not
-failed.** An error report then names the real problem once instead of once per constraint.
+failed.**
+
+That is not only about tidy error reports, though it gives those too — one real problem
+named once, rather than once per constraint. It is mainly what lets a constraint check be
+written plainly:
+
+```php
+minLength: fn(string $v): bool => mb_strlen($v) >= $this->minLength,
+```
+
+No guard, no `is_string()`, no null check. A constraint only ever runs on a value that
+already has the right shape, because the core guarantees it. Without that rule every
+author would have to defend every check against every wrong type — and the first one to
+forget would produce a `TypeError` instead of a validation failure.
 
 ---
 
@@ -159,7 +177,7 @@ serialised one. `meraki/schema-html` never sets one.
 | Situation | Shape | Constraints | Required satisfied |
 | --- | --- | --- | --- |
 | Client supplied a value | checked | checked | yes |
-| Nothing supplied, field has a default | checked | **skipped** | **yes** |
+| Nothing supplied, field has a default | checked | **skipped** by default, checked under `PrefillPolicy::Checked` | **yes** |
 | Nothing supplied, no default, required | fails | skipped | no |
 | Nothing supplied, no default, optional | skipped | skipped | n/a |
 
@@ -169,6 +187,42 @@ default of the wrong type is an authoring error rather than a data one.
 
 The consequence worth stating plainly: `$resolved->value` is not guaranteed to satisfy the
 field it belongs to. Anything reading values back has to accept that.
+
+### How much a default is trusted — `PrefillPolicy`
+
+Blanket trust is not always right. A value read from a record written years ago deserves
+different treatment from a literal the author just typed. So the trust is stated where the
+default is set:
+
+```php
+public function prefill(null $value, PrefillPolicy $policy = PrefillPolicy::Trusted): static
+```
+
+| Policy | Shape | Constraints |
+| --- | --- | --- |
+| `Trusted` (default) | checked | skipped — it may predate them |
+| `Checked` | checked | checked |
+
+**Two, not three.** A third policy that skips the shape check as well was considered and
+rejected: a default of the wrong *type* is an authoring mistake, not stale data, and
+nothing downstream can do anything sensible with it — `cast()` would fail on it too. Shape
+is always checked, so `Trusted` means "trusted to still be valid", not "trusted blindly".
+
+**Both are checked eagerly, when the field is built, not when a request arrives.** An
+invalid default is a bug in the schema, and surfacing it as a validation failure would
+blame the user for something they did not do. Throwing at `prefill()` puts the error where
+the mistake is.
+
+That has a consequence worth planning for. Constraints can be added *after* a default:
+
+```php
+$field->prefill('ab', PrefillPolicy::Checked)->minLengthOf(5);   // now stale
+```
+
+Because every wither returns a new field, each one can re-check the default and throw
+here, at `minLengthOf()`. It is the immutable design that makes this affordable — there is
+no way to change a field without passing through a wither. `Trusted` needs none of it,
+since shape cannot change once the field's type is fixed.
 
 ### Where per-request prefilling goes
 
@@ -254,6 +308,56 @@ construction, no decisions about skipping — the core owns all of it.
 
 ---
 
+## Validating part of a schema — `ValidationScope`
+
+A stepped form cannot validate everything at once: fields on later steps have not been
+asked yet, and a required one would fail for the sensible reason that the user has not got
+to it. So the caller says which fields are in play.
+
+```php
+$schema->validate($data);                                    // all of it
+$schema->validate($data, ValidationScope::only('a', 'b'));   // just these
+$schema->validate($data, ValidationScope::except('c'));      // all but these
+
+$schema->validate($data, ValidationScope::only(...$currentStep->fields));
+```
+
+This is UI-neutral: the core knows nothing about steps, wizards or pages — only that a
+caller wants some fields checked and not others. What a step *is* stays in
+`meraki/schema-html`.
+
+**The whole schema is always resolved; the scope only limits checking.** That distinction
+is the important one, and it is not a detail:
+
+- Values are resolved for every field, in or out of scope.
+- **Rules apply across the whole schema**, always. A rule on step 3 may be what makes a
+  step 1 field optional, so evaluating only the current step's rules would validate step 1
+  against the wrong requirements.
+- Only constraint checking is narrowed.
+
+**Out-of-scope fields come back `Pending`**, not missing. The result then describes the
+whole schema, and "not checked yet" is exactly what `Pending` has always meant. A caller
+can still ask `anyFailed()` and get an answer about what was actually examined.
+
+### It replaces something that already exists
+
+`meraki/schema-html` hand-rolls this in `Wizard\Validator::validateGroup()`, whose own
+docblock explains why it has to:
+
+> *The whole-schema validator would fail not-yet-reached required fields, so a stepped form
+> must validate group by group.*
+
+It resolves the whole schema and then validates a subset — the same semantics arrived at
+above, built downstream because the core offered nothing. Moving it here deletes that
+class, and it is the fifth piece of machinery `schema-html` sheds in this refactor,
+alongside `deriveRuleEffects()`, the `ruleEffects` array, `Wizard\RuleScopes` and the
+`FormRenderer:486` workaround.
+
+One behavioural difference to note when it moves: the current implementation *omits*
+out-of-scope fields from the result rather than marking them `Pending`.
+
+---
+
 ## Still open
 
 - **`Composite`, `Collection` and `Variant` each override the whole validation path**, so
@@ -262,3 +366,8 @@ construction, no decisions about skipping — the core owns all of it.
 - **When this lands.** It is Stage 3/5 work — sealing the definition and settling names —
   not Stage 1. Stage 1's seam does not require it, and doing both at once makes a large
   change larger.
+- **`ValidationScope` and rules.** Rules apply schema-wide while checking is narrowed, so
+  a rule outcome can make an out-of-scope field required. That is correct, but it means a
+  step can pass while the schema as a whole is not yet satisfiable — the caller has to
+  validate the whole thing before acting on it, and that should be said in the docs rather
+  than discovered.
