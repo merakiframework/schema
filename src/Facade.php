@@ -10,6 +10,8 @@ use Meraki\Schema\ScopeTarget;
 use Meraki\Schema\Field\Atomic;
 use Meraki\Schema\Property;
 use Meraki\Schema\Rule;
+use Meraki\Schema\ValidationStatus;
+use Meraki\Schema\Rule\AppliedOutcome;
 use Meraki\Schema\SchemaValidationResult;
 use Meraki\Schema\Rule\Condition;
 use Meraki\Schema\Rule\Builder;
@@ -299,16 +301,103 @@ final class Facade implements ScopeTarget
 		return $this;
 	}
 
+	/**
+	 * Resolves this schema against one request's data, without checking anything.
+	 *
+	 * Every field comes back {@see ValidationStatus::Pending}, which is what a form being
+	 * rendered for the first time actually is. Nothing is written to this schema, so the
+	 * same instance can resolve two requests at once without them meeting.
+	 */
+	public function resolve(array|object $data): SchemaValidationResult
+	{
+		return $this->against($data, static fn(Field $field, mixed $given, array $outcomes): AggregatedValidationResult
+			=> $field->resolveWith($given, $outcomes));
+	}
+
+	/**
+	 * Resolves and checks. Stores nothing on this schema.
+	 */
 	public function validate(array|object $data): SchemaValidationResult
 	{
-		$this->input($data);
+		return $this->against($data, static fn(Field $field, mixed $given, array $outcomes): AggregatedValidationResult
+			=> $field->validateWith($given, $outcomes));
+	}
 
-		$results = array_map(
-			fn(Field $field): AggregatedValidationResult => $field->validate(),
-			$this->fields->__toArray()
-		);
+	/**
+	 * Runs one request against a private copy of this schema.
+	 *
+	 * Rules still work by changing fields, so they are given copies to change: the
+	 * authored definition is never touched, and two requests cannot interfere. A field no
+	 * rule altered is reported against the *authored* object rather than its copy, so
+	 * identity holds for the common case and only differs where something really did
+	 * change it.
+	 *
+	 * @param callable(Field, mixed, list<AppliedOutcome>): AggregatedValidationResult $each
+	 */
+	private function against(array|object $data, callable $each): SchemaValidationResult
+	{
+		$given = $this->extractData($data);
+		$working = $this->copyForRequest();
+
+		// Conditions still read values off fields, so the copies carry them. That goes when
+		// scopes are rebuilt; until then the state lives somewhere discarded.
+		foreach ($working->fields as $field) {
+			$field->input($given[(string) $field->name] ?? null);
+		}
+
+		$applied = $working->rules->apply($given, $working);
+
+		/** @var array<string, list<AppliedOutcome>> $byField */
+		$byField = [];
+
+		foreach ($applied as $outcome) {
+			$name = self::fieldNameIn($outcome->outcome->getScope());
+
+			if ($name !== null) {
+				$byField[$name][] = $outcome;
+			}
+		}
+
+		$results = [];
+
+		foreach ($working->fields as $field) {
+			$name = (string) $field->name;
+			$outcomes = $byField[$name] ?? [];
+			$effective = $outcomes === [] ? $this->fields->getByName($name) : $field;
+
+			// A rule that ignores a field means "treat this as though nothing was sent",
+			// so the value never reaches the field rather than the field remembering to
+			// disregard it.
+			$value = $field->inputIgnored ? null : ($given[$name] ?? null);
+
+			$results[] = $each($effective, $value, $outcomes);
+		}
 
 		return new SchemaValidationResult(...$results);
+	}
+
+	/**
+	 * A copy whose fields can be changed without touching this schema's.
+	 */
+	private function copyForRequest(): self
+	{
+		$copy = new self((string) $this->name, new Field\Set(), $this->rules);
+
+		foreach ($this->fields as $field) {
+			$copy->fields = $copy->fields->add(clone $field);
+		}
+
+		return $copy;
+	}
+
+	/**
+	 * The field a scope points at, or null if it points elsewhere.
+	 */
+	private static function fieldNameIn(Scope $scope): ?string
+	{
+		$segments = $scope->segments;
+
+		return ($segments[0] ?? null) === 'fields' ? ($segments[1] ?? null) : null;
 	}
 
 	private function extractData(array|object|null $data): array

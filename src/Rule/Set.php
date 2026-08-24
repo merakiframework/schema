@@ -27,11 +27,24 @@ class Set implements \IteratorAggregate, \Countable
 		return null;
 	}
 
-	public function apply(array $data, Facade $schema): void
+	/**
+	 * Applies every rule in order, and reports what they did.
+	 *
+	 * Order matters: a rule can observe a change an earlier one made.
+	 *
+	 * @return list<AppliedOutcome>
+	 */
+	public function apply(array $data, Facade $schema): array
 	{
+		$applied = [];
+
 		foreach ($this->rules as $rule) {
-			$rule->evaluate($schema, $data);
+			foreach ($rule->evaluate($schema, $data) as $outcome) {
+				$applied[] = $outcome;
+			}
 		}
+
+		return $applied;
 	}
 
 	public function first(): ?Rule

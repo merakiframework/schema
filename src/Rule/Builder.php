@@ -127,8 +127,11 @@ final class Builder extends Rule
 		return new Rule($this->rootGroup, $this->outcomesToAdd);
 	}
 
-	public function evaluate(Facade $schema, array $data): void
+	/**
+	 * @return list<AppliedOutcome>
+	 */
+	public function evaluate(Facade $schema, array $data): array
 	{
-		$this->build()->evaluate($schema, $data);
+		return $this->build()->evaluate($schema, $data);
 	}
 }
