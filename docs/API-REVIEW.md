@@ -83,6 +83,12 @@ constraint name.
 - Skip semantics stay: when the shape is unusable, constraints are skipped rather than
   failed.
 
+## The field definition contract
+
+The shape a field author writes to, and the division of responsibility between a field and
+the core, are settled separately in **[FIELD-API.md](FIELD-API.md)**. The rows below are
+about naming; that document is about the contract.
+
 ## The checklist
 
 Constraint names are those emitted today, with `type` removed. Status is `open` until all
