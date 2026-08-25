@@ -17,6 +17,29 @@ abstract class CompositeTestCase extends FieldTestCase
 {
 	abstract public function createSubject(): CompositeField;
 
+	/**
+	 * A composite reports a shape failure against each part, because a caller needs to know
+	 * which parts are missing rather than only that the whole is.
+	 */
+	#[Test]
+	public function it_fails_the_shape_when_required_and_nothing_is_submitted(): void
+	{
+		$field = $this->createSubject();
+
+		$result = $field->validate(null);
+
+		$this->assertSame(ValidationStatus::Failed, $result->status);
+
+		foreach ($field->fields as $subField) {
+			$part = $result->get((string) $subField->name);
+
+			$this->assertConstraintValidationResultHasStatusOf(
+				$subField->optional ? ValidationStatus::Skipped : ValidationStatus::Failed,
+				'type',
+				$part,
+			);
+		}
+	}
 
 	/**
 	 * A composite resolves to one result per sub-field rather than a single value, so the

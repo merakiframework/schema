@@ -122,12 +122,24 @@ abstract class FieldTestCase extends TestCase
 
 	public function assertConstraintValidationResultHasStatusOf(ValidationStatus $expectedStatus, string $constraintName, AggregatedValidationResult $result): void
 	{
+		$reported = [];
+
 		/** @var ConstraintValidationResult $constraintResult */
 		foreach ($result as $constraintResult) {
 			if ($constraintResult->name === $constraintName) {
 				$this->assertEquals($expectedStatus, $constraintResult->status);
 				return;
 			}
+
+			$reported[] = $constraintResult->name;
 		}
+
+		// Falling through used to pass silently, so a test naming a constraint that was
+		// never reported asserted nothing at all.
+		$this->fail(sprintf(
+			'No result was reported for constraint "%s". Reported: %s.',
+			$constraintName,
+			implode(', ', $reported) ?: 'none',
+		));
 	}
 }
