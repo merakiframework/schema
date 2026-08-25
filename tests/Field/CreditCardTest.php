@@ -52,14 +52,14 @@ final class CreditCardTest extends CompositeTestCase
 	#[DataProvider('validCreditCards')]
 	public function it_validates_valid_credit_cards(string $holder, string $number, string $expiry, string $securityCode): void
 	{
-		$field = $this->createSubject()->input([
+		$field = $this->createSubject();
+
+		$result = $field->validate([
 			'holder' =>$holder,
 			'number' =>$number,
 			'expiry' =>$expiry,
 			'security_code' =>$securityCode,
 		]);
-
-		$result = $field->validate();
 
 		$this->assertConstraintValidationResultPassedForField('credit_card.holder', 'type', $result);
 
@@ -96,14 +96,14 @@ final class CreditCardTest extends CompositeTestCase
 	#[Test]
 	public function it_fails_if_holder_is_not_provided(): void
 	{
-		$field = $this->createSubject()->input([
+		$field = $this->createSubject();
+
+		$result = $field->validate([
 			'holder' =>'',
 			'number' =>'4014 1828 2909 8807',
 			'expiry' =>'2027-10',
 			'security_code' =>'936',
 		]);
-
-		$result = $field->validate();
 
 		$this->assertConstraintValidationResultFailedForField('credit_card.holder', 'type', $result);
 	}
@@ -111,14 +111,14 @@ final class CreditCardTest extends CompositeTestCase
 	#[Test]
 	public function it_fails_if_number_is_not_provided(): void
 	{
-		$field = $this->createSubject()->input([
+		$field = $this->createSubject();
+
+		$result = $field->validate([
 			'holder' =>'Kenneth Miller MD',
 			'number' =>'',
 			'expiry' =>'2027-10',
 			'security_code' =>'936',
 		]);
-
-		$result = $field->validate();
 
 		$this->assertConstraintValidationResultFailedForField('credit_card.number', 'min', $result);
 	}
@@ -126,14 +126,14 @@ final class CreditCardTest extends CompositeTestCase
 	#[Test]
 	public function it_fails_if_number_is_too_short(): void
 	{
-		$field = $this->createSubject()->input([
+		$field = $this->createSubject();
+
+		$result = $field->validate([
 			'holder' =>'Kenneth Miller MD',
 			'number' =>'4014 1828 2909',
 			'expiry' =>'2027-10',
 			'security_code' =>'936',
 		]);
-
-		$result = $field->validate();
 
 		$this->assertConstraintValidationResultFailedForField('credit_card.number', 'min', $result);
 	}
@@ -141,14 +141,14 @@ final class CreditCardTest extends CompositeTestCase
 	#[Test]
 	public function it_fails_if_number_is_too_long(): void
 	{
-		$field = $this->createSubject()->input([
+		$field = $this->createSubject();
+
+		$result = $field->validate([
 			'holder' =>'Kenneth Miller MD',
 			'number' =>'4958 5581 8834 3371 5819',
 			'expiry' =>'2027-10',
 			'security_code' =>'936',
 		]);
-
-		$result = $field->validate();
 
 		$this->assertConstraintValidationResultFailedForField('credit_card.number', 'max', $result);
 	}
@@ -156,14 +156,14 @@ final class CreditCardTest extends CompositeTestCase
 	#[Test]
 	public function it_fails_if_security_code_is_not_provided(): void
 	{
-		$field = $this->createSubject()->input([
+		$field = $this->createSubject();
+
+		$result = $field->validate([
 			'holder' =>'Kenneth Miller MD',
 			'number' =>'4014 1828 2909 8807',
 			'expiry' =>'2027-10',
 			'security_code' =>'',
 		]);
-
-		$result = $field->validate();
 
 		$this->assertConstraintValidationResultFailedForField('credit_card.security_code', 'min', $result);
 	}
@@ -171,14 +171,14 @@ final class CreditCardTest extends CompositeTestCase
 	#[Test]
 	public function it_fails_if_security_code_is_too_short(): void
 	{
-		$field = $this->createSubject()->input([
+		$field = $this->createSubject();
+
+		$result = $field->validate([
 			'holder' =>'Kenneth Miller MD',
 			'number' =>'4014 1828 2909 8807',
 			'expiry' =>'2027-10',
 			'security_code' =>'93',
 		]);
-
-		$result = $field->validate();
 
 		$this->assertConstraintValidationResultFailedForField('credit_card.security_code', 'min', $result);
 	}
@@ -186,14 +186,14 @@ final class CreditCardTest extends CompositeTestCase
 	#[Test]
 	public function it_fails_if_security_code_is_too_long(): void
 	{
-		$field = $this->createSubject()->input([
+		$field = $this->createSubject();
+
+		$result = $field->validate([
 			'holder' =>'Kenneth Miller MD',
 			'number' =>'4014 1828 2909 8807',
 			'expiry' =>'2027-10',
 			'security_code' =>'93675',
 		]);
-
-		$result = $field->validate();
 
 		$this->assertConstraintValidationResultFailedForField('credit_card.security_code', 'max', $result);
 	}
@@ -231,14 +231,14 @@ final class CreditCardTest extends CompositeTestCase
 	#[Test]
 	public function it_fails_if_expiry_is_not_provided(): void
 	{
-		$field = $this->createSubject()->input([
+		$field = $this->createSubject();
+
+		$result = $field->validate([
 			'holder' =>'Kenneth Miller MD',
 			'number' =>'4014 1828 2909 8807',
 			'expiry' =>'',
 			'security_code' =>'936',
 		]);
-
-		$result = $field->validate();
 
 		$this->assertConstraintValidationResultFailedForField('credit_card.expiry', 'type', $result);
 	}
@@ -246,14 +246,14 @@ final class CreditCardTest extends CompositeTestCase
 	#[Test]
 	public function it_fails_if_expiry_is_in_the_past(): void
 	{
-		$field = $this->createSubject()->input([
+		$field = $this->createSubject();
+
+		$result = $field->validate([
 			'holder' =>'Kenneth Miller MD',
 			'number' =>'4014 1828 2909 8807',
 			'expiry' =>'2020-01',
 			'security_code' =>'936',
 		]);
-
-		$result = $field->validate();
 
 		$this->assertConstraintValidationResultFailedForField('credit_card.expiry', 'from', $result);
 	}
@@ -261,15 +261,15 @@ final class CreditCardTest extends CompositeTestCase
 	#[Test]
 	public function end_of_month_day_is_automatically_added_to_end_of_expiry_date(): void
 	{
-		$field = $this->createSubject()->input([
+		$field = $this->createSubject();
+
+		$result = $field->validate([
 			'holder' =>'Kenneth Miller MD',
 			'number' =>'4014 1828 2909 8807',
 			'expiry' =>'2029-07',
 			'security_code' =>'936',
 		]);
 
-		$result = $field->validate();
-
-		$this->assertEquals('2029-07-31', $field->expiry->resolvedValue->unwrap());
+		$this->assertEquals('2029-07-31', $result->get('credit_card.expiry')->value);
 	}
 }

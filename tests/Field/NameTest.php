@@ -25,10 +25,9 @@ final class NameTest extends FieldTestCase
 	#[DataProvider('validNames')]
 	public function it_validates_valid_names(string $name): void
 	{
-		$type = $this->createField()
-			->input($name);
+		$type = $this->createField();
 
-		$result = $type->validate();
+		$result = $type->validate($name);
 
 		$this->assertConstraintValidationResultPassed('type', $result);
 	}

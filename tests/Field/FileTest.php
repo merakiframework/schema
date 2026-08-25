@@ -26,9 +26,8 @@ final class FileTest extends FieldTestCase
 	public function it_accepts_a_single_metadata_value_object(): void
 	{
 		$field = $this->createField()->allowTypes('image/png');
-		$field->input(new Metadata('a.png', 'image/png', 123));
 
-		$result = $field->validate();
+		$result = $field->validate(new Metadata('a.png', 'image/png', 123));
 
 		$this->assertConstraintValidationResultPassed('type', $result);
 		$this->assertSame(ValidationStatus::Passed, $result->status);
@@ -38,24 +37,22 @@ final class FileTest extends FieldTestCase
 	public function it_accepts_a_list_of_metadata_value_objects(): void
 	{
 		$field = $this->createField();
-		$field->input([
+
+		$this->assertSame(ValidationStatus::Passed, $field->validate([
 			new Metadata('a.png', 'image/png', 123),
 			new Metadata('b.png', 'image/png', 456),
-		]);
-
-		$this->assertSame(ValidationStatus::Passed, $field->validate()->status);
+		])->status);
 	}
 
 	#[Test]
 	public function it_accepts_a_mix_of_arrays_and_metadata_value_objects(): void
 	{
 		$field = $this->createField();
-		$field->input([
+
+		$this->assertSame(ValidationStatus::Passed, $field->validate([
 			['name' => 'a.png', 'type' => 'image/png', 'size' => 123],
 			new Metadata('b.png', 'image/png', 456),
-		]);
-
-		$this->assertSame(ValidationStatus::Passed, $field->validate()->status);
+		])->status);
 	}
 
 	#[Test]
@@ -63,9 +60,8 @@ final class FileTest extends FieldTestCase
 	public function it_meets_expectations_for_file_type(mixed $input, ValidationStatus $expectedStatus): void
 	{
 		$field = new File(new Name('file'));
-		$field->input($input);
 
-		$result = $field->validate();
+		$result = $field->validate($input);
 
 		$this->assertConstraintValidationResultHasStatusOf($expectedStatus, 'type', $result);
 	}
@@ -148,15 +144,14 @@ final class FileTest extends FieldTestCase
 	{
 		$field = new File(new Name('upload'));
 		$field->atLeast(2);
-		$field->input([
-			[
-				'name' => 'file1.txt',
-				'type' => 'text/plain',
-				'size' => 1000,
-			]
-		]);
 
-		$result = $field->validate();
+		$result = $field->validate([
+			[
+			'name' => 'file1.txt',
+			'type' => 'text/plain',
+			'size' => 1000,
+		]
+		]);
 
 		$this->assertConstraintValidationResultFailed('minCount', $result);
 	}
@@ -166,20 +161,19 @@ final class FileTest extends FieldTestCase
 	{
 		$field = new File(new Name('upload'));
 		$field->atMost(1);
-		$field->input([
+
+		$result = $field->validate([
 			[
-				'name' => 'file1.txt',
-				'type' => 'text/plain',
-				'size' => 1000,
-			],
+			'name' => 'file1.txt',
+			'type' => 'text/plain',
+			'size' => 1000,
+		],
 			[
 				'name' => 'file2.txt',
 				'type' => 'text/plain',
 				'size' => 1500,
 			],
 		]);
-
-		$result = $field->validate();
 
 		$this->assertConstraintValidationResultFailed('maxCount', $result);
 	}
@@ -189,15 +183,14 @@ final class FileTest extends FieldTestCase
 	{
 		$field = new File(new Name('upload'));
 		$field->allowDocuments();
-		$field->input([
-			[
-				'name' => 'video.mp4',
-				'type' => 'video/mp4',
-				'size' => 1000,
-			],
-		]);
 
-		$result = $field->validate();
+		$result = $field->validate([
+			[
+			'name' => 'video.mp4',
+			'type' => 'video/mp4',
+			'size' => 1000,
+		],
+		]);
 
 		$this->assertConstraintValidationResultFailed('allowedTypes', $result);
 	}
@@ -207,15 +200,14 @@ final class FileTest extends FieldTestCase
 	{
 		$field = new File(new Name('upload'));
 		$field->disallowScripts();
-		$field->input([
-			[
-				'name' => 'script.js',
-				'type' => 'application/javascript',
-				'size' => 800,
-			],
-		]);
 
-		$result = $field->validate();
+		$result = $field->validate([
+			[
+			'name' => 'script.js',
+			'type' => 'application/javascript',
+			'size' => 800,
+		],
+		]);
 
 		$this->assertConstraintValidationResultFailed('disallowedTypes', $result);
 	}
@@ -225,15 +217,14 @@ final class FileTest extends FieldTestCase
 	{
 		$field = new File(new Name('upload'));
 		$field->minFileSizeOf(1024);
-		$field->input([
-			[
-				'name' => 'tiny.txt',
-				'type' => 'text/plain',
-				'size' => 512,
-			],
-		]);
 
-		$result = $field->validate();
+		$result = $field->validate([
+			[
+			'name' => 'tiny.txt',
+			'type' => 'text/plain',
+			'size' => 512,
+		],
+		]);
 
 		$this->assertConstraintValidationResultFailed('minSize', $result);
 	}
@@ -243,15 +234,14 @@ final class FileTest extends FieldTestCase
 	{
 		$field = new File(new Name('upload'));
 		$field->maxFileSizeOf(2048);
-		$field->input([
-			[
-				'name' => 'large.txt',
-				'type' => 'text/plain',
-				'size' => 4096,
-			],
-		]);
 
-		$result = $field->validate();
+		$result = $field->validate([
+			[
+			'name' => 'large.txt',
+			'type' => 'text/plain',
+			'size' => 4096,
+		],
+		]);
 
 		$this->assertConstraintValidationResultFailed('maxSize', $result);
 	}

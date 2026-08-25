@@ -23,10 +23,9 @@ final class TextTest extends FieldTestCase
 	public function min_constraint_passes_when_met(): void
 	{
 		$type = $this->createField()
-			->minLengthOf(4)
-			->input('hello');
+			->minLengthOf(4);
 
-		$result = $type->validate();
+		$result = $type->validate('hello');
 
 		$this->assertConstraintValidationResultPassed('min', $result);
 	}
@@ -35,10 +34,9 @@ final class TextTest extends FieldTestCase
 	public function min_constraint_fails_when_not_met(): void
 	{
 		$type = $this->createField()
-			->minLengthOf(4)
-			->input('abc');
+			->minLengthOf(4);
 
-		$result = $type->validate();
+		$result = $type->validate('abc');
 
 		$this->assertConstraintValidationResultFailed('min', $result);
 	}
@@ -47,10 +45,9 @@ final class TextTest extends FieldTestCase
 	public function max_constraint_passes_when_met(): void
 	{
 		$type = $this->createField()
-			->maxLengthOf(4)
-			->input('abc');
+			->maxLengthOf(4);
 
-		$result = $type->validate();
+		$result = $type->validate('abc');
 
 		$this->assertConstraintValidationResultPassed('max', $result);
 	}
@@ -59,10 +56,9 @@ final class TextTest extends FieldTestCase
 	public function max_constraint_fails_when_not_met(): void
 	{
 		$type = $this->createField()
-			->maxLengthOf(4)
-			->input('hello');
+			->maxLengthOf(4);
 
-		$result = $type->validate();
+		$result = $type->validate('hello');
 
 		$this->assertConstraintValidationResultFailed('max', $result);
 	}
@@ -70,10 +66,9 @@ final class TextTest extends FieldTestCase
 	#[Test]
 	public function pattern_constraint_is_skipped_when_not_set(): void
 	{
-		$type = $this->createField()
-			->input('abc123');
+		$type = $this->createField();
 
-		$result = $type->validate();
+		$result = $type->validate('abc123');
 
 		$this->assertConstraintValidationResultSkipped('pattern', $result);
 	}
@@ -82,10 +77,9 @@ final class TextTest extends FieldTestCase
 	public function pattern_constraint_passes_when_met(): void
 	{
 		$type = $this->createField()
-			->matches('/^[a-z]+$/i')
-			->input('abc');
+			->matches('/^[a-z]+$/i');
 
-		$result = $type->validate();
+		$result = $type->validate('abc');
 
 		$this->assertConstraintValidationResultPassed('pattern', $result);
 	}
@@ -94,10 +88,9 @@ final class TextTest extends FieldTestCase
 	public function pattern_constraint_fails_when_not_met(): void
 	{
 		$type = $this->createField()
-			->matches('/^[a-z]+$/i')
-			->input('abc123');
+			->matches('/^[a-z]+$/i');
 
-		$result = $type->validate();
+		$result = $type->validate('abc123');
 
 		$this->assertConstraintValidationResultFailed('pattern', $result);
 	}

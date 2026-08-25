@@ -48,10 +48,9 @@ final class DurationTest extends FieldTestCase
 	#[DataProvider('validDurations')]
 	public function it_validates_valid_durations(string $duration): void
 	{
-		$type = $this->createField()
-			->input($duration);
+		$type = $this->createField();
 
-		$result = $type->validate();
+		$result = $type->validate($duration);
 
 		$this->assertConstraintValidationResultPassed('type', $result);
 	}
@@ -82,10 +81,9 @@ final class DurationTest extends FieldTestCase
 	#[DataProvider('invalidDurations')]
 	public function it_does_not_validate_invalid_durations(mixed $duration): void
 	{
-		$type = $this->createField()
-			->input($duration);
+		$type = $this->createField();
 
-		$result = $type->validate();
+		$result = $type->validate($duration);
 
 		$this->assertConstraintValidationResultFailed('type', $result);
 	}
@@ -114,10 +112,9 @@ final class DurationTest extends FieldTestCase
 	public function min_constraint_meets_expectations(string $min, string $input, ValidationStatus $status): void
 	{
 		$type = $this->createField()
-			->minOf($min)
-			->input($input);
+			->minOf($min);
 
-		$result = $type->validate();
+		$result = $type->validate($input);
 
 		$this->assertConstraintValidationResultHasStatusOf($status, 'min', $result);
 	}
@@ -151,10 +148,9 @@ final class DurationTest extends FieldTestCase
 	public function max_constraint_meets_expectations(string $max, string $input, ValidationStatus $status): void
 	{
 		$type = $this->createField()
-			->maxOf($max)
-			->input($input);
+			->maxOf($max);
 
-		$result = $type->validate();
+		$result = $type->validate($input);
 
 		$this->assertConstraintValidationResultHasStatusOf($status, 'max', $result);
 	}
@@ -189,10 +185,9 @@ final class DurationTest extends FieldTestCase
 	{
 		$type = $this->createField()
 			->minOf($min)
-			->inIncrementsOf($step)
-			->input($input);
+			->inIncrementsOf($step);
 
-		$result = $type->validate();
+		$result = $type->validate($input);
 
 		$this->assertConstraintValidationResultHasStatusOf($status, 'step', $result);
 	}

@@ -27,10 +27,9 @@ final class DateTimeTest extends FieldTestCase
 	public function from_constraint_meets_expectations_for_minute_precision(string $minDateTime, string $inputDateTime, ValidationStatus $expectedStatus): void
 	{
 		$field = (new DateTime(new Name('date_time'), precision: TimePrecision::Minutes))
-			->from($minDateTime)
-			->input($inputDateTime);
+			->from($minDateTime);
 
-		$result = $field->validate();
+		$result = $field->validate($inputDateTime);
 
 		$this->assertConstraintValidationResultHasStatusOf($expectedStatus, 'from', $result);
 	}
@@ -49,10 +48,9 @@ final class DateTimeTest extends FieldTestCase
 	public function until_constraint_meets_expectations_for_minute_precision(string $maxDateTime, string $inputDateTime, ValidationStatus $expectedStatus): void
 	{
 		$field = (new DateTime(new Name('date_time'), precision: TimePrecision::Minutes))
-			->until($maxDateTime)
-			->input($inputDateTime);
+			->until($maxDateTime);
 
-		$result = $field->validate();
+		$result = $field->validate($inputDateTime);
 
 		$this->assertConstraintValidationResultHasStatusOf($expectedStatus, 'until', $result);
 	}
@@ -72,10 +70,9 @@ final class DateTimeTest extends FieldTestCase
 	{
 		$field = (new DateTime(new Name('date_time'), precision: TimePrecision::Minutes))
 			->from($from)
-			->inIncrementsOf($duration)
-			->input($input);
+			->inIncrementsOf($duration);
 
-		$result = $field->validate();
+		$result = $field->validate($input);
 
 		$this->assertConstraintValidationResultHasStatusOf($expectedStatus, 'interval', $result);
 	}
@@ -97,10 +94,9 @@ final class DateTimeTest extends FieldTestCase
 	public function from_constraint_meets_expectations_for_second_precision(string $minDateTime, string $inputDateTime, ValidationStatus $expectedStatus): void
 	{
 		$field = (new DateTime(new Name('date_time'), precision: TimePrecision::Seconds))
-			->from($minDateTime)
-			->input($inputDateTime);
+			->from($minDateTime);
 
-		$result = $field->validate();
+		$result = $field->validate($inputDateTime);
 
 		$this->assertConstraintValidationResultHasStatusOf($expectedStatus, 'from', $result);
 	}
@@ -120,10 +116,9 @@ final class DateTimeTest extends FieldTestCase
 	{
 		$field = (new DateTime(new Name('date_time'), precision: TimePrecision::Nanoseconds))
 			->from($from)
-			->inIncrementsOf($duration)
-			->input($input);
+			->inIncrementsOf($duration);
 
-		$result = $field->validate();
+		$result = $field->validate($input);
 
 		$this->assertConstraintValidationResultHasStatusOf($expectedStatus, 'interval', $result);
 	}
@@ -143,10 +138,9 @@ final class DateTimeTest extends FieldTestCase
 	#[DataProvider('invalidDateTimes')]
 	public function it_does_not_validate_invalid_dates(string $date): void
 	{
-		$field = $this->createField()
-			->input($date);
+		$field = $this->createField();
 
-		$result = $field->validate();
+		$result = $field->validate($date);
 
 		$this->assertConstraintValidationResultFailed('type', $result);
 	}

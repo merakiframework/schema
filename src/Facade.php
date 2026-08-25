@@ -311,7 +311,7 @@ final class Facade implements ScopeTarget
 	public function resolve(array|object $data): SchemaValidationResult
 	{
 		return $this->against($data, static fn(Field $field, mixed $given, array $outcomes): AggregatedValidationResult
-			=> $field->resolveWith($given, $outcomes));
+			=> $field->resolve($given, $outcomes));
 	}
 
 	/**
@@ -320,7 +320,7 @@ final class Facade implements ScopeTarget
 	public function validate(array|object $data): SchemaValidationResult
 	{
 		return $this->against($data, static fn(Field $field, mixed $given, array $outcomes): AggregatedValidationResult
-			=> $field->validateWith($given, $outcomes));
+			=> $field->validate($given, $outcomes));
 	}
 
 	/**

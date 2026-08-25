@@ -27,9 +27,8 @@ final class EmailAddressTest extends FieldTestCase
 	public function it_meet_expectations_for_basic_format(mixed $emailAddress, ValidationStatus $expectedStatus): void
 	{
 		$field = new EmailAddress(new Name('email_address'), format: Format::Basic);
-		$field->input($emailAddress);
 
-		$result = $field->validate();
+		$result = $field->validate($emailAddress);
 
 		$this->assertConstraintValidationResultHasStatusOf($expectedStatus, 'type', $result);
 	}
@@ -86,10 +85,9 @@ final class EmailAddressTest extends FieldTestCase
 	public function it_validates_min_length_when_met(): void
 	{
 		$field = $this->createField()
-			->minLengthOf(5)
-			->input('user@domain');
+			->minLengthOf(5);
 
-		$result = $field->validate();
+		$result = $field->validate('user@domain');
 
 		$this->assertConstraintValidationResultPassed('min', $result);
 	}
@@ -98,10 +96,9 @@ final class EmailAddressTest extends FieldTestCase
 	public function it_does_not_validate_min_length_when_not_met(): void
 	{
 		$field = $this->createField()
-			->minLengthOf(5)
-			->input('a@b');
+			->minLengthOf(5);
 
-		$result = $field->validate();
+		$result = $field->validate('a@b');
 
 		$this->assertConstraintValidationResultFailed('min', $result);
 	}
@@ -110,10 +107,9 @@ final class EmailAddressTest extends FieldTestCase
 	public function it_validates_max_length_when_met(): void
 	{
 		$field = $this->createField()
-			->maxLengthOf(5)
-			->input('a@b');
+			->maxLengthOf(5);
 
-		$result = $field->validate();
+		$result = $field->validate('a@b');
 
 		$this->assertConstraintValidationResultPassed('max', $result);
 	}
@@ -122,10 +118,9 @@ final class EmailAddressTest extends FieldTestCase
 	public function it_does_not_validate_max_length_when_not_met(): void
 	{
 		$field = $this->createField()
-			->maxLengthOf(5)
-			->input('user@domain');
+			->maxLengthOf(5);
 
-		$result = $field->validate();
+		$result = $field->validate('user@domain');
 
 		$this->assertConstraintValidationResultFailed('max', $result);
 	}
@@ -135,10 +130,9 @@ final class EmailAddressTest extends FieldTestCase
 	public function it_can_restrict_domains_passes_constraint(string $allowedDomain): void
 	{
 		$field = $this->createField()
-			->allowDomain($allowedDomain)
-			->input('user@' . $allowedDomain);
+			->allowDomain($allowedDomain);
 
-		$result = $field->validate();
+		$result = $field->validate('user@' . $allowedDomain);
 
 		$this->assertConstraintValidationResultPassed('allowedDomains', $result);
 	}
@@ -148,10 +142,9 @@ final class EmailAddressTest extends FieldTestCase
 	public function it_can_restrict_domains_fails_constraint(string $allowedDomain): void
 	{
 		$field = $this->createField()
-			->allowDomain($allowedDomain)
-			->input('user@example.net');
+			->allowDomain($allowedDomain);
 
-		$result = $field->validate();
+		$result = $field->validate('user@example.net');
 
 		$this->assertConstraintValidationResultFailed('allowedDomains', $result);
 	}
@@ -161,10 +154,9 @@ final class EmailAddressTest extends FieldTestCase
 	public function it_can_blacklist_domains_fails_constraint(string $disallowedDomain): void
 	{
 		$field = $this->createField()
-			->disallowDomain($disallowedDomain)
-			->input('user@' . $disallowedDomain);
+			->disallowDomain($disallowedDomain);
 
-		$result = $field->validate();
+		$result = $field->validate('user@' . $disallowedDomain);
 
 		$this->assertConstraintValidationResultFailed('disallowedDomains', $result);
 	}
@@ -174,10 +166,9 @@ final class EmailAddressTest extends FieldTestCase
 	public function it_can_blacklist_domains_passes_constraint(string $disallowedDomain): void
 	{
 		$field = $this->createField()
-			->disallowDomain($disallowedDomain)
-			->input('user@example.net');
+			->disallowDomain($disallowedDomain);
 
-		$result = $field->validate();
+		$result = $field->validate('user@example.net');
 
 		$this->assertConstraintValidationResultPassed('allowedDomains', $result);
 	}

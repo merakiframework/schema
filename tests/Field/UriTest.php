@@ -29,9 +29,9 @@ final class UriTest extends FieldTestCase
 	#[DataProvider('validAbsoluteUris')]
 	public function it_validates_valid_absolute_urls(string $uri): void
 	{
-		$sut = $this->createSubject()->input($uri);
+		$sut = $this->createSubject();
 
-		$result = $sut->validate();
+		$result = $sut->validate($uri);
 
 		$this->assertConstraintValidationResultPassed('type', $result);
 	}
@@ -40,9 +40,9 @@ final class UriTest extends FieldTestCase
 	#[DataProvider('invalidAbsoluteUris')]
 	public function it_does_not_validate_invalid_absolute_urls(mixed $uri): void
 	{
-		$sut = $this->createSubject()->input($uri);
+		$sut = $this->createSubject();
 
-		$result = $sut->validate();
+		$result = $sut->validate($uri);
 
 		$this->assertConstraintValidationResultFailed('type', $result);
 	}
@@ -51,10 +51,10 @@ final class UriTest extends FieldTestCase
 	public function min_constraint_passes_when_met(): void
 	{
 		$sut = $this->createSubject()
-			->input('https://example.com')
+			
 			->minLengthOf(12);
 
-		$result = $sut->validate();
+		$result = $sut->validate('https://example.com');
 
 		$this->assertConstraintValidationResultPassed('min', $result);
 	}
@@ -63,10 +63,10 @@ final class UriTest extends FieldTestCase
 	public function min_constraint_fails_when_not_met(): void
 	{
 		$sut = $this->createSubject()
-			->input('https://example.com')
+			
 			->minLengthOf(30);
 
-		$result = $sut->validate();
+		$result = $sut->validate('https://example.com');
 
 		$this->assertConstraintValidationResultFailed('min', $result);
 	}
@@ -75,10 +75,10 @@ final class UriTest extends FieldTestCase
 	public function max_constraint_passes_when_met(): void
 	{
 		$sut = $this->createSubject()
-			->input('https://example.com')
+			
 			->maxLengthOf(20);
 
-		$result = $sut->validate();
+		$result = $sut->validate('https://example.com');
 
 		$this->assertConstraintValidationResultPassed('max', $result);
 	}
@@ -87,10 +87,10 @@ final class UriTest extends FieldTestCase
 	public function max_constraint_fails_when_not_met(): void
 	{
 		$sut = $this->createSubject()
-			->input('https://example.com')
+			
 			->maxLengthOf(12);
 
-		$result = $sut->validate();
+		$result = $sut->validate('https://example.com');
 
 		$this->assertConstraintValidationResultFailed('max', $result);
 	}

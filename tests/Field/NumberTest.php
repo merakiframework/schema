@@ -24,10 +24,9 @@ final class NumberTest extends FieldTestCase
 	#[DataProvider('validNumbers')]
 	public function it_validates_valid_numbers(mixed $number): void
 	{
-		$field = $this->createField()
-			->input($number);
+		$field = $this->createField();
 
-		$result = $field->validate();
+		$result = $field->validate($number);
 
 		$this->assertConstraintValidationResultPassed('type', $result);
 	}
@@ -35,9 +34,9 @@ final class NumberTest extends FieldTestCase
 	#[Test]
 	public function it_accepts_decimals_when_no_step_is_configured(): void
 	{
-		$field = $this->createField()->input('2.5');
+		$field = $this->createField();
 
-		$result = $field->validate();
+		$result = $field->validate('2.5');
 
 		// a plain number field must not impose an integer-only step by default
 		$this->assertConstraintValidationResultPassed('step', $result);
@@ -83,10 +82,9 @@ final class NumberTest extends FieldTestCase
 	#[DataProvider('invalidNumbers')]
 	public function it_does_not_validate_invalid_numbers(mixed $number): void
 	{
-		$field = $this->createField()
-			->input($number);
+		$field = $this->createField();
 
-		$result = $field->validate();
+		$result = $field->validate($number);
 
 		$this->assertConstraintValidationResultFailed('type', $result);
 	}
@@ -114,10 +112,9 @@ final class NumberTest extends FieldTestCase
 	public function it_passes_when_min_constraint_is_met(mixed $min, mixed $value): void
 	{
 		$field = $this->createField()
-			->minOf($min)
-			->input($value);
+			->minOf($min);
 
-		$result = $field->validate();
+		$result = $field->validate($value);
 
 		$this->assertConstraintValidationResultPassed('min', $result);
 	}
@@ -139,10 +136,9 @@ final class NumberTest extends FieldTestCase
 	public function it_fails_when_min_constraint_is_not_met(mixed $min, mixed $value): void
 	{
 		$field = $this->createField()
-			->minOf($min)
-			->input($value);
+			->minOf($min);
 
-		$result = $field->validate();
+		$result = $field->validate($value);
 
 		$this->assertConstraintValidationResultFailed('min', $result);
 	}
@@ -162,10 +158,9 @@ final class NumberTest extends FieldTestCase
 	public function it_passes_when_max_constraint_is_met(mixed $max, mixed $value): void
 	{
 		$field = $this->createField()
-			->maxOf($max)
-			->input($value);
+			->maxOf($max);
 
-		$result = $field->validate();
+		$result = $field->validate($value);
 
 		$this->assertConstraintValidationResultPassed('max', $result);
 	}
@@ -187,10 +182,9 @@ final class NumberTest extends FieldTestCase
 	public function it_fails_when_max_constraint_is_not_met(mixed $max, mixed $value): void
 	{
 		$field = $this->createField()
-			->maxOf($max)
-			->input($value);
+			->maxOf($max);
 
-		$result = $field->validate();
+		$result = $field->validate($value);
 
 		$this->assertConstraintValidationResultFailed('max', $result);
 	}
@@ -211,10 +205,9 @@ final class NumberTest extends FieldTestCase
 	{
 		$field = $this->createField()
 			->minOf($min)
-			->inIncrementsOf($step)
-			->input($value);
+			->inIncrementsOf($step);
 
-		$result = $field->validate();
+		$result = $field->validate($value);
 
 		$this->assertConstraintValidationResultPassed('step', $result);
 	}
@@ -244,10 +237,9 @@ final class NumberTest extends FieldTestCase
 	{
 		$field = $this->createField()
 			->minOf($min)
-			->inIncrementsOf($step)
-			->input($value);
+			->inIncrementsOf($step);
 
-		$result = $field->validate();
+		$result = $field->validate($value);
 
 		$this->assertConstraintValidationResultFailed('step', $result);
 	}

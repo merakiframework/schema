@@ -83,7 +83,7 @@ final class VariantTest extends FieldTestCase
 	{
 		$sut = $this->createSubject();
 
-		$result = $sut->validate();
+		$result = $sut->validate(null);
 
 		$this->assertConstraintValidationResultFailed('type', $result);
 	}
@@ -93,7 +93,7 @@ final class VariantTest extends FieldTestCase
 	{
 		$sut = $this->createSubject()->makeOptional();
 
-		$result = $sut->validate();
+		$result = $sut->validate(null);
 
 		$this->assertConstraintValidationResultSkipped('type', $result);
 	}
@@ -101,27 +101,23 @@ final class VariantTest extends FieldTestCase
 	#[Test]
 	public function it_uses_the_first_matching_field_for_validation(): void
 	{
-		$sut = $this->createSubject()
-			->input('correct horse battery staple'); // valid passphrase
+		$sut = $this->createSubject();
 
-		$result = $sut->validate();
+		$result = $sut->validate('correct horse battery staple');
 
 		$this->assertEquals(ValidationStatus::Passed, $result->status);
 		$this->assertInstanceOf(Field\Passphrase::class, $result->field);
-		$this->assertInstanceOf(Field\Passphrase::class, $sut->matchedField);
 	}
 
 	#[Test]
 	public function it_uses_the_second_matching_field_if_the_first_does_not_match(): void
 	{
-		$sut = $this->createSubject()
-			->input('password');
+		$sut = $this->createSubject();
 
-		$result = $sut->validate();
+		$result = $sut->validate('password');
 
 		$this->assertEquals(ValidationStatus::Passed, $result->status);
 		$this->assertInstanceOf(Field\Password::class, $result->field);
-		$this->assertInstanceOf(Field\Password::class, $sut->matchedField);
 	}
 
 	#[Test]
@@ -132,22 +128,21 @@ final class VariantTest extends FieldTestCase
 			Field\Passphrase::paranoid(new Property\Name('passphrase')),
 			Field\Password::strong(new Property\Name('password')),
 		);
-		$sut->input('x');
 
-		$result = $sut->validate();
+		$result = $sut->validate('x');
 
 		$this->assertEquals(ValidationStatus::Failed, $result->status);
 		$this->assertTrue($result->allFailed());
 	}
 
 	#[Test]
-	public function it_updates_its_resolved_value_to_the_matched_field_value(): void
+	public function it_resolves_to_the_matched_fields_value(): void
 	{
 		$input = 'correct horse battery staple'; // valid passphrase
 
-		$sut = $this->createSubject()->input($input);
+		$result = $this->createSubject()->validate($input);
 
-		$this->assertEquals($input, $sut->resolvedValue->unwrap());
+		$this->assertEquals($input, $result->value);
 	}
 
 	#[Test]
@@ -160,13 +155,4 @@ final class VariantTest extends FieldTestCase
 		$this->assertEquals($value, $sut->password->defaultValue->unwrap());
 	}
 
-	#[Test]
-	public function it_inputs_value_to_fields_correctly(): void
-	{
-		$value = 'correct horse battery staple';
-		$sut = $this->createSubject()->input($value);
-
-		$this->assertEquals($value, $sut->passphrase->value->unwrap());
-		$this->assertEquals($value, $sut->password->value->unwrap());
-	}
 }

@@ -17,6 +17,27 @@ abstract class CompositeTestCase extends FieldTestCase
 {
 	abstract public function createSubject(): CompositeField;
 
+
+	/**
+	 * A composite resolves to one result per sub-field rather than a single value, so the
+	 * base assertion — that a resolved field carries the authored default — is made per
+	 * part instead.
+	 */
+	#[Test]
+	public function it_resolves_to_the_default_value_when_nothing_is_submitted(): void
+	{
+		$field = $this->createSubject();
+
+		$resolved = $field->resolve(null);
+
+		foreach ($field->fields as $subField) {
+			$this->assertEquals(
+				$subField->defaultValue->unwrap(),
+				$resolved->get((string) $subField->name)->value,
+			);
+		}
+	}
+
 	#[Test]
 	public function it_is_a_composite_field(): void
 	{
@@ -36,9 +57,9 @@ abstract class CompositeTestCase extends FieldTestCase
 	#[Test]
 	public function all_constraints_are_skipped_when_composite_field_is_optional_and_has_no_value(): void
 	{
-		$sut = $this->createSubject()->makeOptional()->input([]);
+		$sut = $this->createSubject()->makeOptional();
 
-		$result = $sut->validate();
+		$result = $sut->validate([]);
 
 		foreach ($result as $fieldResult) {
 			foreach ($fieldResult as $constraintResult) {

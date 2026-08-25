@@ -25,9 +25,9 @@ final class TimeTest extends FieldTestCase
 	#[DataProvider('validTimes')]
 	public function it_validates_valid_times(string $time): void
 	{
-		$type = $this->createField()->input($time);
+		$type = $this->createField();
 
-		$result = $type->validate();
+		$result = $type->validate($time);
 
 		$this->assertConstraintValidationResultPassed('type', $result);
 	}
@@ -36,9 +36,9 @@ final class TimeTest extends FieldTestCase
 	#[DataProvider('invalidTimes')]
 	public function it_does_not_validate_invalid_times(string $time): void
 	{
-		$type = $this->createField()->input($time);
+		$type = $this->createField();
 
-		$result = $type->validate();
+		$result = $type->validate($time);
 
 		$this->assertConstraintValidationResultFailed('type', $result);
 	}
@@ -47,10 +47,9 @@ final class TimeTest extends FieldTestCase
 	public function from_constraint_passes_when_met(): void
 	{
 		$type = $this->createField()
-			->from('10:00:00')
-			->input('12:34:56');
+			->from('10:00:00');
 
-		$result = $type->validate();
+		$result = $type->validate('12:34:56');
 
 		$this->assertConstraintValidationResultPassed('from', $result);
 	}
@@ -59,10 +58,9 @@ final class TimeTest extends FieldTestCase
 	public function from_constraint_fails_when_not_met(): void
 	{
 		$type = $this->createField()
-			->from('13:00:00')
-			->input('12:34:56');
+			->from('13:00:00');
 
-		$result = $type->validate();
+		$result = $type->validate('12:34:56');
 
 		$this->assertConstraintValidationResultFailed('from', $result);
 	}
@@ -71,10 +69,9 @@ final class TimeTest extends FieldTestCase
 	public function until_constraint_passes_when_met(): void
 	{
 		$type = $this->createField()
-			->until('13:00:00')
-			->input('12:34:56');
+			->until('13:00:00');
 
-		$result = $type->validate();
+		$result = $type->validate('12:34:56');
 
 		$this->assertConstraintValidationResultPassed('until', $result);
 	}
@@ -83,10 +80,9 @@ final class TimeTest extends FieldTestCase
 	public function until_constraint_fails_when_not_met(): void
 	{
 		$type = $this->createField()
-			->until('12:00:00')
-			->input('12:34:56');
+			->until('12:00:00');
 
-		$result = $type->validate();
+		$result = $type->validate('12:34:56');
 
 		$this->assertConstraintValidationResultFailed('until', $result);
 	}
@@ -97,10 +93,9 @@ final class TimeTest extends FieldTestCase
 	{
 		$type = (new Time(new Name('time'), precision: $precision))
 			->from($min)
-			->inIncrementsOf($duration)
-			->input($value);
+			->inIncrementsOf($duration);
 
-		$result = $type->validate();
+		$result = $type->validate($value);
 
 		$this->assertConstraintValidationResultPassed('step', $result);
 	}
@@ -111,10 +106,9 @@ final class TimeTest extends FieldTestCase
 	{
 		$type = (new Time(new Name('time'), precision: $precision))
 			->from($min)
-			->inIncrementsOf($duration)
-			->input($value);
+			->inIncrementsOf($duration);
 
-		$result = $type->validate();
+		$result = $type->validate($value);
 
 		$this->assertConstraintValidationResultFailed('step', $result);
 	}

@@ -54,9 +54,8 @@ final class PassphraseTest extends FieldTestCase
 		ValidationStatus $expectedStatus
 	): void {
 		$policy = new Passphrase(new Name('passphrase'), entropy: $requiredEntropy, method: 'standard', dictionary: 'none');
-		$policy->input($passphrase);
 
-		$result = $policy->validate();
+		$result = $policy->validate($passphrase);
 
 		$this->assertConstraintValidationResultHasStatusOf($expectedStatus, 'entropy', $result);
 	}

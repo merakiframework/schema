@@ -28,7 +28,7 @@ final class CompositeOptionalSubFieldTest extends TestCase
 		$sut = $this->createComposite();
 		$sut->nickname->makeOptional();
 
-		$result = $sut->input(['name' => 'Ada'])->validate();
+		$result = $sut->validate(['name' => 'Ada']);
 
 		$nickname = $result->get('test.nickname');
 
@@ -44,7 +44,7 @@ final class CompositeOptionalSubFieldTest extends TestCase
 		$sut->nickname->makeOptional();
 
 		// 'Zed' is 3 characters, below the sub-field's minimum of 5.
-		$result = $sut->input(['name' => 'Ada', 'nickname' => 'Zed'])->validate();
+		$result = $sut->validate(['name' => 'Ada', 'nickname' => 'Zed']);
 
 		$nickname = $result->get('test.nickname');
 
@@ -58,7 +58,7 @@ final class CompositeOptionalSubFieldTest extends TestCase
 	{
 		$sut = $this->createComposite();
 
-		$result = $sut->input(['name' => 'Ada'])->validate();
+		$result = $sut->validate(['name' => 'Ada']);
 
 		$this->assertSame(ValidationStatus::Failed, $result->get('test.nickname')?->get('type')?->status);
 	}

@@ -33,12 +33,13 @@ final class CollectionTest extends TestCase
 	#[Test]
 	public function it_normalises_input_into_a_list_of_items_keyed_by_local_name(): void
 	{
-		$field = $this->lessons()->input([
+		$result = $this->lessons()->resolve([
 			['date' => '2026-01-01', 'time' => '10:00:00'],
 			['date' => '2026-01-02', 'time' => '11:00:00'],
 		]);
 
-		$items = $field->resolvedValue->unwrap();
+		// The collection's own result carries the normalised list; the rest are its leaves.
+		$items = $result->get('lessons')->value;
 
 		$this->assertCount(2, $items);
 		$this->assertSame(['date' => '2026-01-01', 'time' => '10:00:00'], $items[0]);
@@ -47,51 +48,51 @@ final class CollectionTest extends TestCase
 	#[Test]
 	public function it_passes_when_every_item_is_valid(): void
 	{
-		$field = $this->lessons()->input([
+		$field = $this->lessons();
+
+		$this->assertSame(ValidationStatus::Passed, $field->validate([
 			['date' => '2026-01-01', 'time' => '10:00:00'],
 			['date' => '2026-01-02', 'time' => '11:00:00'],
-		]);
-
-		$this->assertSame(ValidationStatus::Passed, $field->validate()->status);
+		])->status);
 	}
 
 	#[Test]
 	public function it_fails_when_an_item_is_invalid(): void
 	{
-		$field = $this->lessons()->input([
-			['date' => 'not-a-date', 'time' => '10:00:00'],
-		]);
+		$field = $this->lessons();
 
-		$this->assertSame(ValidationStatus::Failed, $field->validate()->status);
+		$this->assertSame(ValidationStatus::Failed, $field->validate([
+			['date' => 'not-a-date', 'time' => '10:00:00'],
+		])->status);
 	}
 
 	#[Test]
 	public function it_fails_when_there_are_fewer_than_min_items(): void
 	{
-		$field = $this->lessons()->minItems(2)->input([
-			['date' => '2026-01-01', 'time' => '10:00:00'],
-		]);
+		$field = $this->lessons()->minItems(2);
 
-		$this->assertSame(ValidationStatus::Failed, $field->validate()->status);
+		$this->assertSame(ValidationStatus::Failed, $field->validate([
+			['date' => '2026-01-01', 'time' => '10:00:00'],
+		])->status);
 	}
 
 	#[Test]
 	public function it_fails_when_there_are_more_than_max_items(): void
 	{
-		$field = $this->lessons()->maxItems(1)->input([
+		$field = $this->lessons()->maxItems(1);
+
+		$this->assertSame(ValidationStatus::Failed, $field->validate([
 			['date' => '2026-01-01', 'time' => '10:00:00'],
 			['date' => '2026-01-02', 'time' => '11:00:00'],
-		]);
-
-		$this->assertSame(ValidationStatus::Failed, $field->validate()->status);
+		])->status);
 	}
 
 	#[Test]
 	public function an_optional_empty_collection_passes(): void
 	{
-		$field = $this->lessons()->minItems(1)->makeOptional()->input([]);
+		$field = $this->lessons()->minItems(1)->makeOptional();
 
-		$this->assertSame(ValidationStatus::Passed, $field->validate()->status);
+		$this->assertSame(ValidationStatus::Passed, $field->validate([])->status);
 	}
 
 	#[Test]

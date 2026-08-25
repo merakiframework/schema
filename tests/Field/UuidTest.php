@@ -30,10 +30,9 @@ final class UuidTest extends FieldTestCase
 	#[DataProvider('validUuids')]
 	public function it_accepts_valid_uuids(string $uuid): void
 	{
-		$sut = $this->createSubject()
-			->input($uuid);
+		$sut = $this->createSubject();
 
-		$result = $sut->validate();
+		$result = $sut->validate($uuid);
 
 		$this->assertConstraintValidationResultPassed('type', $result);
 	}
@@ -59,10 +58,9 @@ final class UuidTest extends FieldTestCase
 	#[DataProvider('invalidUuids')]
 	public function it_rejects_invalid_uuids(string $uuid): void
 	{
-		$sut = $this->createSubject()
-			->input($uuid);
+		$sut = $this->createSubject();
 
-		$result = $sut->validate();
+		$result = $sut->validate($uuid);
 
 		$this->assertConstraintValidationResultFailed('type', $result);
 	}
@@ -84,10 +82,10 @@ final class UuidTest extends FieldTestCase
 	public function uuids_can_be_restricted_to_a_version_and_pass(int $version, string $uuidToPass): void
 	{
 		$sut = $this->createSubject()
-			->input($uuidToPass)
+			
 			->restrictToVersion($version);
 
-		$result = $sut->validate();
+		$result = $sut->validate($uuidToPass);
 
 		$this->assertConstraintValidationResultPassed('version', $result);
 	}
@@ -113,10 +111,10 @@ final class UuidTest extends FieldTestCase
 	public function uuids_can_be_restricted_to_a_version_and_fail(int $version, string $uuidToFail): void
 	{
 		$sut = $this->createSubject()
-			->input($uuidToFail)
+			
 			->restrictToVersion($version);
 
-		$result = $sut->validate();
+		$result = $sut->validate($uuidToFail);
 
 		$this->assertConstraintValidationResultFailed('version', $result);
 	}
@@ -142,11 +140,11 @@ final class UuidTest extends FieldTestCase
 	public function can_restrict_to_mulitple_versions(string $uuid, ValidationStatus $expectedStatus): void
 	{
 		$sut = $this->createSubject()
-			->input($uuid)
+			
 			->restrictToVersion(4)
 			->restrictToVersion(7);
 
-		$result = $sut->validate();
+		$result = $sut->validate($uuid);
 
 		$this->assertConstraintValidationResultHasStatusOf($expectedStatus, 'version', $result);
 	}

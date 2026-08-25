@@ -29,8 +29,6 @@ final class Variant extends Field
 {
 	public Field\Set $fields;
 
-	public ?AtomicField $matchedField = null;
-
 	public function __construct(
 		Property\Name $name,
 		AtomicField ...$fields
@@ -92,7 +90,7 @@ final class Variant extends Field
 	 *
 	 * @param list<\Meraki\Schema\Rule\AppliedOutcome> $appliedOutcomes
 	 */
-	public function resolveWith(mixed $given, array $appliedOutcomes = []): ResolvedField
+	public function resolve(mixed $given, array $appliedOutcomes = []): ResolvedField
 	{
 		return new ResolvedField($this, $given, $this->resolvedValueFor($given)->unwrap(), $appliedOutcomes);
 	}
@@ -107,7 +105,7 @@ final class Variant extends Field
 	 *
 	 * @param list<\Meraki\Schema\Rule\AppliedOutcome> $appliedOutcomes
 	 */
-	public function validateWith(mixed $given, array $appliedOutcomes = []): ResolvedField
+	public function validate(mixed $given, array $appliedOutcomes = []): ResolvedField
 	{
 		$value = $this->resolvedValueFor($given);
 		$resolved = new ResolvedField($this, $given, $value->unwrap(), $appliedOutcomes);
@@ -120,7 +118,7 @@ final class Variant extends Field
 		}
 
 		foreach ($this->fields as $field) {
-			$attempt = $field->validateWith($given, $appliedOutcomes);
+			$attempt = $field->validate($given, $appliedOutcomes);
 
 			if ($attempt->status === ValidationStatus::Passed) {
 				return $attempt;
@@ -130,40 +128,6 @@ final class Variant extends Field
 		// Nothing accepted it. Report that against the variant rather than picking one
 		// alternative's failures arbitrarily — none of them is *the* reason.
 		return $resolved->withResults(ConstraintValidationResult::fail('type'));
-	}
-
-	public function validate(): AggregatedValidationResult
-	{
-		$value = $this->resolvedValue;
-
-		// if the field is optional and no value is provided, skip all constraints
-		if ($this->optional && $value->notProvided()) {
-			return new ValidationResult($this, ConstraintValidationResult::skip('type'));
-		}
-
-		// if the field is not optional and no value provided, return a validation error
-		if ($value->notProvided()) {
-			return new ValidationResult($this, ConstraintValidationResult::fail('type'));
-		}
-
-		$typeIsValid = $this->validateValue($value->unwrap());
-		$fieldResults = [];
-
-		if ($typeIsValid) {
-			foreach ($this->fields as $field) {
-				$result = $field->validate();
-
-				if ($result->status === ValidationStatus::Passed) {
-					$this->matchedField = $field;
-					$this->resolvedValue = $field->resolvedValue;
-					return $result;
-				}
-
-				$fieldResults[] = $result;
-			}
-		}
-
-		return new CompositeValidationResult($this, ...$fieldResults);
 	}
 
 	public function getConstraints(): array

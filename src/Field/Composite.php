@@ -109,17 +109,17 @@ abstract class Composite extends Field implements IteratorAggregate, Countable
 	 *
 	 * @param list<\Meraki\Schema\Rule\AppliedOutcome> $appliedOutcomes
 	 */
-	public function resolveWith(mixed $given, array $appliedOutcomes = []): CompositeValidationResult
+	public function resolve(mixed $given, array $appliedOutcomes = []): CompositeValidationResult
 	{
 		$value = $this->resolvedValueFor($given)->unwrap();
 		$resolved = [];
 
 		foreach ($this->fields as $field) {
-			// Unusable input has nothing to hand the sub-fields; validateWith() reports it
+			// Unusable input has nothing to hand the sub-fields; validate() reports it
 			// against the composite.
 			$slice = is_array($value) ? ($value[(string) $field->name] ?? null) : null;
 
-			foreach ($this->flatten($field->resolveWith($slice)) as $leaf) {
+			foreach ($this->flatten($field->resolve($slice)) as $leaf) {
 				$resolved[] = $leaf;
 			}
 		}
@@ -130,7 +130,7 @@ abstract class Composite extends Field implements IteratorAggregate, Countable
 	/**
 	 * @param list<\Meraki\Schema\Rule\AppliedOutcome> $appliedOutcomes
 	 */
-	public function validateWith(mixed $given, array $appliedOutcomes = []): CompositeValidationResult
+	public function validate(mixed $given, array $appliedOutcomes = []): CompositeValidationResult
 	{
 		$value = $this->resolvedValueFor($given);
 		$raw = $value->unwrap();
@@ -156,7 +156,7 @@ abstract class Composite extends Field implements IteratorAggregate, Countable
 		foreach ($this->fields as $field) {
 			$name = (string) $field->name;
 			$slice = $raw[$name] ?? null;
-			$resolved = $field->resolveWith($slice);
+			$resolved = $field->resolve($slice);
 
 			if (!$resolved instanceof ResolvedField) {
 				throw new InvalidArgumentException(sprintf(
@@ -289,114 +289,6 @@ abstract class Composite extends Field implements IteratorAggregate, Countable
 		}
 
 		return $flat;
-	}
-
-	public function validate(): CompositeValidationResult
-	{
-		/** @var array<string, FieldValidationResult> $fieldResults */
-		$fieldResults = [];
-		/** @var array<string, Field> $fieldsToSkip */
-		$fieldsToSkip = [];
-
-		$value = $this->resolvedValue;
-
-		// Unusable input is a shape failure on the composite, reported before anything
-		// else: being optional excuses an absent value, never a malformed one.
-		if (!$this->validateValue($value->unwrap())) {
-			return $this->failShapeOfAllFields();
-		}
-
-		// An optional composite that was left empty is skipped, not failed.
-		if ($this->optional && !$this->valueProvided($value)) {
-			return $this->skipValidationOfAllFields();
-		}
-
-		// First validate types of each subfield
-		foreach ($this->fields as $field) {
-			$fieldName = (string)$field->name;
-
-			// An optional sub-field that was left empty is not an error. Skip it outright
-			// rather than type-checking the null (which every field type rejects), and mark
-			// it so its constraints below are skipped too.
-			if ($field->optional && !$field->hasValue()) {
-				$fieldResults[$fieldName] = new FieldValidationResult($field, new ConstraintValidationResult(ValidationStatus::Skipped, 'type'));
-				$fieldsToSkip[$fieldName] = $field;
-				continue;
-			}
-
-			$result = $field->validateValue($field->resolvedValue->unwrap());
-
-			if ($result === true) {
-				$fieldResults[$fieldName] = new FieldValidationResult($field, new ConstraintValidationResult(ValidationStatus::Passed, 'type'));
-				continue;
-			}
-
-			$status = $result === null ? ValidationStatus::Skipped : ValidationStatus::Failed;
-			$fieldResults[$fieldName] = new FieldValidationResult($field, new ConstraintValidationResult($status, 'type'));
-			$fieldsToSkip[$fieldName] = $field;
-		}
-
-		// composite constraints
-		foreach ($this->getConstraints() as $constraintName => $constraintValidator) {
-			$fieldName = $this->resolveConstraintNameToFieldName($constraintName);
-
-			if (!isset($fieldResults[$fieldName])) {
-				throw new InvalidArgumentException("Constraint '$constraintName' does not correspond to any field in the composite.");
-			}
-
-			$fieldValidationResult = $fieldResults[$fieldName];
-			$field = $fieldValidationResult->field;
-
-			// Skip constraint if the field failed/skipped type validation. An optional
-			// sub-field left empty is already in $fieldsToSkip; one that *was* filled in
-			// must still have its constraints run.
-			if (isset($fieldsToSkip[$fieldName])) {
-				$fieldResults[$fieldName] = $fieldValidationResult->add(new ConstraintValidationResult(ValidationStatus::Skipped, $constraintName));
-				continue;
-			}
-
-			// run validator
-			$result = $constraintValidator($value->unwrap());
-
-			if ($result === false) {
-				$fieldValidationResult = $fieldValidationResult->add(new ConstraintValidationResult(ValidationStatus::Failed, $constraintName));
-				$fieldsToSkip[$fieldName] = $field;		// Mark field to skip further validation of constraints
-			} elseif ($result === true) {
-				$fieldValidationResult = $fieldValidationResult->add(new ConstraintValidationResult(ValidationStatus::Passed, $constraintName));
-			} else {
-				$fieldValidationResult = $fieldValidationResult->add(new ConstraintValidationResult(ValidationStatus::Skipped, $constraintName));
-			}
-
-			$fieldResults[$fieldName] = $fieldValidationResult;
-		}
-
-		// sub-field constraints
-		foreach ($this->fields as $field) {
-			$fieldName = (string)$field->name;
-
-			// Validate each field's constraints
-			foreach ($field->getConstraints() as $constraintName => $constraintValidator) {
-				if (isset($fieldsToSkip[$fieldName])) {
-					$fieldResults[$fieldName] = $fieldResults[$fieldName]->add(new ConstraintValidationResult(ValidationStatus::Skipped, $constraintName));
-					continue;
-				}
-
-				$fieldValidationResult = $fieldResults[$fieldName];
-				$result = $constraintValidator($field->resolvedValue->unwrap());
-
-				if ($result === false) {
-					$fieldValidationResult = $fieldValidationResult->add(new ConstraintValidationResult(ValidationStatus::Failed, $constraintName));
-				} elseif ($result === true) {
-					$fieldValidationResult = $fieldValidationResult->add(new ConstraintValidationResult(ValidationStatus::Passed, $constraintName));
-				} else {
-					$fieldValidationResult = $fieldValidationResult->add(new ConstraintValidationResult(ValidationStatus::Skipped, $constraintName));
-				}
-
-				$fieldResults[$fieldName] = $fieldValidationResult;
-			}
-		}
-
-		return new CompositeValidationResult($this, ...array_values($fieldResults));
 	}
 
 	/**

@@ -40,7 +40,7 @@ final class BooleanTest extends FieldTestCase
 	#[DataProvider('validBooleanValues')]
 	public function it_only_allows_boolean_values(mixed $booleanValue): void
 	{
-		$trueResult = $this->createField()->input($booleanValue)->validate();
+		$trueResult = $this->createField()->validate($booleanValue);
 		$this->assertConstraintValidationResultPassed('type', $trueResult);
 	}
 
@@ -80,7 +80,7 @@ final class BooleanTest extends FieldTestCase
 	#[Test]
 	public function acceptance_passes_when_the_value_is_true(): void
 	{
-		$result = $this->createField()->mustBeAccepted()->input(true)->validate();
+		$result = $this->createField()->mustBeAccepted()->validate(true);
 
 		$this->assertConstraintValidationResultPassed('accepted', $result);
 	}
@@ -88,7 +88,7 @@ final class BooleanTest extends FieldTestCase
 	#[Test]
 	public function acceptance_fails_when_the_value_is_false(): void
 	{
-		$result = $this->createField()->mustBeAccepted()->input(false)->validate();
+		$result = $this->createField()->mustBeAccepted()->validate(false);
 
 		$this->assertConstraintValidationResultFailed('accepted', $result);
 	}

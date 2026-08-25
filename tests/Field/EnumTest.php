@@ -39,9 +39,9 @@ final class EnumTest extends FieldTestCase
 	#[Test]
 	public function it_only_allows_values_in_the_set(): void
 	{
-		$field = $this->createField()->input('USD');
+		$field = $this->createField();
 
-		$result = $field->validate();
+		$result = $field->validate('USD');
 
 		$this->assertConstraintValidationResultPassed('type', $result);
 	}
@@ -51,7 +51,7 @@ final class EnumTest extends FieldTestCase
 	{
 		$field = $this->createField()->allow('GBP');
 
-		$result = $field->input('GBP')->validate();
+		$result = $field->validate('GBP');
 
 		$this->assertConstraintValidationResultPassed('type', $result);
 	}
@@ -59,9 +59,9 @@ final class EnumTest extends FieldTestCase
 	#[Test]
 	public function it_does_not_allow_invalid_values(): void
 	{
-		$field = $this->createField()->input('GBP');
+		$field = $this->createField();
 
-		$result = $field->validate();
+		$result = $field->validate('GBP');
 
 		$this->assertConstraintValidationResultFailed('type', $result);
 	}

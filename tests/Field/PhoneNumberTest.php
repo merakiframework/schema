@@ -45,8 +45,7 @@ final class PhoneNumberTest extends FieldTestCase
 	public function with_no_allowed_countries_it_accepts_a_valid_international_number(): void
 	{
 		$result = (new PhoneNumber(new Name('test')))
-			->input($this->example('AU', PhoneNumberType::MOBILE, PhoneNumberFormat::E164))
-			->validate();
+			->validate($this->example('AU', PhoneNumberType::MOBILE, PhoneNumberFormat::E164));
 
 		$this->assertConstraintValidationResultPassed('type', $result);
 	}
@@ -56,8 +55,7 @@ final class PhoneNumberTest extends FieldTestCase
 	{
 		// A national-format number has no country context to validate against.
 		$result = (new PhoneNumber(new Name('test')))
-			->input($this->example('AU', PhoneNumberType::MOBILE, PhoneNumberFormat::NATIONAL))
-			->validate();
+			->validate($this->example('AU', PhoneNumberType::MOBILE, PhoneNumberFormat::NATIONAL));
 
 		$this->assertConstraintValidationResultFailed('type', $result);
 	}
@@ -66,8 +64,7 @@ final class PhoneNumberTest extends FieldTestCase
 	public function it_rejects_a_value_that_is_not_a_phone_number(): void
 	{
 		$result = (new PhoneNumber(new Name('test'), ['AU']))
-			->input('0000')
-			->validate();
+			->validate('0000');
 
 		$this->assertConstraintValidationResultFailed('type', $result);
 	}
@@ -76,8 +73,7 @@ final class PhoneNumberTest extends FieldTestCase
 	public function it_accepts_a_local_number_for_an_allowed_country(): void
 	{
 		$result = (new PhoneNumber(new Name('test'), ['AU']))
-			->input($this->example('AU', PhoneNumberType::MOBILE, PhoneNumberFormat::NATIONAL))
-			->validate();
+			->validate($this->example('AU', PhoneNumberType::MOBILE, PhoneNumberFormat::NATIONAL));
 
 		$this->assertConstraintValidationResultPassed('type', $result);
 		$this->assertConstraintValidationResultPassed('allowedCountries', $result);
@@ -87,8 +83,7 @@ final class PhoneNumberTest extends FieldTestCase
 	public function it_accepts_an_international_number_for_an_allowed_country(): void
 	{
 		$result = (new PhoneNumber(new Name('test'), ['AU']))
-			->input($this->example('AU', PhoneNumberType::MOBILE, PhoneNumberFormat::E164))
-			->validate();
+			->validate($this->example('AU', PhoneNumberType::MOBILE, PhoneNumberFormat::E164));
 
 		$this->assertConstraintValidationResultPassed('type', $result);
 		$this->assertConstraintValidationResultPassed('allowedCountries', $result);
@@ -100,8 +95,7 @@ final class PhoneNumberTest extends FieldTestCase
 		// A valid number, but from outside the allowed set: the shape is fine, the
 		// country is not.
 		$result = (new PhoneNumber(new Name('test'), ['AU']))
-			->input($this->example('US', PhoneNumberType::FIXED_LINE_OR_MOBILE, PhoneNumberFormat::E164))
-			->validate();
+			->validate($this->example('US', PhoneNumberType::FIXED_LINE_OR_MOBILE, PhoneNumberFormat::E164));
 
 		$this->assertConstraintValidationResultPassed('type', $result);
 		$this->assertConstraintValidationResultFailed('allowedCountries', $result);
@@ -111,8 +105,7 @@ final class PhoneNumberTest extends FieldTestCase
 	public function allowed_countries_is_skipped_when_none_are_configured(): void
 	{
 		$result = (new PhoneNumber(new Name('test')))
-			->input($this->example('AU', PhoneNumberType::MOBILE, PhoneNumberFormat::E164))
-			->validate();
+			->validate($this->example('AU', PhoneNumberType::MOBILE, PhoneNumberFormat::E164));
 
 		$this->assertConstraintValidationResultSkipped('allowedCountries', $result);
 	}
@@ -121,8 +114,7 @@ final class PhoneNumberTest extends FieldTestCase
 	public function it_accepts_a_number_of_the_required_type(): void
 	{
 		$result = (new PhoneNumber(new Name('test'), ['AU']))->ofType(Type::Mobile)
-			->input($this->example('AU', PhoneNumberType::MOBILE, PhoneNumberFormat::NATIONAL))
-			->validate();
+			->validate($this->example('AU', PhoneNumberType::MOBILE, PhoneNumberFormat::NATIONAL));
 
 		$this->assertConstraintValidationResultPassed('numberType', $result);
 	}
@@ -131,8 +123,7 @@ final class PhoneNumberTest extends FieldTestCase
 	public function it_rejects_a_number_of_the_wrong_type(): void
 	{
 		$result = (new PhoneNumber(new Name('test'), ['AU']))->ofType(Type::Mobile)
-			->input($this->example('AU', PhoneNumberType::FIXED_LINE, PhoneNumberFormat::NATIONAL))
-			->validate();
+			->validate($this->example('AU', PhoneNumberType::FIXED_LINE, PhoneNumberFormat::NATIONAL));
 
 		$this->assertConstraintValidationResultPassed('type', $result);
 		$this->assertConstraintValidationResultFailed('numberType', $result);
@@ -142,8 +133,7 @@ final class PhoneNumberTest extends FieldTestCase
 	public function number_type_is_skipped_when_unrestricted(): void
 	{
 		$result = (new PhoneNumber(new Name('test'), ['AU']))
-			->input($this->example('AU', PhoneNumberType::FIXED_LINE, PhoneNumberFormat::NATIONAL))
-			->validate();
+			->validate($this->example('AU', PhoneNumberType::FIXED_LINE, PhoneNumberFormat::NATIONAL));
 
 		$this->assertConstraintValidationResultSkipped('numberType', $result);
 	}

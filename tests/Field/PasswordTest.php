@@ -28,10 +28,9 @@ final class PasswordTest extends FieldTestCase
 		$field = $this->createField()
 			->minNumberOfDigits(1)
 			->minNumberOfSymbols(1)
-			->satisfyAnyOf('digits', 'symbols')
-			->input($value);
+			->satisfyAnyOf('digits', 'symbols');
 
-		$result = $field->validate();
+		$result = $field->validate($value);
 
 		$this->assertConstraintValidationResultPassed('type', $result);
 		$this->assertConstraintValidationResultHasStatusOf($expectedStatus, $constraintName, $result);
@@ -85,9 +84,9 @@ final class PasswordTest extends FieldTestCase
 	#[Test]
 	public function value_passes_against_strong_password_policy(): void
 	{
-		$policy = Password::strong(new Name('password'))->input('Str0ng@Passw0rd!');
+		$policy = Password::strong(new Name('password'));
 
-		$result = $policy->validate();
+		$result = $policy->validate('Str0ng@Passw0rd!');
 
 		$this->assertConstraintValidationResultPassed('type', $result);
 		$this->assertConstraintValidationResultPassed('length', $result);
@@ -101,9 +100,9 @@ final class PasswordTest extends FieldTestCase
 	#[Test]
 	public function value_fails_against_strong_password_policy(): void
 	{
-		$policy = Password::strong(new Name('password'))->input('weakpass');
+		$policy = Password::strong(new Name('password'));
 
-		$result = $policy->validate();
+		$result = $policy->validate('weakpass');
 
 		$this->assertConstraintValidationResultPassed('type', $result);
 		$this->assertConstraintValidationResultFailed('length', $result);
@@ -117,9 +116,9 @@ final class PasswordTest extends FieldTestCase
 	#[Test]
 	public function value_passes_against_moderate_password_policy(): void
 	{
-		$policy = Password::moderate(new Name('password'))->input('Mod3rate!Pass');
+		$policy = Password::moderate(new Name('password'));
 
-		$result = $policy->validate();
+		$result = $policy->validate('Mod3rate!Pass');
 
 		$this->assertConstraintValidationResultPassed('type', $result);
 		$this->assertConstraintValidationResultPassed('length', $result);
@@ -133,9 +132,9 @@ final class PasswordTest extends FieldTestCase
 	#[Test]
 	public function value_fails_against_moderate_password_policy(): void
 	{
-		$policy = Password::moderate(new Name('password'))->input('noDigitsOrSymbols');
+		$policy = Password::moderate(new Name('password'));
 
-		$result = $policy->validate();
+		$result = $policy->validate('noDigitsOrSymbols');
 
 		$this->assertConstraintValidationResultPassed('type', $result);
 		$this->assertConstraintValidationResultPassed('length', $result);
@@ -149,9 +148,9 @@ final class PasswordTest extends FieldTestCase
 	#[Test]
 	public function value_passes_against_weak_password_policy(): void
 	{
-		$policy = Password::weak(new Name('password'))->input('anystring');
+		$policy = Password::weak(new Name('password'));
 
-		$result = $policy->validate();
+		$result = $policy->validate('anystring');
 
 		$this->assertConstraintValidationResultPassed('type', $result);
 		$this->assertConstraintValidationResultPassed('length', $result);
@@ -165,9 +164,9 @@ final class PasswordTest extends FieldTestCase
 	#[Test]
 	public function value_fails_against_weak_password_policy(): void
 	{
-		$policy = Password::weak(new Name('password'))->input('short');
+		$policy = Password::weak(new Name('password'));
 
-		$result = $policy->validate();
+		$result = $policy->validate('short');
 
 		$this->assertConstraintValidationResultPassed('type', $result);
 		$this->assertConstraintValidationResultFailed('length', $result);
@@ -181,9 +180,9 @@ final class PasswordTest extends FieldTestCase
 	#[Test]
 	public function value_passes_against_common_password_policy(): void
 	{
-		$policy = Password::common(new Name('password'))->input('Hello World');
+		$policy = Password::common(new Name('password'));
 
-		$result = $policy->validate();
+		$result = $policy->validate('Hello World');
 
 		$this->assertConstraintValidationResultPassed('type', $result);
 		$this->assertConstraintValidationResultPassed('length', $result);
@@ -197,9 +196,9 @@ final class PasswordTest extends FieldTestCase
 	#[Test]
 	public function value_fails_against_common_password_policy(): void
 	{
-		$policy = Password::common(new Name('password'))->input('He1lo');
+		$policy = Password::common(new Name('password'));
 
-		$result = $policy->validate();
+		$result = $policy->validate('He1lo');
 
 		$this->assertConstraintValidationResultPassed('type', $result);
 		$this->assertConstraintValidationResultFailed('length', $result);
@@ -213,9 +212,9 @@ final class PasswordTest extends FieldTestCase
 	#[Test]
 	public function value_passes_for_no_policy(): void
 	{
-		$policy = Password::none(new Name('password'))->input('anystring');
+		$policy = Password::none(new Name('password'));
 
-		$result = $policy->validate();
+		$result = $policy->validate('anystring');
 
 		$this->assertConstraintValidationResultPassed('type', $result);
 		$this->assertConstraintValidationResultPassed('length', $result);

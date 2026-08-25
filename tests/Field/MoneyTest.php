@@ -38,9 +38,8 @@ final class MoneyTest extends CompositeTestCase
 	public function it_fails_overall_when_a_subfield_constraint_is_violated(): void
 	{
 		$field = $this->createSubject()->minOf('AUD', '10.00');
-		$field->input(['currency' => 'AUD', 'amount' => '5.00']); // below the minimum
 
-		$result = $field->validate();
+		$result = $field->validate(['currency' => 'AUD', 'amount' => '5.00']);
 
 		$this->assertSame(ValidationStatus::Failed, $result->status);
 		$this->assertSame(ValidationStatus::Failed, $result->get('cost.amount')->status);
@@ -51,10 +50,10 @@ final class MoneyTest extends CompositeTestCase
 	{
 		$field = $this->createSubject();
 
-		$field->input(['amount' => '1500', 'currency' => 'AUD']);
+		$result = $field->resolve(['amount' => '1500', 'currency' => 'AUD']);
 
-		$this->assertSame('AUD', $field->currency->resolvedValue->unwrap());
-		$this->assertSame('1500', $field->amount->resolvedValue->unwrap());
+		$this->assertSame('AUD', $result->get('cost.currency')->value);
+		$this->assertSame('1500', $result->get('cost.amount')->value);
 	}
 
 	#[Test]
@@ -62,10 +61,10 @@ final class MoneyTest extends CompositeTestCase
 	{
 		$field = $this->createSubject();
 
-		$field->input((object) ['amount' => '1500', 'currency' => 'AUD']);
+		$result = $field->resolve((object) ['amount' => '1500', 'currency' => 'AUD']);
 
-		$this->assertSame('AUD', $field->currency->resolvedValue->unwrap());
-		$this->assertSame('1500', $field->amount->resolvedValue->unwrap());
+		$this->assertSame('AUD', $result->get('cost.currency')->value);
+		$this->assertSame('1500', $result->get('cost.amount')->value);
 	}
 
 	#[Test]
@@ -109,12 +108,12 @@ final class MoneyTest extends CompositeTestCase
 	#[DataProvider('validAmounts')]
 	public function it_validates_valid_amounts(mixed $amount): void
 	{
-		$field = $this->createSubject()->input([
+		$field = $this->createSubject();
+
+		$result = $field->validate([
 			'currency' => 'AUD',
 			'amount' => $amount,
 		]);
-
-		$result = $field->validate();
 
 		$this->assertConstraintValidationResultPassedForField('cost.amount', 'type', $result);
 	}
@@ -133,13 +132,12 @@ final class MoneyTest extends CompositeTestCase
 	#[DataProvider('invalidAmounts')]
 	public function it_does_not_validate_invalid_amounts(mixed $amount): void
 	{
-		$field = $this->createSubject()
-			->input([
-				'currency' => 'AUD',
-				'amount' => $amount,
-			]);
+		$field = $this->createSubject();
 
-		$result = $field->validate();
+		$result = $field->validate([
+			'currency' => 'AUD',
+			'amount' => $amount,
+		]);
 
 		$this->assertConstraintValidationResultFailedForField('cost.amount', 'type', $result);
 	}
@@ -187,13 +185,12 @@ final class MoneyTest extends CompositeTestCase
 	{
 		$field = $this->createSubject()
 			->minOf('USD', '10.00')
-			->minOf('AUD', '20.00')
-			->input([
-				'currency' => $currency,
-				'amount' => '0.99',
-			]);
+			->minOf('AUD', '20.00');
 
-		$result = $field->validate();
+		$result = $field->validate([
+			'currency' => $currency,
+			'amount' => '0.99',
+		]);
 
 		$this->assertConstraintValidationResultFailedForField('cost.amount', 'cost.amount.min', $result);
 	}
@@ -204,13 +201,12 @@ final class MoneyTest extends CompositeTestCase
 	{
 		$field = $this->createSubject()
 			->maxOf('USD', '500.00')
-			->maxOf('AUD', '1000.00')
-			->input([
-				'currency' => $currency,
-				'amount' => '1001.00',
-			]);
+			->maxOf('AUD', '1000.00');
 
-		$result = $field->validate();
+		$result = $field->validate([
+			'currency' => $currency,
+			'amount' => '1001.00',
+		]);
 
 		$this->assertConstraintValidationResultFailedForField('cost.amount', 'cost.amount.max', $result);
 	}
@@ -225,13 +221,12 @@ final class MoneyTest extends CompositeTestCase
 			->inIncrementsOf('USD', '10.00')
 			->minOf('AUD', '0')
 			->maxOf('AUD', '1000')
-			->inIncrementsOf('AUD', '10.00')
-			->input([
-				'currency' => $currency,
-				'amount' => '1.23',
-			]);
+			->inIncrementsOf('AUD', '10.00');
 
-		$result = $field->validate();
+		$result = $field->validate([
+			'currency' => $currency,
+			'amount' => '1.23',
+		]);
 
 		$this->assertConstraintValidationResultFailedForField('cost.amount', 'cost.amount.step', $result);
 	}
@@ -251,12 +246,11 @@ final class MoneyTest extends CompositeTestCase
 			'AUD'=> 4,
 			'USD' => 2,
 		]);
-		$field->input([
+
+		$result = $field->validate([
 			'currency' => 'AUD',
 			'amount' => '1.23',
 		]);
-
-		$result = $field->validate();
 
 		$this->assertConstraintValidationResultPassedForField('cost.amount', 'cost.amount.scale', $result);
 	}
@@ -265,13 +259,12 @@ final class MoneyTest extends CompositeTestCase
 	public function it_fails_if_scale_is_not_valid_for_currency(): void
 	{
 		$field = $this->createSubject()
-			->allow('AUD', 2)
-			->input([
-				'currency' => 'AUD',
-				'amount' => '1.234',
-			]);
+			->allow('AUD', 2);
 
-		$result = $field->validate();
+		$result = $field->validate([
+			'currency' => 'AUD',
+			'amount' => '1.234',
+		]);
 
 		$this->assertConstraintValidationResultFailedForField('cost.amount', 'cost.amount.scale', $result);
 	}
@@ -280,13 +273,12 @@ final class MoneyTest extends CompositeTestCase
 	public function it_passes_if_scale_is_valid_for_currency(): void
 	{
 		$field = $this->createSubject()
-			->allow('AUD', 3)
-			->input([
-				'currency' => 'AUD',
-				'amount' => '1.234',
-			]);
+			->allow('AUD', 3);
 
-		$result = $field->validate();
+		$result = $field->validate([
+			'currency' => 'AUD',
+			'amount' => '1.234',
+		]);
 
 		$this->assertConstraintValidationResultPassedForField('cost.amount', 'cost.amount.scale', $result);
 	}

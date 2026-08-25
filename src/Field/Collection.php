@@ -90,7 +90,7 @@ final class Collection extends Composite
 	 *
 	 * @param list<\Meraki\Schema\Rule\AppliedOutcome> $appliedOutcomes
 	 */
-	public function resolveWith(mixed $given, array $appliedOutcomes = []): CompositeValidationResult
+	public function resolve(mixed $given, array $appliedOutcomes = []): CompositeValidationResult
 	{
 		$items = $this->resolvedValueFor($given)->unwrap();
 		$results = [new ResolvedField($this, $given, $items, $appliedOutcomes)];
@@ -107,7 +107,7 @@ final class Collection extends Composite
 	/**
 	 * @param list<\Meraki\Schema\Rule\AppliedOutcome> $appliedOutcomes
 	 */
-	public function validateWith(mixed $given, array $appliedOutcomes = []): CompositeValidationResult
+	public function validate(mixed $given, array $appliedOutcomes = []): CompositeValidationResult
 	{
 		$value = $this->resolvedValueFor($given);
 		$items = $value->unwrap();
@@ -157,7 +157,7 @@ final class Collection extends Composite
 	 */
 	private function resolveItem(mixed $item): array
 	{
-		return $this->perTemplateField($item, static fn(Field $f, mixed $v): AggregatedValidationResult => $f->resolveWith($v));
+		return $this->perTemplateField($item, static fn(Field $f, mixed $v): AggregatedValidationResult => $f->resolve($v));
 	}
 
 	/**
@@ -165,7 +165,7 @@ final class Collection extends Composite
 	 */
 	private function validateItem(mixed $item): array
 	{
-		return $this->perTemplateField($item, static fn(Field $f, mixed $v): AggregatedValidationResult => $f->validateWith($v));
+		return $this->perTemplateField($item, static fn(Field $f, mixed $v): AggregatedValidationResult => $f->validate($v));
 	}
 
 	/**
@@ -208,60 +208,6 @@ final class Collection extends Composite
 		}
 
 		return $flat;
-	}
-
-	public function validate(): CompositeValidationResult
-	{
-		$items = $this->resolvedValue->unwrap();
-
-		// Input that was never a list fails the shape check, and the count constraints
-		// have nothing to count, so they are skipped rather than failed.
-		if (!$this->validateValue($items)) {
-			$own = [ConstraintValidationResult::fail('type')];
-
-			foreach (array_keys($this->getConstraints()) as $name) {
-				$own[] = ConstraintValidationResult::skip($name);
-			}
-
-			return new CompositeValidationResult($this, new ValidationResult($this, ...$own));
-		}
-
-		// The collection's own result: type + the min/max-count constraints.
-		$own = [ConstraintValidationResult::pass('type')];
-
-		if ($this->optional && $items === []) {
-			foreach (array_keys($this->getConstraints()) as $name) {
-				$own[] = ConstraintValidationResult::skip($name);
-			}
-		} else {
-			foreach ($this->evaluateConstraints($this->resolvedValue) as $name => $passed) {
-				$own[] = match ($passed) {
-					true => ConstraintValidationResult::pass($name),
-					false => ConstraintValidationResult::fail($name),
-					default => ConstraintValidationResult::skip($name),
-				};
-			}
-		}
-
-		$results = [new ValidationResult($this, ...$own)];
-
-		// Validate each item's values against the template fields.
-		foreach ($items as $item) {
-			$item = is_array($item) ? $item : [];
-
-			foreach ($this->fields as $field) {
-				$local = (string) $field->name->removePrefix();
-				$field->input($item[$local] ?? null);
-
-				// A composite sub-field (e.g. a per-item address) returns an aggregate
-				// result; flatten it to the per-leaf results this aggregate accepts.
-				foreach ($this->flattenResults($field->validate()) as $result) {
-					$results[] = $result;
-				}
-			}
-		}
-
-		return new CompositeValidationResult($this, ...$results);
 	}
 
 	/**

@@ -89,27 +89,27 @@ final class AddressTest extends CompositeTestCase
 	#[Test]
 	public function a_free_form_address_accepts_anything(): void
 	{
-		$field = $this->createSubject()->input([
+		$field = $this->createSubject();
+
+		$this->assertFalse($field->validate([
 			'line1' => 'somewhere over there',
 			'locality' => 'Nowhere',
 			'administrative_area' => 'Not A Real State',
 			'postal_code' => 'not-a-postcode',
 			'country_code' => 'AU',
-		]);
-
-		$this->assertFalse($field->validate()->anyFailed());
+		])->anyFailed());
 	}
 
 	#[Test]
 	public function a_free_form_address_needs_only_a_street_address(): void
 	{
-		$this->assertFalse($this->createSubject()->input(['line1' => 'somewhere'])->validate()->anyFailed());
+		$this->assertFalse($this->createSubject()->validate(['line1' => 'somewhere'])->anyFailed());
 	}
 
 	#[Test]
 	public function a_free_form_address_still_needs_a_street_address(): void
 	{
-		$this->assertTrue($this->createSubject()->input(['locality' => 'Brisbane'])->validate()->anyFailed());
+		$this->assertTrue($this->createSubject()->validate(['locality' => 'Brisbane'])->anyFailed());
 	}
 
 	// A single allowed country: its rules apply and the country itself is settled.
@@ -120,7 +120,7 @@ final class AddressTest extends CompositeTestCase
 		$field = new Address(new Property\Name('test'), ['AU']);
 
 		$this->assertSame(['country_code'], $field->determined());
-		$this->assertSame('AU', $field->countryCode->resolvedValue->unwrap());
+		$this->assertSame('AU', $field->countryCode->defaultValue->unwrap());
 		$this->assertSame('AU', $field->defaultValue->unwrap()['test.country_code']);
 	}
 
@@ -149,23 +149,23 @@ final class AddressTest extends CompositeTestCase
 	{
 		$field = new Address(new Property\Name('test'), ['AU']);
 
-		$this->assertFalse($field->input(self::AU)->validate()->anyFailed());
+		$this->assertFalse($field->validate(self::AU)->anyFailed());
 	}
 
 	#[Test]
 	public function it_rejects_a_postcode_that_does_not_match_the_country(): void
 	{
-		$field = (new Address(new Property\Name('test'), ['AU']))->input(['postal_code' => '12345'] + self::AU);
+		$field = (new Address(new Property\Name('test'), ['AU']));
 
-		$this->assertConstraintValidationResultFailedForField('test.postal_code', 'test.postal_code.format', $field->validate());
+		$this->assertConstraintValidationResultFailedForField('test.postal_code', 'test.postal_code.format', $field->validate(['postal_code' => '12345'] + self::AU));
 	}
 
 	#[Test]
 	public function it_rejects_a_subdivision_the_country_does_not_have(): void
 	{
-		$field = (new Address(new Property\Name('test'), ['AU']))->input(['administrative_area' => 'XYZ'] + self::AU);
+		$field = (new Address(new Property\Name('test'), ['AU']));
 
-		$this->assertTrue($field->validate()->anyFailed());
+		$this->assertTrue($field->validate(['administrative_area' => 'XYZ'] + self::AU)->anyFailed());
 	}
 
 	#[Test]
@@ -174,9 +174,9 @@ final class AddressTest extends CompositeTestCase
 		$australia = self::AU;
 		unset($australia['locality']);
 
-		$field = (new Address(new Property\Name('test'), ['AU']))->input($australia);
+		$field = (new Address(new Property\Name('test'), ['AU']));
 
-		$this->assertTrue($field->validate()->anyFailed());
+		$this->assertTrue($field->validate($australia)->anyFailed());
 	}
 
 	/**
@@ -188,9 +188,9 @@ final class AddressTest extends CompositeTestCase
 	#[DataProvider('addressesFromCountriesWithMissingParts')]
 	public function it_only_requires_the_parts_a_country_actually_uses(string $country, array $address): void
 	{
-		$field = (new Address(new Property\Name('test'), [$country]))->input($address);
+		$field = (new Address(new Property\Name('test'), [$country]));
 
-		$this->assertFalse($field->validate()->anyFailed());
+		$this->assertFalse($field->validate($address)->anyFailed());
 	}
 
 	public static function addressesFromCountriesWithMissingParts(): array
@@ -235,30 +235,30 @@ final class AddressTest extends CompositeTestCase
 	#[Test]
 	public function it_validates_against_whichever_allowed_country_was_chosen(): void
 	{
-		$field = (new Address(new Property\Name('test'), ['AU', 'NZ']))->input([
+		$field = (new Address(new Property\Name('test'), ['AU', 'NZ']));
+
+		$this->assertFalse($field->validate([
 			'line1' => '1 Queen St',
 			'locality' => 'Auckland',
 			'administrative_area' => 'AUK',
 			'postal_code' => '1010',
 			'country_code' => 'NZ',
-		]);
-
-		$this->assertFalse($field->validate()->anyFailed());
+		])->anyFailed());
 	}
 
 	#[Test]
 	public function it_rejects_a_subdivision_belonging_to_a_different_allowed_country(): void
 	{
 		// AUK is a New Zealand region, so it is not valid for an Australian address.
-		$field = (new Address(new Property\Name('test'), ['AU', 'NZ']))->input([
-			'administrative_area' => 'AUK',
-			'country_code' => 'AU',
-		] + self::AU);
+		$field = (new Address(new Property\Name('test'), ['AU', 'NZ']));
 
 		$this->assertConstraintValidationResultFailedForField(
 			'test.administrative_area',
 			'test.administrative_area.allowed',
-			$field->validate(),
+			$field->validate([
+				'administrative_area' => 'AUK',
+				'country_code' => 'AU',
+			] + self::AU),
 		);
 	}
 
@@ -269,9 +269,9 @@ final class AddressTest extends CompositeTestCase
 	#[Test]
 	public function a_country_outside_the_whitelist_fails_only_the_country_field(): void
 	{
-		$field = (new Address(new Property\Name('test'), ['AU', 'NZ']))->input(['country_code' => 'US'] + self::AU);
+		$field = (new Address(new Property\Name('test'), ['AU', 'NZ']));
 
-		$result = $field->validate();
+		$result = $field->validate(['country_code' => 'US'] + self::AU);
 
 		$this->assertConstraintValidationResultFailedForField('test.country_code', 'type', $result);
 		$this->assertConstraintValidationResultSkippedForField('test.postal_code', 'test.postal_code.format', $result);
@@ -281,9 +281,9 @@ final class AddressTest extends CompositeTestCase
 	#[Test]
 	public function it_normalises_the_country_to_upper_case(): void
 	{
-		$field = (new Address(new Property\Name('test'), ['AU', 'NZ']))->input(['country_code' => 'au'] + self::AU);
+		$field = (new Address(new Property\Name('test'), ['AU', 'NZ']));
 
-		$this->assertFalse($field->validate()->anyFailed());
+		$this->assertFalse($field->validate(['country_code' => 'au'] + self::AU)->anyFailed());
 	}
 
 	// Configuring after construction.
@@ -295,7 +295,7 @@ final class AddressTest extends CompositeTestCase
 		$field->allow('AU');
 
 		$this->assertSame(['country_code'], $field->determined());
-		$this->assertTrue($field->input(['postal_code' => '12345'] + self::AU)->validate()->anyFailed());
+		$this->assertTrue($field->validate(['postal_code' => '12345'] + self::AU)->anyFailed());
 	}
 
 	// Address type.
@@ -305,10 +305,9 @@ final class AddressTest extends CompositeTestCase
 	public function it_only_rejects_a_po_box_when_the_address_must_be_visitable(Type $type, string $line1, bool $expectedToFail): void
 	{
 		$field = (new Address(new Property\Name('test'), ['AU']))
-			->ofType($type)
-			->input(['line1' => $line1] + self::AU);
+			->ofType($type);
 
-		$this->assertSame($expectedToFail, $field->validate()->anyFailed());
+		$this->assertSame($expectedToFail, $field->validate(['line1' => $line1] + self::AU)->anyFailed());
 	}
 
 	public static function poBoxExpectations(): array

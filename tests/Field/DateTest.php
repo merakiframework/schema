@@ -25,9 +25,9 @@ final class DateTest extends FieldTestCase
 	#[DataProvider('invalidDates')]
 	public function it_does_not_validate_invalid_dates(string $date): void
 	{
-		$field = $this->createField()->input($date);
+		$field = $this->createField();
 
-		$result = $field->validate();
+		$result = $field->validate($date);
 
 		$this->assertConstraintValidationResultFailed('type', $result);
 	}
@@ -35,9 +35,9 @@ final class DateTest extends FieldTestCase
 	#[Test]
 	public function it_validates_valid_dates(): void
 	{
-		$field = $this->createField()->input('2025-02-23');
+		$field = $this->createField();
 
-		$result = $field->validate();
+		$result = $field->validate('2025-02-23');
 
 		$this->assertConstraintValidationResultPassed('type', $result);
 	}
@@ -46,36 +46,33 @@ final class DateTest extends FieldTestCase
 	public function it_validates_dates_with_a_default_value(): void
 	{
 		$field = $this->createField()
-			->prefill('2025-02-23')
-			->input(null);
+			->prefill('2025-02-23');
 
-		$result = $field->validate();
+		$result = $field->validate(null);
 
 		$this->assertConstraintValidationResultPassed('type', $result);
-		$this->assertEquals('2025-02-23', $field->resolvedValue->unwrap());
+		$this->assertEquals('2025-02-23', $result->value);
 	}
 
 	#[Test]
 	public function it_validates_dates_with_a_default_value_and_a_value(): void
 	{
 		$field = $this->createField()
-			->prefill('2025-02-23')
-			->input('2025-02-24');
+			->prefill('2025-02-23');
 
-		$result = $field->validate();
+		$result = $field->validate('2025-02-24');
 
 		$this->assertConstraintValidationResultPassed('type', $result);
-		$this->assertEquals('2025-02-24', $field->resolvedValue->unwrap());
+		$this->assertEquals('2025-02-24', $result->value);
 	}
 
 	#[Test]
 	public function min_constraint_passes_when_input_is_same_as_min_date(): void
 	{
 		$field = $this->createField()
-			->from('2025-02-23')
-			->input('2025-02-23');
+			->from('2025-02-23');
 
-		$result = $field->validate();
+		$result = $field->validate('2025-02-23');
 
 		$this->assertConstraintValidationResultPassed('type', $result);
 		$this->assertConstraintValidationResultPassed('min', $result);
@@ -85,10 +82,9 @@ final class DateTest extends FieldTestCase
 	public function min_constraint_passes_when_input_is_past_min_date(): void
 	{
 		$field = $this->createField()
-			->from('2025-02-23')
-			->input('2025-02-24');
+			->from('2025-02-23');
 
-		$result = $field->validate();
+		$result = $field->validate('2025-02-24');
 
 		$this->assertConstraintValidationResultPassed('type', $result);
 		$this->assertConstraintValidationResultPassed('min', $result);
@@ -98,10 +94,9 @@ final class DateTest extends FieldTestCase
 	public function min_constraint_fails_when_input_is_before_min_date(): void
 	{
 		$field = $this->createField()
-			->from('2025-02-23')
-			->input('2025-02-22');
+			->from('2025-02-23');
 
-		$result = $field->validate();
+		$result = $field->validate('2025-02-22');
 
 		$this->assertConstraintValidationResultPassed('type', $result);
 		$this->assertConstraintValidationResultFailed('min', $result);
@@ -111,10 +106,9 @@ final class DateTest extends FieldTestCase
 	public function until_max_constraint_passes_when_input_is_before_max_date(): void
 	{
 		$field = $this->createField()
-			->until('2025-02-23')
-			->input('2025-02-22');
+			->until('2025-02-23');
 
-		$result = $field->validate();
+		$result = $field->validate('2025-02-22');
 
 		$this->assertConstraintValidationResultPassed('type', $result);
 		$this->assertConstraintValidationResultPassed('max', $result);
@@ -124,10 +118,9 @@ final class DateTest extends FieldTestCase
 	public function until_max_constraint_fails_when_input_is_at_max_date(): void
 	{
 		$field = $this->createField()
-			->until('2025-02-23')
-			->input('2025-02-23');
+			->until('2025-02-23');
 
-		$result = $field->validate();
+		$result = $field->validate('2025-02-23');
 
 		$this->assertConstraintValidationResultPassed('type', $result);
 		$this->assertConstraintValidationResultFailed('max', $result);
@@ -137,10 +130,9 @@ final class DateTest extends FieldTestCase
 	public function until_max_constraint_fails_when_input_is_after_max_date(): void
 	{
 		$field = $this->createField()
-			->until('2025-02-23')
-			->input('2025-02-24');
+			->until('2025-02-23');
 
-		$result = $field->validate();
+		$result = $field->validate('2025-02-24');
 
 		$this->assertConstraintValidationResultPassed('type', $result);
 		$this->assertConstraintValidationResultFailed('max', $result);
@@ -150,10 +142,9 @@ final class DateTest extends FieldTestCase
 	public function to_max_constraint_passes_when_input_is_before_max_date(): void
 	{
 		$field = $this->createField()
-			->to('2025-02-21')
-			->input('2025-02-22');
+			->to('2025-02-21');
 
-		$result = $field->validate();
+		$result = $field->validate('2025-02-22');
 
 		$this->assertConstraintValidationResultPassed('type', $result);
 		$this->assertConstraintValidationResultPassed('max', $result);
@@ -163,10 +154,9 @@ final class DateTest extends FieldTestCase
 	public function to_max_constraint_passes_when_input_is_at_max_date(): void
 	{
 		$field = $this->createField()
-			->to('2025-02-22')
-			->input('2025-02-22');
+			->to('2025-02-22');
 
-		$result = $field->validate();
+		$result = $field->validate('2025-02-22');
 
 		$this->assertConstraintValidationResultPassed('type', $result);
 		$this->assertConstraintValidationResultPassed('max', $result);
@@ -176,10 +166,9 @@ final class DateTest extends FieldTestCase
 	public function to_max_constraint_fails_when_input_past_max_date(): void
 	{
 		$field = $this->createField()
-			->to('2025-02-22')
-			->input('2025-02-23');
+			->to('2025-02-22');
 
-		$result = $field->validate();
+		$result = $field->validate('2025-02-23');
 
 		$this->assertConstraintValidationResultPassed('type', $result);
 		$this->assertConstraintValidationResultFailed('max', $result);
@@ -191,10 +180,9 @@ final class DateTest extends FieldTestCase
 	{
 		$field = $this->createField()
 			->from($from)
-			->atIntervalsOf($interval)
-			->input($value);
+			->atIntervalsOf($interval);
 
-		$result = $field->validate();
+		$result = $field->validate($value);
 
 		$this->assertConstraintValidationResultPassed('type', $result);
 		$this->assertConstraintValidationResultPassed('interval', $result);
@@ -206,10 +194,9 @@ final class DateTest extends FieldTestCase
 	{
 		$field = $this->createField()
 			->from($from)
-			->atIntervalsOf($interval)
-			->input($value);
+			->atIntervalsOf($interval);
 
-		$result = $field->validate();
+		$result = $field->validate($value);
 
 		$this->assertConstraintValidationResultPassed('type', $result);
 		$this->assertConstraintValidationResultFailed('interval', $result);
