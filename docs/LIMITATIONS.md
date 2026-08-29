@@ -115,8 +115,14 @@ instance is safe by construction rather than by discipline. See
 The last write to survive was not on a field at all. `Scope` is an `Iterator`, and
 resolving one walked its cursor — but a rule builds its scope once in its constructor, so
 that cursor lived on the schema and every request moved it. Results were correct, because
-resolution rewinds first, yet the definition was still being written to. `Scope::resolve()
-now walks a copy. It was the snapshot test that caught this; the other four passed.
+resolution rewinds first, yet the definition was still being written to. `Scope::resolve()`
+now walks a copy.
+
+Two of the five caught it — the clone and snapshot tests, which are the two that compare
+the whole serialized schema before and after. The fiber, retention and serial-reuse tests
+passed throughout, because a moved cursor changes no result: this was a write nobody could
+observe through the API, which is exactly why it needed a test that looks at the object
+rather than at the answer.
 
 Sealing the definition outright, and removing `input()` along with the field properties
 behind it, is the remaining work — see [ROADMAP.md](ROADMAP.md). Until then a schema is
