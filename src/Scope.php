@@ -129,23 +129,26 @@ final class Scope implements Stringable, Countable, Iterator
 
 	public function resolve(Facade $schema): mixed
 	{
-		// Resolving walks the cursor to the end (traverse() advances it segment by
-		// segment), so a scope kept around and resolved again — as rule outcomes do, since
-		// they build their scope once in the constructor — would start from an exhausted
-		// cursor. Resolution is a whole-path operation, so it always starts at the top.
-		$this->rewind();
-
 		if ($this->isRoot()) {
 			return $schema;
 		}
 
-		$currentSegment = $this->currentAsSnakeCase();
+		// traverse() advances the cursor segment by segment, and a rule builds its scope
+		// once in its constructor — so this object lives on the schema, and resolving it
+		// used to write to the shared definition on every request. Walking a copy keeps
+		// resolution a read: two requests resolving the same rule cannot move each other's
+		// cursor, and nothing is left behind afterwards.
+		//
+		// The copy also starts at the top, because resolution is a whole-path operation
+		// however far a previous walk happened to get.
+		$cursor = clone $this;
+		$cursor->rewind();
 
-		if ($currentSegment === null) {
-			throw new OutOfBoundsException("No current segment at position {$this->position} in scope path '{$this->path}'");
+		if ($cursor->currentAsSnakeCase() === null) {
+			throw new OutOfBoundsException("No current segment at position {$cursor->position} in scope path '{$cursor->path}'");
 		}
 
-		return $schema->traverse($this);
+		return $schema->traverse($cursor);
 	}
 
 	private function assertPositionInBounds(int $index = -1): void

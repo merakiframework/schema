@@ -7,7 +7,7 @@ a reproducer you can paste into a script and run.
 The library is **pre-release**. See [ROADMAP.md](ROADMAP.md) for the release ladder and
 [the release verdict](ROADMAP.md#release-verdict) for why.
 
-- [Known defects](#known-defects) — [B7](#b7) only; every field defect is fixed
+- [Known defects](#known-defects) — [B7](#b7), now fixed on `main` except via `input()`
 - [Design constraints](#design-constraints) — intentional behaviour that will surprise you
 - [Not yet implemented](#not-yet-implemented) — advertised but inert
 - [Rough edges](#rough-edges) — smaller API warts
@@ -20,10 +20,21 @@ The library is **pre-release**. See [ROADMAP.md](ROADMAP.md) for the release lad
 
 ### B7 — Sharing one schema across concurrent requests leaks data between them
 
-**Fixed in:** `2.0.0` — see the note below
+**Fixed on `main`, for `2.0.0`.** `validate()` and `resolve()` take the request's data as
+an argument and return a `ResolvedField` per field, writing nothing back. A schema can be
+built once at boot and shared, which is what long-lived workers (Swoole, RoadRunner,
+FrankenPHP) need.
 
-The library is meant to be usable in long-lived workers (Swoole, RoadRunner, FrankenPHP),
-where a schema is built once at boot and reused. Today that is only half true.
+Five tests in `tests/LongLivedProcessTest.php` hold this down, one per claim below:
+fibers interleaved mid-request, a clone, retention after the request, a before/after
+snapshot of the whole schema, and serial reuse. They are the acceptance criteria — if any
+regresses, this defect is open again.
+
+**The one path still unsafe is `input()`**, which stages data onto every field exactly as
+described below. It is scheduled for removal, and until then anything reached through it
+carries the original caveats. Prefer passing data to `validate()`.
+
+The rest of this entry describes the behaviour as it was, and still is via `input()`.
 
 #### What is safe
 
@@ -72,8 +83,10 @@ Two things make this sharper than a normal race:
   clone shares the very same `Field` objects and validating it mutates the original. The
   workaround most people reach for first fails silently.
 - **Input is retained after the request ends.** After
-  `validate(['username' => 'alice-secret'])` the field still holds `'alice-secret'` until
+  `input(['username' => 'alice-secret'])` the field still holds `'alice-secret'` until
   something overwrites it, so user data sits in the worker's memory indefinitely.
+  `validate()` no longer does this, and a test asserts the value cannot be found anywhere
+  in the schema afterwards.
 
 #### What to do today
 
@@ -93,12 +106,21 @@ Be careful with dependency injection containers: registering a schema as a servi
 one instance by default, which is exactly the unsafe case. Register a **factory**, not an
 instance.
 
-#### What changes
+#### What changed
 
-From `2.0.0` the definition becomes immutable and per-request state moves into a
-`ResolvedField` returned by `validate()`, which makes a shared instance safe by
-construction rather than by discipline. See
+Per-request state moved into a `ResolvedField` returned by `validate()`, so a shared
+instance is safe by construction rather than by discipline. See
 [the architecture decision](ROADMAP.md#architecture-immutable-definition--resolvedfield).
+
+The last write to survive was not on a field at all. `Scope` is an `Iterator`, and
+resolving one walked its cursor — but a rule builds its scope once in its constructor, so
+that cursor lived on the schema and every request moved it. Results were correct, because
+resolution rewinds first, yet the definition was still being written to. `Scope::resolve()
+now walks a copy. It was the snapshot test that caught this; the other four passed.
+
+Sealing the definition outright, and removing `input()` along with the field properties
+behind it, is the remaining work — see [ROADMAP.md](ROADMAP.md). Until then a schema is
+safe to share provided nothing calls `input()`.
 
 ---
 
@@ -123,12 +145,14 @@ This is intentional: normalizing an HTTP request is `meraki/schema-html`'s job, 
 core's. If you point the core straight at `$_POST` without normalizing, everything that
 is not a string will fail.
 
-### `validate()` currently writes to the fields
+### `input()` writes to the fields; `validate()` does not
 
-The intended design is that validation is a pure query. Today it stores no *result* on
-the fields, but it does write the submitted input onto them, which is the root cause of
-[B7](#b7). Treat a `Facade` as per-request state, not a shared singleton, until
-`2.0.0`.
+Validation is a pure query: `validate($data)` and `resolve($data)` return results and
+leave the schema exactly as they found it, so a `Facade` may be shared.
+
+`input()` is the older path and still stages data onto every field, which was the root
+cause of [B7](#b7). A schema that anything calls `input()` on is per-request state, not a
+shared singleton.
 
 ### Rules are single-pass and order-dependent
 
