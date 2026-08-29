@@ -7,6 +7,7 @@ use Meraki\Schema\Facade;
 use Meraki\Schema\Property;
 use Meraki\Schema\Rule\Condition;
 use Meraki\Schema\Scope;
+use Meraki\Schema\ScopeResolver;
 use InvalidArgumentException;
 
 final class Equals implements Condition
@@ -25,7 +26,7 @@ final class Equals implements Condition
 
 	public function matches(array $data, Facade $schema): bool
 	{
-		$value = $this->scope->resolve($schema)->value;
+		$value = (new ScopeResolver($schema, $data))->resolve($this->scope);
 
 		if ($value instanceof Property) {
 			$value = $value->value;

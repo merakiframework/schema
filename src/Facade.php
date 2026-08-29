@@ -253,6 +253,16 @@ final class Facade implements ScopeTarget
 		return $this->addField(new Field\Variant(new Property\Name($name), ...$fields), $configurator);
 	}
 
+	/**
+	 * Stages one request's data on every field, then applies the rules.
+	 *
+	 * @deprecated Call {@see self::validate()} or {@see self::resolve()} with the data
+	 *             instead. Both return a {@see SchemaValidationResult} and leave this
+	 *             schema untouched, so it can be built once and shared. This method writes
+	 *             the data onto the fields, which makes the schema per-request state and
+	 *             leaves user data in memory after the request — the remaining half of
+	 *             docs/LIMITATIONS.md#b7. Removed in 2.0.0.
+	 */
 	public function input(array|object $data): self
 	{
 		$data = $this->extractData($data);
@@ -339,12 +349,8 @@ final class Facade implements ScopeTarget
 		$given = $this->extractData($data);
 		$working = $this->copyForRequest();
 
-		// Conditions still read values off fields, so the copies carry them. That goes when
-		// scopes are rebuilt; until then the state lives somewhere discarded.
-		foreach ($working->fields as $field) {
-			$field->input($given[(string) $field->name] ?? null);
-		}
-
+		// Conditions resolve values from $given via ScopeResolver, so nothing is staged
+		// onto the copies: they carry the definition only, and rules change that.
 		$applied = $working->rules->apply($given, $working);
 
 		/** @var array<string, list<AppliedOutcome>> $byField */

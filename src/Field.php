@@ -145,6 +145,10 @@ abstract class Field implements ScopeTarget
 	/**
 	 * Discards any submitted input: the field resolves as empty and validates as
 	 * not-provided (pair with {@see self::makeOptional()} to skip it entirely).
+	 *
+	 * @deprecated Part of the staged-input path being removed with {@see self::input()}.
+	 *             A rule that discards a value expresses it as an outcome, which reaches
+	 *             the result without touching the definition. Removed in 2.0.0.
 	 */
 	public function ignoreInput(): static
 	{
@@ -157,6 +161,9 @@ abstract class Field implements ScopeTarget
 		return $this;
 	}
 
+	/**
+	 * @deprecated Counterpart to {@see self::ignoreInput()}, and removed with it in 2.0.0.
+	 */
 	public function acceptInput(): static
 	{
 		$this->inputIgnored = false;
@@ -196,6 +203,12 @@ abstract class Field implements ScopeTarget
 
 	/**
 	 * Sets the input value for the field.
+	 *
+	 * @deprecated Pass the value to {@see self::validate()} or {@see self::resolve()}
+	 *             instead, which return a {@see ResolvedField} and write nothing back.
+	 *             Staging a value here stores one request's data on a definition that may
+	 *             be shared, which is the defect described in docs/LIMITATIONS.md#b7 — the
+	 *             value also outlives the request that supplied it. Removed in 2.0.0.
 	 *
 	 * @param AcceptedType|null $value
 	 */
@@ -331,7 +344,7 @@ abstract class Field implements ScopeTarget
 	 *
 	 * @param AcceptedType|null $given
 	 */
-	final protected function resolvedValueFor(mixed $given): Property\Value
+	final public function resolvedValueFor(mixed $given): Property\Value
 	{
 		$submitted = $this->process($given);
 
