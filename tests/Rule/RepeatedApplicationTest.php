@@ -14,12 +14,13 @@ use PHPUnit\Framework\TestCase;
 use PHPUnit\Framework\Attributes\{Test, CoversClass, Group};
 
 /**
- * Rules get applied more than once in ordinary use — `input()` applies them, and so does
- * `validate()` — so an outcome has to survive being applied repeatedly.
+ * A long-lived worker validates against the same schema thousands of times, so an outcome
+ * has to survive being applied repeatedly and give the same answer every time.
  *
- * It did not: an outcome builds its {@see Scope} once in its constructor, and resolving a
- * scope walks a cursor to the end of the path, so the second application started from an
- * exhausted cursor and threw.
+ * It did not. An outcome builds its scope once in its constructor, and resolving a scope
+ * used to walk a cursor to the end of the path — so the second application started from an
+ * exhausted cursor and threw. Scopes are immutable values now and there is no cursor, but
+ * the guarantee is worth keeping pinned: it is the one a shared schema depends on.
  */
 #[Group('rule')]
 #[CoversClass(Scope::class)]
@@ -29,24 +30,36 @@ final class RepeatedApplicationTest extends TestCase
 	#[Test]
 	public function an_outcome_can_be_applied_more_than_once(): void
 	{
+		// The rule requires phone_number, which is omitted — so both runs must fail, and
+		// fail the same way. A second run that threw, or quietly stopped applying the
+		// outcome, would show up here.
 		$schema = $this->createSchemaWithAFiringRule();
+		$data = ['method' => 'phone'];
 
-		$schema->applyRules();
-		$schema->applyRules();
-
-		$this->assertFalse($schema->fields->findByName('phone_number')->optional);
+		$this->assertTrue($schema->validate($data)->anyFailed());
+		$this->assertTrue($schema->validate($data)->anyFailed());
 	}
 
 	#[Test]
-	public function inputting_then_validating_applies_the_rules_twice(): void
+	public function repeated_validation_gives_the_same_answer(): void
 	{
 		$schema = $this->createSchemaWithAFiringRule();
 		$data = ['method' => 'phone', 'phone_number' => '0411 222 333'];
 
-		$schema->input($data);
-		$result = $schema->validate($data);
+		$this->assertFalse($schema->validate($data)->anyFailed());
+		$this->assertFalse($schema->validate($data)->anyFailed());
+	}
 
-		$this->assertFalse($result->anyFailed());
+	#[Test]
+	public function an_outcome_does_not_change_the_authored_definition(): void
+	{
+		// phone_number is authored optional and made required by the rule. That is true of
+		// one request, not of the schema, so the definition must come back unchanged.
+		$schema = $this->createSchemaWithAFiringRule();
+
+		$schema->validate(['method' => 'phone']);
+
+		$this->assertTrue($schema->fields->findByName('phone_number')->optional);
 	}
 
 	#[Test]

@@ -203,13 +203,17 @@ final class Input
 $schema->validate(new Input(['username' => 'johndoe', 'age' => 25]));
 ```
 
-You can also stage input separately from validation:
+Defaults are part of the definition, so they are declared once when the schema is built.
+The request goes in as an argument:
 
 ```php
-$schema->prefill($defaults); // default values
-$schema->input($data);       // user input (applies rules)
-$schema->validate($data);    // input + validate in one step
+$schema->prefill($defaults);       // authored defaults, set once
+$schema->resolve($data);           // what each field resolves to, unchecked
+$schema->validate($data);          // the same, plus the constraints
 ```
+
+`resolve()` is what a form being rendered for the first time needs: every field resolved
+against whatever has been submitted so far, with rules applied and nothing judged yet.
 
 ## Input expectations
 
@@ -417,9 +421,10 @@ $schema->whenAllMatch(
   `Rule\Condition` to `when`/`andWhen`/`orWhen`).
 - Outcomes: `thenRequire($scope)`, `thenMakeOptional($scope)`.
 
-Rules are re-applied on each `input()`/`validate()` call, and each field is reset
-to its author-configured optionality first, so an outcome never lingers once its
-condition stops holding.
+Rules are applied on each `resolve()`/`validate()` call, against a private copy of the
+schema. An outcome cannot linger once its condition stops holding, because nothing it
+changed was ever written to the schema in the first place — the result says which rules
+fired, via `$result->get('nickname')->appliedOutcomes`.
 
 ## Long-lived processes
 

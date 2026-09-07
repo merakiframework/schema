@@ -158,13 +158,6 @@ final class UuidTest extends FieldTestCase
 		];
 	}
 
-	#[Test]
-	public function it_has_no_value_by_default(): void
-	{
-		$sut = $this->createSubject();
-
-		$this->assertNull($sut->value->unwrap());
-	}
 
 	#[Test]
 	public function it_has_no_default_value_by_default(): void

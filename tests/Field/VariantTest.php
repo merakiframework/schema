@@ -57,13 +57,6 @@ final class VariantTest extends FieldTestCase
 		$this->assertNull($sut->defaultValue->unwrap());
 	}
 
-	#[Test]
-	public function it_has_no_value_by_default(): void
-	{
-		$sut = $this->createSubject();
-
-		$this->assertNull($sut->value->unwrap());
-	}
 
 	#[Test]
 	public function it_throws_when_duplicate_field_types_are_added(): void

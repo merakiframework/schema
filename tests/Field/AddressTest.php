@@ -46,11 +46,6 @@ final class AddressTest extends CompositeTestCase
 		$this->assertInstanceOf(Composite::class, $this->createField());
 	}
 
-	#[Test]
-	public function it_has_no_value_by_default(): void
-	{
-		$this->assertEquals($this->emptyAddress(), $this->createSubject()->value->unwrap());
-	}
 
 	#[Test]
 	public function it_has_no_default_value_by_default(): void

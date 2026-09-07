@@ -68,21 +68,6 @@ final class Variant extends Field
 		return $this;
 	}
 
-	/** @param AcceptedType $value */
-	public function input($value): static
-	{
-		parent::input($value);
-
-		foreach ($this->fields as $field) {
-			try {
-				$field->input($value);
-			} catch (InvalidArgumentException $e) {
-				continue;
-			}
-		}
-
-		return $this;
-	}
 
 	/**
 	 * A variant resolves to one result. Which alternative it belongs to is only known once

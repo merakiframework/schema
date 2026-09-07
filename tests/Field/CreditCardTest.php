@@ -198,20 +198,6 @@ final class CreditCardTest extends CompositeTestCase
 		$this->assertConstraintValidationResultFailedForField('credit_card.security_code', 'max', $result);
 	}
 
-	#[Test]
-	public function it_has_no_value_by_default(): void
-	{
-		$field = $this->createSubject();
-
-		$this->assertEquals(
-			['credit_card.holder' => null, 'credit_card.number' => null, 'credit_card.expiry' => null, 'credit_card.security_code' => null],
-			$field->value->unwrap()
-		);
-		$this->assertEquals(null, $field->holder->value->unwrap());
-		$this->assertEquals(null, $field->number->value->unwrap());
-		$this->assertEquals(null, $field->expiry->value->unwrap());
-		$this->assertEquals(null, $field->securityCode->value->unwrap());
-	}
 
 	#[Test]
 	public function it_has_no_default_value_by_default(): void
@@ -220,7 +206,7 @@ final class CreditCardTest extends CompositeTestCase
 
 		$this->assertEquals(
 			['credit_card.holder' => null, 'credit_card.number' => null, 'credit_card.expiry' => null, 'credit_card.security_code' => null],
-			$field->value->unwrap()
+			$field->defaultValue->unwrap()
 		);
 		$this->assertEquals(null, $field->holder->defaultValue->unwrap());
 		$this->assertEquals(null, $field->number->defaultValue->unwrap());

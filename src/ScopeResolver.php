@@ -50,14 +50,6 @@ final class ScopeResolver
 	 */
 	private function valueOf(Field $field): mixed
 	{
-		// The deprecated input() path stages the request onto the fields and may then apply
-		// rules without repeating the data, so a field given a value directly stays the
-		// authority on its own. Nothing in resolve()/validate() takes this branch; it goes
-		// when input() does.
-		if ($field->inputGiven) {
-			return $field->resolvedValue;
-		}
-
 		return $field->resolvedValueFor($this->given[(string) $field->name] ?? null);
 	}
 

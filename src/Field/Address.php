@@ -269,12 +269,10 @@ final class Address extends CompositeField
 
 		// Re-run what we hold back through process() and down onto the sub-fields, so a
 		// country newly determined by the whitelist reaches both the composite's own
-		// value and the rebuilt country field.
+		// value and the rebuilt country field. Only the default needs this: a submitted
+		// value is resolved against the rebuilt fields when the request arrives, rather
+		// than being held here between requests.
 		$this->prefill($this->toLocalKeys($this->defaultValue->unwrap()));
-
-		if ($this->inputGiven) {
-			$this->input($this->toLocalKeys($this->value->unwrap()));
-		}
 	}
 
 	/**

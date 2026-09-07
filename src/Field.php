@@ -28,16 +28,6 @@ abstract class Field
 	 */
 	public Property\Name $name;
 
-	/**
-	 * The input value of the field.
-	 *
-	 * This property is always set to a Property\Value instance,
-	 * and should not be relied on for determining if input was given.
-	 * Use the `inputGiven` property to check if input was provided.
-	 *
-	 * External code should not modify this property
-	 */
-	public Property\Value $value;
 
 	/**
 	 * The default value of the field.
@@ -48,27 +38,7 @@ abstract class Field
 	 */
 	public Property\Value $defaultValue;
 
-	/**
-	 * The resolved value of the field.
-	 *
-	 * This is the value that will be used for validation and
-	 * further processing. It is either the input value if provided,
-	 * or the default value if no input was given. This value always
-	 * reflects the value that will be used for validation at any
-	 * point in a field's lifecycle. For example, if a field has a
-	 * default value given, and no input value given yet, then this
-	 * property will contain the default value.
-	 *
-	 * External code should not modify this property
-	 */
-	public Property\Value $resolvedValue;
 
-	/**
-	 * Indicates whether input has been given for this field.
-	 *
-	 * External code should not modify this property
-	 */
-	public bool $inputGiven;
 
 	/**
 	 * Indicates whether this field requires input.
@@ -77,11 +47,6 @@ abstract class Field
 	 */
 	public bool $optional;
 
-	/**
-	 * When true, any submitted input is treated as not provided (the field validates
-	 * as empty). Set by the `ignore` rule outcome / {@see self::ignoreInput()}.
-	 */
-	public private(set) bool $inputIgnored = false;
 
 	/**
 	 * The schema this field belongs to, set when added via {@see Facade::addField()}.
@@ -103,12 +68,8 @@ abstract class Field
 		Property\Name $name,
 	) {
 		$this->name = $name;
-		$this->value = $this->process(null);
 		$this->defaultValue = $this->process(null);
-		$this->inputGiven = false;
 		$this->optional = false;
-
-		$this->resolveValue();
 	}
 
 	/**
@@ -141,34 +102,7 @@ abstract class Field
 		return $this;
 	}
 
-	/**
-	 * Discards any submitted input: the field resolves as empty and validates as
-	 * not-provided (pair with {@see self::makeOptional()} to skip it entirely).
-	 *
-	 * @deprecated Part of the staged-input path being removed with {@see self::input()}.
-	 *             A rule that discards a value expresses it as an outcome, which reaches
-	 *             the result without touching the definition. Removed in 2.0.0.
-	 */
-	public function ignoreInput(): static
-	{
-		$this->inputIgnored = true;
-		$this->value = $this->process(null);
-		$this->inputGiven = false;
 
-		$this->resolveValue();
-
-		return $this;
-	}
-
-	/**
-	 * @deprecated Counterpart to {@see self::ignoreInput()}, and removed with it in 2.0.0.
-	 */
-	public function acceptInput(): static
-	{
-		$this->inputIgnored = false;
-
-		return $this;
-	}
 
 	/**
 	 * Declare a relationship with another field. The paired field is added to this
@@ -200,26 +134,6 @@ abstract class Field
 		return $this;
 	}
 
-	/**
-	 * Sets the input value for the field.
-	 *
-	 * @deprecated Pass the value to {@see self::validate()} or {@see self::resolve()}
-	 *             instead, which return a {@see ResolvedField} and write nothing back.
-	 *             Staging a value here stores one request's data on a definition that may
-	 *             be shared, which is the defect described in docs/LIMITATIONS.md#b7 — the
-	 *             value also outlives the request that supplied it. Removed in 2.0.0.
-	 *
-	 * @param AcceptedType|null $value
-	 */
-	public function input($value): static
-	{
-		$this->inputGiven = true;
-		$this->value = $this->process($value);
-
-		$this->resolveValue();
-
-		return $this;
-	}
 
 	/**
 	 * Sets the default value for the field, which will be used when
@@ -231,8 +145,6 @@ abstract class Field
 	{
 		$this->defaultValue = $this->process($value);
 
-		$this->resolveValue();
-
 		return $this;
 	}
 
@@ -242,16 +154,6 @@ abstract class Field
 	}
 
 
-	/**
-	 * Resolves the value of the field based on the input given.
-	 *
-	 * If an input value has been provided, it will be used as the
-	 * resolved value. Otherwise, the default value will be used.
-	 */
-	protected function resolveValue(): void
-	{
-		$this->resolvedValue = $this->valueProvided($this->value) ? $this->value : $this->defaultValue;
-	}
 
 	/**
 	 * Checks if the value given is considered as "input provided".
@@ -261,21 +163,6 @@ abstract class Field
 	protected function valueProvided(Property\Value $value): bool
 	{
 		return $value->unwrap() !== null;
-	}
-
-	/**
-	 * Whether this field has a value to validate: a resolved value that this field's
-	 * own {@see self::valueProvided()} accepts, and input that has not been ignored.
-	 *
-	 * This reads the value off the field, so it only answers for one currently holding
-	 * input — which is exactly what the seam removes. Code holding a resolved value should
-	 * ask about that value instead: from inside this hierarchy through
-	 * {@see self::valueProvided()}, which is reachable on a sibling field and dispatches on
-	 * the object it is called on, and from outside through the resolved result.
-	 */
-	public function hasValue(): bool
-	{
-		return !$this->inputIgnored && $this->valueProvided($this->resolvedValue);
 	}
 
 	/**

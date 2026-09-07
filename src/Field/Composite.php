@@ -65,25 +65,6 @@ abstract class Composite extends Field implements IteratorAggregate, Countable
 		return $this;
 	}
 
-	/** @param AcceptedType|null $value */
-	public function input($value): static
-	{
-		parent::input($value);
-		$value = $this->resolvedValue->unwrap();
-
-		// Unusable input is kept as it came (see process()), so there is nothing to hand
-		// the sub-fields. validate() reports it against the composite.
-		if (!is_array($value)) {
-			return $this;
-		}
-
-		foreach ($this->fields as $field) {
-			$field->input($value[(string)$field->name]);
-		}
-
-		return $this;
-	}
-
 	protected function valueProvided(Property\Value $value): bool
 	{
 		// Input that could not be mapped onto the sub-fields is still input. Treating it

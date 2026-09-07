@@ -19,14 +19,6 @@ final class Facade
 {
 	public readonly Property\Name $name;
 
-	/**
-	 * Baseline (author-configured) optional state per field name, captured the
-	 * first time a field is seen by applyRules() so rule outcomes can be reset
-	 * before each re-application.
-	 *
-	 * @var array<string, bool>
-	 */
-	private array $baselineOptional = [];
 
 	/**
 	 * Default countries for region-aware fields added *after* {@see self::for()} is
@@ -252,29 +244,6 @@ final class Facade
 		return $this->addField(new Field\Variant(new Property\Name($name), ...$fields), $configurator);
 	}
 
-	/**
-	 * Stages one request's data on every field, then applies the rules.
-	 *
-	 * @deprecated Call {@see self::validate()} or {@see self::resolve()} with the data
-	 *             instead. Both return a {@see SchemaValidationResult} and leave this
-	 *             schema untouched, so it can be built once and shared. This method writes
-	 *             the data onto the fields, which makes the schema per-request state and
-	 *             leaves user data in memory after the request — the remaining half of
-	 *             docs/LIMITATIONS.md#b7. Removed in 2.0.0.
-	 */
-	public function input(array|object $data): self
-	{
-		$data = $this->extractData($data);
-
-		// input data
-		foreach ($this->fields as $field) {
-			$field->input($data[(string) $field->name] ?? null);
-		}
-
-		$this->applyRules($data);
-
-		return $this;
-	}
 
 	public function prefill(array|object $data): self
 	{
@@ -287,28 +256,6 @@ final class Facade
 		return $this;
 	}
 
-	public function applyRules(array|object|null $data = null): self
-	{
-		// Reset each field to its baseline optionality before (re-)applying rules
-		// so an outcome from a previous run does not persist when its condition
-		// no longer holds. The first time a field is seen is treated as baseline.
-		foreach ($this->fields as $field) {
-			$name = (string) $field->name;
-
-			// No field ignores input at baseline; rules re-apply ignore each run.
-			$field->acceptInput();
-
-			if (array_key_exists($name, $this->baselineOptional)) {
-				$this->baselineOptional[$name] ? $field->makeOptional() : $field->require();
-			} else {
-				$this->baselineOptional[$name] = $field->optional;
-			}
-		}
-
-		$this->rules->apply($this->extractData($data), $this);
-
-		return $this;
-	}
 
 	/**
 	 * Resolves this schema against one request's data, without checking anything.
@@ -366,10 +313,19 @@ final class Facade
 			$outcomes = $byField[$name] ?? [];
 			$effective = $outcomes === [] ? $this->fields->getByName($name) : $field;
 
-			// A rule that ignores a field means "treat this as though nothing was sent",
-			// so the value never reaches the field rather than the field remembering to
-			// disregard it.
-			$value = $field->inputIgnored ? null : ($given[$name] ?? null);
+			// A rule that ignores a field means "treat this as though nothing was sent", so
+			// the value never reaches the field. Reading that from the outcomes rather than
+			// a flag on the field keeps it a fact about this request.
+			$ignored = false;
+
+			foreach ($outcomes as $applied) {
+				if ($applied->is(Rule\Outcome\Ignore::class)) {
+					$ignored = true;
+					break;
+				}
+			}
+
+			$value = $ignored ? null : ($given[$name] ?? null);
 
 			$results[] = $each($effective, $value, $outcomes);
 		}

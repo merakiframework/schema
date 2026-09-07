@@ -7,7 +7,7 @@ a reproducer you can paste into a script and run.
 The library is **pre-release**. See [ROADMAP.md](ROADMAP.md) for the release ladder and
 [the release verdict](ROADMAP.md#release-verdict) for why.
 
-- [Known defects](#known-defects) — [B7](#b7), now fixed on `main` except via `input()`
+- [Known defects](#known-defects) — [B7](#b7), now fixed on `main`
 - [Design constraints](#design-constraints) — intentional behaviour that will surprise you
 - [Not yet implemented](#not-yet-implemented) — advertised but inert
 - [Rough edges](#rough-edges) — smaller API warts
@@ -30,18 +30,18 @@ fibers interleaved mid-request, a clone, retention after the request, a before/a
 snapshot of the whole schema, and serial reuse. They are the acceptance criteria — if any
 regresses, this defect is open again.
 
-**The one path still unsafe is `input()`**, which stages data onto every field exactly as
-described below. It is scheduled for removal, and until then anything reached through it
-carries the original caveats. Prefer passing data to `validate()`.
+`input()` — the path that staged a request onto every field, and the root cause of this
+defect — has been removed along with the field properties behind it. There is no longer a
+way to put one request's data on a schema.
 
-The rest of this entry describes the behaviour as it was, and still is via `input()`.
+The rest of this entry describes the behaviour as it was, for anyone on `1.x`.
 
-#### What is safe
+#### What was safe
 
-**Serial reuse.** `input()` overwrites every field, including ones absent from the
-payload, and rules reset each field to its authored optionality before re-applying. So
-validating the same instance repeatedly gives order-independent, correct results — which
-covers RoadRunner's one-request-at-a-time worker model.
+**Serial reuse.** `input()` overwrote every field, including ones absent from the payload,
+and rules reset each field to its authored optionality before re-applying. So validating
+the same instance repeatedly gave order-independent, correct results — which covered
+RoadRunner's one-request-at-a-time worker model.
 
 ```php
 $schema = new Meraki\Schema\Facade('signup');
@@ -55,10 +55,10 @@ $schema->validate(['username' => 'admin'])->anyFailed();                        
 $schema->validate(['username' => 'bob', 'nickname' => 'bobby'])->anyFailed();   // false
 ```
 
-#### What is not safe
+#### What was not safe
 
-**Concurrent reuse** — Swoole coroutines, ReactPHP, Amp, or plain fibers. Field state is
-instance state, and every coroutine shares it:
+**Concurrent reuse** — Swoole coroutines, ReactPHP, Amp, or plain fibers. Field state was
+instance state, and every coroutine shared it:
 
 ```php
 $schema = new Meraki\Schema\Facade('signup');   // built once at worker boot
@@ -79,16 +79,17 @@ $a->getReturn();   // 'mallory'  ← alice's request reads mallory's data
 
 Two things make this sharper than a normal race:
 
-- **`clone` does not isolate.** Neither `Facade` nor `Field\Set` defines `__clone`, so a
-  clone shares the very same `Field` objects and validating it mutates the original. The
-  workaround most people reach for first fails silently.
-- **Input is retained after the request ends.** After
-  `input(['username' => 'alice-secret'])` the field still holds `'alice-secret'` until
-  something overwrites it, so user data sits in the worker's memory indefinitely.
-  `validate()` no longer does this, and a test asserts the value cannot be found anywhere
-  in the schema afterwards.
+- **`clone` did not isolate.** Neither `Facade` nor `Field\Set` defines `__clone`, so a
+  clone shared the very same `Field` objects and validating it mutated the original. The
+  workaround most people reach for first failed silently.
+- **Input was retained after the request ended.** After
+  `input(['username' => 'alice-secret'])` the field still held `'alice-secret'` until
+  something overwrote it, so user data sat in the worker's memory indefinitely.
 
-#### What to do today
+Both are covered by tests now: one clones a schema and validates the clone, another asserts
+a submitted value cannot be found anywhere in the schema afterwards.
+
+#### What to do on `1.x`
 
 Build the schema per request. It is cheap — a seven-field checkout schema with two
 addresses, a phone number, money and a collection builds in **0.25 ms**, against **0.43
@@ -112,11 +113,16 @@ Per-request state moved into a `ResolvedField` returned by `validate()`, so a sh
 instance is safe by construction rather than by discipline. See
 [the architecture decision](ROADMAP.md#architecture-immutable-definition--resolvedfield).
 
-The last write to survive was not on a field at all. `Scope` is an `Iterator`, and
+The last write to survive was not on a field at all. `Scope` was an `Iterator`, and
 resolving one walked its cursor — but a rule builds its scope once in its constructor, so
 that cursor lived on the schema and every request moved it. Results were correct, because
-resolution rewinds first, yet the definition was still being written to. `Scope::resolve()`
-now walks a copy.
+resolution rewound first, yet the definition was still being written to. A scope is an
+immutable value now, so there is no cursor to move.
+
+`input()`, `ignoreInput()` and `acceptInput()` are gone, and with them the `$value`,
+`$resolvedValue`, `$inputGiven` and `$inputIgnored` properties. A rule that discards a
+field's input says so as an outcome, which reaches the result without the schema having to
+remember it between requests.
 
 Two of the five caught it — the clone and snapshot tests, which are the two that compare
 the whole serialized schema before and after. The fiber, retention and serial-reuse tests
@@ -124,9 +130,9 @@ passed throughout, because a moved cursor changes no result: this was a write no
 observe through the API, which is exactly why it needed a test that looks at the object
 rather than at the answer.
 
-Sealing the definition outright, and removing `input()` along with the field properties
-behind it, is the remaining work — see [ROADMAP.md](ROADMAP.md). Until then a schema is
-safe to share provided nothing calls `input()`.
+`input()` and the field properties behind it are now gone, so a schema is safe to share
+without qualification. Sealing the definition outright — making a field `readonly` rather
+than merely unwritten — is the remaining work; see [ROADMAP.md](ROADMAP.md).
 
 ---
 
@@ -151,14 +157,14 @@ This is intentional: normalizing an HTTP request is `meraki/schema-html`'s job, 
 core's. If you point the core straight at `$_POST` without normalizing, everything that
 is not a string will fail.
 
-### `input()` writes to the fields; `validate()` does not
+### Validation is a query, not a step
 
-Validation is a pure query: `validate($data)` and `resolve($data)` return results and
-leave the schema exactly as they found it, so a `Facade` may be shared.
+`validate($data)` and `resolve($data)` return results and leave the schema exactly as they
+found it, so a `Facade` may be built once and shared.
 
-`input()` is the older path and still stages data onto every field, which was the root
-cause of [B7](#b7). A schema that anything calls `input()` on is per-request state, not a
-shared singleton.
+There is no longer a way to stage data onto a schema first. `input()`, which did that and
+was the root cause of [B7](#b7), has been removed: the value goes in as an argument and
+comes back on a `ResolvedField`.
 
 ### Rules are single-pass and order-dependent
 

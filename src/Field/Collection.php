@@ -55,20 +55,6 @@ final class Collection extends Composite
 		return $items !== [];
 	}
 
-	/**
-	 * A collection holds a *list*, so (unlike a fixed composite) the value is not
-	 * mapped onto the template fields here; per-item mapping happens in validate().
-	 *
-	 * @param list<array<string, mixed>>|null $value
-	 */
-	public function input($value): static
-	{
-		$this->inputGiven = true;
-		$this->value = $this->process($value);
-		$this->resolveValue();
-
-		return $this;
-	}
 
 	/**
 	 * @param list<array<string, mixed>>|null $value
@@ -76,7 +62,6 @@ final class Collection extends Composite
 	public function prefill($value): static
 	{
 		$this->defaultValue = $this->process($value);
-		$this->resolveValue();
 
 		return $this;
 	}

@@ -37,7 +37,11 @@ final class Ignore implements Outcome
 
 	public function apply(Facade $schema): void
 	{
-		$schema->fields->getByName($this->scope->field)->ignoreInput();
+		// Nothing to do to the definition. "Ignore this field" is a statement about one
+		// request, so it is honoured where the request is: Facade::against() sees this
+		// outcome among the ones that were applied and withholds the submitted value. It
+		// used to set a flag on the field, which meant a schema remembered, between
+		// requests, that some earlier request's value had been discarded.
 	}
 
 	public function getScope(): FieldScope

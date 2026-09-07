@@ -99,9 +99,9 @@ final class MoneyTest extends CompositeTestCase
 	{
 		$field = $this->createSubject();
 
-		$this->assertEquals(['cost.currency' => null, 'cost.amount' => null], $field->value->unwrap());
-		$this->assertEquals(null, $field->currency->value->unwrap());
-		$this->assertEquals(null, $field->amount->value->unwrap());
+		$this->assertEquals(['cost.currency' => null, 'cost.amount' => null], $field->defaultValue->unwrap());
+		$this->assertEquals(null, $field->currency->defaultValue->unwrap());
+		$this->assertEquals(null, $field->amount->defaultValue->unwrap());
 	}
 
 	#[Test]
@@ -159,15 +159,6 @@ final class MoneyTest extends CompositeTestCase
 		];
 	}
 
-	#[Test]
-	public function it_has_no_value_by_default(): void
-	{
-		$field = $this->createSubject();
-
-		$this->assertEquals(['cost.currency' => null, 'cost.amount' => null], $field->value->unwrap());
-		$this->assertEquals(null, $field->currency->value->unwrap());
-		$this->assertEquals(null, $field->amount->value->unwrap());
-	}
 
 	#[Test]
 	public function it_has_no_default_value_by_default(): void
