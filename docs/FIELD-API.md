@@ -199,15 +199,25 @@ authored default** — and `$resolved->source` records which one won.
 | --- | --- | --- | --- |
 | Client supplied a value | checked | checked | yes |
 | Nothing supplied, a prefill was given | checked | depends on `PrefillPolicy` | **yes** |
-| Nothing supplied, field has an authored default | checked | skipped — checked once when the field was built | **yes** |
+| Nothing supplied, field has an authored default | checked | skipped — checked when it was declared | **yes** |
 | Nothing supplied, no default, required | fails | skipped | no |
 | Nothing supplied, no default, optional | skipped | skipped | n/a |
 
-An authored default is **trusted by construction, not by assumption**: the builder checks
-it against the field's own constraints at `build()`, so a `defaultsTo(0)` on a field with
-`min(1)` throws where the author wrote it rather than surfacing as a validation failure on
-someone's request. It never needs re-checking afterwards, because neither the value nor the
-constraints can change once the field is built.
+An authored default is **trusted by construction, not by assumption**: it is checked
+against the field's own constraints when it is declared, so a `defaultsTo(0)` on a field
+with `min(1)` throws where the author wrote it rather than surfacing as a validation
+failure on someone's request.
+
+Configuration arrives in any order, so no single call can do that check on its own:
+
+```php
+Text::named('x')->defaultsTo('ab')->minLengthOf(5);   // stale by the second call
+```
+
+Every wither returns a new field, so each one re-checks the default and this throws at
+`minLengthOf()`. It is the immutable design that makes that affordable — there is no way
+to change a field without passing through a wither, so there is nowhere for a stale default
+to hide.
 
 The consequence worth stating plainly: `$resolved->value` is not guaranteed to satisfy the
 field it belongs to, because a trusted prefill may not have been checked. Anything reading
@@ -215,7 +225,7 @@ values back has to accept that.
 
 ### How much a prefill is trusted — `PrefillPolicy`
 
-The authored default needs no policy: the builder checked it, so it is trusted, full stop.
+The authored default needs no policy: it was checked when it was declared, so it is trusted, full stop.
 The policy is about the *per-request* source, where trust is a real question.
 
 ```php
@@ -309,39 +319,6 @@ item — and it will need building deliberately rather than being assumed to wor
 
 ---
 
-## Building a definition
-
-A field requires everything in its constructor and is sealed once built, which leaves
-nowhere to put a fluent API. Builders go in front:
-
-```php
-$schema->add(Text::named('username')->minLengthOf(3)->defaultsTo('anon'));
-```
-
-**One builder per field type**, so `minLengthOf()` exists on the text builder and
-`minItems()` on the collection one, and neither is reachable from the other. A generic base
-carries what every field has — `build()`, `defaultsTo()`, the name, optionality — and each
-type adds its own vocabulary.
-
-The builder is also what makes an authored default trustworthy. Configuration arrives in
-any order:
-
-```php
-Text::named('x')->defaultsTo('ab')->minLengthOf(5);   // stale by the second call
-```
-
-Neither call can check the default on its own: at the first the constraints do not exist,
-at the second the check would have to be repeated by every future constraint method.
-`build()` sees the finished definition and checks once. That is the whole reason the
-ordering problem disappears rather than being managed.
-
-**A builder is not a field.** Having one implement the other was raised and is worth
-resisting: they have opposite lifecycles — a builder is mutable and half-formed by design,
-a field is sealed and complete — and a shared interface would mean an unfinished definition
-could be passed anywhere a real one is expected. The relationship is `build(): T`, nothing
-more.
-
----
 ## Optionality
 
 On the base class, not a trait. Every field can be optional — whether it is depends on the
