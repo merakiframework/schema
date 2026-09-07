@@ -3,19 +3,21 @@ declare(strict_types=1);
 
 namespace Meraki\Schema;
 
+use InvalidArgumentException;
+
 /**
- * Resolves a scope against one request.
+ * Answers what a scope points at, for one request.
  *
- * A scope addresses one of two things. Most of them address the definition — `min` on a
- * number, `optional` on a field — which no request changes, so resolving those is a plain
- * read of the schema. The exception is `#/fields/<name>/value`, which asks what a field
- * was actually given.
+ * This is the only place resolution happens. It used to be spread across the objects being
+ * addressed: `Facade::traverse()` recognised `fields`, handed a cursor to
+ * `Field::traverse()`, and each advanced it. That put path-walking inside the definition —
+ * a field had to know about scopes to be readable — and it is how a scope reached
+ * `Field::$schema` and climbed back to the root, which was defect B8. A resolver reading a
+ * name-keyed set has no parent pointer to follow, so that whole class of problem is gone
+ * rather than guarded against.
  *
- * That question used to be answered by reading a value staged onto the field, which meant
- * a rule condition could only work if the request had first been written into the shared
- * definition. Reading it from the request instead is what lets the definition stay
- * untouched: two requests can evaluate the same rule at once, and neither leaves anything
- * behind. See docs/LIMITATIONS.md#b7.
+ * Only {@see ValueScope} depends on the request. The other kinds read the definition,
+ * which is the same for every request and is never written to here.
  */
 final class ScopeResolver
 {
@@ -24,25 +26,34 @@ final class ScopeResolver
 	 */
 	public function __construct(
 		private readonly Facade $schema,
-		private readonly array $given,
+		private readonly array $given = [],
 	) {
 	}
 
 	/**
-	 * The value a scope points at, for this request.
+	 * @throws InvalidArgumentException if the scope names a field or property that does
+	 *         not exist
 	 */
 	public function resolve(Scope $scope): mixed
 	{
-		$field = $this->fieldWhoseValueIsAddressedBy($scope);
+		$field = $this->schema->fields->getByName($scope->field);
 
-		if ($field === null) {
-			return $scope->resolve($this->schema)->value;
-		}
+		return match (true) {
+			$scope instanceof ValueScope => $this->valueOf($field),
+			$scope instanceof PropertyScope => $this->propertyOf($field, $scope->property),
+			default => $field,
+		};
+	}
 
-		// The deprecated input() path stages the request onto the fields and may then
-		// apply rules without repeating the data, so a field that was given a value
-		// directly is still the authority on its own. Nothing in resolve()/validate()
-		// takes this branch; it goes when input() does.
+	/**
+	 * What the field was given, or its authored default when the request said nothing.
+	 */
+	private function valueOf(Field $field): mixed
+	{
+		// The deprecated input() path stages the request onto the fields and may then apply
+		// rules without repeating the data, so a field given a value directly stays the
+		// authority on its own. Nothing in resolve()/validate() takes this branch; it goes
+		// when input() does.
 		if ($field->inputGiven) {
 			return $field->resolvedValue;
 		}
@@ -50,18 +61,24 @@ final class ScopeResolver
 		return $field->resolvedValueFor($this->given[(string) $field->name] ?? null);
 	}
 
-	/**
-	 * The field whose submitted value this scope addresses, or null when it addresses
-	 * anything else — a definition property, or a field itself.
-	 */
-	private function fieldWhoseValueIsAddressedBy(Scope $scope): ?Field
+	private function propertyOf(Field $field, string $property): mixed
 	{
-		$segments = $scope->segments;
-
-		if (count($segments) !== 3 || $segments[0] !== 'fields' || $segments[2] !== 'value') {
-			return null;
+		if (in_array($property, Field::NOT_ADDRESSABLE, true)) {
+			throw new InvalidArgumentException(sprintf(
+				'"%s" on field "%s" is internal wiring, not part of the field\'s addressable API.',
+				$property,
+				(string) $field->name,
+			));
 		}
 
-		return $this->schema->fields->findByName($segments[1]);
+		if (!property_exists($field, $property)) {
+			throw new InvalidArgumentException(sprintf(
+				'No property "%s" on field "%s".',
+				$property,
+				(string) $field->name,
+			));
+		}
+
+		return $field->{$property};
 	}
 }

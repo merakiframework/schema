@@ -4,7 +4,6 @@ declare(strict_types=1);
 namespace Meraki\Schema;
 
 use Meraki\Schema\Property;
-use Meraki\Schema\ScopeTarget;
 use Meraki\Schema\AggregatedValidationResult;
 use Meraki\Schema\Field\ValidationResult;
 use Meraki\Schema\Field\CompositeValidationResult;
@@ -17,7 +16,7 @@ use LogicException;
 /**
  * @template AcceptedType of mixed
  */
-abstract class Field implements ScopeTarget
+abstract class Field
 {
 	/**
 	 * The name of the field.
@@ -98,7 +97,7 @@ abstract class Field implements ScopeTarget
 	 * Everything else public on a field stays addressable: a field's public properties
 	 * are its API, and '#/fields/x/min' or '#/fields/x/optional' are valid targets.
 	 */
-	private const NOT_ADDRESSABLE = ['schema'];
+	public const NOT_ADDRESSABLE = ['schema'];
 
 	public function __construct(
 		Property\Name $name,
@@ -242,47 +241,6 @@ abstract class Field implements ScopeTarget
 		return $other instanceof static && $this->name->equals($other->name);
 	}
 
-	public function traverse(Scope $scope): ScopeResolutionResult
-	{
-		$name = (string)$this->name;
-
-		// Verify we're on this field
-		if ($scope->currentAsSnakeCase() !== $name) {
-			throw new InvalidArgumentException(
-				"Unknown field name in scope: expected '{$this->name}', got '{$scope->current()}'"
-			);
-		}
-
-		$scope->next();
-
-		$propertyNameAsSnakeCase = $scope->currentAsSnakeCase();
-		$propertyName = $scope->currentAsCamelCase();
-
-		// Scope was pointing at field only
-		if ($propertyName === null) {
-			return new ScopeResolutionResult($this, $this);
-		}
-
-		if (!property_exists($this, $propertyName)) {
-			throw new InvalidArgumentException("No property '{$propertyNameAsSnakeCase} ($propertyName)' on field '{$this->name}'");
-		}
-
-		if (in_array($propertyName, self::NOT_ADDRESSABLE, true)) {
-			throw new InvalidArgumentException(
-				"Property '{$propertyNameAsSnakeCase}' on field '{$this->name}' is internal "
-				. "wiring, not part of the field's addressable API."
-			);
-		}
-
-		$property = $this->{$propertyName};
-
-		// value always resolves to resolved value
-		if ($propertyName === 'value') {
-			$property = $this->resolvedValue;
-		}
-
-		return new ScopeResolutionResult($this, $property);
-	}
 
 	/**
 	 * Resolves the value of the field based on the input given.

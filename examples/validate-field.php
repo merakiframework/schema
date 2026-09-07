@@ -11,11 +11,11 @@ use Meraki\Schema\Property\Name;
 $username = new Text(new Name('username'));
 
 $username->matches('/^[a-zA-Z0-9_]+$/')
-	->minLengthOf(3)
-	->input('ab'); // too short -> the "minLength" constraint will fail
+	->minLengthOf(3);
 
-// validate() is a pure query: it returns the result, storing nothing on the field.
-$result = $username->validate();
+// validate() is a pure query: the value goes in as an argument and the result comes back,
+// so nothing is stored on the field and the same field can serve two requests at once.
+$result = $username->validate('ab'); // too short -> the "minLength" constraint will fail
 
 echo 'Field status: ' . $result->status->name . PHP_EOL;
 

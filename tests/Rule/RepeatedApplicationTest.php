@@ -7,7 +7,9 @@ use Meraki\Schema\Facade;
 use Meraki\Schema\Rule;
 use Meraki\Schema\Rule\Condition;
 use Meraki\Schema\Rule\Outcome;
+use Meraki\Schema\FieldScope;
 use Meraki\Schema\Scope;
+use Meraki\Schema\ScopeResolver;
 use PHPUnit\Framework\TestCase;
 use PHPUnit\Framework\Attributes\{Test, CoversClass, Group};
 
@@ -51,9 +53,10 @@ final class RepeatedApplicationTest extends TestCase
 	public function resolving_a_scope_twice_gives_the_same_answer(): void
 	{
 		$schema = $this->createSchemaWithAFiringRule();
-		$scope = new Scope('#/fields/phone_number');
+		$scope = FieldScope::of('phone_number');
+		$resolver = new ScopeResolver($schema);
 
-		$this->assertSame($scope->resolve($schema)->value, $scope->resolve($schema)->value);
+		$this->assertSame($resolver->resolve($scope), $resolver->resolve($scope));
 	}
 
 	private function createSchemaWithAFiringRule(): Facade

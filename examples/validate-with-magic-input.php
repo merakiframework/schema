@@ -56,8 +56,7 @@ function getResults(Facade $schema, Input $input): SchemaValidationResult
     // library has bug, we need to do manual validation for now
     $results = new SchemaValidationResult();
     foreach ($schema->fields as $field) {
-        $field->input($input->{$field->name});
-        $results = $results->add($field->validate());
+        $results = $results->add($field->validate($input->{$field->name}));
     }
 
     return $results;
@@ -86,13 +85,13 @@ var_export(get_object_vars($input));            // []  <- root cause
 echo '<br>';
 echo 'direct access $input->name: ' . $input->name . '<br>' . '<br>';
 
-echo '== Path 1: Facade::validate() (buggy) ==' . '<br>';
+echo '== Path 1: Facade::validate() ==' . '<br>';
 $viaFacade = makeSchema()->validate($input);
-echo 'any failures? ' . var_export($viaFacade->anyFailed(), true) . '<br>';   // true (BUG: valid input)
+echo 'any failures? ' . var_export($viaFacade->anyFailed(), true) . '<br>';   // false -- fixed: extractData() now falls back to __get()
 printFailures($viaFacade);
 echo '<br><br>';
 
-echo '== Path 2: manual loop workaround ==' . '<br>';
+echo '== Path 2: validating each field directly ==' . '<br>';
 $viaWorkaround = getResults(makeSchema(), $input);
 echo 'any failures? ' . var_export($viaWorkaround->anyFailed(), true) . '<br>'; // false (name passed, dateOfBirth skipped)
 printFailures($viaWorkaround);

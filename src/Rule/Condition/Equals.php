@@ -8,20 +8,29 @@ use Meraki\Schema\Property;
 use Meraki\Schema\Rule\Condition;
 use Meraki\Schema\Scope;
 use Meraki\Schema\ScopeResolver;
-use InvalidArgumentException;
 
+/**
+ * Holds when what the scope points at is the expected value.
+ *
+ * Unlike an outcome, this accepts any kind of scope: comparing a submitted value
+ * (`#/fields/plan/value`) and comparing part of the definition (`#/fields/age/min`) are
+ * both meaningful questions to ask.
+ */
 final class Equals implements Condition
 {
-	public readonly string $target;
+	public readonly Scope $scope;
 
-	public Scope $scope;
-	public mixed $expected;
+	/**
+	 * The scope in its string form, which is what `meraki/schema-json` writes to disk.
+	 * Derived rather than stored, so it cannot drift from the scope it describes.
+	 */
+	public string $target {
+		get => (string) $this->scope;
+	}
 
-	public function __construct(string $target, mixed $expected)
+	public function __construct(Scope|string $target, public readonly mixed $expected)
 	{
-		$this->target = $target;
-		$this->scope = new Scope($target);
-		$this->expected = $expected;
+		$this->scope = $target instanceof Scope ? $target : Scope::parse($target);
 	}
 
 	public function matches(array $data, Facade $schema): bool

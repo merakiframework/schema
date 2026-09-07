@@ -1,164 +1,104 @@
 <?php
-
 declare(strict_types=1);
 
 namespace Meraki\Schema;
 
-use Countable;
-use Iterator;
-use OutOfBoundsException;
+use InvalidArgumentException;
 use Stringable;
 
-final class Scope implements Stringable, Countable, Iterator
+/**
+ * A reference to something in a schema, written as `#/fields/username/value`.
+ *
+ * A scope used to be a cursor: it implemented `Iterator`, and resolving one walked its
+ * position to the end of the path. Because a rule builds its scope once and keeps it, that
+ * made resolution a write to shared state — two requests could move each other's cursor,
+ * an outcome applied twice started from an exhausted cursor, and `serialize($schema)`
+ * changed as a side effect of reading. Two workarounds downstream existed only to paper
+ * over it. A scope is now an immutable value: resolving one cannot disturb it, so those
+ * problems have nowhere left to live.
+ *
+ * It is also typed by what it points at. `#/fields/x` names a field, `#/fields/x/value`
+ * names what that field was given, and `#/fields/x/min` names part of its definition —
+ * three different questions that used to be one class distinguished by counting segments
+ * at the point of use. An outcome that only makes sense against a field can now say so in
+ * its signature, instead of resolving a scope and throwing if it turns out to be the
+ * wrong kind.
+ *
+ * The string form is unchanged, because it is the wire format `meraki/schema-json` reads
+ * and writes.
+ */
+abstract readonly class Scope implements Stringable
 {
-	public readonly string $path;
+	/**
+	 * The only collection addressable at the root. Kept as a constant because both the
+	 * parser and every subclass's string form depend on it agreeing.
+	 */
+	public const COLLECTION = 'fields';
 
-	private int $position;
-
-	/** @var string[] Segments are stored verbatim — names are matched exactly. */
-	public readonly array $segments;
-
-	public function __construct(string $path, int $position = 0)
+	public function __construct(public Property\Name $field)
 	{
-		$path = rtrim($path, '/');
-
-		if (!preg_match('/^#\//', $path)) {
-			throw new \InvalidArgumentException("Invalid path '$path'. Must start with '#/'.");
-		}
-
-		// Names are NOT normalised: a consumer may name fields however they like and a
-		// scope must reference them exactly (case-sensitive).
-		$this->path = $path;
-		$this->position = $position;
-		$this->segments = explode('/', substr($path, 2)); // remove leading '#/'
-
-		$this->assertPositionInBounds();
-	}
-
-	public function get(int $index): string
-	{
-		$this->assertPositionInBounds($index);
-
-		return $this->segments[$index];
 	}
 
 	/**
-	 * returns the segments as snake case
+	 * Reads a scope from its string form, returning whichever kind the path describes.
+	 *
+	 * Strict on purpose. The old parser accepted a path with trailing junk and silently
+	 * ignored it, so `#/fields/x/min/anything` resolved as `min`; a typo that should have
+	 * been an error behaved like a working scope.
+	 *
+	 * @throws InvalidArgumentException if the path is not a scope this schema can address
 	 */
-	public function current(): ?string
+	public static function parse(string $path): self
 	{
-		return $this->currentAsSnakeCase();
-	}
+		if (!str_starts_with($path, '#/')) {
+			throw new InvalidArgumentException(sprintf(
+				'"%s" is not a scope path: it must start with "#/".',
+				$path,
+			));
+		}
 
-	public function key(): mixed
-	{
-		return $this->position;
-	}
+		$segments = explode('/', substr($path, 2));
 
-	public function next(): void
-	{
-		$this->position++;
-	}
+		if (($segments[0] ?? null) !== self::COLLECTION) {
+			throw new InvalidArgumentException(sprintf(
+				'"%s" does not address anything: the only addressable collection is "%s".',
+				$path,
+				self::COLLECTION,
+			));
+		}
 
-	public function rewind(): void
-	{
-		$this->position = 0;
-	}
+		$name = $segments[1] ?? '';
+		$property = $segments[2] ?? null;
 
-	public function isAbsolute(): bool
-	{
-		return str_starts_with($this->path, '#/');
-	}
+		if ($name === '') {
+			throw new InvalidArgumentException(sprintf('"%s" is missing a field name.', $path));
+		}
 
-	public function isRoot(): bool
-	{
-		return $this->path === '#/';
-	}
+		if (count($segments) > 3) {
+			throw new InvalidArgumentException(sprintf(
+				'"%s" has more segments than a scope can address. Sub-fields and collection '
+				. 'items are not addressable yet.',
+				$path,
+			));
+		}
 
-	/** @deprecated names are matched verbatim now; this returns the exact segment. */
-	public function currentAsCamelCase(): ?string
-	{
-		return $this->segments[$this->position] ?? null;
-	}
-
-	public function currentAsSnakeCase(): ?string
-	{
-		return $this->segments[$this->position] ?? null;
-	}
-
-	public function valid(): bool
-	{
-		return isset($this->segments[$this->position]);
-	}
-
-	/** @return string[] */
-	public function remaining(): array
-	{
-		return $this->remainingAsSnakeCase();
+		return match (true) {
+			$property === null => new FieldScope(new Property\Name($name)),
+			$property === ValueScope::SEGMENT => new ValueScope(new Property\Name($name)),
+			default => new PropertyScope(new Property\Name($name), $property),
+		};
 	}
 
 	/**
-	 * @deprecated names are matched verbatim now; this returns the exact segments.
-	 * @return string[]
+	 * Whether two scopes address the same thing.
 	 */
-	public function remainingAsCamelCase(): array
+	public function equals(self $other): bool
 	{
-		return array_slice($this->segments, $this->position);
+		return $other::class === static::class && (string) $other === (string) $this;
 	}
 
-	/** @return string[] */
-	public function remainingAsSnakeCase(): array
+	protected function prefix(): string
 	{
-		return array_slice($this->segments, $this->position);
-	}
-
-	public function hasRemainingSegments(): bool
-	{
-		return count($this->remainingAsSnakeCase()) > 0;
-	}
-
-	public function count(): int
-	{
-		return count($this->segments);
-	}
-
-	public function __toString(): string
-	{
-		return $this->path;
-	}
-
-	public function resolve(Facade $schema): mixed
-	{
-		if ($this->isRoot()) {
-			return $schema;
-		}
-
-		// traverse() advances the cursor segment by segment, and a rule builds its scope
-		// once in its constructor — so this object lives on the schema, and resolving it
-		// used to write to the shared definition on every request. Walking a copy keeps
-		// resolution a read: two requests resolving the same rule cannot move each other's
-		// cursor, and nothing is left behind afterwards.
-		//
-		// The copy also starts at the top, because resolution is a whole-path operation
-		// however far a previous walk happened to get.
-		$cursor = clone $this;
-		$cursor->rewind();
-
-		if ($cursor->currentAsSnakeCase() === null) {
-			throw new OutOfBoundsException("No current segment at position {$cursor->position} in scope path '{$cursor->path}'");
-		}
-
-		return $schema->traverse($cursor);
-	}
-
-	private function assertPositionInBounds(int $index = -1): void
-	{
-		if ($index === -1) {
-			$index = $this->position;
-		}
-
-		if ($index < 0 || $index >= count($this->segments)) {
-			throw new OutOfBoundsException("Index $index is out of bounds for scope path '{$this->path}'");
-		}
+		return '#/' . self::COLLECTION . '/' . $this->field;
 	}
 }

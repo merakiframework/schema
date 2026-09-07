@@ -6,7 +6,6 @@ namespace Meraki\Schema;
 use Closure;
 use InvalidArgumentException;
 use Meraki\Schema\Field;
-use Meraki\Schema\ScopeTarget;
 use Meraki\Schema\Field\Atomic;
 use Meraki\Schema\Property;
 use Meraki\Schema\Rule;
@@ -16,7 +15,7 @@ use Meraki\Schema\SchemaValidationResult;
 use Meraki\Schema\Rule\Condition;
 use Meraki\Schema\Rule\Builder;
 
-final class Facade implements ScopeTarget
+final class Facade
 {
 	public readonly Property\Name $name;
 
@@ -357,11 +356,7 @@ final class Facade implements ScopeTarget
 		$byField = [];
 
 		foreach ($applied as $outcome) {
-			$name = self::fieldNameIn($outcome->outcome->getScope());
-
-			if ($name !== null) {
-				$byField[$name][] = $outcome;
-			}
+			$byField[self::fieldNameIn($outcome->outcome->getScope())][] = $outcome;
 		}
 
 		$results = [];
@@ -397,13 +392,12 @@ final class Facade implements ScopeTarget
 	}
 
 	/**
-	 * The field a scope points at, or null if it points elsewhere.
+	 * The field a scope points at. Every scope names one, so this no longer has to pick
+	 * segments apart and hope.
 	 */
-	private static function fieldNameIn(Scope $scope): ?string
+	private static function fieldNameIn(Scope $scope): string
 	{
-		$segments = $scope->segments;
-
-		return ($segments[0] ?? null) === 'fields' ? ($segments[1] ?? null) : null;
+		return (string) $scope->field;
 	}
 
 	private function extractData(array|object|null $data): array
@@ -457,35 +451,42 @@ final class Facade implements ScopeTarget
 			$rule = $rule->build();
 		}
 
+		$this->assertScopesAreAddressable($rule);
+
 		$this->rules = $this->rules->add($rule);
 
 		return $this;
 	}
 
-	public function traverse(Scope $scope): ScopeResolutionResult
+	/**
+	 * Checks that every scope a rule mentions addresses something this schema really has.
+	 *
+	 * A scope typo used to surface as a 500 on whichever user request first matched the
+	 * rule; here it fails where the rule is written. The cost is an ordering constraint
+	 * that did not exist before — a rule can only be added once the fields it names are —
+	 * which is the trade the check is worth making.
+	 *
+	 * @throws InvalidArgumentException naming the rule's bad scope
+	 */
+	private function assertScopesAreAddressable(Rule $rule): void
 	{
-		// If this scope points directly to the schema root
-		if ($scope->isRoot()) {
-			return new ScopeResolutionResult($this, $this);
-		}
+		$resolver = new ScopeResolver($this);
 
-		// Deliberately no rewind(): traverse() walks from the cursor, and Scope::resolve()
-		// is the entry point that puts it back to the start.
-		$first = $scope->currentAsSnakeCase();
+		$scopes = [
+			...$rule->condition->getScopes(),
+			...array_map(static fn(Rule\Outcome $o): Scope => $o->getScope(), $rule->outcomes),
+		];
 
-		if ($first === 'fields') {
-			$scope->next();
-			$fieldName = $scope->currentAsSnakeCase();
-
-			if ($fieldName === null) {
-				throw new InvalidArgumentException("Expected field name after 'fields'");
+		foreach ($scopes as $scope) {
+			try {
+				$resolver->resolve($scope);
+			} catch (InvalidArgumentException $e) {
+				throw new InvalidArgumentException(sprintf(
+					'The rule targets "%s", which this schema cannot address: %s',
+					(string) $scope,
+					$e->getMessage(),
+				), previous: $e);
 			}
-
-			$field = $this->fields->getByName($fieldName);
-
-			return $field->traverse($scope);
 		}
-
-		throw new InvalidArgumentException("Unsupported path segment '{$first}' at root");
 	}
 }

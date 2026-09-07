@@ -3,106 +3,104 @@ declare(strict_types=1);
 
 namespace Meraki\Schema;
 
-use Meraki\Schema\Facade;
-use Meraki\Schema\Scope;
 use InvalidArgumentException;
 use PHPUnit\Framework\TestCase;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 
+/**
+ * A scope is a value now, not a cursor, and it knows what kind of thing it points at.
+ * These cover reading one from its string form and writing it back; what a scope *means*
+ * is {@see ScopeResolverTest}.
+ */
 #[Group('scope')]
 #[CoversClass(Scope::class)]
+#[CoversClass(FieldScope::class)]
+#[CoversClass(ValueScope::class)]
+#[CoversClass(PropertyScope::class)]
 final class ScopeTest extends TestCase
 {
 	#[Test]
-	public function a_scope_cannot_step_into_a_fields_schema_back_reference(): void
+	#[DataProvider('paths')]
+	public function it_reads_the_kind_of_scope_a_path_describes(string $path, string $expected): void
 	{
-		// The back-reference points at the field's owner, so traversing it climbs back to
-		// the root and walks the same path forever. Left unguarded this exhausts memory,
-		// and rule targets are deserialised from untrusted documents by meraki/schema-json.
-		$schema = new Facade('booking');
-		$schema->addBooleanField('has_log_book');
+		$this->assertInstanceOf($expected, Scope::parse($path));
+	}
 
+	#[Test]
+	#[DataProvider('paths')]
+	public function a_scope_writes_back_the_path_it_was_read_from(string $path): void
+	{
+		// The string form is the wire format meraki/schema-json reads and writes, so it has
+		// to survive the round trip exactly.
+		$this->assertSame($path, (string) Scope::parse($path));
+	}
+
+	public static function paths(): array
+	{
+		return [
+			'a field' => ['#/fields/username', FieldScope::class],
+			'a submitted value' => ['#/fields/username/value', ValueScope::class],
+			'a definition property' => ['#/fields/age/min', PropertyScope::class],
+			'optionality' => ['#/fields/nickname/optional', PropertyScope::class],
+			'a dotted sub-field name' => ['#/fields/cost.amount/value', ValueScope::class],
+			'a camelCase name' => ['#/fields/contactMethod/value', ValueScope::class],
+		];
+	}
+
+	#[Test]
+	#[DataProvider('unaddressablePaths')]
+	public function it_rejects_a_path_it_cannot_address(string $path): void
+	{
 		$this->expectException(InvalidArgumentException::class);
 
-		(new Scope('#/fields/has_log_book/schema'))->resolve($schema);
+		Scope::parse($path);
+	}
+
+	public static function unaddressablePaths(): array
+	{
+		return [
+			'no fragment marker' => ['fields/username'],
+			'an unknown collection' => ['#/things/username'],
+			'no field name' => ['#/fields/'],
+			'nothing at all' => ['#/'],
+			// The old parser ignored trailing segments, so "#/fields/x/min/typo" quietly
+			// resolved as "min" — a mistake that behaved like a working scope.
+			'trailing junk after a property' => ['#/fields/username/min/typo'],
+			'trailing junk after a value' => ['#/fields/username/value/typo'],
+			'a name that cannot identify a field' => ['#/fields/not a name/value'],
+		];
 	}
 
 	#[Test]
-	public function a_fields_public_configuration_stays_addressable(): void
+	public function a_property_scope_cannot_be_built_for_a_value(): void
 	{
-		// A field's public properties are its API; only the back-reference is excluded.
-		$schema = new Facade('signup');
-		$schema->addTextField('username')->minLengthOf(3)->maxLengthOf(20);
-
-		$this->assertSame(3, (new Scope('#/fields/username/min'))->resolve($schema)->value);
-		$this->assertSame(20, (new Scope('#/fields/username/max'))->resolve($schema)->value);
-	}
-
-	#[Test]
-	public function optionality_is_addressable(): void
-	{
-		$schema = new Facade('signup');
-		$schema->addTextField('nickname')->makeOptional();
-
-		$this->assertTrue((new Scope('#/fields/nickname/optional'))->resolve($schema)->value);
-	}
-
-	#[Test]
-	public function value_resolves_to_the_resolved_value(): void
-	{
-		$schema = new Facade('signup');
-		$schema->addTextField('username')->prefill('default');
-
-		$this->assertSame('default', (new Scope('#/fields/username/value'))->resolve($schema)->value->unwrap());
-
-		$schema->input(['username' => 'given']);
-
-		$this->assertSame('given', (new Scope('#/fields/username/value'))->resolve($schema)->value->unwrap());
-	}
-
-	#[Test]
-	public function a_scope_pointing_at_a_field_resolves_to_the_field(): void
-	{
-		$schema = new Facade('signup');
-		$field = $schema->addTextField('username');
-
-		$this->assertSame($field, (new Scope('#/fields/username'))->resolve($schema)->value);
-	}
-
-	#[Test]
-	public function an_unknown_property_is_rejected(): void
-	{
-		$schema = new Facade('signup');
-		$schema->addTextField('username');
-
+		// Otherwise there would be two objects claiming the same path, and only one of them
+		// reads from the request.
 		$this->expectException(InvalidArgumentException::class);
 
-		(new Scope('#/fields/username/nope'))->resolve($schema);
+		PropertyScope::of('username', 'value');
 	}
 
 	#[Test]
-	public function an_unknown_field_is_rejected(): void
+	public function scopes_of_the_same_kind_and_path_are_equal(): void
 	{
-		$schema = new Facade('signup');
-		$schema->addTextField('username');
-
-		$this->expectException(InvalidArgumentException::class);
-
-		(new Scope('#/fields/nope/value'))->resolve($schema);
+		$this->assertTrue(ValueScope::of('username')->equals(ValueScope::of('username')));
+		$this->assertFalse(ValueScope::of('username')->equals(ValueScope::of('nickname')));
 	}
 
 	#[Test]
-	public function a_scope_can_be_resolved_more_than_once(): void
+	public function a_field_scope_and_a_value_scope_are_never_equal(): void
 	{
-		// Rule outcomes build their scope once and resolve it on every validation run.
-		$schema = new Facade('signup');
-		$schema->addTextField('username')->minLengthOf(3);
-		$scope = new Scope('#/fields/username/min');
+		// They stringify differently, but the kind is what an outcome dispatches on.
+		$this->assertFalse(FieldScope::of('username')->equals(ValueScope::of('username')));
+	}
 
-		$this->assertSame(3, $scope->resolve($schema)->value);
-		$this->assertSame(3, $scope->resolve($schema)->value);
-		$this->assertSame(3, $scope->resolve($schema)->value);
+	#[Test]
+	public function a_scope_names_the_field_it_belongs_to(): void
+	{
+		$this->assertSame('username', (string) PropertyScope::of('username', 'min')->field);
 	}
 }
