@@ -7,7 +7,7 @@ a reproducer you can paste into a script and run.
 The library is **pre-release**. See [ROADMAP.md](ROADMAP.md) for the release ladder and
 [the release verdict](ROADMAP.md#release-verdict) for why.
 
-- [Known defects](#known-defects) — [B7](#b7), now fixed on `main`
+- [Known defects](#known-defects) — [B9](#b9) is open; [B7](#b7) is fixed on `main`
 - [Design constraints](#design-constraints) — intentional behaviour that will surprise you
 - [Not yet implemented](#not-yet-implemented) — advertised but inert
 - [Rough edges](#rough-edges) — smaller API warts
@@ -15,6 +15,62 @@ The library is **pre-release**. See [ROADMAP.md](ROADMAP.md) for the release lad
 ---
 
 ## Known defects
+
+<a id="b9"></a>
+
+### B9 — `prefill()` leaks between concurrent requests
+
+**Open.** Fixed as part of the structured-types stage; see [ROADMAP.md](ROADMAP.md).
+
+`prefill()` writes one request's data onto every field, exactly as `input()` did before it
+was removed. So a worker that fills in what it knows about a user — their saved email,
+their last address — puts one request's data where another request reads it. This is
+[B7](#b7) unchanged, in the one method that survived it, and it survived because a default
+was thought of as authoring rather than as request data.
+
+```php
+$schema = new Meraki\Schema\Facade('profile');   // built once at worker boot
+$schema->addTextField('email');
+
+$request = fn(string $email) => new Fiber(function () use ($schema, $email) {
+    $schema->prefill(['email' => $email]);   // "fill in what we know about this user"
+    Fiber::suspend();                        // any I/O — the coroutine switches here
+    return $schema->validate([])->get('email')->value;
+});
+
+$a = $request('alice@example.com');
+$b = $request('mallory@example.com');
+$a->start(); $b->start(); $a->resume(); $b->resume();
+
+$a->getReturn();   // 'mallory@example.com'  ← alice's request reads mallory's data
+```
+
+The value is also retained after the request that supplied it, so user data sits in the
+worker's memory indefinitely:
+
+```php
+$schema->prefill(['email' => 'alice@example.com']);
+
+str_contains(serialize($schema), 'alice@example.com');   // true
+```
+
+The five long-lived-process tests did not catch this because none of them called
+`prefill()`. A sixth now asserts the defect, so it fails the moment the fix lands.
+
+#### What changes
+
+Two mechanisms instead of one. An authored constant stays on the definition, renamed to
+say so — `defaultsTo(1)` — and serialises. A per-request value moves to resolution:
+
+```php
+$schema->resolve($submitted, prefilledWith: $known);
+```
+
+The guarantee that buys is stronger than the fix: if the definition can only hold constants
+the author typed, a serialised schema can never contain user data. See
+[FIELD-API.md](FIELD-API.md#defaults).
+
+---
 
 <a id="b7"></a>
 

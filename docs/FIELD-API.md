@@ -170,75 +170,178 @@ For each field, in this order:
 
 ## Defaults
 
-**A default is a schema concern, and it is static.** Every real use is an author writing a
-fixed value — `->prefill('automatic')` in the examples, `schema-json` restoring a
-serialised one. `meraki/schema-html` never sets one.
+There are two of these, and running them through one mechanism is what produced defect
+[B9](LIMITATIONS.md#b9).
+
+**An authored default is a constant the schema author writes** — `quantity` is 1, `country`
+is AU because the schema is AU-only. It is the same for every request, it carries no user
+data, and it belongs in the definition and in the serialised document.
+
+**A per-request prefill is data fetched for one user** — their saved address, their last
+answer. It differs per request, it is very often PII, and putting it on a schema built once
+and shared is the same mistake as writing input onto it.
+
+The line: **a default the author wrote is part of the schema; a value fetched for this user
+is not.** Two names, so the one that sounds per-request *is* per-request:
+
+```php
+$field->defaultsTo(1);                                  // definition; a literal; serialises
+$schema->resolve($submitted, prefilledWith: $known);    // request; never stored
+```
+
+The payoff is a guarantee rather than a convention: if the definition can only hold
+constants the author typed, **a serialised schema can never contain user data.**
+
+Resolution walks three sources in decreasing precedence — **submitted → prefilled →
+authored default** — and `$resolved->source` records which one won.
 
 | Situation | Shape | Constraints | Required satisfied |
 | --- | --- | --- | --- |
 | Client supplied a value | checked | checked | yes |
-| Nothing supplied, field has a default | checked | **skipped** by default, checked under `PrefillPolicy::Checked` | **yes** |
+| Nothing supplied, a prefill was given | checked | depends on `PrefillPolicy` | **yes** |
+| Nothing supplied, field has an authored default | checked | skipped — checked once when the field was built | **yes** |
 | Nothing supplied, no default, required | fails | skipped | no |
 | Nothing supplied, no default, optional | skipped | skipped | n/a |
 
-A default is **trusted**: it may predate the constraints now on the field, or come from a
-record written when they were different. It must still be the right shape, because a
-default of the wrong type is an authoring error rather than a data one.
+An authored default is **trusted by construction, not by assumption**: the builder checks
+it against the field's own constraints at `build()`, so a `defaultsTo(0)` on a field with
+`min(1)` throws where the author wrote it rather than surfacing as a validation failure on
+someone's request. It never needs re-checking afterwards, because neither the value nor the
+constraints can change once the field is built.
 
 The consequence worth stating plainly: `$resolved->value` is not guaranteed to satisfy the
-field it belongs to. Anything reading values back has to accept that.
+field it belongs to, because a trusted prefill may not have been checked. Anything reading
+values back has to accept that.
 
-### How much a default is trusted — `PrefillPolicy`
+### How much a prefill is trusted — `PrefillPolicy`
 
-Blanket trust is not always right. A value read from a record written years ago deserves
-different treatment from a literal the author just typed. So the trust is stated where the
-default is set:
+The authored default needs no policy: the builder checked it, so it is trusted, full stop.
+The policy is about the *per-request* source, where trust is a real question.
 
 ```php
-public function prefill(null $value, PrefillPolicy $policy = PrefillPolicy::Trusted): static
+$schema->resolve($submitted, prefilledWith: $known, policy: PrefillPolicy::Checked);
 ```
 
 | Policy | Shape | Constraints |
 | --- | --- | --- |
-| `Trusted` (default) | checked | skipped — it may predate them |
-| `Checked` | checked | checked |
+| `Checked` (default) | checked | checked |
+| `Trusted` | checked | skipped — the value may predate them |
+
+**Per call, not per field**, because trust is a property of the *source* — "everything from
+our database", "everything from this import" — not of individual fields. The mixed case
+resolves itself once the line is drawn properly: a prefill is data you already own, and
+anything that arrived with the request is submitted data, which is always checked. A
+campaign code from a query string is input, not a prefill.
+
+**`Checked` is the default**, which is the opposite of what a "prefill is trusted" reading
+suggests. The useful scenario is legacy data: you tighten a phone-number constraint to
+require E.164, and stored numbers have no country code. `Checked` surfaces that so the user
+fixes it. `Trusted` silently carries it forward, which is how bad data survives migrations.
+`Trusted` still earns its place — values the user cannot change, or data you validated on
+the way in — but it should be the thing you reach for deliberately.
 
 **Two, not three.** A third policy that skips the shape check as well was considered and
-rejected: a default of the wrong *type* is an authoring mistake, not stale data, and
+rejected: a value of the wrong *type* is a bug in the calling code, not stale data, and
 nothing downstream can do anything sensible with it — `cast()` would fail on it too. Shape
 is always checked, so `Trusted` means "trusted to still be valid", not "trusted blindly".
 
-**Both are checked eagerly, when the field is built, not when a request arrives.** An
-invalid default is a bug in the schema, and surfacing it as a validation failure would
-blame the user for something they did not do. Throwing at `prefill()` puts the error where
-the mistake is.
+**Trust only applies when the prefill is what survived.** If something was submitted for
+that field, it is checked regardless: trust attaches to a value, and a prefilled value only
+reaches validation when nothing overwrote it.
 
-That has a consequence worth planning for. Constraints can be added *after* a default:
+### What a trusted prefill reports
 
-```php
-$field->prefill('ab', PrefillPolicy::Checked)->minLengthOf(5);   // now stale
-```
+`Passed`, not `Skipped`.
 
-Because every wither returns a new field, each one can re-check the default and throw
-here, at `minLengthOf()`. It is the immutable design that makes this affordable — there is
-no way to change a field without passing through a wither. `Trusted` needs none of it,
-since shape cannot change once the field's type is fixed.
+`Skipped` means *there was nothing to check*, and `ResolvedField::transformed` returns
+`null` for it. A trusted prefill is the opposite case — there was something, and we chose
+not to check it — so reporting `Skipped` would hand back `null` for a field that has a
+value. "We vouch for it" is a verdict, not an absence.
+
+The nuance that would otherwise be lost lives on `$resolved->source` instead, which is
+better placed anyway: a renderer needs to know whether to draw a field as pre-populated,
+and nothing in the old shape could tell it.
 
 ### Where per-request prefilling goes
 
-Not on the definition. A default that varies per user — their saved address, their last
-answer — is application data, and writing it onto a schema that is built once and shared
-is the same mistake as writing input onto it.
+Not on the definition. `Facade::prefill($data)` and `Field::prefill()` both go: they write
+one request's data onto a shared schema, which is [B9](LIMITATIONS.md#b9) — the same defect
+as B7, in the one method that survived it.
 
-So `Facade::prefill($data)`, which takes a bulk array shaped like a request, goes. It has
-no consumer today. Per-request values are supplied alongside input when resolving, and
-land on the `ResolvedField`, never on the `Field`.
-
-That is the line: **a default the author wrote is part of the schema; a value fetched for
-this user is not.**
+`defaultsTo()` replaces the definition half. The per-request half moves to `resolve()` and
+`validate()`, landing on the `ResolvedField` and never on the `Field`.
 
 ---
 
+## What a resolved field carries
+
+```php
+final readonly class ResolvedField extends AggregatedValidationResult
+{
+    public Field $field;              // the effective definition
+    public mixed $value;              // what was validated
+    public ValueSource $source;       // Submitted | Prefilled | Default
+    public array $appliedOutcomes;    // which rules changed this field
+    public mixed $transformed { get; }
+}
+```
+
+**One value, not three.** Exposing the prefill and the default alongside `value` was
+considered and deferred: adding an accessor later is a non-breaking change, removing one is
+not, and nothing needs them yet. `source` answers the question people actually have — *where
+did this come from* — which is what a renderer needs to decide whether to draw a field as
+pre-populated.
+
+**`given` goes.** It was documented as "exactly what was submitted, unchanged", so a
+rejected form could echo back what the user typed rather than something coerced. It never
+does that. Nothing outside the core reads it, and there is no field type where it currently
+differs from `value` — including the one case that should differ:
+
+```
+expiry  given='2029-07-31'  value='2029-07-31'
+```
+
+The user typed `2029-07`. By the time the sub-field's result is built, the composite has
+already distributed the *processed* value, so `given` holds the coerced form. A property
+that fails its own contract is worse than an absent one. It comes back when `transformed`
+is populated per field type and there is a real coercion gap for it to describe — a `2.1`
+item — and it will need building deliberately rather than being assumed to work.
+
+---
+
+## Building a definition
+
+A field requires everything in its constructor and is sealed once built, which leaves
+nowhere to put a fluent API. Builders go in front:
+
+```php
+$schema->add(Text::named('username')->minLengthOf(3)->defaultsTo('anon'));
+```
+
+**One builder per field type**, so `minLengthOf()` exists on the text builder and
+`minItems()` on the collection one, and neither is reachable from the other. A generic base
+carries what every field has — `build()`, `defaultsTo()`, the name, optionality — and each
+type adds its own vocabulary.
+
+The builder is also what makes an authored default trustworthy. Configuration arrives in
+any order:
+
+```php
+Text::named('x')->defaultsTo('ab')->minLengthOf(5);   // stale by the second call
+```
+
+Neither call can check the default on its own: at the first the constraints do not exist,
+at the second the check would have to be repeated by every future constraint method.
+`build()` sees the finished definition and checks once. That is the whole reason the
+ordering problem disappears rather than being managed.
+
+**A builder is not a field.** Having one implement the other was raised and is worth
+resisting: they have opposite lifecycles — a builder is mutable and half-formed by design,
+a field is sealed and complete — and a shared interface would mean an unfinished definition
+could be passed anywhere a real one is expected. The relationship is `build(): T`, nothing
+more.
+
+---
 ## Optionality
 
 On the base class, not a trait. Every field can be optional — whether it is depends on the

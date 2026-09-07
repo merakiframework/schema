@@ -145,4 +145,41 @@ final class LongLivedProcessTest extends TestCase
 			$this->assertFalse($reused->validate($bobWithNickname)->anyFailed());
 		}
 	}
+
+	#[Test]
+	public function prefill_still_leaks_between_concurrent_requests(): void
+	{
+		// B9, and the last instance of B7's shape. prefill() writes to the schema exactly
+		// as input() used to, so a worker that fills in what it knows about a user — their
+		// saved email, their last address — puts one request's data where another request
+		// reads it.
+		//
+		// This asserts the *defect*, so it fails the moment prefilling moves to resolution.
+		// When that happens, replace the body with the isolation assertion below it.
+		$schema = new Facade('profile');
+		$schema->addTextField('email');
+
+		$request = static fn(string $email): Fiber => new Fiber(
+			static function () use ($schema, $email): mixed {
+				$schema->prefill(['email' => $email]);
+				Fiber::suspend();
+
+				return $schema->validate([])->get('email')->value;
+			},
+		);
+
+		$alice = $request('alice@example.com');
+		$mallory = $request('mallory@example.com');
+
+		$alice->start();
+		$mallory->start();
+		$alice->resume();
+		$mallory->resume();
+
+		// What it should be: 'alice@example.com'.
+		$this->assertSame('mallory@example.com', $alice->getReturn(), 'B9 appears to be fixed — invert this test.');
+
+		// And the value outlives the request that supplied it.
+		$this->assertStringContainsString('mallory@example.com', serialize($schema));
+	}
 }

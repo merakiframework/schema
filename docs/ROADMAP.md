@@ -61,7 +61,9 @@ Breaking by construction, so a major version regardless.
 
 | Theme | What changes |
 | --- | --- |
-| **The seam** | Immutable definition; per-request state moves into [`ResolvedField`](#architecture-immutable-definition--resolvedfield). Fixes B7 along with the purity and mutation defects. `Field` sheds `input()`, `ignoreInput()`, `acceptInput()` and its value properties. |
+| **The seam** | Immutable definition; per-request state moves into [`ResolvedField`](#architecture-immutable-definition--resolvedfield). Fixes B7 and B9 along with the purity and mutation defects. `Field` sheds `input()`, `ignoreInput()`, `acceptInput()`, `prefill()` and its value properties. |
+| **Defaults** | Split in two. An authored constant stays on the definition as `defaultsTo()` and serialises; a per-request value moves to `resolve($submitted, prefilledWith: $known)` and lands on the result. Makes "a serialised schema can never contain user data" true by construction. Fixes [B9](LIMITATIONS.md#b9). |
+| **Construction** | A builder per field type in front of a sealed field that takes everything in its constructor. Replaces the mutate-after-add style, and is what lets an authored default be checked against its own field's constraints at build time rather than on a user's request. |
 | **Real PHP types** | The core takes arrays, lists, objects and scalars; the UI layer converts. `EmailAddress` takes one address; `Field\AtomicMultiValue` and the comma-splitting in `EmailAddress::parseValue()` go — both are `<input type="email" multiple>` leaking into the domain. |
 | **Structured types** | `Composite` is removed. `Address`, `Money` and `CreditCard` become distinct types with their own public API, each taking an object shape and validating it. Dotted constraint names (`addr.postal_code.format`) go with it, so the replacements have to be chosen deliberately — downstream message providers match on them. `Variant` stays: it is a union type, not conditional logic. |
 | **Scopes** | Typed and immutable; resolution moves out of the field classes. `ScopeTarget`, `traverse()` and `Wizard\RuleScopes` all go. |
@@ -132,12 +134,19 @@ extends the existing aggregated-result type, so it *is* the field's result:
 ```
 ResolvedField
     field            // the effective definition
-    given            // exactly what was submitted
-    resolved         // given ?? default
+    value            // what was validated
+    source           // Submitted | Prefilled | Default
     transformed      // the typed value — BigDecimal, LocalDate, parsed phone number
     appliedOutcomes  // which rules changed what, and why
     anyFailed(), getFailed(), resultsFor(...)
 ```
+
+`given` was in this sketch and has been dropped: it never differed from `value` for any
+field type, including the composite case it was meant for, so it failed the contract it was
+written for. It returns when `transformed` is populated per type and there is a real
+coercion gap to describe. `source` replaces the part of it people actually needed — whether
+a value came from the request or was filled in — which a renderer needs and nothing else
+could answer. See [FIELD-API.md](FIELD-API.md#what-a-resolved-field-carries).
 
 Notable consequences:
 
