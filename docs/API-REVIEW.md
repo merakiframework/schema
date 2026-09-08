@@ -125,6 +125,184 @@ The shape a field author writes to, and the division of responsibility between a
 the core, are settled separately in **[FIELD-API.md](FIELD-API.md)**. The rows below are
 about naming; that document is about the contract.
 
+## The naming rule
+
+Derived from the review as it went, and applied to every row below rather than re-argued
+per field.
+
+1. **A property is named for what it bounds, in the domain's own word.** `minLength`, not
+   `min` — `$text->min` answers no question anyone asks. `minValue` on a number,
+   `from`/`until` on a date, `minItems` on a collection, `minSize`/`minCount` on a file.
+   Temporal types do not say "min" and "max" at all.
+2. **The constraint name is the property name.** Not merely consistent with it — the same
+   string. `meraki/schema-html` already reads `$field->{$constraint->name}` in 31 places, so
+   this equality is load-bearing today; making it a rule turns an accident into a contract,
+   and gives `#/fields/username/minLength` as a scope for free.
+3. **Reading is a property, changing is a method.** State is read through a public property
+   with `private(set)` visibility; anything that changes the definition is a method named
+   for the change it makes, usually `<property>Of(…)` or a `must…` statement where that
+   reads better.
+4. **`null` means unset.** Not `PHP_INT_MAX`, not `0`, not an empty string. A sentinel that
+   is a real value cannot be told apart from someone declaring that value.
+
+The exception this rule has to survive is that the *domain's* word wins over the pattern.
+`from`/`until` are not `minDate`/`maxDate`, and a fortnightly recurrence is an interval
+rather than a step.
+
+## Proposed API
+
+Everything the rule settles without a judgement call. Awaiting confirmation; the fields it
+does not settle are listed under [Still to decide](#still-to-decide).
+
+Read each row as **method → property → constraint name**, where the last two are the same
+string by [rule 2](#the-naming-rule).
+
+### Length-bounded strings
+
+`Text`, `Name`, `Uri`, `EmailAddress` all bound a *length*, and all currently call it
+`min`/`max`.
+
+| Current | Proposed |
+| --- | --- |
+| `minLengthOf()` → `$min` → `min` | `minLengthOf()` → `$minLength` → `minLength` |
+| `maxLengthOf()` → `$max` → `max` | `maxLengthOf()` → `$maxLength` → `maxLength` |
+
+`$maxLength` becomes `?int`, defaulting to `null` rather than `PHP_INT_MAX` — the sentinel
+serialises into every document as `9223372036854775807` and is useless as a rule target.
+
+### Value-bounded quantities
+
+`Number` and `Duration` bound a *value*.
+
+| Current | Proposed |
+| --- | --- |
+| `minOf()` → `$min` → `min` | `minValueOf()` → `$minValue` → `minValue` |
+| `maxOf()` → `$max` → `max` | `maxValueOf()` → `$maxValue` → `maxValue` |
+
+### Temporal bounds — already correct
+
+`Date`, `Time` and `DateTime` keep `from()` / `until()` → `$from` / `$until` → `from` /
+`until`. This is the model the rest of the table is being brought in line with, not an
+exception to it.
+
+`Date::to()` is **removed**. It is not a second name for `until()` — it is inclusive where
+`until()` is exclusive, and both report under `until`, so a result cannot say which was
+declared and a message cannot be phrased correctly. Half-open `[from, until)` composes;
+an author wanting an inclusive bound writes `until($end->plusDays(1))`, which says so.
+
+### Stepping — split by what is being stepped
+
+A point in time recurs at an *interval*; a quantity moves in *steps*.
+
+| Field | Current | Proposed |
+| --- | --- | --- |
+| `Date` | `atIntervalsOf()` → `$interval` → `interval` | unchanged |
+| `Time` | `inIncrementsOf()` → `$step` → `step` | `atIntervalsOf()` → `$interval` → `interval` |
+| `DateTime` | `inIncrementsOf()` → `$interval` → `interval` | `atIntervalsOf()` → `$interval` → `interval` |
+| `Number` | `inIncrementsOf()` → `$step` → `step` | unchanged |
+| `Duration` | `inIncrementsOf()` → `$step` → `step` | unchanged |
+
+`DateTime` is the one whose method and property disagree with each other today.
+
+### Already correct — no change
+
+| Field | Names |
+| --- | --- |
+| `Collection` | `minItems()` / `maxItems()` → `$minItems` / `$maxItems` → same |
+| `File` | `$minCount`, `$maxCount`, `$minSize`, `$maxSize`, `$allowedTypes`, `$disallowedTypes` — every property already equals its constraint name |
+
+### Alignments the rule forces
+
+Properties and constraint names that disagree today, with no judgement needed:
+
+| Field | Current property | Current constraint | Proposed (both) |
+| --- | --- | --- | --- |
+| `Uri` | `$allowedSchemes` | `scheme` | `allowedSchemes` |
+| `Uuid` | `$versions` | `version` | `allowedVersions` |
+| `PhoneNumber` | `$allowed` | `allowedCountries` | `allowedCountries` |
+| `PhoneNumber` | `$allowedType` | `numberType` | `numberType` |
+
+### Method names brought in line
+
+| Field | Current | Proposed | Why |
+| --- | --- | --- | --- |
+| `Text` | `matches()` | `mustMatch()` | a mutator named for the rule it states, as `Boolean::mustBeAccepted()` already is |
+| `EmailAddress` | `allowDomain()`, `disallowDomain()` | `allowDomains()`, `disallowDomains()` | they take arrays and set plural properties |
+| `File` | `atLeast()`, `atMost()` | `minCountOf()`, `maxCountOf()` | say what is being counted |
+| `File` | `minFileSizeOf()`, `maxFileSizeOf()` | `minSizeOf()`, `maxSizeOf()` | match `$minSize` / `$maxSize` |
+| `Uuid` | `restrictToVersion()` | `allowVersions()` | plural, and matches the property |
+| `Time`, `DateTime` | `precisionMode()` | *removed* | a getter for `$precision`, which is already public |
+
+### Constants
+
+`Text::SKIP_MATCHING` (`= null`) is dropped. With a nullable parameter it earns nothing.
+
+### Collection arguments are variadic
+
+Any method taking a set takes it variadically, with the first required:
+
+```php
+$field->allowDomains('hotmail.com', 'gmail.com');
+$field->disallowDomains(...$blacklist);
+```
+
+Applies to `allowDomains`, `disallowDomains`, `allowSchemes`, `allowVersions`,
+`PhoneNumber::allow`, `File::allowTypes`/`disallowTypes` and `Password::satisfyAnyOf`.
+
+### The baseline principle
+
+A field encodes the current best practice for its type — the RFCs, the standards, the
+published guidance — and configuration **narrows** from there. It never widens.
+
+Two consequences the rest of the table has to respect:
+
+- A field with no configuration is already correct. Getting security right is not something
+  an author has to opt into.
+- An option that loosens the baseline does not belong. Offering four email strictnesses or
+  a password minimum below the recommended floor inverts the principle.
+
+### Settled in review
+
+| Field | Decision |
+| --- | --- |
+| `Enum` | The list **is** the type, so it is checked as shape and emits no constraint — which is what the code already does. `$oneOf` → `$cases`. `allow()` is **removed**: a type is not extended after it is declared. |
+| `Boolean` | `mustBeAccepted()` stays a constraint, but stops calling `require()` — it silently makes the field required today, so `makeOptional()->mustBeAccepted()` does not do what it reads like. |
+| `Password` | `Password\Range` is dropped for flat `?int` properties (`$minLength`, `$maxLength`, `$minLowercase`, …). A `Range` cannot satisfy the property-equals-constraint rule, and today a failure reports `digits` without saying whether the floor or the ceiling was missed. |
+| `Password` | Presets stop enforcing composition rules by default. Current guidance recommends against requiring character classes; they stay available for compliance regimes that still demand them. |
+| `Passphrase` | `getConstraints()` → protected, as everywhere else. `$method` → `$entropyModel`. |
+| `Number` | `scale` becomes a **constraint** rather than a shape check, so `$scale` equals its constraint name and a too-precise value says so instead of "must be a number". |
+
+#### Why `Enum::allow()` can go
+
+It exists for one caller: `Money::allow('AUD', 2)` appends to the internal currency enum
+([Money.php:70](../src/Field/Money.php#L70)). Once fields are immutable, that wither returns
+a new `Money` built with the extended currency list, constructing a fresh `Enum` — so
+growing an enum in place is no longer needed to support it.
+
+#### The three things `Number::$scale` currently collapses
+
+| Concern | Belongs in | Today |
+| --- | --- | --- |
+| Is it a number? | shape | `validateValue()` ✓ |
+| Is it representable at this scale without loss? | a `scale` constraint | `validateValue()` ✗ |
+| Express it at that scale (`123` → `123.00`) | `cast()` | `validateValue()` ✗ |
+
+The middle one is why a scale-2 field rejects `123.456` with "must be a number".
+## Still to decide
+
+Left out of the table above because the rule does not settle them on its own.
+
+| Field | The question |
+| --- | --- |
+| `Password` | Six `Range` properties (`$length`, `$lowercase`, …) behind eleven `minNumberOfX`/`maxNumberOfX` methods, plus `satisfyAnyOf()`. The constraint names are the property names already, but the *shape* is the question: is a `Range` the right abstraction, and does `minLengthOf()` belong on a field whose length constraint is called `length`? |
+| `Passphrase` | `$entropy`, `$method`, `$dictionary` — `$method` has no constraint. Configured only through presets. `getConstraints()` is public here and protected everywhere else. |
+| `Enum` | Property is `$oneOf`, method is `allow()`, and no constraint is emitted at all. `allow()` is one of the four unrelated things called `allow()`. |
+| `Money`, `Address`, `CreditCard` | Dotted constraint names (`cost.amount.min`). **Blocked** on the structured-type design — these cannot be settled before it is. |
+| `Variant` | Emits nothing of its own; the matching alternative's result is returned. Confirm that is the contract. |
+| `EmailAddress` | `$format` selects between `Basic`, `Html`, `Rfc`, `Smtp` validation modes. `Html` is a browser pattern used as a domain rule — recorded as leftover L2. |
+| `Number` | `$scale` / `scaleTo()` is a property with no constraint. Confirm it is configuration rather than a rule. |
+| `Boolean` | Property `$mustBeAccepted` reads as a predicate; the constraint is `accepted`. Rule 2 wants them equal, but `mustBeAccepted` is an odd name for a failure. |
+
 ## The checklist
 
 Constraint names are those emitted today, with `type` removed. Status is `open` until all
