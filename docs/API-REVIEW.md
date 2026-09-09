@@ -603,15 +603,83 @@ What it buys beyond the map case:
   what they constrain, because scopes address properties by name, but that is a much weaker
   requirement.
 
-The bound is `scalar|array|null` and the message provider formats it; a constraint with no
-bound reports `null`, as `line1Visitable` does.
+### Typing the bound
+
+A **closed union**, not `mixed` and not a generic:
+
+```php
+/** @param string|int|float|bool|list<string>|null $bound */
+public readonly string|int|float|bool|array|null $bound;
+```
+
+A constraint with no bound reports `null`, as `line1Visitable` does.
+
+Generics were considered and do not help. The `null`-widening used on `accepts()` works
+because *parameter* types are contravariant; `bound` is a property on one class, so there is
+no subclass to widen in. A `@template TBound` would type it where the result is created —
+where the type is already known — and erase where results are collected into a
+heterogeneous list on `ResolvedField`, which is exactly where a consumer reads it.
+
+The closed union does what generics cannot. PHPStan at level 7 rejects
+
+```php
+return 'at least ' . $constraint->bound;
+```
+
+with *Binary operation "." between 'at least ' and bool|float|int|list<string>|string|null
+results in an error*, forcing the consumer to narrow. The dynamic property read it replaces
+passed clean at level 9, so this is the same hazard with the opposite outcome, purely
+because the type can be written down.
+
+**It only bites at level 7 and above**, and the core is at level 2 today. That makes raising
+the PHPStan level load-bearing rather than tidy — `meraki/schema-html` is the consumer that
+most needs it.
+
+A result subclass per constraint kind would let `instanceof` narrow further, but it is a
+class per constraint and does not extend to constraints a user defines.
+## Value objects are called `Value`
+
+A field taking a value object takes one named `Value` in its own namespace:
+`Field\Address\Value`, `Field\Money\Value`, `Field\CreditCard\Value`.
+
+`File\Metadata` is renamed to `File\Value` for the same reason — it was the only one of its
+kind and the inconsistency was accidental.
+
+**Order this after removing `Property\Value`**, which [FIELD-API.md](FIELD-API.md) already
+decided to drop as unneeded complexity and which `Field.php` still references eight times.
+Introducing `Field\Address\Value` while the old wrapper is still around means two `Value`
+classes in scope at once.
+
+## What `transformed` returns
+
+| Field | Type | Why |
+| --- | --- | --- |
+| `Number` | `BigDecimal` | |
+| `Date`, `Time`, `DateTime` | `LocalDate`, `LocalTime`, `LocalDateTime` | |
+| `Duration` | `Duration` | |
+| `Money` | `Money\Value` | |
+| `Address` | `Address\Value` | |
+| `CreditCard` | `CreditCard\Value` | |
+| `File` | `File\Value` | |
+| `PhoneNumber` | **`string`, in E.164** | see below |
+| everything else | its scalar | identity |
+
+The rule: **use the library's value object when it stringifies to the value it represents.**
+`BigDecimal` and `LocalDate` do. `libphonenumber\PhoneNumber` does not —
+
+```
+(string) $number                      → "Country Code: 61 National Number: 411222333"
+$util->format($number, E164)          → "+61411222333"
+```
+
+Its `__toString()` is a debug representation, so `"{$resolved->transformed}"` in a template
+would render that, and reaching E.164 requires the `PhoneNumberUtil` singleton, which is a
+dependency the field should absorb rather than export. So `PhoneNumber` transforms to the
+E.164 string.
 ## Still to decide
 
-Left out of the table above because the rule does not settle them on its own.
-
-| Field | The question |
-| --- | --- |
-| `transformed` targets | The type each field produces — `BigDecimal`, `LocalDate`, a parsed phone number, `Address\Value`. Nothing populates it yet, so this is a 2.1 decision the naming must not foreclose. |
+**Nothing.** Every row is settled. The matcher vocabulary is deferred to a stage of its
+own, after the field API is implemented, and is not part of this review.
 
 ## The checklist
 
