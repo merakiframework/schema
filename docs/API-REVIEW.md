@@ -661,7 +661,7 @@ classes in scope at once.
 | `Address` | `Address\Value` | |
 | `CreditCard` | `CreditCard\Value` | |
 | `File` | `File\Value` | |
-| `PhoneNumber` | **`string`, in E.164** | see below |
+| `PhoneNumber` | `PhoneNumber\Value` | stringifies to E.164, and carries the resolved country |
 | everything else | its scalar | identity |
 
 The rule: **use the library's value object when it stringifies to the value it represents.**
@@ -676,6 +676,80 @@ Its `__toString()` is a debug representation, so `"{$resolved->transformed}"` in
 would render that, and reaching E.164 requires the `PhoneNumberUtil` singleton, which is a
 dependency the field should absorb rather than export. So `PhoneNumber` transforms to the
 E.164 string.
+## Time-relative constraints take a clock
+
+A field that asks "is this in the future" needs *now*, so it holds a **`Clock`** — a source
+of the current instant, never an instant itself. `brick/date-time` already ships `Clock`,
+`SystemClock` and `FixedClock`, so this costs no new dependency and makes the behaviour
+testable with a fixed instant.
+
+Holding a source rather than a value is what keeps a shared definition safe: a `SystemClock`
+is stateless, whereas reading `now` at definition time and storing it would be the same
+mistake as B7.
+
+Placement follows `Facade::for()` — declared on the schema, inherited by fields added
+afterwards, overridable per field, defaulting to the system clock.
+
+`ResolvedField` carries **`evaluatedAt`**, the instant the verdict was reached. That makes a
+result reproducible and explainable, and it is the natural `bound` for every time-relative
+constraint, so a message can say "expired as of 9 September 2026".
+
+**The exception this forces.** Defaults are checked when they are declared, but that cannot
+hold for a time-relative constraint: `defaultsTo('2027-01-01')` with `mustExpireInFuture()`
+passes today and fails in 2027. Time-relative constraints are exempt from the definition-time
+default check. In practice nothing sensible defaults a card expiry or a date of birth, but
+the rule needs the carve-out stated rather than discovered.
+
+## `CreditCard` expiry
+
+| Surface | Name |
+| --- | --- |
+| Method | `mustExpireInFuture()` |
+| Property | `$mustExpireInFuture` |
+| Constraint | `expiryInFuture`, bound = the instant checked against |
+
+No minimum: "not expired" is the constraint itself. A **maximum earns its place as a typo
+guard** — cards are issued three to five years out, so `2099` should be caught — and it is a
+baseline ceiling rather than configuration. An enum of permitted dates does not fit; an
+expiry is whatever the card says.
+
+## `PhoneNumber` carries its resolved country
+
+This revises the earlier decision that `transformed` returns an E.164 string. A string
+cannot carry the country the number resolved to, which a consumer needs.
+
+```php
+final readonly class Value implements Stringable
+{
+    public function __construct(
+        public string $e164,
+        public string $country,
+    ) {}
+
+    public function __toString(): string
+    {
+        return $this->e164;
+    }
+}
+```
+
+This still satisfies the rule that decided against `libphonenumber\PhoneNumber` — it
+stringifies to the value it represents — while answering the country question. Input accepts
+a plain string, `['number' => …, 'country' => …]`, or a `Value`.
+
+**Parsing region.** `allow()` currently does double duty: it constrains which countries are
+acceptable *and* supplies the region a national-format number is parsed against. Those are
+separated. `allowCountries()` constrains; the parse region follows from it, the same way
+`Address::determined()` treats a single allowed value as settled:
+
+- one country allowed → national format parses against it
+- international format → the region follows from the number
+- several countries and national format → **ambiguous**
+
+Ambiguity is a **constraint**, not a shape failure. `0411 222 333` is well-formed input that
+simply cannot be resolved, so the message should ask which country rather than say the number
+is invalid. Constraint `unambiguous`, with the allowed countries as its bound so the message
+can list them.
 ## Still to decide
 
 **Nothing.** Every row is settled. The matcher vocabulary is deferred to a stage of its
