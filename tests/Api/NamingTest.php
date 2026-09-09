@@ -55,7 +55,7 @@ final class NamingTest extends TestCase
 
 			'Boolean' => ['mustBeAccepted'],
 			'Uuid' => ['allowVersions'],
-			'PhoneNumber' => ['allow', 'ofType'],
+			'PhoneNumber' => ['allowCountries', 'ofType'],
 			'Collection' => ['minCountOf', 'maxCountOf'],
 
 			// File holds one file; several files is a collection of them.
@@ -71,8 +71,9 @@ final class NamingTest extends TestCase
 			],
 
 			// Structured types: one field, one value object.
-			'Address' => ['allowCountries'],
+			'Address' => ['allowCountries', 'ofType', 'mustBeSpecific'],
 			'Money' => ['allowCurrencies', 'minAmountOf', 'maxAmountOf'],
+			'CreditCard' => ['mustExpireInFuture'],
 		];
 
 		foreach ($methods as $class => $names) {
@@ -118,8 +119,9 @@ final class NamingTest extends TestCase
 				'minDigits', 'maxDigits',
 				'minSymbols', 'maxSymbols',
 			],
-			'Address' => ['allowedCountries'],
+			'Address' => ['allowedCountries', 'type', 'mustBeSpecific'],
 			'Money' => ['allowedCurrencies'],
+			'CreditCard' => ['mustExpireInFuture'],
 		];
 
 		foreach ($properties as $class => $names) {

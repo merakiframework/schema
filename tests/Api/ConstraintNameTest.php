@@ -54,7 +54,7 @@ final class ConstraintNameTest extends TestCase
 			'EmailAddress' => ['minLength', 'maxLength', 'allowedDomains', 'disallowedDomains'],
 			'Uri' => ['minLength', 'maxLength', 'allowedSchemes'],
 			'Uuid' => ['allowedVersions'],
-			'PhoneNumber' => ['allowedCountries', 'numberType'],
+			'PhoneNumber' => ['allowedCountries', 'numberType', 'unambiguous'],
 
 			'Password' => [
 				'minLength', 'maxLength', 'maxBytes', 'minStrength',
@@ -68,7 +68,7 @@ final class ConstraintNameTest extends TestCase
 
 			// Structured types: flat, and no longer prefixed with the field's own name.
 			'Money' => ['allowedCurrencies', 'minAmount', 'maxAmount', 'scale'],
-			'Address' => ['allowedCountries', 'postalCodeFormat', 'line1Visitable'],
+			'Address' => ['allowedCountries', 'postalCodeFormat', 'line1Visitable', 'specific'],
 			'CreditCard' => ['numberChecksum', 'expiryInFuture'],
 
 			// The list is the type, so membership is shape rather than a constraint.

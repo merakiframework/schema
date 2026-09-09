@@ -136,4 +136,80 @@ final class StructuredTypeTest extends TestCase
 
 		$this->assertFalse($result->anyFailed());
 	}
+
+	#[Test]
+	public function an_address_is_not_specific_by_default(): void
+	{
+		// A suburb, a state and a postcode is an address — just a vague one. Requiring a
+		// street is a separate decision from what the address is for.
+		$address = new Field\Address(new Property\Name('service_area'), ['AU']);
+
+		$resolved = $address->validate([
+			'locality' => 'Rockhampton',
+			'administrative_area' => 'QLD',
+			'postal_code' => '4700',
+		]);
+
+		$this->assertFalse($resolved->anyFailed());
+	}
+
+	#[Test]
+	public function a_specific_address_requires_a_street(): void
+	{
+		$address = (new Field\Address(new Property\Name('billing'), ['AU']))->mustBeSpecific();
+
+		$failed = $address->validate([
+			'locality' => 'Rockhampton',
+			'administrative_area' => 'QLD',
+			'postal_code' => '4700',
+		])->get('specific');
+
+		$this->assertTrue($failed->failed());
+		$this->assertSame('line1', $failed->part);
+	}
+
+	#[Test]
+	public function deliverability_and_granularity_are_independent(): void
+	{
+		// Two dials, not one enum. Type says what the address is *for*; mustBeSpecific()
+		// says how much of it is required.
+		$visitable = (new Field\Address(new Property\Name('pickup'), ['AU']))
+			->ofType(Field\Address\Type::Physical)
+			->mustBeSpecific();
+
+		$failed = $visitable->validate([
+			'line1' => 'PO Box 42',
+			'locality' => 'Rockhampton',
+			'administrative_area' => 'QLD',
+			'postal_code' => '4700',
+		]);
+
+		$this->assertTrue($failed->get('line1Visitable')->failed());
+		$this->assertFalse($failed->get('specific')->failed());
+	}
+
+	#[Test]
+	public function a_postal_address_that_is_not_specific_is_rejected_where_it_is_declared(): void
+	{
+		// You cannot post to a suburb. A combination with no meaning is refused at
+		// definition time, as the baseline floors are.
+		$this->expectException(\InvalidArgumentException::class);
+
+		(new Field\Address(new Property\Name('billing'), ['AU']))->ofType(Field\Address\Type::Postal);
+	}
+
+	#[Test]
+	public function a_determined_country_need_not_be_supplied(): void
+	{
+		// One allowed country settles it, so the author's allow-list answers for the user.
+		$address = new Field\Address(new Property\Name('billing'), ['AU']);
+
+		$resolved = $address->validate([
+			'locality' => 'Rockhampton',
+			'administrative_area' => 'QLD',
+			'postal_code' => '4700',
+		]);
+
+		$this->assertSame('AU', $resolved->transformed->countryCode);
+	}
 }
