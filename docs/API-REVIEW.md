@@ -401,15 +401,48 @@ Five, as entropy thresholds:
 
 `Password`'s current `common` and `none` go: a tier meaning "no strength requirement"
 contradicts the baseline principle.
+### `Password` keeps its name; `Variant` and `satisfyAnyOf()` go
+
+**The merged field is `Password`.** It is the term people know and search for; a passphrase
+is a style of password rather than a different thing, and `MemorizedSecret` is precise but
+obscure enough that nobody would look for it.
+
+**`Variant` is removed.** Its only use across all three packages is the
+`Password | Passphrase` union ([RoundTripTest.php:266](../../schema-json/tests/RoundTripTest.php#L266)),
+which the merge eliminates. Keeping it means carrying `__get()` magic, prefixed sub-names, a
+duplicate-type guard and a `Composite|Variant` union on `CompositeValidationResult` for a
+capability with no caller. It can return when there is a second use case.
+
+**`satisfyAnyOf()` is removed**, and it closes a defect on the way out. It means "at least
+one of these named constraints must pass" — `common()` used it for *a digit or a symbol* —
+and it is implemented as a small rule engine inside the field: a constraint belonging to an
+`anyOf` group returns `null` when it fails, deferring the verdict to a separate `anyOf`
+constraint that runs afterwards and reads a `private bool $anyOfPassed` which each of them
+mutates as a side effect.
+
+That property is defect **C4**, and it is still live — after `Password::common()->validate()`
+the field's `$anyOfPassed` reads `true`. It is the same shape as B7 and B9 and the last
+mutable validation state on any field, so removing `satisfyAnyOf()` closes C4 rather than
+leaving it as separate work.
+
+The feature elaborates composition rules that current guidance discourages, and its only
+caller is the `common()` preset already being dropped with the tier list.
+
+### `File` method names
+
+| Current | Becomes |
+| --- | --- |
+| `atLeast()`, `atMost()` | `minCountOf()`, `maxCountOf()` |
+| `minFileSizeOf()`, `maxFileSizeOf()` | `minSizeOf()`, `maxSizeOf()` |
+
+Properties and constraint names are already correct and do not move.
 ## Still to decide
 
 Left out of the table above because the rule does not settle them on its own.
 
 | Field | The question |
 | --- | --- |
-| `Password` | `satisfyAnyOf()` — does it survive the merge with `Passphrase`? |
 | `Money`, `Address`, `CreditCard` | Dotted constraint names (`cost.amount.min`). **Blocked** on the structured-type design — these cannot be settled before it is. |
-| `Variant` | Emits nothing of its own; the matching alternative's result is returned. Confirm that is the contract. |
 
 ## The checklist
 
