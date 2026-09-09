@@ -28,12 +28,10 @@ final class DateTime extends AtomicField
 	public Duration $interval;
 
 	public function __construct(
-		Property\Name $name,
+		public readonly Property\Name $name,
 		public readonly TimePrecision $precision = TimePrecision::Minutes,
 		private PrecisionCaster $caster = new TruncatePrecision(),
 	) {
-		parent::__construct($name);
-
 		$this->from = LocalDateTime::min();
 		$this->until = LocalDateTime::max();
 		$this->interval = match ($precision) {

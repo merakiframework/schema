@@ -14,13 +14,12 @@ use Meraki\Schema\Property;
 final class Enum extends AtomicField
 {
 	public function __construct(
-		Property\Name $name,
+		public readonly Property\Name $name,
 		/**
 		 * @param list<T> $oneOf
 		 */
 		public array $oneOf,
 	) {
-		parent::__construct($name);
 	}
 
 	public function allow(mixed $value): self

@@ -22,13 +22,16 @@ class Set implements IteratorAggregate, Countable
 		$this->mutableAdd(...$fields);
 	}
 
+	/**
+	 * A copy of this set with every name prefixed. The fields are sealed, so renaming
+	 * produces new ones rather than editing the ones already here.
+	 */
 	public function prefixNamesWith(Property\Name $prefix): self
 	{
-		foreach ($this->fields as $field) {
-			$field->rename($field->name->prefixWith($prefix));
-		}
-
-		return $this;
+		return new self(...array_map(
+			static fn(Field $field): Field => $field->rename($field->name->prefixWith($prefix)),
+			$this->fields,
+		));
 	}
 
 	/**

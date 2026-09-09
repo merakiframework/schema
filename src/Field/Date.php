@@ -20,10 +20,8 @@ final class Date extends AtomicField
 	public Period $interval;
 
 	public function __construct(
-		Property\Name $name,
+		public readonly Property\Name $name,
 	) {
-		parent::__construct($name);
-
 		$this->from = LocalDate::min();
 		$this->until = LocalDate::max();
 		$this->interval = Period::ofDays(1);

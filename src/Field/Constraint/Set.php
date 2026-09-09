@@ -62,6 +62,22 @@ final class Set implements IteratorAggregate, Countable
 	}
 
 	/**
+	 * Builds a constraint from its parts, so a field declaring several reads as a list of
+	 * checks rather than a list of constructor calls.
+	 *
+	 * @param Closure(mixed): (bool|null) $check
+	 * @param string|int|float|bool|list<string>|null $bound
+	 */
+	public function add(
+		string $name,
+		Closure $check,
+		string|int|float|bool|array|null $bound = null,
+		?string $part = null,
+	): self {
+		return new self(...$this->constraints, ...[new Constraint($name, $check, $bound, $part)]);
+	}
+
+	/**
 	 * Every constraint reported as skipped, for when the shape failed and there was nothing
 	 * for any of them to speak to.
 	 *

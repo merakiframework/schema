@@ -29,10 +29,9 @@ final class EmailAddress extends AtomicMultiValueField
 	public array $disallowedDomains;
 
 	public function __construct(
-		Property\Name $name,
+		public readonly Property\Name $name,
 		public Format $format = Format::Basic,
 	) {
-		parent::__construct($name);
 
 		$this->minLength = $this->format->getAllowableMinLengthTotal();
 		$this->maxLength = $this->format->getAllowableMaxLengthTotal();

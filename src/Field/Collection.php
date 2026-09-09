@@ -61,9 +61,7 @@ final class Collection extends Composite
 	 */
 	public function prefill($value): static
 	{
-		$this->defaultValue = $this->process($value);
-
-		return $this;
+		return parent::prefill($value);
 	}
 
 	/**

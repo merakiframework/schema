@@ -42,9 +42,8 @@ final class File extends AtomicMultiValueField
 	public array $disallowedTypes = [];
 
 	public function __construct(
-		Property\Name $name,
+		public readonly Property\Name $name,
 	) {
-		parent::__construct($name);
 	}
 
 	public function atLeast(int $minFiles): self

@@ -15,21 +15,36 @@ final class Text extends AtomicField
 	/**
 	 * The minimum number of characters allowed in the string. Defaults to 0.
 	 * A value of 0 means that an empty string is allowed.
-	 * @property non-negative-int $minLength */
+	 * A value of 1 means that an empty string is not allowed.
+	 * @property non-negative-int $minLength
+	 */
 	public private(set) int $minLength = 0;
 
-	/** @property non-negative-int|null $maxLength `null` means no limit. */
+	/**
+	 * The maximum number of characters allowed in the string. Defaults to `null`, which means no limit.
+	 * @property non-negative-int|null $maxLength `null` means no limit.
+	 */
 	public private(set) ?int $maxLength = null;
 
-	/** @property string|null $pattern `null` means no pattern was set. */
+	/**
+	 * A regular expression pattern that the string must match. Defaults to `null`, which means no pattern is required.
+	 * This pattern must be a valid PCRE2 regular expression.
+	 * @property string|null $pattern `null` means no pattern was set.
+	 */
 	public private(set) ?string $pattern = null;
 
 	public function __construct(
-		Property\Name $name,
+		public readonly Property\Name $name,
 	) {
-		parent::__construct($name);
 	}
 
+	/**
+	 * Sets the minimum length of the string. A value of 0 means that an empty string is allowed.
+	 * A value of 1 means that an empty string is not allowed.
+	 * @param non-negative-int $characters The minimum number of characters allowed in the string.
+	 * @throws InvalidArgumentException If the minimum length is negative or exceeds the maximum length.
+	 * @throws InvalidArgumentException If the maximum length is set and the minimum length exceeds it.
+	 */
 	public function minLengthOf(int $characters): self
 	{
 		if ($characters < 0) {
@@ -40,11 +55,19 @@ final class Text extends AtomicField
 			throw new InvalidArgumentException('A minimum length cannot exceed the maximum.');
 		}
 
-		$this->minLength = $characters;
+		return clone($this, ['minLength' => $characters]);
 
-		return $this;
+		// $this->minLength = $characters;
+
+		// return $this;
 	}
 
+	/**
+	 * Sets the maximum length of the string. A value of `null` means no limit.
+	 * @param non-negative-int|null $characters The maximum number of characters allowed in the string, or `null` for no limit.
+	 * @throws InvalidArgumentException If the maximum length is negative or less than the minimum length.
+	 * @throws InvalidArgumentException If the minimum length is set and the maximum length is less than it.
+	 */
 	public function maxLengthOf(?int $characters): self
 	{
 		if ($characters === null) {
@@ -61,22 +84,27 @@ final class Text extends AtomicField
 			throw new InvalidArgumentException('A maximum length cannot be less than the minimum.');
 		}
 
-		$this->maxLength = $characters;
+		return clone($this, ['maxLength' => $characters]);
 
-		return $this;
+		// $this->maxLength = $characters;
+
+		// return $this;
 	}
 
 	/**
-	 * Named for the rule it states rather than the question it looks like, as
-	 * {@see Boolean::mustBeAccepted()} is. Passing null clears it.
+	 * Sets a regular expression pattern that the string must match. A value of `null` means no pattern is required.
+	 * @param string|null $regex The regular expression pattern that the string must match, or `null` for no pattern.
+	 * @throws InvalidArgumentException If the provided regular expression is invalid.
 	 */
 	public function mustMatch(?string $regex): self
 	{
 		$this->assertValidRegex($regex);
 
-		$this->pattern = $regex;
+		return clone($this, ['pattern' => $regex]);
 
-		return $this;
+		// $this->pattern = $regex;
+
+		// return $this;
 	}
 
 	private function assertValidRegex(?string $regex): void
@@ -90,6 +118,9 @@ final class Text extends AtomicField
 		}
 	}
 
+	/**
+	 * {@inheritDoc}
+	 */
 	protected function cast(string $value): mixed
 	{
 		return $value;
@@ -102,14 +133,34 @@ final class Text extends AtomicField
 
 	public function constraints(): Constraint\Set
 	{
-		return (new Constraint\Set())
-			->and('minLength', fn(mixed $v): bool => mb_strlen($v) >= $this->minLength, $this->minLength)
-			->and('maxLength', fn(mixed $v): ?bool => $this->maxLength === null ? null : mb_strlen($v) <= $this->maxLength, $this->maxLength)
-			->and('pattern', fn(mixed $v): ?bool => $this->pattern === null ? null : preg_match($this->pattern, $v) === 1, $this->pattern);
+		return new Constraint\Set(
+			new Constraint('minLength', $this->meetsMinimumLength(...), $this->minLength),
+			new Constraint('maxLength', $this->meetsMaximumLength(...), $this->maxLength),
+			new Constraint('pattern', $this->matchesPattern(...), $this->pattern),
+		);
+		// return (new Constraint\Set())
+		// 	->add('minLength', $this->meetsMinimumLength(...), $this->minLength)
+		// 	->add('maxLength', $this->meetsMaximumLength(...), $this->maxLength)
+		// 	->add('pattern', $this->matchesPattern(...), $this->pattern);
 	}
 
-	protected function getConstraints(): array
+	private function meetsMinimumLength(string $value): bool
 	{
-		return [];
+		return mb_strlen($value) >= $this->minLength;
 	}
+
+	private function meetsMaximumLength(string $value): ?bool
+	{
+		return $this->maxLength === null ? null : mb_strlen($value) <= $this->maxLength;
+	}
+
+	private function matchesPattern(string $value): ?bool
+	{
+		return $this->pattern === null ? null : preg_match($this->pattern, $value) === 1;
+	}
+
+	// protected function getConstraints(): array
+	// {
+	// 	return [];
+	// }
 }

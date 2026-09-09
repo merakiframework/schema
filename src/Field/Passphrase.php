@@ -32,13 +32,11 @@ final class Passphrase extends AtomicField
 	];
 
 	public function __construct(
-		Property\Name $name,
+		public readonly Property\Name $name,
 		public int $entropy = 72,
 		public string $method = 'standard',
 		public string $dictionary = 'none',
 	) {
-		parent::__construct($name);
-
 		if ($entropy < 1) {
 			throw new InvalidArgumentException('Entropy must be a positive integer.');
 		}

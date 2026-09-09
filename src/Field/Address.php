@@ -385,7 +385,9 @@ final class Address extends CompositeField
 	 */
 	private function replaceSubField(Field $replacement): void
 	{
-		$replacement->rename($replacement->name->prefixWith($this->name));
+		// rename() returns a copy now that a field is sealed, so the result is the field
+		// that goes into the set — discarding it would silently keep the unprefixed name.
+		$replacement = $replacement->rename($replacement->name->prefixWith($this->name));
 
 		$fields = [];
 

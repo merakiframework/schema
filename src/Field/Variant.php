@@ -30,10 +30,9 @@ final class Variant extends Field
 	public Field\Set $fields;
 
 	public function __construct(
-		Property\Name $name,
+		public readonly Property\Name $name,
 		AtomicField ...$fields
 	) {
-		parent::__construct($name);
 
 		$this->fields = new Field\Set(...$fields);
 
@@ -41,15 +40,15 @@ final class Variant extends Field
 			throw new InvalidArgumentException('Variant fields cannot contain duplicate field types.');
 		}
 
-		$this->rename($name);
+		$this->fields = $this->fields->prefixNamesWith($name);
 	}
 
 	public function rename(Property\Name $name): static
 	{
-		$this->name = $name;
-		$this->fields->prefixNamesWith($name);
-
-		return $this;
+		return clone($this, [
+			'name' => $name,
+			'fields' => $this->fields->prefixNamesWith($name),
+		]);
 	}
 
 	/** @param AcceptedType $value */

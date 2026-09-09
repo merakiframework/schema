@@ -18,9 +18,8 @@ use InvalidArgumentException;
 final class Placeholder extends AtomicField
 {
 	public function __construct(
-		Property\Name $name,
+		public readonly Property\Name $name,
 	) {
-		parent::__construct($name);
 	}
 
 	public function validateValue(mixed $value): bool

@@ -12,6 +12,9 @@ use Uri\InvalidUriException;
 
 /**
  * @extends AtomicField<string|null>
+ * @todo allow for use of different uri/url standards (e.g. whatwg)
+ * @todo allow for specifying the "kind" of URI (e.g. "IRI" or "URI" or "URL" or "URN".)
+ * @todo allow for specifying the "type" of URI, (e.g. "absolute" or "relative" or "network-path" or "scheme-relative".)
  */
 final class Uri extends AtomicField
 {
@@ -28,9 +31,8 @@ final class Uri extends AtomicField
 	public array $allowedSchemes = [];
 
 	public function __construct(
-		Property\Name $name,
+		public readonly Property\Name $name,
 	) {
-		parent::__construct($name);
 	}
 
 	public function minLengthOf(int $minChars): self
@@ -73,7 +75,7 @@ final class Uri extends AtomicField
 		return $this;
 	}
 
-	protected function cast(mixed $value): string
+	protected function cast(mixed $value): string	// Rfc3986Uri | WhatWgUri | string | null
 	{
 		return $value;
 	}

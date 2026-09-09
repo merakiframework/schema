@@ -36,10 +36,9 @@ final class PhoneNumber extends AtomicField
 	public Type $allowedType = Type::Any;
 
 	public function __construct(
-		Property\Name $name,
+		public readonly Property\Name $name,
 		array $allowedCountries = [],
 	) {
-		parent::__construct($name);
 
 		$this->allow(...$allowedCountries);
 	}

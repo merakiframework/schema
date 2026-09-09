@@ -21,9 +21,8 @@ final class Uuid extends AtomicField
 	public const ALL_BITS_SET_VERSION = -1; // ffffffff-ffff-ffff-ffff-ffffffffffff
 
 	public function __construct(
-		Property\Name $name,
+		public readonly Property\Name $name,
 	) {
-		parent::__construct($name);
 	}
 
 	/**

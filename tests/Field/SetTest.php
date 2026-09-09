@@ -6,6 +6,7 @@ namespace Meraki\Schema\Field;
 use Meraki\Schema\Property\Name;
 use Meraki\Schema\Field;
 use Meraki\Schema\Field\Set;
+use Meraki\Schema\Field\Text;
 use InvalidArgumentException;
 use PHPUnit\Framework\TestCase;
 use PHPUnit\Framework\Attributes\Test;
@@ -38,11 +39,9 @@ final class SetTest extends TestCase
 	#[Test]
 	public function fields_can_be_added(): void
 	{
-		$field1 = $this->createStub(Field::class);
-		$field1->name = new Name('first');
+		$field1 = new Text(new Name('first'));
 
-		$field2 = $this->createStub(Field::class);
-		$field2->name = new Name('second');
+		$field2 = new Text(new Name('second'));
 
 		$set = new Set($field1, $field2);
 
@@ -55,8 +54,7 @@ final class SetTest extends TestCase
 	{
 		// Previously the second field was silently discarded, which lost the definition
 		// and gave no clue where it went.
-		$field = $this->createStub(Field::class);
-		$field->name = new Name('first');
+		$field = new Text(new Name('first'));
 
 		$set = new Set($field);
 
@@ -70,10 +68,8 @@ final class SetTest extends TestCase
 	public function a_different_field_sharing_a_name_is_also_rejected(): void
 	{
 		// Identity is the name, not the object: two distinct fields cannot share one.
-		$first = $this->createStub(Field::class);
-		$first->name = new Name('email');
-		$second = $this->createStub(Field::class);
-		$second->name = new Name('email');
+		$first = new Text(new Name('email'));
+		$second = new Text(new Name('email'));
 
 		$set = new Set($first);
 
@@ -85,11 +81,9 @@ final class SetTest extends TestCase
 	#[Test]
 	public function add_returns_a_new_instance(): void
 	{
-		$field1 = $this->createStub(Field::class);
-		$field1->name = new Name('one');
+		$field1 = new Text(new Name('one'));
 
-		$field2 = $this->createStub(Field::class);
-		$field2->name = new Name('two');
+		$field2 = new Text(new Name('two'));
 
 		$set = new Set($field1);
 		$newSet = $set->add($field2);
@@ -102,8 +96,7 @@ final class SetTest extends TestCase
 	#[Test]
 	public function it_can_return_the_first_field(): void
 	{
-		$field = $this->createStub(Field::class);
-		$field->name = new Name('only');
+		$field = new Text(new Name('only'));
 
 		$set = new Set($field);
 
@@ -121,8 +114,7 @@ final class SetTest extends TestCase
 	#[Test]
 	public function it_can_find_field_by_name(): void
 	{
-		$field = $this->createStub(Field::class);
-		$field->name = new Name('username');
+		$field = new Text(new Name('username'));
 
 		$set = new Set($field);
 
@@ -133,8 +125,7 @@ final class SetTest extends TestCase
 	#[Test]
 	public function it_returns_null_if_field_name_not_found(): void
 	{
-		$field = $this->createStub(Field::class);
-		$field->name = new Name('username');
+		$field = new Text(new Name('username'));
 
 		$set = new Set($field);
 
@@ -144,11 +135,9 @@ final class SetTest extends TestCase
 	#[Test]
 	public function it_can_return_index_of_a_field(): void
 	{
-		$field1 = $this->createStub(Field::class);
-		$field1->name = new Name('first');
+		$field1 = new Text(new Name('first'));
 
-		$field2 = $this->createStub(Field::class);
-		$field2->name = new Name('second');
+		$field2 = new Text(new Name('second'));
 
 		$set = new Set($field1, $field2);
 
@@ -158,11 +147,9 @@ final class SetTest extends TestCase
 	#[Test]
 	public function it_returns_null_for_index_if_field_not_found(): void
 	{
-		$field1 = $this->createStub(Field::class);
-		$field1->name = new Name('first');
+		$field1 = new Text(new Name('first'));
 
-		$field2 = $this->createStub(Field::class);
-		$field2->name = new Name('second');
+		$field2 = new Text(new Name('second'));
 
 		$set = new Set($field1);
 
@@ -172,22 +159,22 @@ final class SetTest extends TestCase
 	#[Test]
 	public function it_can_prefix_field_names(): void
 	{
-		$field = new Field\Text(new Name('bar'));
-		$set = new Set($field);
+		$set = new Set(new Field\Text(new Name('bar')));
 
-		$set->prefixNamesWith(new Name('foo'));
+		// Fields are sealed, so prefixing returns a new set of renamed copies rather than
+		// editing the ones already held.
+		$prefixed = $set->prefixNamesWith(new Name('foo'));
 
-		$this->assertSame($field, $set->findByName('foo.bar'));
+		$this->assertNotNull($prefixed->findByName('foo.bar'));
+		$this->assertNull($set->findByName('foo.bar'));
 	}
 
 	#[Test]
 	public function it_can_list_field_names(): void
 	{
-		$field1 = $this->createStub(Field::class);
-		$field1->name = new Name('one');
+		$field1 = new Text(new Name('one'));
 
-		$field2 = $this->createStub(Field::class);
-		$field2->name = new Name('two');
+		$field2 = new Text(new Name('two'));
 
 		$set = new Set($field1, $field2);
 
@@ -197,11 +184,9 @@ final class SetTest extends TestCase
 	#[Test]
 	public function it_supports_iteration(): void
 	{
-		$field1 = $this->createStub(Field::class);
-		$field1->name = new Name('one');
+		$field1 = new Text(new Name('one'));
 
-		$field2 = $this->createStub(Field::class);
-		$field2->name = new Name('two');
+		$field2 = new Text(new Name('two'));
 
 		$set = new Set($field1, $field2);
 

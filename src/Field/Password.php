@@ -30,10 +30,8 @@ final class Password extends AtomicField
 	private bool $anyOfPassed = false;
 
 	public function __construct(
-		Property\Name $name,
+		public readonly Property\Name $name,
 	) {
-		parent::__construct($name);
-
 		$this->length = Range::unrestricted();
 		$this->lowercase = Range::unrestricted();
 		$this->uppercase = Range::unrestricted();

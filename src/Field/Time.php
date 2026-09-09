@@ -35,12 +35,10 @@ final class Time extends AtomicField
 	public Duration $step;
 
 	public function __construct(
-		Property\Name $name,
+		public readonly Property\Name $name,
 		public readonly Precision $precision = Precision::Minutes,
 		private PrecisionCaster $caster = new TruncatePrecision(),
 	) {
-		parent::__construct($name);
-
 		$this->from = LocalTime::min();
 		$this->until = LocalTime::max();
 		$this->step = match ($precision) {

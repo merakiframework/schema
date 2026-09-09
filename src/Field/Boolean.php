@@ -15,9 +15,8 @@ final class Boolean extends AtomicField
 	public private(set) bool $mustBeAccepted = false;
 
 	public function __construct(
-		Property\Name $name,
+		public readonly Property\Name $name,
 	) {
-		parent::__construct($name);
 	}
 
 	/**

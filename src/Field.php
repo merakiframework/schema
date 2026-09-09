@@ -27,7 +27,7 @@ abstract class Field
 	 *
 	 * External code should not modify this property
 	 */
-	public Property\Name $name;
+	abstract public Property\Name $name { get; }
 
 
 	/**
@@ -37,7 +37,16 @@ abstract class Field
 	 *
 	 * External code should not modify this property
 	 */
-	public Property\Value $defaultValue;
+	/**
+	 * The author's default, computed on first read rather than in a constructor: what an
+	 * unset default *is* depends on the field's own process(), so it cannot be a static
+	 * initialiser, and requiring a constructor call for it is what this removes.
+	 */
+	public Property\Value $defaultValue {
+		get => $this->authoredDefault ?? $this->process(null);
+	}
+
+	private ?Property\Value $authoredDefault = null;
 
 
 
@@ -46,7 +55,7 @@ abstract class Field
 	 *
 	 * External code should not modify this property
 	 */
-	public bool $optional;
+	public bool $optional = false;
 
 
 	/**
@@ -65,14 +74,6 @@ abstract class Field
 	 */
 	public const NOT_ADDRESSABLE = ['schema'];
 
-	public function __construct(
-		Property\Name $name,
-	) {
-		$this->name = $name;
-		$this->defaultValue = $this->process(null);
-		$this->optional = false;
-	}
-
 	/**
 	 * Renames the field to a new name.
 	 *
@@ -80,9 +81,8 @@ abstract class Field
 	 */
 	public function rename(Property\Name $name): static
 	{
-		$this->name = $name;
-
-		return $this;
+		/** @phpstan-ignore assign.propertyReadOnly (clone() may set a readonly property the concrete field declares; the base sees only its getter) */
+		return clone($this, ['name' => $name]);
 	}
 
 	/**
@@ -144,7 +144,7 @@ abstract class Field
 	 */
 	public function prefill($value): static
 	{
-		$this->defaultValue = $this->process($value);
+		$this->authoredDefault = $this->process($value);
 
 		return $this;
 	}
@@ -314,7 +314,17 @@ abstract class Field
 	 *
 	 * @return array<string, callable(mixed): bool|null>
 	 */
-	abstract protected function getConstraints(): array;
+	/**
+	 * The older name-keyed array of callables. Fields that have moved to {@see self::constraints()}
+	 * declare nothing here; this exists so the two can coexist while they move across one at a
+	 * time, and goes when the last of them has.
+	 *
+	 * @return array<string, callable(mixed): (bool|null)>
+	 */
+	protected function getConstraints(): array
+	{
+		return [];
+	}
 
 	/**
 	 * Returns true if the given value is a valid instance of this field's type.

@@ -4,7 +4,6 @@ declare(strict_types=1);
 namespace Meraki\Schema\Field;
 
 use Meraki\Schema\Field\Atomic as AtomicField;
-use Meraki\Schema\Field;
 use Meraki\Schema\Property;
 
 /**
@@ -12,11 +11,10 @@ use Meraki\Schema\Property;
  *
  * It does not make any assumptions about the structure of a name.
  * There are, however, some sane restrictions. A name can:
-
  *  - not be empty
- * 	- contain unicode letters, spaces, apostrophes, periods, commas, and dashes
- * 	- consist of one or more "words" separated by spaces
- * 	- each "word" must be at least one character long
+ *  - contain unicode letters, spaces, apostrophes, periods, commas, and dashes
+ *  - consist of one or more "words" separated by spaces
+ *  - each "word" must be at least one character long
  *  - should use Roman Numerals to represent numbers (e.g. John Doe IV)
  *
  * @extends AtomicField<string|null>
@@ -32,9 +30,8 @@ final class Name extends AtomicField
 	public private(set) ?int $maxLength = 255;
 
 	public function __construct(
-		Property\Name $name,
+		public readonly Property\Name $name,
 	) {
-		parent::__construct($name);
 	}
 
 	public function minLengthOf(int $minChars): self

@@ -25,7 +25,7 @@ final class DurationTest extends FieldTestCase
 	{
 		$type = $this->createField();
 
-		$this->assertSame('PT0S', $type->min->toISOString());
+		$this->assertSame('PT0S', $type->minValue->toISOString());
 	}
 
 	#[Test]
@@ -33,7 +33,7 @@ final class DurationTest extends FieldTestCase
 	{
 		$type = $this->createField();
 
-		$this->assertSame('PT24H', $type->max->toISOString());
+		$this->assertSame('PT24H', $type->maxValue->toISOString());
 	}
 
 	#[Test]
@@ -112,11 +112,11 @@ final class DurationTest extends FieldTestCase
 	public function min_constraint_meets_expectations(string $min, string $input, ValidationStatus $status): void
 	{
 		$type = $this->createField()
-			->minOf($min);
+			->minValueOf($min);
 
 		$result = $type->validate($input);
 
-		$this->assertConstraintValidationResultHasStatusOf($status, 'min', $result);
+		$this->assertConstraintValidationResultHasStatusOf($status, 'minValue', $result);
 	}
 
 	public static function minConstraintExpectations(): array
@@ -148,11 +148,11 @@ final class DurationTest extends FieldTestCase
 	public function max_constraint_meets_expectations(string $max, string $input, ValidationStatus $status): void
 	{
 		$type = $this->createField()
-			->maxOf($max);
+			->maxValueOf($max);
 
 		$result = $type->validate($input);
 
-		$this->assertConstraintValidationResultHasStatusOf($status, 'max', $result);
+		$this->assertConstraintValidationResultHasStatusOf($status, 'maxValue', $result);
 	}
 
 	public static function maxConstraintExpectations(): array
@@ -184,7 +184,7 @@ final class DurationTest extends FieldTestCase
 	public function step_constraint_meets_expectations(string $min, string $step, string $input, ValidationStatus $status): void
 	{
 		$type = $this->createField()
-			->minOf($min)
+			->minValueOf($min)
 			->inIncrementsOf($step);
 
 		$result = $type->validate($input);
