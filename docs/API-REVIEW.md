@@ -445,6 +445,15 @@ its own.
 Ten flat `?int` properties in place of five `Range` objects. Each carries its own constraint
 name, so a failure says whether the floor or the ceiling was missed — which the `Range`
 shape could not, since one constraint name covered both ends.
+### Confirmed this round
+
+| Item | Decision |
+| --- | --- |
+| `Rule\Outcome\_Require` | **`MakeRequired`**, pairing with `MakeOptional`. `class Require {}` is still a parse error on PHP 8.5 — namespaces accept reserved words, class names do not — so the keyword is avoided rather than worked around. `Field::require()` becomes `makeRequired()` to match. |
+| `Collection` | `minItems()` → **`minCountOf()`** → `$minCount`. Unambiguous now that `File` has no count of its own. |
+| `Password` presets | The five static constructors go, replaced by **`minStrengthOf(Strength::Strong)`** — a method and an enum, matching the preference for literals and enums, and reading as the floor it is. |
+| `Composite` | Removed outright. The one real use — a repeatable list of multi-field items — is already what `Collection` does: it takes a template of several fields and validates each item against all of them. |
+
 ### `File` method names
 
 | Current | Becomes |
@@ -453,17 +462,109 @@ shape could not, since one constraint name covered both ends.
 | `minFileSizeOf()`, `maxFileSizeOf()` | `minSizeOf()`, `maxSizeOf()` |
 
 Properties and constraint names are already correct and do not move.
+## Structured types
+
+`Composite` is removed. `Address`, `Money` and `CreditCard` each become a **single field
+holding a single value object**, the way `File` already holds a `File\Metadata`. Input is an
+array or the value object; `cast()` normalises to the object. There are no sub-fields.
+
+```php
+$schema->addAddressField('billing')->allowCountries('AU');
+
+$schema->validate(['billing' => [
+    'line1'        => 'PO Box 42',
+    'locality'     => 'Rockhampton',
+    'postal_code'  => '470',        // AU postcodes are four digits
+    'country_code' => 'AU',
+]]);
+```
+
+### Constraint names lose the dots *and* the field name
+
+| Today | Becomes | Part |
+| --- | --- | --- |
+| `billing.country_code.allowed` | `allowedCountries` | `countryCode` |
+| `billing.postal_code.format` | `postalCodeFormat` | `postalCode` |
+| `billing.line1.visitable` | `line1Visitable` | `line1` |
+| `cost.amount.min` | `minAmount` | `amount` |
+| `cost.amount.scale` | `scale` | `amount` |
+
+Dropping the field name matters more than dropping the dots. Today a constraint name embeds
+the field it came from, so renaming `billing` to `invoice_address` changes every constraint
+name it emits *and* every message provider matching on them. The name is context — you got
+the result by asking for `billing` — not part of the identifier.
+
+Where a constraint has a property, it takes that property's word: `$allowedCountries` gives
+`allowedCountries`, not `countryAllowed`. Where it has none, it names the check and carries
+the part prefix only when the check alone would be ambiguous — `postalCodeFormat`, because
+`format` could belong to several parts.
+
+### Which part failed is data, not a substring
+
+`ConstraintValidationResult` gains an optional part:
+
+```php
+ConstraintValidationResult::fail('postalCodeFormat', part: 'postalCode')
+```
+
+```php
+$address = $result->get('billing');
+
+$address->get('postalCodeFormat')->part;   // 'postalCode'
+$address->transformed;                     // Address\Value, once transformed lands
+```
+
+What that does downstream — today `meraki/schema-html` splits the name:
+
+```php
+$separator = strrpos($constraint->name, '.');
+if ($separator === false) { return null; }
+
+return match (substr($constraint->name, $separator + 1)) {
+    'format' => 'Enter a valid postal code for the country selected',
+};
+```
+
+and afterwards:
+
+```php
+$message  = match ($constraint->name) {
+    'postalCodeFormat' => 'Enter a valid postal code for the country selected',
+};
+
+$attachTo = $constraint->part;   // no parsing
+```
+
+A constraint about the whole address has `part === null`, which the dotted scheme could not
+express at all. This also disposes of the money-message bug: `cost.amount.min` matches
+neither the renderer's bare `min` nor its dot-splitting path, so a `$5` entry against a `$10`
+minimum currently renders *"Value must be a number"*.
+
+**One wrinkle to resolve during implementation.** `Money`'s bounds are per-currency —
+`$min['AUD']` — so the property holds a map rather than a number, and a message cannot
+interpolate `$field->{$constraint->name}` the way it can for a scalar. Either the constraint
+result carries the bound that actually applied, or the provider indexes the map by the
+submitted currency.
+
+### Everything else stays singular
+
+A field holds one value; several values is a `Collection`. `File` loses `$minCount` and
+`$maxCount` — several files is a collection of file fields.
+
+A configuration list is not multiple values: `Uri::$allowedSchemes`, `Enum::$cases` and
+`PhoneNumber::$allowedCountries` describe one value's permitted range, and stay as they are.
 ## Still to decide
 
 Left out of the table above because the rule does not settle them on its own.
 
 | Field | The question |
 | --- | --- |
-| `Money`, `Address`, `CreditCard` | Dotted constraint names (`cost.amount.min`). **Blocked** on the structured-type design — these cannot be settled before it is. |
-| `Collection` | `minItems()` is both the setter and the property name. By the pattern used everywhere else it should be `minItemsOf()` → `$minItems`. |
-| Presets | `Password::strong()` and friends are static constructors. With tiers now an entropy scale, a `Strength` enum passed to a method may fit better than five factories — and would match the preference for literals and enums. |
 | `Facade` | `addXField()` → `createXField()` plus an explicit add is in the roadmap but has not been reviewed here. |
 | Rule vocabulary | The matcher DSL is one of the three surfaces this review covers, and is still outstanding from stage 2. |
+| `Money` bounds | Per-currency, so the property is a map and a message cannot interpolate it as it does a scalar. Resolve during implementation. |
+| `Field\Set::getByName()` | Typed `?Field` but throws. Either the type or the behaviour is wrong. |
+| `transformed` targets | The type each field produces — `BigDecimal`, `LocalDate`, a parsed phone number, `Address\Value`. Nothing populates it yet, so this is a 2.1 decision the naming must not foreclose. |
+| `DateTime::withSecondPrecision()` | Precision is a constructor argument and already an enum, so these three static factories are sugar. Confirm they go. |
 
 ## The checklist
 
