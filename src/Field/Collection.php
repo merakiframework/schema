@@ -110,21 +110,14 @@ final class Collection extends Composite
 			return new CompositeValidationResult($this, $own->withResults(...$results));
 		}
 
-		$results = [ConstraintValidationResult::pass('type')];
+		$constraints = $this->constraints();
 
-		if ($this->optional && $items === []) {
-			foreach (array_keys($this->getConstraints()) as $name) {
-				$results[] = ConstraintValidationResult::skip($name);
-			}
-		} else {
-			foreach ($this->evaluateConstraints($value) as $name => $passed) {
-				$results[] = match ($passed) {
-					true => ConstraintValidationResult::pass($name),
-					false => ConstraintValidationResult::fail($name),
-					default => ConstraintValidationResult::skip($name),
-				};
-			}
-		}
+		$results = [
+			ConstraintValidationResult::pass('type'),
+			...$this->optional && $items === []
+				? $constraints->allSkipped()
+				: $constraints->against($value->unwrap()),
+		];
 
 		$all = [$own->withResults(...$results)];
 

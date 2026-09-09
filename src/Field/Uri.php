@@ -15,9 +15,9 @@ use Uri\InvalidUriException;
  */
 final class Uri extends AtomicField
 {
-	public int $min = 0;
+	public private(set) int $minLength = 0;
 
-	public int $max = PHP_INT_MAX;
+	public private(set) ?int $maxLength = null;
 
 	/**
 	 * Schemes this field will accept, lower-cased. Empty means any: a URI is not always a
@@ -39,22 +39,28 @@ final class Uri extends AtomicField
 			throw new InvalidArgumentException('Minimum length must be a positive integer.');
 		}
 
-		if ($minChars > $this->max) {
+		if ($this->maxLength !== null && $minChars > $this->maxLength) {
 			throw new InvalidArgumentException('Minimum length cannot be greater than maximum length.');
 		}
 
-		$this->min = $minChars;
+		$this->minLength = $minChars;
 
 		return $this;
 	}
 
-	public function maxLengthOf(int $maxChars): self
+	public function maxLengthOf(?int $maxChars): self
 	{
+		if ($maxChars === null) {
+			$this->maxLength = null;
+
+			return $this;
+		}
+
 		if ($maxChars < 0) {
 			throw new InvalidArgumentException('Maximum length must be a positive integer.');
 		}
 
-		if ($maxChars < $this->min) {
+		if ($maxChars < $this->minLength) {
 			throw new InvalidArgumentException('Maximum length cannot be less than minimum length.');
 		}
 
@@ -62,7 +68,7 @@ final class Uri extends AtomicField
 			throw new InvalidArgumentException('Maximum length cannot exceed PHP_INT_MAX.');
 		}
 
-		$this->max = $maxChars;
+		$this->maxLength = $maxChars;
 
 		return $this;
 	}
@@ -109,13 +115,17 @@ final class Uri extends AtomicField
 		}
 	}
 
+	public function constraints(): Constraints
+	{
+		return (new Constraints())
+			->and('minLength', fn(mixed $v): bool => mb_strlen($v) >= $this->minLength, $this->minLength)
+			->and('maxLength', fn(mixed $v): ?bool => $this->maxLength === null ? null : mb_strlen($v) <= $this->maxLength, $this->maxLength)
+			->and('allowedSchemes', $this->validateScheme(...), $this->allowedSchemes);
+	}
+
 	protected function getConstraints(): array
 	{
-		return [
-			'min' => $this->validateMin(...),
-			'max' => $this->validateMax(...),
-			'scheme' => $this->validateScheme(...),
-		];
+		return [];
 	}
 
 	private function validateScheme(mixed $value): ?bool
@@ -128,15 +138,5 @@ final class Uri extends AtomicField
 
 		// A relative reference has no scheme, so it cannot satisfy an allowlist.
 		return $scheme !== null && in_array(strtolower($scheme), $this->allowedSchemes, true);
-	}
-
-	private function validateMin(mixed $value): bool
-	{
-		return mb_strlen($value) >= $this->min;
-	}
-
-	private function validateMax(mixed $value): bool
-	{
-		return mb_strlen($value) <= $this->max;
 	}
 }

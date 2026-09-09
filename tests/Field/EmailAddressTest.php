@@ -59,7 +59,7 @@ final class EmailAddressTest extends FieldTestCase
 	{
 		$field = $this->createField();
 
-		$this->assertSame($emailFormat->getAllowableMinLengthTotal(), $field->min);
+		$this->assertSame($emailFormat->getAllowableMinLengthTotal(), $field->minLength);
 	}
 
 	#[Test]
@@ -68,7 +68,7 @@ final class EmailAddressTest extends FieldTestCase
 	{
 		$field = $this->createField();
 
-		$this->assertSame($emailFormat->getAllowableMaxLengthTotal(), $field->max);
+		$this->assertSame($emailFormat->getAllowableMaxLengthTotal(), $field->maxLength);
 	}
 
 	public static function supportedEmailFormats(): array
@@ -89,7 +89,7 @@ final class EmailAddressTest extends FieldTestCase
 
 		$result = $field->validate('user@domain');
 
-		$this->assertConstraintValidationResultPassed('min', $result);
+		$this->assertConstraintValidationResultPassed('minLength', $result);
 	}
 
 	#[Test]
@@ -100,7 +100,7 @@ final class EmailAddressTest extends FieldTestCase
 
 		$result = $field->validate('a@b');
 
-		$this->assertConstraintValidationResultFailed('min', $result);
+		$this->assertConstraintValidationResultFailed('minLength', $result);
 	}
 
 	#[Test]
@@ -111,7 +111,7 @@ final class EmailAddressTest extends FieldTestCase
 
 		$result = $field->validate('a@b');
 
-		$this->assertConstraintValidationResultPassed('max', $result);
+		$this->assertConstraintValidationResultPassed('maxLength', $result);
 	}
 
 	#[Test]
@@ -122,7 +122,7 @@ final class EmailAddressTest extends FieldTestCase
 
 		$result = $field->validate('user@domain');
 
-		$this->assertConstraintValidationResultFailed('max', $result);
+		$this->assertConstraintValidationResultFailed('maxLength', $result);
 	}
 
 	#[Test]

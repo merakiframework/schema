@@ -171,7 +171,8 @@ abstract class Composite extends Field implements IteratorAggregate, Countable
 
 		// Constraints the composite applies across its parts, named for the part they
 		// speak about.
-		foreach ($this->getConstraints() as $constraintName => $check) {
+		foreach ($this->constraints() as $constraint) {
+			$constraintName = $constraint->name;
 			$name = $this->resolveConstraintNameToFieldName($constraintName);
 
 			if (!isset($byName[$name])) {
@@ -179,16 +180,13 @@ abstract class Composite extends Field implements IteratorAggregate, Countable
 			}
 
 			if (isset($unusable[$name])) {
-				$byName[$name] = $byName[$name]->add(ConstraintValidationResult::skip($constraintName));
+				$byName[$name] = $byName[$name]->add($constraint->skipped());
 				continue;
 			}
 
-			$outcome = $check($raw);
-			$byName[$name] = $byName[$name]->add(match ($outcome) {
-				true => ConstraintValidationResult::pass($constraintName),
-				false => ConstraintValidationResult::fail($constraintName),
-				default => ConstraintValidationResult::skip($constraintName),
-			});
+			$result = $constraint->against($raw);
+			$byName[$name] = $byName[$name]->add($result);
+			$outcome = $result->passed() ? true : ($result->failed() ? false : null);
 
 			if ($outcome === false) {
 				$unusable[$name] = true;
@@ -199,17 +197,10 @@ abstract class Composite extends Field implements IteratorAggregate, Countable
 		foreach ($this->fields as $field) {
 			$name = (string) $field->name;
 
-			foreach ($field->getConstraints() as $constraintName => $check) {
-				if (isset($unusable[$name])) {
-					$byName[$name] = $byName[$name]->add(ConstraintValidationResult::skip($constraintName));
-					continue;
-				}
-
-				$byName[$name] = $byName[$name]->add(match ($check($byName[$name]->value)) {
-					true => ConstraintValidationResult::pass($constraintName),
-					false => ConstraintValidationResult::fail($constraintName),
-					default => ConstraintValidationResult::skip($constraintName),
-				});
+			foreach ($field->constraints() as $constraint) {
+				$byName[$name] = $byName[$name]->add(isset($unusable[$name])
+					? $constraint->skipped()
+					: $constraint->against($byName[$name]->value));
 			}
 		}
 

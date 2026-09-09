@@ -20,9 +20,9 @@ use InvalidArgumentException;
  */
 final class EmailAddress extends AtomicMultiValueField
 {
-	public int $min;
+	public private(set) int $minLength;
 
-	public int $max;
+	public private(set) ?int $maxLength;
 
 	public array $allowedDomains;
 
@@ -34,8 +34,8 @@ final class EmailAddress extends AtomicMultiValueField
 	) {
 		parent::__construct($name);
 
-		$this->min = $this->format->getAllowableMinLengthTotal();
-		$this->max = $this->format->getAllowableMaxLengthTotal();
+		$this->minLength = $this->format->getAllowableMinLengthTotal();
+		$this->maxLength = $this->format->getAllowableMaxLengthTotal();
 		$this->allowedDomains = [];
 		$this->disallowedDomains = [];
 	}
@@ -48,17 +48,23 @@ final class EmailAddress extends AtomicMultiValueField
 			throw new InvalidArgumentException(sprintf('Minimum length must be greater than %d.', $allowableMinLength));
 		}
 
-		if ($minChars > $this->max) {
+		if ($this->maxLength !== null && $minChars > $this->maxLength) {
 			throw new InvalidArgumentException('Minimum length cannot be greater than maximum length.');
 		}
 
-		$this->min = $minChars;
+		$this->minLength = $minChars;
 
 		return $this;
 	}
 
-	public function maxLengthOf(int $maxChars): self
+	public function maxLengthOf(?int $maxChars): self
 	{
+		if ($maxChars === null) {
+			$this->maxLength = null;
+
+			return $this;
+		}
+
 		$allowableMaxLength = $this->format->getAllowableMaxLengthTotal();
 
 		if ($maxChars > $allowableMaxLength) {
@@ -69,11 +75,11 @@ final class EmailAddress extends AtomicMultiValueField
 			throw new InvalidArgumentException('Maximum length must be a positive integer.');
 		}
 
-		if ($maxChars < $this->min) {
+		if ($maxChars < $this->minLength) {
 			throw new InvalidArgumentException('Maximum length cannot be less than minimum length.');
 		}
 
-		$this->max = $maxChars;
+		$this->maxLength = $maxChars;
 
 		return $this;
 	}
@@ -136,24 +142,18 @@ final class EmailAddress extends AtomicMultiValueField
 		return true;
 	}
 
+	public function constraints(): Constraints
+	{
+		return (new Constraints())
+			->and('minLength', fn(mixed $v): bool => mb_strlen($v) >= $this->minLength, $this->minLength)
+			->and('maxLength', fn(mixed $v): ?bool => $this->maxLength === null ? null : mb_strlen($v) <= $this->maxLength, $this->maxLength)
+			->and('allowedDomains', $this->validateAllowedDomains(...), $this->allowedDomains)
+			->and('disallowedDomains', $this->validateDisallowedDomains(...), $this->disallowedDomains);
+	}
+
 	protected function getConstraints(): array
 	{
-		return [
-			'min' => $this->validateMin(...),
-			'max' => $this->validateMax(...),
-			'allowedDomains' => $this->validateAllowedDomains(...),
-			'disallowedDomains' => $this->validateDisallowedDomains(...),
-		];
-	}
-
-	private function validateMin(mixed $value): bool
-	{
-		return mb_strlen($value) >= $this->min;
-	}
-
-	private function validateMax(mixed $value): bool
-	{
-		return mb_strlen($value) <= $this->max;
+		return [];
 	}
 
 	private function validateAllowedDomains(mixed $value): bool

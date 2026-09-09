@@ -4,7 +4,6 @@ declare(strict_types=1);
 namespace Meraki\Schema\Field;
 
 use Meraki\Schema\Field\Atomic as AtomicField;
-use Meraki\Schema\Field;
 use Meraki\Schema\Property;
 use InvalidArgumentException;
 
@@ -13,13 +12,16 @@ use InvalidArgumentException;
  */
 final class Text extends AtomicField
 {
-	public const SKIP_MATCHING = null;
+	/**
+	 * Bounds are on the *length*, because that is what a text field bounds — `$text->min`
+	 * answered no question anyone asks.
+	 */
+	public private(set) int $minLength = 0;
 
-	public int $min = 0;
+	/** `null` means no maximum, rather than a sentinel that is also a real length. */
+	public private(set) ?int $maxLength = null;
 
-	public int $max = PHP_INT_MAX;
-
-	public ?string $pattern = self::SKIP_MATCHING;
+	public private(set) ?string $pattern = null;
 
 	public function __construct(
 		Property\Name $name,
@@ -27,41 +29,47 @@ final class Text extends AtomicField
 		parent::__construct($name);
 	}
 
-	public function minLengthOf(int $minChars): self
+	public function minLengthOf(int $characters): self
 	{
-		if ($minChars < 0) {
-			throw new InvalidArgumentException('Minimum length must be a positive integer.');
+		if ($characters < 0) {
+			throw new InvalidArgumentException('A minimum length cannot be negative.');
 		}
 
-		if ($minChars > $this->max) {
-			throw new InvalidArgumentException('Minimum length cannot be greater than maximum length.');
+		if ($this->maxLength !== null && $characters > $this->maxLength) {
+			throw new InvalidArgumentException('A minimum length cannot exceed the maximum.');
 		}
 
-		$this->min = $minChars;
+		$this->minLength = $characters;
 
 		return $this;
 	}
 
-	public function maxLengthOf(int $maxChars): self
+	public function maxLengthOf(?int $characters): self
 	{
-		if ($maxChars < 0) {
-			throw new InvalidArgumentException('Maximum length must be a positive integer.');
+		if ($characters === null) {
+			$this->maxLength = null;
+
+			return $this;
 		}
 
-		if ($maxChars < $this->min) {
-			throw new InvalidArgumentException('Maximum length cannot be less than minimum length.');
+		if ($characters < 0) {
+			throw new InvalidArgumentException('A maximum length cannot be negative.');
 		}
 
-		if ($maxChars > PHP_INT_MAX) {
-			throw new InvalidArgumentException('Maximum length cannot exceed PHP_INT_MAX.');
+		if ($characters < $this->minLength) {
+			throw new InvalidArgumentException('A maximum length cannot be less than the minimum.');
 		}
 
-		$this->max = $maxChars;
+		$this->maxLength = $characters;
 
 		return $this;
 	}
 
-	public function matches(?string $regex): self
+	/**
+	 * Named for the rule it states rather than the question it looks like, as
+	 * {@see Boolean::mustBeAccepted()} is. Passing null clears it.
+	 */
+	public function mustMatch(?string $regex): self
 	{
 		$this->assertValidRegex($regex);
 
@@ -73,7 +81,7 @@ final class Text extends AtomicField
 	private function assertValidRegex(?string $regex): void
 	{
 		if ($regex === null) {
-			return; // Skip validation if no pattern is set
+			return;
 		}
 
 		if (@preg_match($regex, '') === false) {
@@ -91,31 +99,16 @@ final class Text extends AtomicField
 		return is_string($value);
 	}
 
+	public function constraints(): Constraints
+	{
+		return (new Constraints())
+			->and('minLength', fn(mixed $v): bool => mb_strlen($v) >= $this->minLength, $this->minLength)
+			->and('maxLength', fn(mixed $v): ?bool => $this->maxLength === null ? null : mb_strlen($v) <= $this->maxLength, $this->maxLength)
+			->and('pattern', fn(mixed $v): ?bool => $this->pattern === null ? null : preg_match($this->pattern, $v) === 1, $this->pattern);
+	}
+
 	protected function getConstraints(): array
 	{
-		return [
-			'min' => $this->validateMin(...),
-			'max' => $this->validateMax(...),
-			'pattern' => $this->validatePattern(...),
-		];
-	}
-
-	private function validateMin(mixed $value): bool
-	{
-		return mb_strlen($value) >= $this->min;
-	}
-
-	private function validateMax(mixed $value): bool
-	{
-		return mb_strlen($value) <= $this->max;
-	}
-
-	private function validatePattern(mixed $value): ?bool
-	{
-		if ($this->pattern === self::SKIP_MATCHING) {
-			return null; // Skip validation if no pattern is set
-		}
-
-		return preg_match($this->pattern, $value) === 1;
+		return [];
 	}
 }

@@ -96,7 +96,7 @@ final class CreditCard extends CompositeField
 		return (new Field\Text(new Property\Name('number')))
 			->minLengthOf(13)
 			->maxLengthOf(19)
-			->matches('/^\d+$/');
+			->mustMatch('/^\d+$/');
 	}
 
 	private function createExpiryField(): Field\Date
@@ -112,7 +112,7 @@ final class CreditCard extends CompositeField
 		return (new Field\Text(new Property\Name('security_code')))
 			->minLengthOf(3)
 			->maxLengthOf(4)
-			->matches('/^\d+$/');
+			->mustMatch('/^\d+$/');
 	}
 
 	protected function process($value): Property\Value

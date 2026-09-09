@@ -8,7 +8,7 @@ use Meraki\Schema\Field\Number;
 $schema = new Meraki\Schema\Facade('contact_form');
 
 $schema->addTextField('username')
-	->matches('/^[a-zA-Z0-9_]+$/')
+	->mustMatch('/^[a-zA-Z0-9_]+$/')
 	->minLengthOf(3)
 	->maxLengthOf(20);
 

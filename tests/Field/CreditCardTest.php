@@ -64,14 +64,14 @@ final class CreditCardTest extends CompositeTestCase
 		$this->assertConstraintValidationResultPassedForField('credit_card.holder', 'type', $result);
 
 		$this->assertConstraintValidationResultPassedForField('credit_card.number', 'type', $result);
-		$this->assertConstraintValidationResultPassedForField('credit_card.number', 'min', $result);
-		$this->assertConstraintValidationResultPassedForField('credit_card.number', 'max', $result);
+		$this->assertConstraintValidationResultPassedForField('credit_card.number', 'minLength', $result);
+		$this->assertConstraintValidationResultPassedForField('credit_card.number', 'maxLength', $result);
 
 		$this->assertConstraintValidationResultPassedForField('credit_card.expiry', 'type', $result);
 
 		$this->assertConstraintValidationResultPassedForField('credit_card.security_code', 'type', $result);
-		$this->assertConstraintValidationResultPassedForField('credit_card.security_code', 'min', $result);
-		$this->assertConstraintValidationResultPassedForField('credit_card.security_code', 'max', $result);
+		$this->assertConstraintValidationResultPassedForField('credit_card.security_code', 'minLength', $result);
+		$this->assertConstraintValidationResultPassedForField('credit_card.security_code', 'maxLength', $result);
 	}
 
 	public static function validCreditCards(): array
@@ -120,7 +120,7 @@ final class CreditCardTest extends CompositeTestCase
 			'security_code' =>'936',
 		]);
 
-		$this->assertConstraintValidationResultFailedForField('credit_card.number', 'min', $result);
+		$this->assertConstraintValidationResultFailedForField('credit_card.number', 'minLength', $result);
 	}
 
 	#[Test]
@@ -135,7 +135,7 @@ final class CreditCardTest extends CompositeTestCase
 			'security_code' =>'936',
 		]);
 
-		$this->assertConstraintValidationResultFailedForField('credit_card.number', 'min', $result);
+		$this->assertConstraintValidationResultFailedForField('credit_card.number', 'minLength', $result);
 	}
 
 	#[Test]
@@ -150,7 +150,7 @@ final class CreditCardTest extends CompositeTestCase
 			'security_code' =>'936',
 		]);
 
-		$this->assertConstraintValidationResultFailedForField('credit_card.number', 'max', $result);
+		$this->assertConstraintValidationResultFailedForField('credit_card.number', 'maxLength', $result);
 	}
 
 	#[Test]
@@ -165,7 +165,7 @@ final class CreditCardTest extends CompositeTestCase
 			'security_code' =>'',
 		]);
 
-		$this->assertConstraintValidationResultFailedForField('credit_card.security_code', 'min', $result);
+		$this->assertConstraintValidationResultFailedForField('credit_card.security_code', 'minLength', $result);
 	}
 
 	#[Test]
@@ -180,7 +180,7 @@ final class CreditCardTest extends CompositeTestCase
 			'security_code' =>'93',
 		]);
 
-		$this->assertConstraintValidationResultFailedForField('credit_card.security_code', 'min', $result);
+		$this->assertConstraintValidationResultFailedForField('credit_card.security_code', 'minLength', $result);
 	}
 
 	#[Test]
@@ -195,7 +195,7 @@ final class CreditCardTest extends CompositeTestCase
 			'security_code' =>'93675',
 		]);
 
-		$this->assertConstraintValidationResultFailedForField('credit_card.security_code', 'max', $result);
+		$this->assertConstraintValidationResultFailedForField('credit_card.security_code', 'maxLength', $result);
 	}
 
 

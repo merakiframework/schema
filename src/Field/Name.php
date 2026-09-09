@@ -27,9 +27,9 @@ final class Name extends AtomicField
 {
 	private const PATTERN = "/^(?![\ \.\,\'\-]+$)[\p{L}\.\,\'\ \-]+$/u";
 
-	public int $min = 1;
+	public private(set) int $minLength = 1;
 
-	public int $max = 255;
+	public private(set) ?int $maxLength = 255;
 
 	public function __construct(
 		Property\Name $name,
@@ -39,14 +39,20 @@ final class Name extends AtomicField
 
 	public function minLengthOf(int $minChars): self
 	{
-		$this->min = $minChars;
+		$this->minLength = $minChars;
 
 		return $this;
 	}
 
-	public function maxLengthOf(int $maxChars): self
+	public function maxLengthOf(?int $maxChars): self
 	{
-		$this->max = $maxChars;
+		if ($maxChars === null) {
+			$this->maxLength = null;
+
+			return $this;
+		}
+
+		$this->maxLength = $maxChars;
 
 		return $this;
 	}
@@ -61,21 +67,15 @@ final class Name extends AtomicField
 		return is_string($value) && preg_match(self::PATTERN, $value) === 1;
 	}
 
+	public function constraints(): Constraints
+	{
+		return (new Constraints())
+			->and('minLength', fn(mixed $v): bool => mb_strlen($v) >= $this->minLength, $this->minLength)
+			->and('maxLength', fn(mixed $v): ?bool => $this->maxLength === null ? null : mb_strlen($v) <= $this->maxLength, $this->maxLength);
+	}
+
 	protected function getConstraints(): array
 	{
-		return [
-			'min' => $this->validateMin(...),
-			'max' => $this->validateMax(...),
-		];
-	}
-
-	private function validateMin(string $value): bool
-	{
-		return mb_strlen($value) >= $this->min;
-	}
-
-	private function validateMax(string $value): bool
-	{
-		return mb_strlen($value) <= $this->max;
+		return [];
 	}
 }

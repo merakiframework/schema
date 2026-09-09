@@ -7,6 +7,7 @@ use Meraki\Schema\Property;
 use Meraki\Schema\AggregatedValidationResult;
 use Meraki\Schema\Field\ValidationResult;
 use Meraki\Schema\Field\CompositeValidationResult;
+use Meraki\Schema\Field\Constraints;
 use Meraki\Schema\Field\ConstraintValidationResult;
 use Meraki\Schema\Rule\FieldBuilder;
 use Closure;
@@ -238,17 +239,10 @@ abstract class Field
 			return [ConstraintValidationResult::fail('type'), ...$this->skipEveryConstraint()];
 		}
 
-		$results = [ConstraintValidationResult::pass('type')];
-
-		foreach ($this->evaluateConstraints($value) as $name => $passed) {
-			$results[] = match ($passed) {
-				true => ConstraintValidationResult::pass($name),
-				false => ConstraintValidationResult::fail($name),
-				default => ConstraintValidationResult::skip($name),
-			};
-		}
-
-		return $results;
+		return [
+			ConstraintValidationResult::pass('type'),
+			...$this->constraints()->against($value->unwrap()),
+		];
 	}
 
 	/**
@@ -256,31 +250,27 @@ abstract class Field
 	 */
 	private function skipEveryConstraint(): array
 	{
-		return array_map(
-			static fn(string $name): ConstraintValidationResult => ConstraintValidationResult::skip($name),
-			array_keys($this->getConstraints()),
-		);
+		return $this->constraints()->allSkipped();
 	}
 
 	/**
-	 * Evaluates the constraints defined for this field against the provided value.
+	 * The checks this field makes, each carrying the name it reports under, the part of a
+	 * structured value it concerns, and the bound a message needs.
 	 *
-	 * This method should be overridden in subclasses to provide specific constraint
-	 * evaluation logic. It returns an associative array where keys are constraint names
-	 * and values are the results of the evaluation (true, false, or null).
-	 *
-	 * @return array<string, bool|null>
+	 * Fields still declaring the older name-keyed array of callables are adapted here, so
+	 * they can be moved across one at a time.
 	 */
-	protected function evaluateConstraints(Property\Value $value): array
+	public function constraints(): Constraints
 	{
-		$results = [];
+		$constraints = new Constraints();
 
-		foreach ($this->getConstraints() as $name => $constraint) {
-			$results[$name] = call_user_func($constraint, $value->unwrap());
+		foreach ($this->getConstraints() as $name => $check) {
+			$constraints = $constraints->and($name, $check(...));
 		}
 
-		return $results;
+		return $constraints;
 	}
+
 
 	protected function skipAllConstraints(): ValidationResult
 	{

@@ -56,7 +56,7 @@ final class UriTest extends FieldTestCase
 
 		$result = $sut->validate('https://example.com');
 
-		$this->assertConstraintValidationResultPassed('min', $result);
+		$this->assertConstraintValidationResultPassed('minLength', $result);
 	}
 
 	#[Test]
@@ -68,7 +68,7 @@ final class UriTest extends FieldTestCase
 
 		$result = $sut->validate('https://example.com');
 
-		$this->assertConstraintValidationResultFailed('min', $result);
+		$this->assertConstraintValidationResultFailed('minLength', $result);
 	}
 
 	#[Test]
@@ -80,7 +80,7 @@ final class UriTest extends FieldTestCase
 
 		$result = $sut->validate('https://example.com');
 
-		$this->assertConstraintValidationResultPassed('max', $result);
+		$this->assertConstraintValidationResultPassed('maxLength', $result);
 	}
 
 	#[Test]
@@ -92,7 +92,7 @@ final class UriTest extends FieldTestCase
 
 		$result = $sut->validate('https://example.com');
 
-		$this->assertConstraintValidationResultFailed('max', $result);
+		$this->assertConstraintValidationResultFailed('maxLength', $result);
 	}
 
 	public static function validAbsoluteUris(): array

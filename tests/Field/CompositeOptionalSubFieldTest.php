@@ -34,7 +34,7 @@ final class CompositeOptionalSubFieldTest extends TestCase
 
 		$this->assertNotNull($nickname);
 		$this->assertSame(ValidationStatus::Skipped, $nickname->get('type')?->status);
-		$this->assertSame(ValidationStatus::Skipped, $nickname->get('min')?->status);
+		$this->assertSame(ValidationStatus::Skipped, $nickname->get('minLength')?->status);
 	}
 
 	#[Test]
@@ -50,7 +50,7 @@ final class CompositeOptionalSubFieldTest extends TestCase
 
 		$this->assertNotNull($nickname);
 		$this->assertSame(ValidationStatus::Passed, $nickname->get('type')?->status);
-		$this->assertSame(ValidationStatus::Failed, $nickname->get('min')?->status);
+		$this->assertSame(ValidationStatus::Failed, $nickname->get('minLength')?->status);
 	}
 
 	#[Test]

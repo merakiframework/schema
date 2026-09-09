@@ -10,7 +10,7 @@ use Meraki\Schema\Property\Name;
 // Fields can be built and validated on their own, without a Facade.
 $username = new Text(new Name('username'));
 
-$username->matches('/^[a-zA-Z0-9_]+$/')
+$username->mustMatch('/^[a-zA-Z0-9_]+$/')
 	->minLengthOf(3);
 
 // validate() is a pure query: the value goes in as an argument and the result comes back,
