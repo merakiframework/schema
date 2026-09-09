@@ -134,13 +134,13 @@ per field.
    `min` — `$text->min` answers no question anyone asks. `minValue` on a number,
    `from`/`until` on a date, `minItems` on a collection, `minSize`/`minCount` on a file.
    Temporal types do not say "min" and "max" at all.
-2. **Where a constraint has a bound, the property holding it has the same name.**
-   `meraki/schema-html` reads `$field->{$constraint->name}` in 31 places to put the bound
-   into the message — "at least 3 characters" needs to reach the 3. Making the names equal
-   turns that accident into a contract, and gives `#/fields/username/minLength` as a scope
-   for free. A constraint with *no* bound to interpolate is free to be named for what
-   failed instead: `Boolean` holds `$requiresAcceptance` and reports `accepted`, because
-   there is no number to reach and "accepted" is what did not happen.
+2. **A constraint reports its own bound; it does not expect to be looked up.**
+   This started as "the constraint name is the property name", because
+   `meraki/schema-html` reads `$field->{$constraint->name}` in 31 places to get the number
+   into the message. That coupling is now removed rather than formalised — see
+   [Constraints carry their bound](#constraints-carry-their-bound). Names should still read
+   as the thing they constrain, because a scope addresses properties by name, but nothing
+   depends on an exact match any more.
 3. **Reading is a property, changing is a method.** State is read through a public property
    with `private(set)` visibility; anything that changes the definition is a method named
    for the change it makes, usually `<property>Of(…)` or a `must…` statement where that
@@ -454,6 +454,15 @@ shape could not, since one constraint name covered both ends.
 | `Password` presets | The five static constructors go, replaced by **`minStrengthOf(Strength::Strong)`** — a method and an enum, matching the preference for literals and enums, and reading as the floor it is. |
 | `Composite` | Removed outright. The one real use — a repeatable list of multi-field items — is already what `Collection` does: it takes a template of several fields and validates each item against all of them. |
 
+### Confirmed: the small items
+
+| Item | Decision |
+| --- | --- |
+| `Field\Set::getByName()` | Returns `null`. Whether a missing field is an error is the caller's judgement, not the collection's. |
+| `DateTime::withSecondPrecision()` and friends | Removed. Precision is a constructor argument and already an enum, so the three static factories are sugar over `new DateTime($name, Precision::Seconds)`. |
+| `Facade::addXField()` | Becomes **`createXField()`** plus an explicit add — the call creates a field, it does not add one. |
+| Rule vocabulary | **Deferred.** A stage of its own, after the field API is finished. |
+
 ### `File` method names
 
 | Current | Becomes |
@@ -553,18 +562,56 @@ A field holds one value; several values is a `Collection`. `File` loses `$minCou
 
 A configuration list is not multiple values: `Uri::$allowedSchemes`, `Enum::$cases` and
 `PhoneNumber::$allowedCountries` describe one value's permitted range, and stay as they are.
+## Constraints carry their bound
+
+`ConstraintValidationResult` reports the bound that applied, alongside the part:
+
+```php
+ConstraintValidationResult::fail('minAmount', part: 'amount', bound: '10.00')
+```
+
+```php
+$message = match ($constraint->name) {
+    'minAmount' => "Must be at least {$constraint->bound}",
+};
+```
+
+This replaces `$field->{$constraint->name}`, which was the original justification for making
+constraint names equal property names.
+
+**Why the lookup had to go.** It is a *dynamic* property read, so static analysis cannot
+type it. A property holding a map rather than a scalar — `Money`'s per-currency bounds are
+`$min['AUD']` — passes cleanly and then renders "at most Array". Verified: PHPStan at
+level 9 reports nothing for
+
+```php
+/** @var array<string,int> */ public array $min = [];
+
+return 'at most ' . $x->{$name};
+```
+
+so the type discipline that would normally catch this does not reach the one place it
+matters.
+
+What it buys beyond the map case:
+
+- Thirty-one dynamic reads in `meraki/schema-html` become one static read, and the provider
+  stops touching the field at all.
+- **Computed bounds become reportable.** A per-country postal format or a per-currency scale
+  has no scalar property to point at, so the lookup could never have worked for them.
+- Constraint names are freed from exact equality with properties. They should still read as
+  what they constrain, because scopes address properties by name, but that is a much weaker
+  requirement.
+
+The bound is `scalar|array|null` and the message provider formats it; a constraint with no
+bound reports `null`, as `line1Visitable` does.
 ## Still to decide
 
 Left out of the table above because the rule does not settle them on its own.
 
 | Field | The question |
 | --- | --- |
-| `Facade` | `addXField()` → `createXField()` plus an explicit add is in the roadmap but has not been reviewed here. |
-| Rule vocabulary | The matcher DSL is one of the three surfaces this review covers, and is still outstanding from stage 2. |
-| `Money` bounds | Per-currency, so the property is a map and a message cannot interpolate it as it does a scalar. Resolve during implementation. |
-| `Field\Set::getByName()` | Typed `?Field` but throws. Either the type or the behaviour is wrong. |
 | `transformed` targets | The type each field produces — `BigDecimal`, `LocalDate`, a parsed phone number, `Address\Value`. Nothing populates it yet, so this is a 2.1 decision the naming must not foreclose. |
-| `DateTime::withSecondPrecision()` | Precision is a constructor argument and already an enum, so these three static factories are sugar. Confirm they go. |
 
 ## The checklist
 
