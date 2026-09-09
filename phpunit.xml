@@ -25,6 +25,14 @@
 
         requireCoverageMetadata stays on, so every test still declares what it covers.
     -->
+    <groups>
+        <!-- The 2.0 API specification. Written before the implementation, so it is red
+             by design; run it on its own with the api-2.0 group. -->
+        <exclude>
+            <group>api-2.0</group>
+        </exclude>
+    </groups>
+
     <testsuites>
         <testsuite name="default">
             <directory>tests</directory>
