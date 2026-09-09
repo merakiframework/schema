@@ -67,9 +67,9 @@ final class Name extends AtomicField
 		return is_string($value) && preg_match(self::PATTERN, $value) === 1;
 	}
 
-	public function constraints(): Constraints
+	public function constraints(): Constraint\Set
 	{
-		return (new Constraints())
+		return (new Constraint\Set())
 			->and('minLength', fn(mixed $v): bool => mb_strlen($v) >= $this->minLength, $this->minLength)
 			->and('maxLength', fn(mixed $v): ?bool => $this->maxLength === null ? null : mb_strlen($v) <= $this->maxLength, $this->maxLength);
 	}

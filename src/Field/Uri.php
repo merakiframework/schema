@@ -115,9 +115,9 @@ final class Uri extends AtomicField
 		}
 	}
 
-	public function constraints(): Constraints
+	public function constraints(): Constraint\Set
 	{
-		return (new Constraints())
+		return (new Constraint\Set())
 			->and('minLength', fn(mixed $v): bool => mb_strlen($v) >= $this->minLength, $this->minLength)
 			->and('maxLength', fn(mixed $v): ?bool => $this->maxLength === null ? null : mb_strlen($v) <= $this->maxLength, $this->maxLength)
 			->and('allowedSchemes', $this->validateScheme(...), $this->allowedSchemes);

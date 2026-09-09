@@ -7,7 +7,7 @@ use Meraki\Schema\Property;
 use Meraki\Schema\AggregatedValidationResult;
 use Meraki\Schema\Field\ValidationResult;
 use Meraki\Schema\Field\CompositeValidationResult;
-use Meraki\Schema\Field\Constraints;
+use Meraki\Schema\Field\Constraint;
 use Meraki\Schema\Field\ConstraintValidationResult;
 use Meraki\Schema\Rule\FieldBuilder;
 use Closure;
@@ -260,9 +260,9 @@ abstract class Field
 	 * Fields still declaring the older name-keyed array of callables are adapted here, so
 	 * they can be moved across one at a time.
 	 */
-	public function constraints(): Constraints
+	public function constraints(): Constraint\Set
 	{
-		$constraints = new Constraints();
+		$constraints = new Constraint\Set();
 
 		foreach ($this->getConstraints() as $name => $check) {
 			$constraints = $constraints->and($name, $check(...));
@@ -272,17 +272,6 @@ abstract class Field
 	}
 
 
-	protected function skipAllConstraints(): ValidationResult
-	{
-		$constraintValidationResults = array_map(
-			fn(string $constraintName): ConstraintValidationResult => ConstraintValidationResult::skip($constraintName),
-			array_keys($this->getConstraints()),
-		);
-
-		$typeConstraintValidationResult = ConstraintValidationResult::skip('type');
-
-		return new ValidationResult($this, $typeConstraintValidationResult, ...$constraintValidationResults);
-	}
 
 	/**
 	 * Converts the raw value given into a Property\Value instance.

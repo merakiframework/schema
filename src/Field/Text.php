@@ -13,14 +13,15 @@ use InvalidArgumentException;
 final class Text extends AtomicField
 {
 	/**
-	 * Bounds are on the *length*, because that is what a text field bounds — `$text->min`
-	 * answered no question anyone asks.
-	 */
+	 * The minimum number of characters allowed in the string. Defaults to 0.
+	 * A value of 0 means that an empty string is allowed.
+	 * @property non-negative-int $minLength */
 	public private(set) int $minLength = 0;
 
-	/** `null` means no maximum, rather than a sentinel that is also a real length. */
+	/** @property non-negative-int|null $maxLength `null` means no limit. */
 	public private(set) ?int $maxLength = null;
 
+	/** @property string|null $pattern `null` means no pattern was set. */
 	public private(set) ?string $pattern = null;
 
 	public function __construct(
@@ -99,9 +100,9 @@ final class Text extends AtomicField
 		return is_string($value);
 	}
 
-	public function constraints(): Constraints
+	public function constraints(): Constraint\Set
 	{
-		return (new Constraints())
+		return (new Constraint\Set())
 			->and('minLength', fn(mixed $v): bool => mb_strlen($v) >= $this->minLength, $this->minLength)
 			->and('maxLength', fn(mixed $v): ?bool => $this->maxLength === null ? null : mb_strlen($v) <= $this->maxLength, $this->maxLength)
 			->and('pattern', fn(mixed $v): ?bool => $this->pattern === null ? null : preg_match($this->pattern, $v) === 1, $this->pattern);

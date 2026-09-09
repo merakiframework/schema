@@ -1,8 +1,10 @@
 <?php
 declare(strict_types=1);
 
-namespace Meraki\Schema\Field;
+namespace Meraki\Schema\Field\Constraint;
 
+use Meraki\Schema\Field\Constraint;
+use Meraki\Schema\Field\ConstraintValidationResult;
 use Closure;
 use Countable;
 use InvalidArgumentException;
@@ -12,12 +14,15 @@ use Traversable;
 /**
  * The checks a field makes, in the order it makes them.
  *
- * A list rather than a name-keyed array, because a constraint now carries its own name — and
- * because the order matters for reading a failure report, not just for running it.
+ * Ordered and unique by name — strictly an ordered set, which is the same shape
+ * {@see \Meraki\Schema\Field\Set} and {@see \Meraki\Schema\Rule\Set} hold. Order is kept because a
+ * failure report reads in it; uniqueness is enforced because a result is looked up by name.
+ *
+ * Not a name-keyed array, because a constraint now carries its own name.
  *
  * @implements IteratorAggregate<int, Constraint>
  */
-final class Constraints implements IteratorAggregate, Countable
+final class Set implements IteratorAggregate, Countable
 {
 	/** @var list<Constraint> */
 	private readonly array $constraints;
