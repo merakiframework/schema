@@ -661,7 +661,7 @@ classes in scope at once.
 | `Address` | `Address\Value` | |
 | `CreditCard` | `CreditCard\Value` | |
 | `File` | `File\Value` | |
-| `PhoneNumber` | `PhoneNumber\Value` | stringifies to E.164, and carries the resolved country |
+| `PhoneNumber` | `string`, in E.164 | libphonenumber's own object stringifies to a debug representation |
 | everything else | its scalar | identity |
 
 The rule: **use the library's value object when it stringifies to the value it represents.**
@@ -713,29 +713,23 @@ guard** — cards are issued three to five years out, so `2099` should be caught
 baseline ceiling rather than configuration. An enum of permitted dates does not fit; an
 expiry is whatever the card says.
 
-## `PhoneNumber` carries its resolved country
+## `PhoneNumber`
 
-This revises the earlier decision that `transformed` returns an E.164 string. A string
-cannot carry the country the number resolved to, which a consumer needs.
+`transformed` is an **E.164 string**. A value object was considered so the resolved country
+could travel with it, and rejected because nothing needs the country.
 
-```php
-final readonly class Value implements Stringable
-{
-    public function __construct(
-        public string $e164,
-        public string $country,
-    ) {}
+One thing to record, because it is easy to assume otherwise: **the country is not recoverable
+from the E.164 prefix.**
 
-    public function __toString(): string
-    {
-        return $this->e164;
-    }
-}
+```
++61411222333   cc=+61  region=AU
++14165550123   cc=+1   region=CA     Toronto
++12125550123   cc=+1   region=US     New York
 ```
 
-This still satisfies the rule that decided against `libphonenumber\PhoneNumber` — it
-stringifies to the value it represents — while answering the country question. Input accepts
-a plain string, `['number' => …, 'country' => …]`, or a `Value`.
+`+1` covers the US, Canada and around twenty Caribbean nations; `+7` covers Russia and
+Kazakhstan. The region comes from the area code and libphonenumber's metadata. A consumer
+that needs it must re-parse — `substr($e164, 0, 3)` gets Canada wrong.
 
 **Parsing region.** `allow()` currently does double duty: it constrains which countries are
 acceptable *and* supplies the region a national-format number is parsed against. Those are
@@ -750,6 +744,31 @@ Ambiguity is a **constraint**, not a shape failure. `0411 222 333` is well-forme
 simply cannot be resolved, so the message should ask which country rather than say the number
 is invalid. Constraint `unambiguous`, with the allowed countries as its bound so the message
 can list them.
+## `Address` stays one field
+
+A `Location` / `PostalAddress` split was worked through and rejected. With `Address\Type`
+retained, the only difference between the two would be *whether a street is required* — and
+a boolean does not justify a type.
+
+So one class, with two independent dials:
+
+| Dial | Expresses | Surface |
+| --- | --- | --- |
+| `Type` | deliverability — can you post to it, can you visit it | the existing FHIR-aligned enum |
+| `mustBeSpecific()` | granularity — is a street required | `$mustBeSpecific` → constraint `specific` |
+
+`mustBeSpecific()` adds `line1` to the required set; without it the per-country requiredness
+from libaddressinput still governs everything else. That is why it composes with `Type`
+rather than duplicating it.
+
+**`Type::Postal` with a non-specific address throws where it is declared.** You cannot post
+to a suburb, and the pattern for a combination with no meaning is to reject it at definition
+time, as the baseline floors do.
+
+**What would justify the split later** is coordinates, and it is a different reason from the
+one rejected here: a coordinate is not an address at all, whereas "Rockhampton QLD 4700" is
+one — just a vague one. Adding a `Location` type later does not disturb `Address`, so the
+split is deferred rather than ruled out.
 ## Still to decide
 
 **Nothing.** Every row is settled. The matcher vocabulary is deferred to a stage of its
