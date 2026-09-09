@@ -134,10 +134,13 @@ per field.
    `min` — `$text->min` answers no question anyone asks. `minValue` on a number,
    `from`/`until` on a date, `minItems` on a collection, `minSize`/`minCount` on a file.
    Temporal types do not say "min" and "max" at all.
-2. **The constraint name is the property name.** Not merely consistent with it — the same
-   string. `meraki/schema-html` already reads `$field->{$constraint->name}` in 31 places, so
-   this equality is load-bearing today; making it a rule turns an accident into a contract,
-   and gives `#/fields/username/minLength` as a scope for free.
+2. **Where a constraint has a bound, the property holding it has the same name.**
+   `meraki/schema-html` reads `$field->{$constraint->name}` in 31 places to put the bound
+   into the message — "at least 3 characters" needs to reach the 3. Making the names equal
+   turns that accident into a contract, and gives `#/fields/username/minLength` as a scope
+   for free. A constraint with *no* bound to interpolate is free to be named for what
+   failed instead: `Boolean` holds `$requiresAcceptance` and reports `accepted`, because
+   there is no number to reach and "accepted" is what did not happen.
 3. **Reading is a property, changing is a method.** State is read through a public property
    with `private(set)` visibility; anything that changes the definition is a method named
    for the change it makes, usually `<property>Of(…)` or a `must…` statement where that
@@ -288,20 +291,66 @@ growing an enum in place is no longer needed to support it.
 | Express it at that scale (`123` → `123.00`) | `cast()` | `validateValue()` ✗ |
 
 The middle one is why a scale-2 field rejects `123.456` with "must be a number".
+### Scopes reach properties, never methods
+
+A scope addresses state. It does not call anything, and the reason is not taste:
+
+- **A scope path arrives from untrusted JSON.** `RuleSerializer` rebuilds rule targets from
+  a document, so a path is attacker-controlled input. Reaching properties is guarded by
+  `property_exists()` and `NOT_ADDRESSABLE`; reaching methods would let a crafted document
+  invoke any zero-argument method on a field.
+- **Resolution must be a pure read.** A method may have side effects, and the whole seam
+  exists to stop a rule condition writing to a shared definition.
+- **A path cannot carry arguments**, so only zero-argument methods would work — and a
+  zero-argument method that answers a question should have been a property anyway.
+
+When the answer is computed rather than stored, a property hook gives you the question
+*and* keeps it state, which is already the idiom in `ResolvedField::$transformed` and
+`AggregatedValidationResult::$status`:
+
+```php
+public bool $requiresAcceptance { get => /* … */; }
+```
+
+### Normalisation follows the standard, and is never configurable
+
+Every field normalises to some degree — `123` and `123.00` are the same number, `EXAMPLE.COM`
+and `example.com` are the same domain. That is part of what the type *means*, so it is not
+an option an author sets. It belongs in `cast()`.
+
+The invariant that makes it safe: **normalisation may only remove a distinction the
+standard says is not a distinction.** Lowercasing a domain is lossless because DNS is
+case-insensitive; lowercasing an email's local part is not, because RFC 5321 permits it to
+be case-sensitive — which is why `EmailAddress` normalises one half and not the other.
+Scaling `123` to `123.00` is lossless; scaling `123.456` to two places is not, and so it
+fails rather than rounding.
+
+### `Password` absorbs `Passphrase`
+
+One field. Most people do not know the difference, both are "memorized secrets" in the
+guidance, and the distinction was only ever *how strength is measured*.
+
+| Concern | Where it lands |
+| --- | --- |
+| Is it a string? | shape |
+| Strength tier | a constraint — a weak password is a well-formed string that failed a judgement, not a malformed one |
+| Composition rules | constraints, available but off by default |
+| Minimum length | 8, per current guidance |
+| Maximum length | **72 bytes**, and the reason is measurable |
+
+`password_hash()` defaults to bcrypt, and bcrypt **silently truncates at 72 bytes** — on PHP
+8.5 a hash of 72 `a`s verifies a string of 80 `a`s. A field that accepts more than 72 bytes
+is telling the user their extra characters count when they do not. Note *bytes*, not
+characters: a multibyte passphrase reaches the limit sooner than its length suggests.
 ## Still to decide
 
 Left out of the table above because the rule does not settle them on its own.
 
 | Field | The question |
 | --- | --- |
-| `Password` | Six `Range` properties (`$length`, `$lowercase`, …) behind eleven `minNumberOfX`/`maxNumberOfX` methods, plus `satisfyAnyOf()`. The constraint names are the property names already, but the *shape* is the question: is a `Range` the right abstraction, and does `minLengthOf()` belong on a field whose length constraint is called `length`? |
-| `Passphrase` | `$entropy`, `$method`, `$dictionary` — `$method` has no constraint. Configured only through presets. `getConstraints()` is public here and protected everywhere else. |
-| `Enum` | Property is `$oneOf`, method is `allow()`, and no constraint is emitted at all. `allow()` is one of the four unrelated things called `allow()`. |
+| `Password` | The strength tiers: how many, and what entropy does each stand for. `satisfyAnyOf()` — does it survive the merge with `Passphrase`? |
 | `Money`, `Address`, `CreditCard` | Dotted constraint names (`cost.amount.min`). **Blocked** on the structured-type design — these cannot be settled before it is. |
 | `Variant` | Emits nothing of its own; the matching alternative's result is returned. Confirm that is the contract. |
-| `EmailAddress` | `$format` selects between `Basic`, `Html`, `Rfc`, `Smtp` validation modes. `Html` is a browser pattern used as a domain rule — recorded as leftover L2. |
-| `Number` | `$scale` / `scaleTo()` is a property with no constraint. Confirm it is configuration rather than a rule. |
-| `Boolean` | Property `$mustBeAccepted` reads as a predicate; the constraint is `accepted`. Rule 2 wants them equal, but `mustBeAccepted` is an odd name for a failure. |
 
 ## The checklist
 
