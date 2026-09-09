@@ -211,7 +211,7 @@ A point in time recurs at an *interval*; a quantity moves in *steps*.
 
 | Field | Names |
 | --- | --- |
-| `Collection` | `minItems()` / `maxItems()` → `$minItems` / `$maxItems` → same |
+| `Collection` | Properties and constraint names are correct. The **methods** are not: `minItems(3)` and `$field->minItems` are the same identifier for a setter and a reader — see below |
 | `File` | `$minCount`, `$maxCount`, `$minSize`, `$maxSize`, `$allowedTypes`, `$disallowedTypes` — every property already equals its constraint name |
 
 ### Alignments the rule forces
@@ -428,6 +428,23 @@ leaving it as separate work.
 The feature elaborates composition rules that current guidance discourages, and its only
 caller is the `common()` preset already being dropped with the tier list.
 
+### `Password` composition methods
+
+Explicit methods rather than a group mechanism. An adjective takes a noun; a noun stands on
+its own.
+
+| Method | Property / constraint |
+| --- | --- |
+| `minLengthOf()`, `maxLengthOf()` | `$minLength`, `$maxLength` |
+| — (baseline, no setter) | `$maxBytes` |
+| `minNumberOfUppercaseChars()`, `maxNumberOfUppercaseChars()` | `$minUppercaseChars`, `$maxUppercaseChars` |
+| `minNumberOfLowercaseChars()`, `maxNumberOfLowercaseChars()` | `$minLowercaseChars`, `$maxLowercaseChars` |
+| `minNumberOfDigits()`, `maxNumberOfDigits()` | `$minDigits`, `$maxDigits` |
+| `minNumberOfSymbols()`, `maxNumberOfSymbols()` | `$minSymbols`, `$maxSymbols` |
+
+Ten flat `?int` properties in place of five `Range` objects. Each carries its own constraint
+name, so a failure says whether the floor or the ceiling was missed — which the `Range`
+shape could not, since one constraint name covered both ends.
 ### `File` method names
 
 | Current | Becomes |
@@ -443,6 +460,10 @@ Left out of the table above because the rule does not settle them on its own.
 | Field | The question |
 | --- | --- |
 | `Money`, `Address`, `CreditCard` | Dotted constraint names (`cost.amount.min`). **Blocked** on the structured-type design — these cannot be settled before it is. |
+| `Collection` | `minItems()` is both the setter and the property name. By the pattern used everywhere else it should be `minItemsOf()` → `$minItems`. |
+| Presets | `Password::strong()` and friends are static constructors. With tiers now an entropy scale, a `Strength` enum passed to a method may fit better than five factories — and would match the preference for literals and enums. |
+| `Facade` | `addXField()` → `createXField()` plus an explicit add is in the roadmap but has not been reviewed here. |
+| Rule vocabulary | The matcher DSL is one of the three surfaces this review covers, and is still outstanding from stage 2. |
 
 ## The checklist
 
