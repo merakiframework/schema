@@ -342,13 +342,72 @@ guidance, and the distinction was only ever *how strength is measured*.
 8.5 a hash of 72 `a`s verifies a string of 80 `a`s. A field that accepts more than 72 bytes
 is telling the user their extra characters count when they do not. Note *bytes*, not
 characters: a multibyte passphrase reaches the limit sooner than its length suggests.
+### Baselines are read-only properties; configuration is `private(set)`
+
+A baseline the consumer needs to see is exposed as a property backed by a constant, with no
+setter:
+
+```php
+/** bcrypt truncates beyond this, and password_hash() defaults to bcrypt. */
+public const MAX_BYTES = 72;
+
+/** The ceiling the hashing algorithm imposes. No setter exists. */
+public int $maxBytes { get => self::MAX_BYTES; }
+
+/** Characters. The author may narrow this, never widen it. */
+public private(set) ?int $maxLength = null;
+```
+
+The hook rather than a bare constant is what keeps the property-equals-constraint rule: a
+message can interpolate the number and `#/fields/password/maxBytes` resolves. And it is
+read-only *by construction* — the absence of a setter **is** the difference between a
+baseline and something an author may narrow, so "changing this needs a core release" is
+enforced rather than documented.
+
+**Baselines do not serialise.** They follow from the field type, so writing them into a
+document is redundant and lets stored data disagree with the code: raise the core's ceiling
+and every old document still claims the old one. Expose them, do not persist them.
+`meraki/schema-json` writes `min`/`max` today, so this changes how it treats field config.
+
+#### Length in characters, ceiling in bytes
+
+Both are needed, because one cannot express the other:
+
+| Input | `maxLength` = 64 | `maxBytes` = 72 |
+| --- | --- | --- |
+| 80 ASCII characters | fails | fails |
+| 64 CJK characters | passes | **fails** — 192 bytes |
+| 40 emoji | passes | **fails** — 160 bytes |
+
+Lengths are counted with `mb_strlen()`, which is already consistent across every field, so
+they are code points rather than bytes or grapheme clusters. The byte ceiling is the case
+that would otherwise be silently truncated by the hash.
+
+The message for a byte failure is awkward — "too long; some characters take more space than
+others" — and `maxLength` cannot be tuned low enough to make it unreachable without
+capping passwords at 18 characters. The awkward message is the better trade.
+
+### Password strength tiers
+
+Five, as entropy thresholds:
+
+| Tier | Bits | Stands for |
+| --- | --- | --- |
+| `weak` | ~36 | crackable offline quickly |
+| `moderate` | ~60 | resists casual offline attack |
+| `strong` | ~80 | the sensible default |
+| `paranoid` | ~100 | deliberate overkill |
+| `cryptographic` | ~128 | key-equivalent |
+
+`Password`'s current `common` and `none` go: a tier meaning "no strength requirement"
+contradicts the baseline principle.
 ## Still to decide
 
 Left out of the table above because the rule does not settle them on its own.
 
 | Field | The question |
 | --- | --- |
-| `Password` | The strength tiers: how many, and what entropy does each stand for. `satisfyAnyOf()` — does it survive the merge with `Passphrase`? |
+| `Password` | `satisfyAnyOf()` — does it survive the merge with `Passphrase`? |
 | `Money`, `Address`, `CreditCard` | Dotted constraint names (`cost.amount.min`). **Blocked** on the structured-type design — these cannot be settled before it is. |
 | `Variant` | Emits nothing of its own; the matching alternative's result is returned. Confirm that is the contract. |
 
