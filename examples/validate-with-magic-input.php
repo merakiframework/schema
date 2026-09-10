@@ -44,8 +44,8 @@ final class Input
 function makeSchema(): Facade
 {
     $schema = new Facade('create-person');
-    $schema->addNameField('name')->minLengthOf(1)->maxLengthOf(255);
-    $schema->addDateField('dateOfBirth')->from('1900-01-01')->to('2010-01-01')->makeOptional();
+    $schema->add($fields->createNameField('name')->minLengthOf(1)->maxLengthOf(255));
+    $schema->add($fields->createDateField('dateOfBirth')->from('1900-01-01')->to('2010-01-01')->makeOptional());
 
     return $schema;
 }

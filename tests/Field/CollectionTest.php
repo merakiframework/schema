@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Field;
 
+use Meraki\Schema\Field\Factory;
 use Meraki\Schema\Facade;
 use Meraki\Schema\Field\Collection;
 use Meraki\Schema\Field\Date;
@@ -19,6 +20,13 @@ use PHPUnit\Framework\Attributes\CoversClass;
 #[CoversClass(Facade::class)]
 final class CollectionTest extends TestCase
 {
+	private Factory $fields;
+
+	protected function setUp(): void
+	{
+		$this->fields = new Factory();
+	}
+
 	private function lessons(): Collection
 	{
 		return new Collection(new Name('lessons'), new Date(new Name('date')), new Time(new Name('time')));
@@ -100,10 +108,11 @@ final class CollectionTest extends TestCase
 	{
 		$schema = new Facade('booking');
 
-		$field = $schema->addCollectionField('lessons', function (Facade $item): void {
-			$item->addDateField('date');
-			$item->addTimeField('time');
-		})->minItems(1);
+		$field = $this->fields->createCollectionField('lessons', fn(Factory $f): array => [
+			$f->createDateField('date'),
+			$f->createTimeField('time'),
+		])->minItems(1);
+		$schema->add($field);
 
 		$this->assertInstanceOf(Collection::class, $field);
 		$this->assertEqualsCanonicalizing(['lessons.date', 'lessons.time'], $field->fields->listFieldNames());
@@ -113,10 +122,11 @@ final class CollectionTest extends TestCase
 	public function items_can_contain_a_composite_sub_field(): void
 	{
 		$schema = new Facade('booking');
-		$field = $schema->addCollectionField('lessons', function (Facade $item): void {
-			$item->addDateTimeField('when');
-			$item->addAddressField('pickup');
-		})->minItems(1);
+		$field = $this->fields->createCollectionField('lessons', fn(Factory $f): array => [
+			$f->createDateTimeField('when'),
+			$f->createAddressField('pickup'),
+		])->minItems(1);
+		$schema->add($field);
 
 		// the composite's leaves are prefixed under the collection, without doubling the
 		// composite's own segment (would otherwise be `lessons.pickup.pickup.line1`).

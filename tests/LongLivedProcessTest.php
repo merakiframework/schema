@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace Meraki\Schema;
 
+use Meraki\Schema\Field\Factory;
 use Fiber;
 use PHPUnit\Framework\TestCase;
 use PHPUnit\Framework\Attributes\Test;
@@ -25,6 +26,13 @@ use PHPUnit\Framework\Attributes\Group;
 #[CoversClass(Facade::class)]
 final class LongLivedProcessTest extends TestCase
 {
+	private Factory $fields;
+
+	protected function setUp(): void
+	{
+		$this->fields = new Factory();
+	}
+
 	/**
 	 * Built once per test, exactly as a worker would build it once at boot.
 	 *
@@ -34,8 +42,8 @@ final class LongLivedProcessTest extends TestCase
 	private function bootSchema(): Facade
 	{
 		$schema = new Facade('signup');
-		$schema->addTextField('username')->minLengthOf(3);
-		$schema->addTextField('nickname')->makeOptional();
+		$schema->add($this->fields->createTextField('username')->minLengthOf(3));
+		$schema->add($this->fields->createTextField('nickname')->makeOptional());
 		$schema->whenAllMatch(
 			fn($rule) => $rule
 				->whenEquals('#/fields/username/value', 'admin')
@@ -157,7 +165,7 @@ final class LongLivedProcessTest extends TestCase
 		// This asserts the *defect*, so it fails the moment prefilling moves to resolution.
 		// When that happens, replace the body with the isolation assertion below it.
 		$schema = new Facade('profile');
-		$schema->addTextField('email');
+		$schema->add($this->fields->createTextField('email'));
 
 		$request = static fn(string $email): Fiber => new Fiber(
 			static function () use ($schema, $email): mixed {

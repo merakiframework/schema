@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace Meraki\Schema;
 
+use Meraki\Schema\Field\Factory;
 use Meraki\Schema\Facade;
 use Meraki\Schema\ValidationStatus;
 use PHPUnit\Framework\TestCase;
@@ -21,6 +22,13 @@ use PHPUnit\Framework\Attributes\CoversClass;
 #[CoversClass(Field\Collection::class)]
 final class MalformedCompositeInputTest extends TestCase
 {
+	private Factory $fields;
+
+	protected function setUp(): void
+	{
+		$this->fields = new Factory();
+	}
+
 	/** @return array<string, array{mixed}> */
 	public static function unusableValues(): array
 	{
@@ -35,10 +43,10 @@ final class MalformedCompositeInputTest extends TestCase
 	private function schema(): Facade
 	{
 		$schema = new Facade('checkout');
-		$schema->addMoneyField('price', ['AUD' => 2]);
-		$schema->addAddressField('billing', ['AU']);
-		$schema->addCreditCardField('card');
-		$schema->addCollectionField('items', fn(Facade $item): mixed => $item->addTextField('sku'));
+		$schema->add($this->fields->createMoneyField('price', ['AUD' => 2]));
+		$schema->add($this->fields->createAddressField('billing', ['AU']));
+		$schema->add($this->fields->createCreditCardField('card'));
+		$schema->add($this->fields->createCollectionField('items', fn(Factory $f): array => [$f->createTextField('sku')]));
 
 		return $schema;
 	}
@@ -76,7 +84,7 @@ final class MalformedCompositeInputTest extends TestCase
 	{
 		// Optional excuses an absent value, never a bad one.
 		$schema = new Facade('checkout');
-		$schema->addMoneyField('price', ['AUD' => 2])->makeOptional();
+		$schema->add($this->fields->createMoneyField('price', ['AUD' => 2])->makeOptional());
 
 		$this->assertTrue($schema->validate(['price' => 'not-an-array'])->anyFailed());
 	}
@@ -85,7 +93,7 @@ final class MalformedCompositeInputTest extends TestCase
 	public function an_optional_composite_left_out_is_still_skipped(): void
 	{
 		$schema = new Facade('checkout');
-		$schema->addMoneyField('price', ['AUD' => 2])->makeOptional();
+		$schema->add($this->fields->createMoneyField('price', ['AUD' => 2])->makeOptional());
 
 		$this->assertFalse($schema->validate([])->anyFailed());
 	}
@@ -94,7 +102,7 @@ final class MalformedCompositeInputTest extends TestCase
 	public function a_list_where_an_item_is_unusable_fails(): void
 	{
 		$schema = new Facade('checkout');
-		$schema->addCollectionField('items', fn(Facade $item): mixed => $item->addTextField('sku'));
+		$schema->add($this->fields->createCollectionField('items', fn(Factory $f): array => [$f->createTextField('sku')]));
 
 		$this->assertTrue($schema->validate(['items' => ['not-an-item']])->anyFailed());
 	}
@@ -116,7 +124,7 @@ final class MalformedCompositeInputTest extends TestCase
 	public function an_object_is_still_accepted(): void
 	{
 		$schema = new Facade('checkout');
-		$schema->addMoneyField('price', ['AUD' => 2]);
+		$schema->add($this->fields->createMoneyField('price', ['AUD' => 2]));
 
 		$this->assertFalse($schema->validate(['price' => (object) ['amount' => '99.95', 'currency' => 'AUD']])->anyFailed());
 	}
@@ -125,7 +133,7 @@ final class MalformedCompositeInputTest extends TestCase
 	public function the_failure_is_reported_against_the_composite_itself(): void
 	{
 		$schema = new Facade('checkout');
-		$schema->addMoneyField('price', ['AUD' => 2]);
+		$schema->add($this->fields->createMoneyField('price', ['AUD' => 2]));
 
 		$result = $schema->validate(['price' => 'not-an-array']);
 

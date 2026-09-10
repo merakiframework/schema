@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace Meraki\Schema;
 
+use Meraki\Schema\Field\Factory;
 use Meraki\Schema\Facade;
 use Meraki\Schema\Field;
 use Meraki\Schema\Rule\FieldBuilder;
@@ -24,18 +25,25 @@ use PHPUnit\Framework\Attributes\CoversClass;
 #[CoversClass(Scope::class)]
 final class PairWithTest extends TestCase
 {
+	private Factory $fields;
+
+	protected function setUp(): void
+	{
+		$this->fields = new Factory();
+	}
+
 	#[Test]
 	public function scopes_resolve_camel_case_field_names_verbatim(): void
 	{
 		// Field names are matched exactly — camelCase names must be targetable.
 		$schema = new Facade('contact');
-		$schema->addEnumField('contactMethod', ['email', 'phone'])
+		$schema->add($this->fields->createEnumField('contactMethod', ['email', 'phone'])
 			->pairWith(
 				new Field\EmailAddress(new Name('emailAddress')),
 				function (FieldBuilder $rule, Field\EmailAddress $email): void {
 					$rule->when($this)->notEquals('email')->thenMakeOptional($email)->thenIgnore($email);
 				}
-			);
+			));
 
 		// phone chosen → camelCase emailAddress is ignored (a bad value does not fail)
 		$this->assertFalse($schema->validate(['contactMethod' => 'phone', 'emailAddress' => 'bad'])->anyFailed());
@@ -47,7 +55,7 @@ final class PairWithTest extends TestCase
 	{
 		$schema = new Facade('contact');
 
-		$schema->addEnumField('contact_method', ['email', 'phone'])
+		$schema->add($this->fields->createEnumField('contact_method', ['email', 'phone'])
 			->pairWith(
 				new Field\EmailAddress(new Name('email_address')),
 				function (FieldBuilder $rule, Field\EmailAddress $email): void {
@@ -60,7 +68,7 @@ final class PairWithTest extends TestCase
 				function (FieldBuilder $rule, Field\PhoneNumber $phone): void {
 					$rule->when($this)->notEquals('phone')->thenMakeOptional($phone)->thenIgnore($phone);
 				}
-			);
+			));
 
 		return $schema;
 	}
@@ -114,7 +122,8 @@ final class PairWithTest extends TestCase
 		$schema = new Facade('booking');
 
 		$whoManages = (new Field\Enum(new Name('who_manages'), ['organiser', 'participant']))->makeOptional();
-		$whoFor = $schema->addEnumField('who_for', ['myself', 'someone_else']);
+		$whoFor = $this->fields->createEnumField('who_for', ['myself', 'someone_else']);
+		$schema->add($whoFor);
 		$whoFor->pairWith($whoManages, function (FieldBuilder $rule, Field\Enum $wm): void {
 			$rule->when($this)->notEquals('someone_else')->thenMakeOptional($wm)->thenIgnore($wm);
 		});
@@ -139,9 +148,9 @@ final class PairWithTest extends TestCase
 		$this->expectException(\InvalidArgumentException::class);
 
 		$schema = new Facade('contact');
-		$schema->addEmailAddressField('email_address');
-		$schema->addEnumField('contact_method', ['email', 'phone'])
-			->pairWith(new Field\EmailAddress(new Name('email_address')), function (FieldBuilder $rule, Field\EmailAddress $f): void {});
+		$schema->add($this->fields->createEmailAddressField('email_address'));
+		$schema->add($this->fields->createEnumField('contact_method', ['email', 'phone'])
+			->pairWith(new Field\EmailAddress(new Name('email_address')), function (FieldBuilder $rule, Field\EmailAddress $f): void {}));
 	}
 
 	#[Test]

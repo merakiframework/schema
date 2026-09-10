@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace Meraki\Schema;
 
+use Meraki\Schema\Field\Factory;
 use Meraki\Schema\Facade;
 use Meraki\Schema\Property;
 use InvalidArgumentException;
@@ -17,6 +18,13 @@ use PHPUnit\Framework\Attributes\CoversClass;
 #[CoversClass(Facade::class)]
 final class FieldNamingTest extends TestCase
 {
+	private Factory $fields;
+
+	protected function setUp(): void
+	{
+		$this->fields = new Factory();
+	}
+
 	/** @return array<string, array{string}> */
 	public static function unusableNames(): array
 	{
@@ -73,18 +81,18 @@ final class FieldNamingTest extends TestCase
 	{
 		// It would be indistinguishable from a sub-field of some composite.
 		$schema = new Facade('checkout');
-		$schema->addMoneyField('price', ['AUD' => 2]);
+		$schema->add($this->fields->createMoneyField('price', ['AUD' => 2]));
 
 		$this->expectException(InvalidArgumentException::class);
 
-		$schema->addTextField('price.amount');
+		$schema->add($this->fields->createTextField('price.amount'));
 	}
 
 	#[Test]
 	public function a_composite_still_names_its_sub_fields_with_the_separator(): void
 	{
 		$schema = new Facade('checkout');
-		$schema->addAddressField('billing', ['AU']);
+		$schema->add($this->fields->createAddressField('billing', ['AU']));
 
 		$names = $schema->fields->getByName('billing')->fields->listFieldNames();
 
@@ -96,12 +104,12 @@ final class FieldNamingTest extends TestCase
 	public function a_duplicate_field_name_is_rejected(): void
 	{
 		$schema = new Facade('signup');
-		$schema->addTextField('email');
+		$schema->add($this->fields->createTextField('email'));
 
 		$this->expectException(InvalidArgumentException::class);
 		$this->expectExceptionMessage('A field named "email" already exists.');
 
-		$schema->addEmailAddressField('email');
+		$schema->add($this->fields->createEmailAddressField('email'));
 	}
 
 	#[Test]
@@ -110,10 +118,10 @@ final class FieldNamingTest extends TestCase
 		// The definition used to vanish with no error, leaving a schema that quietly
 		// validated something other than what was written.
 		$schema = new Facade('signup');
-		$schema->addTextField('email');
+		$schema->add($this->fields->createTextField('email'));
 
 		try {
-			$schema->addEmailAddressField('email');
+			$schema->add($this->fields->createEmailAddressField('email'));
 		} catch (InvalidArgumentException) {
 			// expected
 		}

@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Field;
 
+use Meraki\Schema\Field\Factory;
 use Meraki\Schema\Facade;
 use PHPUnit\Framework\TestCase;
 use PHPUnit\Framework\Attributes\Test;
@@ -19,6 +20,13 @@ use PHPUnit\Framework\Attributes\CoversClass;
 #[CoversClass(Uri::class)]
 final class UriValidationTest extends TestCase
 {
+	private Factory $fields;
+
+	protected function setUp(): void
+	{
+		$this->fields = new Factory();
+	}
+
 	/** @return array<string, array{string}> */
 	public static function notUris(): array
 	{
@@ -47,7 +55,7 @@ final class UriValidationTest extends TestCase
 	private function schema(): Facade
 	{
 		$schema = new Facade('link');
-		$schema->addUriField('url');
+		$schema->add($this->fields->createUriField('url'));
 
 		return $schema;
 	}
@@ -70,7 +78,7 @@ final class UriValidationTest extends TestCase
 	public function a_scheme_allowlist_can_be_declared(): void
 	{
 		$schema = new Facade('link');
-		$schema->addUriField('url')->allowSchemes('https');
+		$schema->add($this->fields->createUriField('url')->allowSchemes('https'));
 
 		$this->assertFalse($schema->validate(['url' => 'https://example.com'])->anyFailed());
 		$this->assertTrue($schema->validate(['url' => 'http://example.com'])->anyFailed());
@@ -82,7 +90,7 @@ final class UriValidationTest extends TestCase
 		// The reason the allowlist exists: anything rendered back into a page or followed
 		// by a redirect must not be able to carry script or inline content.
 		$schema = new Facade('link');
-		$schema->addUriField('url')->allowSchemes('http', 'https');
+		$schema->add($this->fields->createUriField('url')->allowSchemes('http', 'https'));
 
 		$this->assertTrue($schema->validate(['url' => 'javascript:alert(document.cookie)'])->anyFailed());
 		$this->assertTrue($schema->validate(['url' => 'data:text/html;base64,PHNjcmlwdD4='])->anyFailed());
@@ -100,7 +108,7 @@ final class UriValidationTest extends TestCase
 	public function length_constraints_still_apply(): void
 	{
 		$schema = new Facade('link');
-		$schema->addUriField('url')->maxLengthOf(20);
+		$schema->add($this->fields->createUriField('url')->maxLengthOf(20));
 
 		$this->assertTrue($schema->validate(['url' => 'https://example.com/a/very/long/path'])->anyFailed());
 		$this->assertFalse($schema->validate(['url' => 'https://example.com'])->anyFailed());

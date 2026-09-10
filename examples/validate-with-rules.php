@@ -37,25 +37,25 @@ function report(SchemaValidationResult $result): void
 // Australian rules without repeating the country on the field.
 $schema = (new Facade('booking'))->for('AU');
 
-$schema->addUuidField('id')->restrictToVersion(7);
-$schema->addNameField('full_name')->minLengthOf(1)->maxLengthOf(255);
-$schema->addTextField('licence_number')->minLengthOf(1)->maxLengthOf(255);
-$schema->addAddressField('pickup_location');
+$schema->add($fields->createUuidField('id')->restrictToVersion(7));
+$schema->add($fields->createNameField('full_name')->minLengthOf(1)->maxLengthOf(255));
+$schema->add($fields->createTextField('licence_number')->minLengthOf(1)->maxLengthOf(255));
+$schema->add($fields->createAddressField('pickup_location'));
 
-$schema->addBooleanField('has_log_book')
+$schema->add($fields->createBooleanField('has_log_book')
 	->makeOptional()
-	->prefill(true);
+	->prefill(true));
 
-$schema->addDurationField('log_book_time_completed')
+$schema->add($fields->createDurationField('log_book_time_completed')
 	->makeOptional()
 	->minOf('PT0M')
-	->maxOf('PT200H');
+	->maxOf('PT200H'));
 
-$schema->addEnumField(
+$schema->add($fields->createEnumField(
 	'transmission_type',
 	['automatic', 'manual'],
 	fn(Field\Enum $type): Field\Enum => $type->prefill('automatic')
-);
+));
 
 // Keeping a log book means the completed time has to be supplied.
 $schema->whenAllMatch(fn(Builder $rule): Builder =>

@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Rule;
 
+use Meraki\Schema\Field\Factory;
 use Meraki\Schema\Facade;
 use Meraki\Schema\Rule;
 use Meraki\Schema\Rule\Condition;
@@ -27,6 +28,13 @@ use PHPUnit\Framework\Attributes\{Test, CoversClass, Group};
 #[CoversClass(Rule::class)]
 final class RepeatedApplicationTest extends TestCase
 {
+	private Factory $fields;
+
+	protected function setUp(): void
+	{
+		$this->fields = new Factory();
+	}
+
 	#[Test]
 	public function an_outcome_can_be_applied_more_than_once(): void
 	{
@@ -75,8 +83,8 @@ final class RepeatedApplicationTest extends TestCase
 	private function createSchemaWithAFiringRule(): Facade
 	{
 		$schema = new Facade('test');
-		$schema->addEnumField('method', ['email', 'phone'])->prefill('phone');
-		$schema->addTextField('phone_number')->makeOptional();
+		$schema->add($this->fields->createEnumField('method', ['email', 'phone'])->prefill('phone'));
+		$schema->add($this->fields->createTextField('phone_number')->makeOptional());
 		$schema->addRule(new Rule(
 			new Condition\AllOf(new Condition\Equals('#/fields/method/value', 'phone')),
 			[new Outcome\_Require('#/fields/phone_number')],

@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace Meraki\Schema;
 
+use Meraki\Schema\Field\Factory;
 use Meraki\Schema\Facade;
 use Meraki\Schema\ValidationStatus;
 use Meraki\Schema\SchemaValidationResult;
@@ -17,6 +18,13 @@ use PHPUnit\Framework\Attributes\CoversClass;
 #[CoversClass(SchemaValidationResult::class)]
 final class FacadeValidateInputTest extends TestCase
 {
+	private Factory $fields;
+
+	protected function setUp(): void
+	{
+		$this->fields = new Factory();
+	}
+
 	#[Test]
 	public function it_reads_input_from_plain_public_properties(): void
 	{
@@ -75,8 +83,8 @@ final class FacadeValidateInputTest extends TestCase
 		// optional one. This produces a mix of passed + skipped results, which
 		// SchemaValidationResult must report as Passed rather than crashing.
 		$schema = new Facade('create-person');
-		$schema->addNameField('name')->minLengthOf(1)->maxLengthOf(255);
-		$schema->addDateField('dateOfBirth')->from('1900-01-01')->to('2010-01-01')->makeOptional();
+		$schema->add($this->fields->createNameField('name')->minLengthOf(1)->maxLengthOf(255));
+		$schema->add($this->fields->createDateField('dateOfBirth')->from('1900-01-01')->to('2010-01-01')->makeOptional());
 
 		$input = new class(['name' => 'John Smith']) {
 			public function __construct(private array $data)
@@ -99,8 +107,8 @@ final class FacadeValidateInputTest extends TestCase
 	public function it_resets_conditional_rule_effects_between_validations(): void
 	{
 		$schema = new Facade('contact');
-		$schema->addBooleanField('has_phone');
-		$schema->addTextField('phone')->makeOptional();
+		$schema->add($this->fields->createBooleanField('has_phone'));
+		$schema->add($this->fields->createTextField('phone')->makeOptional());
 		$schema->whenAllMatch(
 			fn($rule) => $rule->whenEquals('#/fields/has_phone/value', true)->thenRequire('#/fields/phone')
 		);
@@ -118,8 +126,8 @@ final class FacadeValidateInputTest extends TestCase
 	public function declarative_rule_can_ignore_a_field_when_a_not_equals_condition_holds(): void
 	{
 		$schema = new Facade('booking');
-		$schema->addEnumField('vehicle', ['school', 'own']);
-		$schema->addEnumField('transmission', ['automatic', 'manual'])->makeOptional();
+		$schema->add($this->fields->createEnumField('vehicle', ['school', 'own']));
+		$schema->add($this->fields->createEnumField('transmission', ['automatic', 'manual'])->makeOptional());
 		// transmission only matters for a school vehicle: otherwise make it optional AND ignore
 		// its input, so a stale/invalid value never fails.
 		$schema->whenAllMatch(
@@ -137,7 +145,7 @@ final class FacadeValidateInputTest extends TestCase
 	private function createPersonSchema(): Facade
 	{
 		$schema = new Facade('create-person');
-		$schema->addNameField('name')->minLengthOf(1)->maxLengthOf(255);
+		$schema->add($this->fields->createNameField('name')->minLengthOf(1)->maxLengthOf(255));
 
 		return $schema;
 	}

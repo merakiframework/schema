@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace Meraki\Schema;
 
+use Meraki\Schema\Field\Factory;
 use InvalidArgumentException;
 use PHPUnit\Framework\TestCase;
 use PHPUnit\Framework\Attributes\Test;
@@ -21,11 +22,18 @@ use PHPUnit\Framework\Attributes\Group;
 #[CoversClass(ScopeResolver::class)]
 final class ScopeResolverTest extends TestCase
 {
+	private Factory $fields;
+
+	protected function setUp(): void
+	{
+		$this->fields = new Factory();
+	}
+
 	private function schema(): Facade
 	{
 		$schema = new Facade('signup');
-		$schema->addTextField('username')->minLengthOf(3);
-		$schema->addTextField('nickname')->prefill('anonymous');
+		$schema->add($this->fields->createTextField('username')->minLengthOf(3));
+		$schema->add($this->fields->createTextField('nickname')->prefill('anonymous'));
 
 		return $schema;
 	}
@@ -96,7 +104,8 @@ final class ScopeResolverTest extends TestCase
 	public function a_field_scope_resolves_to_the_field_itself(): void
 	{
 		$schema = new Facade('signup');
-		$field = $schema->addTextField('username');
+		$field = $this->fields->createTextField('username');
+		$schema->add($field);
 
 		$resolved = (new ScopeResolver($schema))->resolve(FieldScope::of('username'));
 
@@ -107,7 +116,7 @@ final class ScopeResolverTest extends TestCase
 	public function optionality_is_addressable(): void
 	{
 		$schema = new Facade('signup');
-		$schema->addTextField('nickname')->makeOptional();
+		$schema->add($this->fields->createTextField('nickname')->makeOptional());
 
 		$this->assertTrue((new ScopeResolver($schema))->resolve(PropertyScope::of('nickname', 'optional')));
 	}
@@ -117,7 +126,7 @@ final class ScopeResolverTest extends TestCase
 	{
 		// A field's public properties are its API; only the back-reference is excluded.
 		$schema = new Facade('signup');
-		$schema->addTextField('username')->minLengthOf(3)->maxLengthOf(20);
+		$schema->add($this->fields->createTextField('username')->minLengthOf(3)->maxLengthOf(20));
 
 		$resolver = new ScopeResolver($schema);
 
@@ -133,7 +142,7 @@ final class ScopeResolverTest extends TestCase
 		// name-keyed set and has no pointer to follow, so the guard is all that is left of
 		// defect B8.
 		$schema = new Facade('booking');
-		$schema->addBooleanField('has_log_book');
+		$schema->add($this->fields->createBooleanField('has_log_book'));
 
 		$this->expectException(InvalidArgumentException::class);
 
@@ -144,7 +153,7 @@ final class ScopeResolverTest extends TestCase
 	public function an_unknown_property_is_rejected(): void
 	{
 		$schema = new Facade('signup');
-		$schema->addTextField('username');
+		$schema->add($this->fields->createTextField('username'));
 
 		$this->expectException(InvalidArgumentException::class);
 
@@ -155,7 +164,7 @@ final class ScopeResolverTest extends TestCase
 	public function an_unknown_field_is_rejected(): void
 	{
 		$schema = new Facade('signup');
-		$schema->addTextField('username');
+		$schema->add($this->fields->createTextField('username'));
 
 		$this->expectException(InvalidArgumentException::class);
 
@@ -168,7 +177,7 @@ final class ScopeResolverTest extends TestCase
 		// Rule outcomes build their scope once and resolve it on every validation run. When
 		// a scope was a cursor the second pass started from an exhausted one and threw.
 		$schema = new Facade('signup');
-		$schema->addTextField('username')->minLengthOf(3);
+		$schema->add($this->fields->createTextField('username')->minLengthOf(3));
 
 		$resolver = new ScopeResolver($schema);
 		$scope = PropertyScope::of('username', 'minLength');

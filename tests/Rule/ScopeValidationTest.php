@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Rule;
 
+use Meraki\Schema\Field\Factory;
 use Meraki\Schema\Facade;
 use Meraki\Schema\Rule\Outcome;
 use InvalidArgumentException;
@@ -21,11 +22,18 @@ use PHPUnit\Framework\Attributes\{Test, CoversClass, Group};
 #[CoversClass(Facade::class)]
 final class ScopeValidationTest extends TestCase
 {
+	private Factory $fields;
+
+	protected function setUp(): void
+	{
+		$this->fields = new Factory();
+	}
+
 	private function schema(): Facade
 	{
 		$schema = new Facade('signup');
-		$schema->addTextField('username')->minLengthOf(3);
-		$schema->addTextField('nickname')->makeOptional();
+		$schema->add($this->fields->createTextField('username')->minLengthOf(3));
+		$schema->add($this->fields->createTextField('nickname')->makeOptional());
 
 		return $schema;
 	}

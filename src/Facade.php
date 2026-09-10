@@ -19,15 +19,6 @@ final class Facade
 {
 	public readonly Property\Name $name;
 
-
-	/**
-	 * Default countries for region-aware fields added *after* {@see self::for()} is
-	 * called, as ISO 3166-1 alpha-2 codes. Empty means each field decides for itself.
-	 *
-	 * @var array<string>
-	 */
-	private array $defaultCountries = [];
-
 	public function __construct(
 		string $name,
 		public Field\Set $fields = new Field\Set(),
@@ -36,31 +27,6 @@ final class Facade
 		$this->name = new Property\Name($name);
 	}
 
-	/**
-	 * Declares the countries this schema is for, so region-aware fields need not repeat
-	 * them:
-	 *
-	 *     $schema = (new Facade('checkout'))->for('AU');
-	 *     $schema->addAddressField('billing');           // restricted to AU
-	 *     $schema->addPhoneNumberField('mobile');        // ditto
-	 *     $schema->addAddressField('shipping', ['NZ']);  // an explicit list still wins
-	 *     $schema->addAddressField('other', []);         // and an explicit [] means free-form
-	 *
-	 * Applies to {@see Field\Address} and {@see Field\PhoneNumber} — the fields whose
-	 * rules are jurisdictional. Deliberately not to {@see Field\Money}: currency does not
-	 * follow from a region (a country may use several, and the euro spans twenty).
-	 *
-	 * Only fields added afterwards, and only via the typed `addXField()` helpers, inherit
-	 * it; a field built by hand and passed to {@see self::addField()} does not.
-	 *
-	 * @param string ...$countries ISO 3166-1 alpha-2 region codes
-	 */
-	public function for(string ...$countries): self
-	{
-		$this->defaultCountries = array_values(array_unique(array_map(strtoupper(...), $countries)));
-
-		return $this;
-	}
 	private static function extractDefaultValues(self $schema): array
 	{
 		$data = [];
@@ -73,177 +39,32 @@ final class Facade
 	}
 
 	/**
-	 * @template T of Field
-	 * @param T $field
-	 * @param (Closure(T): void)|null $configurator
-	 * @return T|self
-	 */
-	public function addField(Field $field, ?Closure $configurator = null): self|Field
-	{
-		// A dot separates a composite from its sub-fields, so a top-level field carrying
-		// one would be indistinguishable from an addr.line1 or price.amount belonging to
-		// some composite. Sub-fields get their dotted names from Composite, never here.
-		if (str_contains((string) $field->name, Property\Name::PREFIX_SEPARATOR)) {
-			throw new InvalidArgumentException(sprintf(
-				'"%s" cannot be a top-level field name: "%s" is reserved for the sub-fields of a composite.',
-				(string) $field->name,
-				Property\Name::PREFIX_SEPARATOR,
-			));
-		}
-
-		$field->schema = $this;
-
-		if ($configurator !== null) {
-			$configurator($field);
-			$this->fields = $this->fields->add($field);
-
-			return $this;
-		}
-
-		$this->fields = $this->fields->add($field);
-
-		return $field;
-	}
-
-	/**
-	 * @param array<string>|null $allowedCountries ISO 3166-1 alpha-2 region codes; null
-	 *        inherits the schema's own (see {@see self::for()}), [] means free-form.
-	 */
-	public function addAddressField(string $name, ?array $allowedCountries = null, ?Closure $configurator = null): self|Field\Address
-	{
-		return $this->addField(
-			new Field\Address(new Property\Name($name), $allowedCountries ?? $this->defaultCountries),
-			$configurator,
-		);
-	}
-
-	public function addBooleanField(string $name, ?Closure $configurator = null): self|Field\Boolean
-	{
-		return $this->addField(new Field\Boolean(new Property\Name($name)), $configurator);
-	}
-
-	public function addCreditCardField(string $name, ?Closure $configurator = null): self|Field\CreditCard
-	{
-		return $this->addField(new Field\CreditCard(new Property\Name($name)), $configurator);
-	}
-
-	/**
-	 * Adds a repeatable collection field. The $template callback configures one
-	 * item's fields on the supplied builder (a Facade), e.g.
-	 *   $schema->addCollectionField('lessons', fn($item) => $item->addDateField('date'))
-	 *           ->minItems(1);
+	 * Registers a field. Build it with {@see \Meraki\Schema\Field\Factory} and finish
+	 * configuring it first — a field is sealed, so anything done to it afterwards produces a
+	 * copy this schema does not hold.
 	 *
-	 * @param callable(self): void $template
+	 *     $schema->add($fields->createTextField('username')->minLengthOf(3));
 	 */
-	public function addCollectionField(string $name, callable $template, ?Closure $configurator = null): self|Field\Collection
+	public function add(Field ...$fields): self
 	{
-		$item = new self('item');
-		$template($item);
+		foreach ($fields as $field) {
+			// A dot separates a composite from its sub-fields, so a top-level field carrying
+			// one would be indistinguishable from an addr.line1 or price.amount belonging to
+			// some composite. Sub-fields get their dotted names from Composite, never here.
+			if (str_contains((string) $field->name, Property\Name::PREFIX_SEPARATOR)) {
+				throw new InvalidArgumentException(sprintf(
+					'"%s" cannot be a top-level field name: "%s" is reserved for the sub-fields of a composite.',
+					(string) $field->name,
+					Property\Name::PREFIX_SEPARATOR,
+				));
+			}
 
-		return $this->addField(
-			new Field\Collection(new Property\Name($name), ...$item->fields->__toArray()),
-			$configurator,
-		);
+			$field->schema = $this;
+			$this->fields = $this->fields->add($field);
+		}
+
+		return $this;
 	}
-
-	public function addDateField(string $name, ?Closure $configurator = null): self|Field\Date
-	{
-		return $this->addField(new Field\Date(new Property\Name($name)), $configurator);
-	}
-
-	public function addDateTimeField(string $name, ?Closure $configurator = null): self|Field\DateTime
-	{
-		return $this->addField(new Field\DateTime(new Property\Name($name)), $configurator);
-	}
-
-	public function addDurationField(string $name, ?Closure $configurator = null): self|Field\Duration
-	{
-		return $this->addField(new Field\Duration(new Property\Name($name)), $configurator);
-	}
-
-	public function addEmailAddressField(string $name, ?Closure $configurator = null): self|Field\EmailAddress
-	{
-		return $this->addField(new Field\EmailAddress(new Property\Name($name)), $configurator);
-	}
-
-	public function addEnumField(string $name, array $options, ?Closure $configurator = null): self|Field\Enum
-	{
-		return $this->addField(new Field\Enum(new Property\Name($name), $options), $configurator);
-	}
-
-	public function addFileField(string $name, ?Closure $configurator = null): self|Field\File
-	{
-		return $this->addField(new Field\File(new Property\Name($name)), $configurator);
-	}
-
-	/**
-	 * @param array<string, integer> $allowedCurrencies
-	 */
-	public function addMoneyField(string $name, array $allowedCurrencies, ?Closure $configurator = null): self|Field\Money
-	{
-		return $this->addField(new Field\Money(new Property\Name($name), $allowedCurrencies), $configurator);
-	}
-
-	public function addNameField(string $name, ?Closure $configurator = null): self|Field\Name
-	{
-		return $this->addField(new Field\Name(new Property\Name($name)), $configurator);
-	}
-
-	public function addNumberField(string $name, ?Closure $configurator = null): self|Field\Number
-	{
-		return $this->addField(new Field\Number(new Property\Name($name)), $configurator);
-	}
-
-	public function addPassphraseField(string $name, ?Closure $configurator = null): self|Field\Passphrase
-	{
-		return $this->addField(new Field\Passphrase(new Property\Name($name)), $configurator);
-	}
-
-	public function addPasswordField(string $name, ?Closure $configurator = null): self|Field\Password
-	{
-		return $this->addField(new Field\Password(new Property\Name($name)), $configurator);
-	}
-
-	/**
-	 * @param array<string>|null $allowedCountries ISO 3166-1 alpha-2 region codes; null
-	 *        inherits the schema's own (see {@see self::for()}), [] means international-only.
-	 */
-	public function addPhoneNumberField(string $name, ?array $allowedCountries = null, ?Closure $configurator = null): self|Field\PhoneNumber
-	{
-		return $this->addField(
-			new Field\PhoneNumber(new Property\Name($name), $allowedCountries ?? $this->defaultCountries),
-			$configurator,
-		);
-	}
-
-	public function addTextField(string $name, ?Closure $configurator = null): self|Field\Text
-	{
-		return $this->addField(new Field\Text(new Property\Name($name)), $configurator);
-	}
-
-	public function addTimeField(string $name, ?Closure $configurator = null): self|Field\Time
-	{
-		return $this->addField(new Field\Time(new Property\Name($name)), $configurator);
-	}
-
-	public function addUriField(string $name, ?Closure $configurator = null): self|Field\Uri
-	{
-		return $this->addField(new Field\Uri(new Property\Name($name)), $configurator);
-	}
-
-	public function addUuidField(string $name, ?Closure $configurator = null): self|Field\Uuid
-	{
-		return $this->addField(new Field\Uuid(new Property\Name($name)), $configurator);
-	}
-
-	/**
-	 * @param non-empty-array<Field> $fields
-	 */
-	public function addVariantField(string $name, array $fields, ?Closure $configurator = null): self|Field\Variant
-	{
-		return $this->addField(new Field\Variant(new Property\Name($name), ...$fields), $configurator);
-	}
-
 
 	public function prefill(array|object $data): self
 	{

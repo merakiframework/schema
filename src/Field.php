@@ -123,7 +123,7 @@ abstract class Field
 			throw new InvalidArgumentException("A field named '{$paired->name}' already exists.");
 		}
 
-		$this->schema->addField($paired);
+		$this->schema->add($paired);
 
 		$builder = new FieldBuilder();
 		$configurator->call($this, $builder, $paired, $this->schema);

@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Field;
 
+use Meraki\Schema\Field\Factory;
 use Meraki\Schema\Facade;
 use PHPUnit\Framework\TestCase;
 use PHPUnit\Framework\Attributes\Test;
@@ -18,6 +19,13 @@ use PHPUnit\Framework\Attributes\CoversClass;
 #[CoversClass(CreditCard::class)]
 final class CreditCardLuhnTest extends TestCase
 {
+	private Factory $fields;
+
+	protected function setUp(): void
+	{
+		$this->fields = new Factory();
+	}
+
 	/** @return array<string, array{string}> */
 	public static function validNumbers(): array
 	{
@@ -46,7 +54,7 @@ final class CreditCardLuhnTest extends TestCase
 	private function validate(string $number): bool
 	{
 		$schema = new Facade('payment');
-		$schema->addCreditCardField('card');
+		$schema->add($this->fields->createCreditCardField('card'));
 
 		return $schema->validate(['card' => [
 			'holder' => 'Jane Doe',
@@ -89,7 +97,7 @@ final class CreditCardLuhnTest extends TestCase
 	public function the_failure_is_reported_against_the_number(): void
 	{
 		$schema = new Facade('payment');
-		$schema->addCreditCardField('card');
+		$schema->add($this->fields->createCreditCardField('card'));
 
 		$result = $schema->validate(['card' => [
 			'holder' => 'Jane Doe',

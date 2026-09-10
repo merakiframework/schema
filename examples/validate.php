@@ -7,14 +7,14 @@ use Meraki\Schema\Field\Number;
 
 $schema = new Meraki\Schema\Facade('contact_form');
 
-$schema->addTextField('username')
+$schema->add($fields->createTextField('username')
 	->mustMatch('/^[a-zA-Z0-9_]+$/')
 	->minLengthOf(3)
-	->maxLengthOf(20);
+	->maxLengthOf(20));
 
-$schema->addNumberField('age')
+$schema->add($fields->createNumberField('age')
 	->minOf(18)
-	->maxOf(120);
+	->maxOf(120));
 
 $validUserData = [
 	'username' => 'johndoe',
