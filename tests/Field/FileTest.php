@@ -4,7 +4,7 @@ declare(strict_types=1);
 namespace Meraki\Schema\Field\Type;
 
 use Meraki\Schema\Field\File;
-use Meraki\Schema\Field\File\Metadata;
+use Meraki\Schema\Field\File\Value as FileValue;
 use Meraki\Schema\ValidationStatus;
 use Meraki\Schema\Property\Name;
 use Meraki\Schema\FieldTestCase;
@@ -27,7 +27,7 @@ final class FileTest extends FieldTestCase
 	{
 		$field = $this->createField()->allowTypes('image/png');
 
-		$result = $field->validate(new Metadata('a.png', 'image/png', 123));
+		$result = $field->validate(new FileValue('a.png', 'image/png', 123));
 
 		$this->assertConstraintValidationResultPassed('type', $result);
 		$this->assertSame(ValidationStatus::Passed, $result->status);
@@ -39,8 +39,8 @@ final class FileTest extends FieldTestCase
 		$field = $this->createField();
 
 		$this->assertSame(ValidationStatus::Passed, $field->validate([
-			new Metadata('a.png', 'image/png', 123),
-			new Metadata('b.png', 'image/png', 456),
+			new FileValue('a.png', 'image/png', 123),
+			new FileValue('b.png', 'image/png', 456),
 		])->status);
 	}
 
@@ -51,7 +51,7 @@ final class FileTest extends FieldTestCase
 
 		$this->assertSame(ValidationStatus::Passed, $field->validate([
 			['name' => 'a.png', 'type' => 'image/png', 'size' => 123],
-			new Metadata('b.png', 'image/png', 456),
+			new FileValue('b.png', 'image/png', 456),
 		])->status);
 	}
 
