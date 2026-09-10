@@ -3,7 +3,6 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Field;
 
-use Meraki\Schema\Field\Composite as CompositeField;
 use Meraki\Schema\Field;
 use Meraki\Schema\Property;
 use Brick\DateTime\TimeZone;
@@ -11,13 +10,13 @@ use Brick\DateTime\ZonedDateTime;
 use DateTimeImmutable;
 
 /**
- * @extends CompositeField<array|null>
+ * @extends Field<array|null>
  * @property-read Field\Name $holder
  * @property-read Field\Text $number
  * @property-read Field\Date $expiry
  * @property-read Field\Text $securityCode
  */
-final class CreditCard extends CompositeField
+final class CreditCard extends Field
 {
 	public function __construct(
 		Property\Name $name,

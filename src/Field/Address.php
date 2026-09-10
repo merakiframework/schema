@@ -4,7 +4,6 @@ declare(strict_types=1);
 namespace Meraki\Schema\Field;
 
 use Meraki\Schema\Field\Address\Type;
-use Meraki\Schema\Field\Composite as CompositeField;
 use Meraki\Schema\Field;
 use Meraki\Schema\Property;
 use CommerceGuys\Addressing\AddressFormat\AddressField;
@@ -28,7 +27,7 @@ use InvalidArgumentException;
  * implies a state (Queensland is 4xxx *and* 9xxx; the ACT's 2600-2618 sits inside New
  * South Wales' 2xxx). Verifying an address actually exists needs a licensed service.
  *
- * @extends CompositeField<array|null>
+ * @extends Field<array|null>
  *
  * @property-read Field\Text $organization
  * @property-read Field\Text $line1
@@ -39,7 +38,7 @@ use InvalidArgumentException;
  * @property-read Field\Text $postalCode
  * @property-read Field\Text|Field\Enum $countryCode
  */
-final class Address extends CompositeField
+final class Address extends Field
 {
 	/**
 	 * Our sub-field names, in render order, mapped to the libaddressinput field they

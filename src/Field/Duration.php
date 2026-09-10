@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Field;
 
-use Meraki\Schema\Field\Atomic as AtomicField;
+use Meraki\Schema\Field;
 use Meraki\Schema\Property;
 use Brick\DateTime;
 use Brick\DateTime\DateTimeException;
@@ -15,9 +15,9 @@ use Brick\DateTime\DateTimeException;
  * The temporal fields, which name points in time, take `from`/`until` and recur at
  * intervals instead.
  *
- * @extends AtomicField<string|null>
+ * @extends Field<string|null>
  */
-final class Duration extends AtomicField
+final class Duration extends Field
 {
 	/**
 	 * The authored baseline: a duration is a length of time within a day, counted in whole

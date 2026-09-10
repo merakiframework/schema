@@ -3,7 +3,6 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Field;
 
-use Meraki\Schema\Field\Composite as CompositeField;
 use Meraki\Schema\Field;
 use Meraki\Schema\Property;
 use Brick\Math\BigDecimal;
@@ -13,11 +12,11 @@ use Brick\Math\Exception\RoundingNecessaryException;
 use InvalidArgumentException;
 
 /**
- * @extends CompositeField<array|null>
+ * @extends Field<array|null>
  * @property-read Field\Enum $currency
  * @property-read Field\Number $amount
  */
-final class Money extends CompositeField
+final class Money extends Field
 {
 	/**
 	 * @var array<string, BigDecimal>

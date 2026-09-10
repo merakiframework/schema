@@ -3,7 +3,6 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Field;
 
-use Meraki\Schema\Field\Atomic as AtomicField;
 use Meraki\Schema\Field;
 use Meraki\Schema\Property;
 use Brick\DateTime\DateTimeException;
@@ -11,9 +10,9 @@ use Brick\DateTime\Period;
 use Brick\DateTime\LocalDate;
 
 /**
- * @extends AtomicField<string|null>
+ * @extends Field<string|null>
  */
-final class Date extends AtomicField
+final class Date extends Field
 {
 	public LocalDate $from;
 	public LocalDate $until;

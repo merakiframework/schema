@@ -3,8 +3,8 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Field;
 
+use Meraki\Schema\Field\Constraint;
 use Meraki\Schema\Field\EmailAddress\Format;
-use Meraki\Schema\Field\AtomicMultiValue as AtomicMultiValueField;
 use Meraki\Schema\Field;
 use Meraki\Schema\Property;
 use InvalidArgumentException;
@@ -15,10 +15,10 @@ use InvalidArgumentException;
  * Validates the email address format according to the HTML specification,
  * which is a subset (and saner version) of the format specified in RFC 5322.
  *
- * @extends AtomicMultiValueField<array|string|null>
+ * @extends Field<string|null>
  * @see https://html.spec.whatwg.org/multipage/input.html#valid-e-mail-address
  */
-final class EmailAddress extends AtomicMultiValueField
+final class EmailAddress extends Field
 {
 	public private(set) int $minLength;
 
@@ -51,17 +51,13 @@ final class EmailAddress extends AtomicMultiValueField
 			throw new InvalidArgumentException('Minimum length cannot be greater than maximum length.');
 		}
 
-		$this->minLength = $minChars;
-
-		return $this;
+		return clone($this, ['minLength' => $minChars]);
 	}
 
 	public function maxLengthOf(?int $maxChars): self
 	{
 		if ($maxChars === null) {
-			$this->maxLength = null;
-
-			return $this;
+			return clone($this, ['maxLength' => null]);
 		}
 
 		$allowableMaxLength = $this->format->getAllowableMaxLengthTotal();
@@ -78,23 +74,27 @@ final class EmailAddress extends AtomicMultiValueField
 			throw new InvalidArgumentException('Maximum length cannot be less than minimum length.');
 		}
 
-		$this->maxLength = $maxChars;
-
-		return $this;
+		return clone($this, ['maxLength' => $maxChars]);
 	}
 
 	public function allowDomain(string ...$domains): self
 	{
-		$this->allowedDomains = array_merge($this->allowedDomains, $domains);
+		// If no domains are provided, it means any domain is allowed, so we clear the allowedDomains list.
+		if (empty($domains)) {
+			return clone($this, ['allowedDomains' => []]);
+		}
 
-		return $this;
+		return clone($this, ['allowedDomains' => array_merge($this->allowedDomains, $domains)]);
 	}
 
 	public function disallowDomain(string ...$domains): self
 	{
-		$this->disallowedDomains = array_merge($this->disallowedDomains, $domains);
+		// If no domains are provided, it means no domains are disallowed, so we clear the disallowedDomains list.
+		if (empty($domains)) {
+			return clone($this, ['disallowedDomains' => []]);
+		}
 
-		return $this;
+		return clone($this, ['disallowedDomains' => array_merge($this->disallowedDomains, $domains)]);
 	}
 
 	protected function parseValue(string $value): array
@@ -122,67 +122,49 @@ final class EmailAddress extends AtomicMultiValueField
 
 	public function validateValue(mixed $value): bool
 	{
-		$value = $this->cast($value);
-
-		if (!is_array($value)) {
-			return false;
-		}
-
-		if (count($value) === 0) {
-			return false;
-		}
-
-		foreach ($value as $emailAddress) {
-			if (!$this->format->validate($emailAddress)) {
-				return false;
-			}
-		}
-
-		return true;
+		return is_string($value) || $value === null;
 	}
 
 	public function constraints(): Constraint\Set
 	{
-		return (new Constraint\Set())
-			->and('minLength', fn(mixed $v): bool => mb_strlen($v) >= $this->minLength, $this->minLength)
-			->and('maxLength', fn(mixed $v): ?bool => $this->maxLength === null ? null : mb_strlen($v) <= $this->maxLength, $this->maxLength)
-			->and('allowedDomains', $this->validateAllowedDomains(...), $this->allowedDomains)
-			->and('disallowedDomains', $this->validateDisallowedDomains(...), $this->disallowedDomains);
+		return new Constraint\Set(
+			new Constraint('minLength', $this->meetsMinimumLength(...), $this->minLength),
+			new Constraint('maxLength', $this->meetsMaximumLength(...), $this->maxLength),
+			new Constraint('allowedDomains', $this->validateAllowedDomains(...), $this->allowedDomains),
+			new Constraint('disallowedDomains', $this->validateDisallowedDomains(...), $this->disallowedDomains),
+		);
 	}
 
-	protected function getConstraints(): array
+	private function meetsMinimumLength(string $value): bool
 	{
-		return [];
+		return mb_strlen($value) >= $this->minLength;
 	}
 
-	private function validateAllowedDomains(mixed $value): bool
+	private function meetsMaximumLength(string $value): ?bool
+	{
+		if ($this->maxLength === null) {
+			return null;
+		}
+
+		return mb_strlen($value) <= $this->maxLength;
+	}
+
+	private function validateAllowedDomains(string $value): bool
 	{
 		if (empty($this->allowedDomains)) {
 			return true;
 		}
 
-		foreach ($this->allowedDomains as $domain) {
-			if (self::matchesDomainPattern($value, $domain)) {
-				return true;
-			}
-		}
-
-		return false;
+		return array_filter($this->allowedDomains, fn($domain) => self::matchesDomainPattern($value, $domain)) !== [];
 	}
 
-	private function validateDisallowedDomains(mixed $value): bool
+	private function validateDisallowedDomains(string $value): bool
 	{
 		if (empty($this->disallowedDomains)) {
 			return true;
 		}
 
-		foreach ($this->disallowedDomains as $domain) {
-			if (self::matchesDomainPattern($value, $domain)) {
-				return false;
-			}
-		}
-
-		return true;
+		return array_filter($this->disallowedDomains, fn($domain) => self::matchesDomainPattern($value, $domain)) === [];
 	}
 
 	private static function matchesDomainPattern(string $email, string $pattern): bool

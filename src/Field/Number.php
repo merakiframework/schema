@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Field;
 
-use Meraki\Schema\Field\Atomic as AtomicField;
+use Meraki\Schema\Field;
 use Meraki\Schema\Property;
 use Brick\Math\RoundingMode;
 use Brick\Math\BigDecimal;
@@ -25,9 +25,9 @@ use TypeError;
  * constraint. It used to fail the shape check instead, which reported "must be a number"
  * about a value that plainly was one.
  *
- * @extends AtomicField<float|int|string|null>
+ * @extends Field<float|int|string|null>
  */
-final class Number extends AtomicField
+final class Number extends Field
 {
 	/** `null` means unbounded, rather than a float sentinel no message could usefully print. */
 	public private(set) ?BigDecimal $minValue = null;

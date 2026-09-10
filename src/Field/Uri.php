@@ -3,7 +3,6 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Field;
 
-use Meraki\Schema\Field\Atomic as AtomicField;
 use Meraki\Schema\Field;
 use Meraki\Schema\Property;
 use InvalidArgumentException;
@@ -11,12 +10,12 @@ use Uri\Rfc3986\Uri as Rfc3986Uri;
 use Uri\InvalidUriException;
 
 /**
- * @extends AtomicField<string|null>
+ * @extends Field<string|null>
  * @todo allow for use of different uri/url standards (e.g. whatwg)
  * @todo allow for specifying the "kind" of URI (e.g. "IRI" or "URI" or "URL" or "URN".)
  * @todo allow for specifying the "type" of URI, (e.g. "absolute" or "relative" or "network-path" or "scheme-relative".)
  */
-final class Uri extends AtomicField
+final class Uri extends Field
 {
 	public private(set) int $minLength = 0;
 

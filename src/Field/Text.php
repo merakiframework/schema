@@ -3,14 +3,14 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Field;
 
-use Meraki\Schema\Field\Atomic as AtomicField;
+use Meraki\Schema\Field;
 use Meraki\Schema\Property;
 use InvalidArgumentException;
 
 /**
- * @extends AtomicField<string|null>
+ * @extends Field<string|null>
  */
-final class Text extends AtomicField
+final class Text extends Field
 {
 	/**
 	 * The minimum number of characters allowed in the string. Defaults to 0.
@@ -56,10 +56,6 @@ final class Text extends AtomicField
 		}
 
 		return clone($this, ['minLength' => $characters]);
-
-		// $this->minLength = $characters;
-
-		// return $this;
 	}
 
 	/**
@@ -71,9 +67,7 @@ final class Text extends AtomicField
 	public function maxLengthOf(?int $characters): self
 	{
 		if ($characters === null) {
-			$this->maxLength = null;
-
-			return $this;
+			return clone($this, ['maxLength' => null]);
 		}
 
 		if ($characters < 0) {
@@ -85,10 +79,6 @@ final class Text extends AtomicField
 		}
 
 		return clone($this, ['maxLength' => $characters]);
-
-		// $this->maxLength = $characters;
-
-		// return $this;
 	}
 
 	/**
@@ -101,10 +91,6 @@ final class Text extends AtomicField
 		$this->assertValidRegex($regex);
 
 		return clone($this, ['pattern' => $regex]);
-
-		// $this->pattern = $regex;
-
-		// return $this;
 	}
 
 	private function assertValidRegex(?string $regex): void
@@ -138,10 +124,6 @@ final class Text extends AtomicField
 			new Constraint('maxLength', $this->meetsMaximumLength(...), $this->maxLength),
 			new Constraint('pattern', $this->matchesPattern(...), $this->pattern),
 		);
-		// return (new Constraint\Set())
-		// 	->add('minLength', $this->meetsMinimumLength(...), $this->minLength)
-		// 	->add('maxLength', $this->meetsMaximumLength(...), $this->maxLength)
-		// 	->add('pattern', $this->matchesPattern(...), $this->pattern);
 	}
 
 	private function meetsMinimumLength(string $value): bool
@@ -158,9 +140,4 @@ final class Text extends AtomicField
 	{
 		return $this->pattern === null ? null : preg_match($this->pattern, $value) === 1;
 	}
-
-	// protected function getConstraints(): array
-	// {
-	// 	return [];
-	// }
 }

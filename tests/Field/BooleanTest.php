@@ -4,7 +4,6 @@ declare(strict_types=1);
 namespace Meraki\Schema\Field;
 
 use Meraki\Schema\Field\Boolean;
-use Meraki\Schema\Field\Atomic;
 use Meraki\Schema\Property\Name;
 use Meraki\Schema\FieldTestCase;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -26,14 +25,6 @@ final class BooleanTest extends FieldTestCase
 		$field = $this->createField();
 
 		$this->assertSame('test', $field->name->value);
-	}
-
-	#[Test]
-	public function it_is_an_atomic_field(): void
-	{
-		$field = $this->createField();
-
-		$this->assertInstanceOf(Atomic::class, $field);
 	}
 
 	#[Test]

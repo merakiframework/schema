@@ -3,15 +3,14 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Field;
 
-use Meraki\Schema\Field\Atomic as AtomicField;
 use Meraki\Schema\Field;
 use Meraki\Schema\Property;
 use InvalidArgumentException;
 
 /**
- * @extends AtomicField<string|null>
+ * @extends Field<string|null>
  */
-final class Passphrase extends AtomicField
+final class Passphrase extends Field
 {
 	private const DEFAULT_ENTROPY = [
 		'standard' => [

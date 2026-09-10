@@ -7,7 +7,6 @@ use Meraki\Schema\Field\DateTime\PreservePrecision;
 use Meraki\Schema\Field\DateTime\TimePrecision;
 use Meraki\Schema\Field\DateTime\PrecisionCaster;
 use Meraki\Schema\Field\DateTime\TruncatePrecision;
-use Meraki\Schema\Field\Atomic as AtomicField;
 use Meraki\Schema\Field;
 use Meraki\Schema\Property;
 use Brick\Math\BigDecimal;
@@ -19,9 +18,9 @@ use Brick\DateTime\Duration;
 use InvalidArgumentException;
 
 /**
- * @extends AtomicField<string|null>
+ * @extends Field<string|null>
  */
-final class DateTime extends AtomicField
+final class DateTime extends Field
 {
 	public LocalDateTime $from;
 	public LocalDateTime $until;

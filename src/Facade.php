@@ -6,7 +6,6 @@ namespace Meraki\Schema;
 use Closure;
 use InvalidArgumentException;
 use Meraki\Schema\Field;
-use Meraki\Schema\Field\Atomic;
 use Meraki\Schema\Property;
 use Meraki\Schema\Rule;
 use Meraki\Schema\ValidationStatus;

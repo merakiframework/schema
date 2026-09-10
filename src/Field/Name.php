@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Field;
 
-use Meraki\Schema\Field\Atomic as AtomicField;
+use Meraki\Schema\Field;
 use Meraki\Schema\Property;
 
 /**
@@ -17,11 +17,11 @@ use Meraki\Schema\Property;
  *  - each "word" must be at least one character long
  *  - should use Roman Numerals to represent numbers (e.g. John Doe IV)
  *
- * @extends AtomicField<string|null>
+ * @extends Field<string|null>
  * @see https://www.w3.org/International/questions/qa-personal-names
  * @see https://shinesolutions.com/2018/01/08/falsehoods-programmers-believe-about-names-with-examples/
  */
-final class Name extends AtomicField
+final class Name extends Field
 {
 	private const PATTERN = "/^(?![\ \.\,\'\-]+$)[\p{L}\.\,\'\ \-]+$/u";
 

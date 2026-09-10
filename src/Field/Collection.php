@@ -18,9 +18,9 @@ use InvalidArgumentException;
  * Each item is validated individually against the template; `minItems`/`maxItems`
  * bound the list length.
  *
- * @extends Composite<list<array<string, mixed>>>
+ * @extends Field<list<array<string, mixed>>>
  */
-final class Collection extends Composite
+final class Collection extends Field
 {
 	public private(set) int $minItems = 0;
 	public private(set) ?int $maxItems = null;

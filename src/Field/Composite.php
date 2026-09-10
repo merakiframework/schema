@@ -8,7 +8,6 @@ use Meraki\Schema\Field\ValidationResult as FieldValidationResult;
 use Meraki\Schema\AggregatedValidationResult;
 use Meraki\Schema\ResolvedField;
 use Meraki\Schema\ValidationStatus;
-use Meraki\Schema\Field\Atomic as AtomicField;
 use Meraki\Schema\Property;
 use IteratorAggregate;
 use Countable;

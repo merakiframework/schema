@@ -3,14 +3,13 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Field;
 
-use Meraki\Schema\Field\Atomic as AtomicField;
 use Meraki\Schema\Field;
 use Meraki\Schema\Property;
 
 /**
- * @extends AtomicField<bool|null>
+ * @extends Field<bool|null>
  */
-final class Boolean extends AtomicField
+final class Boolean extends Field
 {
 	public private(set) bool $mustBeAccepted = false;
 

@@ -188,7 +188,7 @@ final class Factory
 	}
 
 	/**
-	 * @param list<Atomic> $alternatives
+	 * @param list<Field> $alternatives
 	 */
 	public function createVariantField(string $name, array $alternatives): Field\Variant
 	{

@@ -7,7 +7,6 @@ use Meraki\Schema\Field\Time\PrecisionCaster;
 use Meraki\Schema\Field\Time\Precision;
 use Meraki\Schema\Field\Time\PreservePrecision;
 use Meraki\Schema\Field\Time\TruncatePrecision;
-use Meraki\Schema\Field\Atomic as AtomicField;
 use Meraki\Schema\Field;
 use Meraki\Schema\Property;
 use Brick\DateTime\Duration;
@@ -24,9 +23,9 @@ use InvalidArgumentException;
  * The HTML standard does not have any time formats that have exact intersections
  * with the ISO 8601 and RFC 3339/9557 standards.
  *
- * @extends AtomicField<string|null>
+ * @extends Field<string|null>
  */
-final class Time extends AtomicField
+final class Time extends Field
 {
 	public LocalTime $from;
 

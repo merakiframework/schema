@@ -6,7 +6,6 @@ namespace Meraki\Schema\Field;
 use Meraki\Schema\Field\PhoneNumber;
 use Meraki\Schema\Field\PhoneNumber\Type;
 use Meraki\Schema\Property\Name;
-use Meraki\Schema\Field\Atomic as AtomicField;
 use Meraki\Schema\FieldTestCase;
 use libphonenumber\PhoneNumberUtil;
 use libphonenumber\PhoneNumberType;
@@ -31,14 +30,6 @@ final class PhoneNumberTest extends FieldTestCase
 		$field = $this->createField();
 
 		$this->assertSame('test', $field->name->value);
-	}
-
-	#[Test]
-	public function it_is_an_atomic_field(): void
-	{
-		$field = $this->createField();
-
-		$this->assertInstanceOf(AtomicField::class, $field);
 	}
 
 	#[Test]

@@ -3,7 +3,6 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Field;
 
-use Meraki\Schema\Field\Atomic as AtomicField;
 use Meraki\Schema\Field\PhoneNumber\Type;
 use Meraki\Schema\Field;
 use Meraki\Schema\Property;
@@ -21,9 +20,9 @@ use InvalidArgumentException;
  * countries a number may belong to. An optional number-type restriction (mobile,
  * landline, or either) can be applied on top.
  *
- * @extends AtomicField<string|null>
+ * @extends Field<string|null>
  */
-final class PhoneNumber extends AtomicField
+final class PhoneNumber extends Field
 {
 	/**
 	 * Allowed regions as ISO 3166-1 alpha-2 codes, upper-cased. Empty means
