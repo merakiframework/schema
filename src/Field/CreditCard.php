@@ -107,10 +107,7 @@ final readonly class CreditCard extends AtomicField
 	}
 
 	/**
-	 * @param array<string, mixed>|Value|null $value
-	 */
-	/**
-	 * @param array<string, mixed>|Value $value
+	 * @param object|Value $value a record of the card's parts, or a {@see Value} already built
 	 */
 	protected function parse(#[SensitiveParameter] mixed $value): ?Value
 	{

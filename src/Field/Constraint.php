@@ -29,8 +29,6 @@ final readonly class Constraint
 	 *        a message; null when there is nothing to interpolate, as for a PO-box check
 	 * @param string|null $part the part of a structured value this concerns, e.g. `postalCode`;
 	 *        null when it concerns the whole value
-	 */
-	/**
 	 * @param Closure(mixed): (string|int|float|bool|list<string>|null)|null $boundFor the bound
 	 *        that applies to a *particular* value, for a limit that only exists once you know what
 	 *        was submitted

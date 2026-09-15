@@ -1,13 +1,16 @@
 # Known limitations
 
 This page exists so you can decide whether to adopt `meraki/schema` with your eyes open.
-It is written from an audit of the library at `v1.13.0-alpha`, and every defect below has
-a reproducer you can paste into a script and run.
+Every defect below has a reproducer you can paste into a script and run.
+
+It began as an audit of `v1.13.0-alpha` and has been kept current since. Where a defect is
+fixed it says so and keeps the original description, because the record of what went wrong is
+worth more than a shorter page.
 
 The library is **pre-release**. See [ROADMAP.md](ROADMAP.md) for the release ladder and
 [the release verdict](ROADMAP.md#release-verdict) for why.
 
-- [Known defects](#known-defects) — [B9](#b9) is open; [B7](#b7) is fixed on `main`
+- [Known defects](#known-defects) — all fixed; kept as the record of what they were
 - [Design constraints](#design-constraints) — intentional behaviour that will surprise you
 - [Not yet implemented](#not-yet-implemented) — advertised but inert
 - [Rough edges](#rough-edges) — smaller API warts

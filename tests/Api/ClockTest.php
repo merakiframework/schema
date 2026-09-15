@@ -10,6 +10,8 @@ use Brick\DateTime\Clock\FixedClock;
 use Brick\DateTime\Instant;
 use Brick\DateTime\ZonedDateTime;
 use PHPUnit\Framework\TestCase;
+use ReflectionMethod;
+use ReflectionProperty;
 use PHPUnit\Framework\Attributes\CoversNothing;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\Attributes\Group;
@@ -52,6 +54,31 @@ final class ClockTest extends TestCase
 		$this->assertTrue(
 			self::instant(self::NOW)->isEqualTo($schema->resolve((object)['card' => (object)[]])->evaluatedAt),
 		);
+	}
+
+	/**
+	 * The per-request copy carries the clock, rather than quietly building a SystemClock.
+	 *
+	 * Latent when it was found: the request's instant is read from the original, and a field is a
+	 * shared instance that already holds its own clock, so nothing observed the difference. It
+	 * stops being latent the moment anything builds a field on the working copy — and it would
+	 * have surfaced as a fixed-clock test failing for a reason nobody would connect to
+	 * `copyForRequest()`.
+	 */
+	#[Test]
+	public function the_per_request_copy_inherits_the_schemas_clock(): void
+	{
+		$clock = $this->fixed();
+		$schema = (new Facade('checkout', clock: $clock))->for('AU');
+
+		$copy = (new ReflectionMethod($schema, 'copyForRequest'))->invoke($schema);
+
+		$this->assertSame($clock, (new ReflectionProperty(Facade::class, 'clock'))->getValue($copy));
+
+		// And the country defaults, for the same reason: a field built on the copy must be the
+		// field the author would have got from the original.
+		$this->assertSame(['AU'], $copy->createAddressField('billing')->allowedCountries);
+		$this->assertSame($clock, $copy->createCreditCardField('card')->clock);
 	}
 
 	#[Test]

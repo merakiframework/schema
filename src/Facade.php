@@ -55,11 +55,11 @@ final class Facade
 	}
 
 	/**
-	 * Registers a field. Build it with {@see \Meraki\Schema\Field\Factory} and finish
-	 * configuring it first — a field is sealed, so anything done to it afterwards produces a
-	 * copy this schema does not hold.
+	 * Registers a field. Build it with one of the `create*Field()` methods this schema carries —
+	 * see {@see Field\BuildsFields} — and finish configuring it first, because a field is sealed
+	 * and anything done to it afterwards produces a copy this schema does not hold.
 	 *
-	 *     $schema->add($fields->createTextField('username')->minLengthOf(3));
+	 *     $schema->add($schema->createTextField('username')->minLengthOf(3));
 	 */
 	public function add(Field ...$fields): self
 	{
@@ -254,7 +254,16 @@ final class Facade
 	 */
 	private function copyForRequest(): self
 	{
-		return new self((string) $this->name, $this->fields, $this->rules);
+		// The clock and the country defaults come too. Dropping them was harmless while nothing
+		// built a field on the copy — the request's instant is read from this schema, and the
+		// fields are shared instances that already hold their own clock — but it is the kind of
+		// harmless that stops being harmless silently: the copy constructed a SystemClock, so a
+		// test pinned to a FixedClock would have started failing for a reason nobody would
+		// connect to this line.
+		$copy = new self((string) $this->name, $this->fields, $this->rules, $this->clock);
+		$copy->defaultCountries = $this->defaultCountries;
+
+		return $copy;
 	}
 
 	/**

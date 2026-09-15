@@ -40,9 +40,13 @@ trait BuildsFields
 	/**
 	 * Countries that region-aware fields default to, as ISO 3166-1 alpha-2 codes.
 	 *
+	 * `protected` rather than `private`, and that is the extension point: a field type defined
+	 * outside this package has no other way to inherit what {@see self::for()} declared, so
+	 * without it a third-party region-aware field is second-class in a way its author cannot fix.
+	 *
 	 * @var array<string>
 	 */
-	private array $defaultCountries = [];
+	protected array $defaultCountries = [];
 
 	/**
 	 * Where *now* comes from, for the fields that ask.
@@ -53,8 +57,12 @@ trait BuildsFields
 	 *
 	 * A *source* of the instant, never an instant. See {@see CreditCard} for why that distinction
 	 * is the whole point.
+	 *
+	 * `protected` for the same reason as {@see self::$defaultCountries}: a third-party field whose
+	 * constraints ask what time it is has to be able to take the schema's clock, or it cannot be
+	 * tested against a {@see \Brick\DateTime\Clock\FixedClock} the way every built-in can.
 	 */
-	private Clock $clock;
+	protected Clock $clock;
 
 	/**
 	 * Declares the countries this schema is for, so region-aware fields need not repeat them:

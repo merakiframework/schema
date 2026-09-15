@@ -19,13 +19,16 @@ use TypeError;
  * anything else that merely looks numeric — those are strings that happen to be digits, and
  * leading zeros matter in them.
  *
- * `$scale` fixes how many digits follow the decimal point. It is a *normalisation*, not a
- * restriction on what may be entered: `123` and `123.00` are the same number, so a scale-2
- * field accepts `123` and {@see self::transform()} yields `123.00`. What was submitted is
- * reported back unchanged, so a rejected form echoes what the user typed. A value that could
- * not be expressed at that scale without discarding information — `123.456` at scale 2 —
- * fails the `scale` constraint. It used to fail the shape check instead, which reported "must
+ * `$scale` says how many digits may follow the decimal point. It is a *restriction*, not a
+ * normalisation: `123` and `123.00` are the same number, so a scale-2 field accepts both, and a
+ * value that could not be held at that scale without discarding information — `123.456` at scale
+ * 2 — fails the `scale` constraint. It used to fail the shape check instead, which reported "must
  * be a number" about a value that plainly was one.
+ *
+ * **Nothing here pads.** A field that yielded `123.00` for `123` was planned and never built; see
+ * `transformed` in docs/ROADMAP.md. {@see Number\Value} holds the number as written, and the scale
+ * is on the field for a consumer that wants to format against it — which is where formatting
+ * belongs anyway, since how a number is written is a locale's business.
  *
  * @extends AtomicField<float|int|string|null>
  */
@@ -119,23 +122,6 @@ final readonly class Number extends AtomicField
 			return null;
 		}
 	}
-
-	/**
-	 * The number as written, unpadded.
-	 *
-	 * Not padded to `$scale`, because {@see self::checkScale()} runs after this and needs to see
-	 * how many decimal places were actually submitted — padding first would leave it nothing to
-	 * check. Consumers get the padded form from {@see self::normalize()}.
-	 */
-
-	/**
-	 * The number at this field's scale, so a scale-2 field yields `123.00` for `123`.
-	 *
-	 * Safe to pad here and not in {@see self::transform()}: this runs only on a value that
-	 * passed, so the `scale` constraint has already established the padding discards nothing.
-	 * `UNNECESSARY` therefore cannot raise, and says so rather than silently rounding if that
-	 * assumption ever stops holding.
-	 */
 
 	protected function defineConstraints(): Constraint\Set
 	{

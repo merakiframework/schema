@@ -13,7 +13,12 @@ use Meraki\Schema\Scope;
  * each of its methods turns that scope plus an expected value into a {@see Condition}. The
  * other half is {@see Draft}, which is what a condition becomes once outcomes are attached.
  *
- *     $schema->when($age)->isAtLeast(18)->thenRequire($licence)
+ *     $schema->when($plan)->equals('pro')->thenRequire($billingAddress)
+ *
+ * Only `equals` and `notEquals` exist so far. The comparison verbs — `isAtLeast`,
+ * `isGreaterThan` and the rest — are in docs/ROADMAP.md, and {@see \Meraki\Schema\Field\Comparable}
+ * is the half of them that is already here: each is that interface's `compareTo()` against zero,
+ * so they are written once rather than once per field type.
  *
  * Reading as a sentence is the point, but it is not the only one. Every matcher corresponds to
  * a condition class and a serialized `type`, so a rule written this way can be written to JSON
