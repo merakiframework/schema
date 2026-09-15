@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Field\Name;
 
+use Meraki\Schema\Comparison\Equality;
 use Meraki\Schema\Field\ParsedValue;
 
 /**
@@ -23,7 +24,7 @@ final readonly class Value implements ParsedValue
 	{
 	}
 
-	public function equals(ParsedValue $other): bool
+	public function equals(Equality $other): bool
 	{
 		return $other instanceof self && $this->name === $other->name;
 	}

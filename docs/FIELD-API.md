@@ -144,9 +144,37 @@ memoised formatted string added in some later release would silently make equal 
 nothing here changed and no test obviously breaking.
 
 So every field defines its own value class, and that class is the authority on its own equality.
-[`Field\ParsedValue`](../src/Field/ParsedValue.php) is the contract; [`Field\Comparable`](../src/Field/Comparable.php)
-adds ordering for the values that have one — numbers, dates, times, durations — and is what the
-comparison matchers will be written against.
+
+The vocabulary lives in `Meraki\Schema\Comparison\`, not in `Field\`, because "are these the same
+value" is not a question about fields — [`Collection`](../src/Field/Collection.php)'s `unique`
+constraint asks it with no rule in sight:
+
+| | |
+| --- | --- |
+| [`Comparison\Equality`](../src/Comparison/Equality.php) | `equals()` — the capability |
+| [`Comparison\Comparable`](../src/Comparison/Comparable.php) | `compareTo(): Order` — adds an order, extends `Equality` |
+| [`Comparison\Order`](../src/Comparison/Order.php) | `Less \| Equal \| Greater`, with `isAtLeast()` and friends |
+| [`Field\ParsedValue`](../src/Field/ParsedValue.php) | the **role** — what `parse()` returns. Extends `Equality` and declares nothing of its own |
+
+`ParsedValue` stays under `Field\` because it is the field contract, the literal return type of the
+one hook. The three capabilities sit where a caller can reach them without knowing this library has
+fields at all.
+
+**Fields do not implement any of them.** A field is a definition, and `Field::equals()` already
+means something else — "the same field, by name". A rule comparing two fields compares the values
+they resolved to, never the definitions.
+
+Six values are ordered — `Number`, `Date`, `DateTime`, `Time`, `Duration` and `Money` — and the
+rest are equatable only: two addresses can be the same address, and neither is before the other.
+Money is ordered *within* a currency and raises across one, because ranking AUD against USD needs
+an exchange rate, which is a fact about a moment in the market rather than about either amount.
+
+```php
+$a->compareTo($b)->isAtLeast();   // rather than  $a->compareTo($b) >= 0
+```
+
+That is the whole of what the comparison matchers need: each is `compareTo()` and a question put to
+the `Order`, so they are written once against the interface rather than once per field type.
 
 **Scalars are wrapped too.** `===` on a string is already right, so `Text\Value` buys nothing by
 itself. What it buys is that nothing downstream ever branches on whether a value happens to be an

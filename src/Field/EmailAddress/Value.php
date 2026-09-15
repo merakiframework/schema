@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Field\EmailAddress;
 
+use Meraki\Schema\Comparison\Equality;
 use Meraki\Schema\Field\ParsedValue;
 /**
  * One email address, split at the `@` and canonicalised.
@@ -46,7 +47,7 @@ final readonly class Value implements ParsedValue
 	 * not, since RFC 5321 leaves its case to the receiving server and folding it would merge two
 	 * mailboxes that a server is entitled to treat as different.
 	 */
-	public function equals(ParsedValue $other): bool
+	public function equals(Equality $other): bool
 	{
 		return $other instanceof self
 			&& $this->localPart === $other->localPart

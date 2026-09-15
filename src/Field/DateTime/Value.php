@@ -3,7 +3,9 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Field\DateTime;
 
-use Meraki\Schema\Field\Comparable;
+use Meraki\Schema\Comparison\Equality;
+use Meraki\Schema\Comparison\Order;
+use Meraki\Schema\Comparison\Comparable;
 use Meraki\Schema\Field\ParsedValue;
 use Brick\DateTime\LocalDateTime;
 use InvalidArgumentException;
@@ -20,13 +22,13 @@ use InvalidArgumentException;
  * {@see self::$dateTime}. What this adds is a definition of sameness, and an order, that the
  * library owns.
  */
-final readonly class Value implements Comparable
+final readonly class Value implements ParsedValue, Comparable
 {
 	public function __construct(public LocalDateTime $dateTime)
 	{
 	}
 
-	public function equals(ParsedValue $other): bool
+	public function equals(Equality $other): bool
 	{
 		return $other instanceof self && $this->dateTime->isEqualTo($other->dateTime);
 	}
@@ -34,13 +36,13 @@ final readonly class Value implements Comparable
 	/**
 	 * @throws InvalidArgumentException if the other value is not a date and time
 	 */
-	public function compareTo(Comparable $other): int
+	public function compareTo(Comparable $other): Order
 	{
 		if (!$other instanceof self) {
 			throw new InvalidArgumentException('A date and time can only be ordered against another date and time.');
 		}
 
-		return $this->dateTime->compareTo($other->dateTime);
+		return Order::of($this->dateTime->compareTo($other->dateTime));
 	}
 
 	public function __toString(): string

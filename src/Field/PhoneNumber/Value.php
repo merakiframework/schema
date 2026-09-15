@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Field\PhoneNumber;
 
+use Meraki\Schema\Comparison\Equality;
 use Meraki\Schema\Field\ParsedValue;
 use libphonenumber\PhoneNumber as LibPhoneNumber;
 use libphonenumber\PhoneNumberFormat;
@@ -11,7 +12,7 @@ use libphonenumber\PhoneNumberUtil;
 /**
  * One telephone number, as this library compares it.
  *
- * {@see ParsedValue} but deliberately **not** {@see \Meraki\Schema\Field\Comparable}: phone numbers
+ * {@see ParsedValue} but deliberately **not** {@see \Meraki\Schema\Comparison\Comparable}: phone numbers
  * have no order. One is not before another, and sorting them by their digits would be inventing a
  * relationship nobody asked for.
  *
@@ -37,7 +38,7 @@ final readonly class Value implements ParsedValue
 	 * The country is carried by E.164 itself — the calling code is part of it — so there is no
 	 * second half to compare, unlike {@see \Meraki\Schema\Field\Money\Value}.
 	 */
-	public function equals(ParsedValue $other): bool
+	public function equals(Equality $other): bool
 	{
 		return $other instanceof self && $this->toE164() === $other->toE164();
 	}

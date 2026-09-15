@@ -5,7 +5,7 @@ namespace Meraki\Schema\Rule\Condition;
 
 use Meraki\Schema\Facade;
 use Meraki\Schema\Field;
-use Meraki\Schema\Field\Equality;
+use Meraki\Schema\Comparison\Values;
 use Meraki\Schema\FieldResult;
 use Meraki\Schema\Rule\Condition;
 use Meraki\Schema\Scope;
@@ -67,7 +67,7 @@ abstract class Comparison implements Condition
 	 */
 	final protected function pointsAtTheExpectedValue(array $data, Facade $schema): bool
 	{
-		return Equality::same(
+		return Values::same(
 			(new ScopeResolver($schema, $data))->resolve($this->scope),
 			$this->expectedAsTheFieldWouldReadIt($schema),
 		);

@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Field\CreditCard;
 
+use Meraki\Schema\Comparison\Equality;
 use Meraki\Schema\Field\ParsedValue;
 use Brick\DateTime\LocalDate;
 use Brick\DateTime\DateTimeException;
@@ -68,7 +69,7 @@ final readonly class Value implements ParsedValue
 	 * The number is compared in full, having already had its spacing stripped on the way in, so
 	 * `4014 1828 2909 8807` and `4014182829098807` are one card.
 	 */
-	public function equals(ParsedValue $other): bool
+	public function equals(Equality $other): bool
 	{
 		return $other instanceof self
 			&& $this->number === $other->number

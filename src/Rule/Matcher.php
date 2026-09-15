@@ -16,7 +16,7 @@ use Meraki\Schema\Scope;
  *     $schema->when($plan)->equals('pro')->thenRequire($billingAddress)
  *
  * Only `equals` and `notEquals` exist so far. The comparison verbs — `isAtLeast`,
- * `isGreaterThan` and the rest — are in docs/ROADMAP.md, and {@see \Meraki\Schema\Field\Comparable}
+ * `isGreaterThan` and the rest — are in docs/ROADMAP.md, and {@see \Meraki\Schema\Comparison\Comparable}
  * is the half of them that is already here: each is that interface's `compareTo()` against zero,
  * so they are written once rather than once per field type.
  *

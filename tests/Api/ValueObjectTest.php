@@ -4,7 +4,8 @@ declare(strict_types=1);
 namespace Meraki\Schema\Api;
 
 use Meraki\Schema\Field;
-use Meraki\Schema\Field\Comparable;
+use Meraki\Schema\Comparison\Comparable;
+use Meraki\Schema\Comparison\Order;
 use Meraki\Schema\Field\ParsedValue;
 use Meraki\Schema\FieldName;
 use PHPUnit\Framework\Attributes\CoversNothing;
@@ -139,8 +140,13 @@ final class ValueObjectTest extends TestCase
 
 		$second = $field->resolvedValueFor($accepted);
 
-		$this->assertSame(0, $first->compareTo($second));
+		$this->assertSame(Order::Equal, $first->compareTo($second));
 		$this->assertTrue($first->equals($second));
+
+		// The two readings of "the same" must agree, or nothing built on either means anything.
+		$this->assertTrue($first->compareTo($second)->isEqual());
+		$this->assertTrue($first->compareTo($second)->isAtLeast());
+		$this->assertTrue($first->compareTo($second)->isAtMost());
 	}
 
 	/**
@@ -158,6 +164,45 @@ final class ValueObjectTest extends TestCase
 		$this->expectException(\InvalidArgumentException::class);
 
 		$number->compareTo($date);
+	}
+
+	/**
+	 * Money is ordered *within* a currency and not across one.
+	 *
+	 * The case that makes raising the right contract rather than a cop-out: an `isAtLeast` on a
+	 * money field is an obviously wanted rule, so the type has to be orderable — but ranking AUD
+	 * against USD needs an exchange rate, which is a fact about a moment in the market rather than
+	 * about either amount.
+	 */
+	#[Test]
+	public function money_is_ordered_within_a_currency(): void
+	{
+		$field = new Field\Money(new FieldName('cost'), ['AUD' => 2, 'USD' => 2]);
+
+		$cheap = $field->resolvedValueFor((object) ['currency' => 'AUD', 'amount' => '5.00']);
+		$dear = $field->resolvedValueFor((object) ['currency' => 'AUD', 'amount' => '12.50']);
+
+		$this->assertSame(Order::Less, $cheap->compareTo($dear));
+		$this->assertSame(Order::Greater, $dear->compareTo($cheap));
+		$this->assertTrue($dear->compareTo($cheap)->isAtLeast());
+	}
+
+	#[Test]
+	public function money_in_two_currencies_cannot_be_ordered(): void
+	{
+		$field = new Field\Money(new FieldName('cost'), ['AUD' => 2, 'USD' => 2]);
+
+		$aud = $field->resolvedValueFor((object) ['currency' => 'AUD', 'amount' => '5.00']);
+		$usd = $field->resolvedValueFor((object) ['currency' => 'USD', 'amount' => '5.00']);
+
+		// Asking whether they are the *same* is fine and answers no; asking which is larger is not
+		// a question with an answer.
+		$this->assertFalse($aud->equals($usd));
+
+		$this->expectException(\InvalidArgumentException::class);
+		$this->expectExceptionMessage('exchange rate');
+
+		$aud->compareTo($usd);
 	}
 
 	/**

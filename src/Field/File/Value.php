@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Field\File;
 
+use Meraki\Schema\Comparison\Equality;
 use Meraki\Schema\Field\ParsedValue;
 use InvalidArgumentException;
 
@@ -65,7 +66,7 @@ final readonly class Value implements ParsedValue
 	 * The type is what the *client* claimed — see this class's own warning about that — so this is
 	 * an identity for form purposes and not a statement that two files have the same content.
 	 */
-	public function equals(ParsedValue $other): bool
+	public function equals(Equality $other): bool
 	{
 		return $other instanceof self
 			&& $this->name === $other->name

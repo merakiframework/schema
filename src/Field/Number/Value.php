@@ -3,7 +3,9 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Field\Number;
 
-use Meraki\Schema\Field\Comparable;
+use Meraki\Schema\Comparison\Equality;
+use Meraki\Schema\Comparison\Order;
+use Meraki\Schema\Comparison\Comparable;
 use Meraki\Schema\Field\ParsedValue;
 use Brick\Math\BigDecimal;
 use InvalidArgumentException;
@@ -21,7 +23,7 @@ use InvalidArgumentException;
  * scale are all still Brick's, and anything downstream that wants them reads {@see self::$number}.
  * What the wrapper adds is a definition of sameness the library owns.
  */
-final readonly class Value implements Comparable
+final readonly class Value implements ParsedValue, Comparable
 {
 	public function __construct(public BigDecimal $number)
 	{
@@ -31,7 +33,7 @@ final readonly class Value implements Comparable
 	 * Numerically, so `12.50` and `12.5` are one number. Trailing zeros are how a value was
 	 * written, not what it is worth.
 	 */
-	public function equals(ParsedValue $other): bool
+	public function equals(Equality $other): bool
 	{
 		return $other instanceof self && $this->number->isEqualTo($other->number);
 	}
@@ -39,13 +41,13 @@ final readonly class Value implements Comparable
 	/**
 	 * @throws InvalidArgumentException if the other value is not a number
 	 */
-	public function compareTo(Comparable $other): int
+	public function compareTo(Comparable $other): Order
 	{
 		if (!$other instanceof self) {
 			throw new InvalidArgumentException('A number can only be ordered against another number.');
 		}
 
-		return $this->number->compareTo($other->number);
+		return Order::of($this->number->compareTo($other->number));
 	}
 
 	/**

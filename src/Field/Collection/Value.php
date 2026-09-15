@@ -3,7 +3,8 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Field\Collection;
 
-use Meraki\Schema\Field\Equality;
+use Meraki\Schema\Comparison\Equality;
+use Meraki\Schema\Comparison\Values;
 use Meraki\Schema\Field\ParsedValue;
 use Countable;
 use IteratorAggregate;
@@ -49,7 +50,7 @@ final readonly class Value implements ParsedValue, IteratorAggregate, Countable
 	 * same invoice, and deciding they were would be this object inventing a rule the author never
 	 * asked for. An author who wants order-insensitivity has a set, and can say so by naming rows.
 	 */
-	public function equals(ParsedValue $other): bool
+	public function equals(Equality $other): bool
 	{
 		if (!$other instanceof self || array_keys($this->rows) !== array_keys($other->rows)) {
 			return false;
@@ -189,7 +190,7 @@ final readonly class Value implements ParsedValue, IteratorAggregate, Countable
 		if (!$a instanceof \stdClass || !$b instanceof \stdClass) {
 			// One of them was not a record. Such a row is kept verbatim so it can fail on its own
 			// terms, and comparing it is the most this can honestly do.
-			return Equality::same($a, $b);
+			return Values::same($a, $b);
 		}
 
 		$left = get_object_vars($a);
@@ -200,7 +201,7 @@ final readonly class Value implements ParsedValue, IteratorAggregate, Countable
 		}
 
 		foreach ($left as $field => $value) {
-			if (!Equality::same($value, $right[$field])) {
+			if (!Values::same($value, $right[$field])) {
 				return false;
 			}
 		}

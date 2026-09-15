@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Field\Address;
 
+use Meraki\Schema\Comparison\Equality;
 use Meraki\Schema\Field\ParsedValue;
 
 /**
@@ -93,7 +94,7 @@ final readonly class Value implements ParsedValue
 	 * That is an address-normalisation problem, it is locale-specific and genuinely hard, and
 	 * guessing at it would silently merge two distinct addresses.
 	 */
-	public function equals(ParsedValue $other): bool
+	public function equals(Equality $other): bool
 	{
 		return $other instanceof self
 			&& $this->organization === $other->organization

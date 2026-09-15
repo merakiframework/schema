@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Field\Password;
 
+use Meraki\Schema\Comparison\Equality;
 use Meraki\Schema\Field\ParsedValue;
 use SensitiveParameter;
 
@@ -42,7 +43,7 @@ final readonly class Value implements ParsedValue
 	 * same string" for a collection deciding whether two rows repeat; verifying a password against
 	 * a stored hash is `password_verify()`'s job, which is constant-time where this is not.
 	 */
-	public function equals(ParsedValue $other): bool
+	public function equals(Equality $other): bool
 	{
 		return $other instanceof self && $this->secret === $other->secret;
 	}

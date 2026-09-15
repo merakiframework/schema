@@ -3,6 +3,9 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Field\Money;
 
+use Meraki\Schema\Comparison\Comparable;
+use Meraki\Schema\Comparison\Equality;
+use Meraki\Schema\Comparison\Order;
 use Meraki\Schema\Field\ParsedValue;
 use Brick\Math\BigDecimal;
 use Brick\Math\Exception\MathException;
@@ -31,7 +34,7 @@ use TypeError;
  * here would be wrong in most of the world. An application that wants a string asks for one, from
  * something that knows the locale.
  */
-final readonly class Value implements ParsedValue
+final readonly class Value implements ParsedValue, Comparable
 {
 	/**
 	 * @param string $currency ISO 4217 alpha-3, upper-cased
@@ -55,14 +58,48 @@ final readonly class Value implements ParsedValue
 	 * `BigDecimal` keeps the scale it was given, so `==` would call them different. The currency is
 	 * compared exactly; it is already upper-cased by then.
 	 *
-	 * This is the only value object that needs the method. The others hold strings, dates and
-	 * integers, where structural comparison is already the right answer.
+	 * Money in two currencies is never the same money, and asking is not a mistake — so this
+	 * answers `false` where {@see self::compareTo()} raises. "Is 5 USD the same as 5 AUD" has an
+	 * obvious answer; "which of them is larger" does not.
 	 */
-	public function equals(ParsedValue $other): bool
+	public function equals(Equality $other): bool
 	{
 		return $other instanceof self
 			&& $this->currency === $other->currency
 			&& $this->amount->isEqualTo($other->amount);
+	}
+
+	/**
+	 * Which is the larger amount — **within one currency only**.
+	 *
+	 * Two amounts in different currencies are not ordered. Ranking them needs an exchange rate,
+	 * which is a fact about a moment in the market rather than about either value, and inventing
+	 * one here would make `isAtLeast` quietly wrong rather than loudly unanswerable.
+	 *
+	 * Raising is already this interface's contract for "these cannot be compared" — a number
+	 * refuses to be ordered against a date the same way. That is what lets money be
+	 * {@see Comparable} at all: an `isAtLeast` on a money field is an obviously wanted rule, and
+	 * excluding the whole type to avoid one raising case would have cost more than it saved.
+	 *
+	 * @throws InvalidArgumentException if the other value is not money, or is money in another
+	 *         currency
+	 */
+	public function compareTo(Comparable $other): Order
+	{
+		if (!$other instanceof self) {
+			throw new InvalidArgumentException('An amount of money can only be ordered against money.');
+		}
+
+		if ($this->currency !== $other->currency) {
+			throw new InvalidArgumentException(sprintf(
+				'%s and %s cannot be ordered: ranking them needs an exchange rate, which is not a '
+				. 'property of either amount.',
+				$this->currency,
+				$other->currency,
+			));
+		}
+
+		return Order::of($this->amount->compareTo($other->amount));
 	}
 
 	/**
