@@ -33,8 +33,8 @@ class Rule
 	 * Decides which branch fires, and reports the outcomes in it.
 	 *
 	 * Nothing is applied here. An outcome is an operation on a field, and finding the field
-	 * belongs to whoever holds the schema — {@see Rule\Set::apply()} — so this stays a
-	 * question about the data and changes nothing.
+	 * belongs to whoever holds the schema — {@see Facade} does it, in `applyRules()` — so this
+	 * stays a question about the data and changes nothing.
 	 *
 	 * Reporting what fired is what lets a result say *why* a field is optional. Without it the
 	 * only way to find out is to evaluate every rule again, which is what `meraki/schema-html`

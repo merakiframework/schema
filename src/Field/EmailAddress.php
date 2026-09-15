@@ -21,7 +21,7 @@ use InvalidArgumentException;
  * `.jane@example.test` are **accepted** — the WHATWG grammar does not restrict dot placement in
  * the local part, and diverging there would mean disagreeing with the browser. But the
  * specification's pattern cannot express a length limit on a repeated group, so the 64-octet
- * local part from RFC 5321 is checked separately; see {@see self::validateValue()}.
+ * local part from RFC 5321 is checked separately, in {@see self::parse()}.
  *
  * @extends AtomicField<string|null>
  *

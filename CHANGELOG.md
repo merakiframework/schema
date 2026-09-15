@@ -10,6 +10,10 @@ is a commit subject, with the body kept because the body is where the reasoning 
 
 ## Unreleased
 
+### Regenerate the changelog after the merge
+
+`805bf1ac` · 2026-09-15
+
 ### Rewrite the README for 2.0, and add the missing docs
 
 `5da537af` · 2026-09-15

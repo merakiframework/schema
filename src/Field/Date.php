@@ -23,7 +23,14 @@ final readonly class Date extends AtomicField
 	/** Inclusive. */
 	public LocalDate $from;
 
-	/** Exclusive — see {@see self::to()} for the inclusive form. */
+	/**
+	 * Exclusive: a date equal to this one is *out* of range.
+	 *
+	 * There used to be an inclusive `to()` beside it, and it is gone — both reported under the
+	 * name `until`, so a result could not say which had been declared. Two behaviours sharing one
+	 * constraint name is worse than two names for one behaviour. An inclusive bound is this one
+	 * plus a day, which the author writes.
+	 */
 	public LocalDate $until;
 
 	public Period $interval;

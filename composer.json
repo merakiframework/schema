@@ -68,11 +68,13 @@
             "@analyse",
             "@test:coverage",
             "@test:examples",
+            "@test:references",
             "@test:changelog"
         ],
         "test:examples": "php tools/check-examples.php",
         "changelog": "php tools/changelog.php",
-        "test:changelog": "php tools/changelog.php --check"
+        "test:changelog": "php tools/changelog.php --check",
+        "test:references": "php tools/check-references.php"
     },
     "extra": {
         "branch-alias": {
@@ -85,6 +87,7 @@
         "analyse": "Run PHPStan.",
         "ci": "Run everything CI runs, in the same order.",
         "changelog": "Regenerate CHANGELOG.md from the commit history.",
-        "test:changelog": "Fail if CHANGELOG.md is out of date."
+        "test:changelog": "Fail if CHANGELOG.md is out of date.",
+        "test:references": "Fail if any {@see} in src/ points at something that does not exist."
     }
 }

@@ -10,7 +10,7 @@ namespace Meraki\Schema;
  * value has structure reports something richer: {@see Field\Collection\Result} carries the
  * collection's own verdicts *and* a result per item, so a failure can say which item failed.
  *
- * This exists so {@see SchemaValidationResult::get()} can find a field's outcome by name without
+ * This exists so {@see SchemaValidationResult::forField()} can find a field's outcome by name without
  * knowing which shape it is. The version before it tested for each concrete result class in turn,
  * which meant every new structured type had to be added to that list before it could be looked up.
  */

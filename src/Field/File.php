@@ -190,9 +190,9 @@ final readonly class File extends AtomicField
 	/**
 	 * Turns what was submitted into a {@see Value}.
 	 *
-	 * Input that cannot be one is passed through untouched rather than rejected here, so
-	 * {@see self::validateValue()} reports it as a shape failure with everything else —
-	 * throwing from here would raise on a *definition* being built, not on the request.
+	 * Input that cannot be one is passed through untouched rather than rejected here, so the
+	 * shape check reports it with everything else — throwing from here would raise on a
+	 * *definition* being built, not on the request.
 	 *
 	 * @param UploadedFile|Value|null $value
 	 */

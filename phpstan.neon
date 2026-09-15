@@ -1,22 +1,24 @@
 # Static analysis of the shipped code. Tests are analysed separately, at a lower level,
 # by phpstan-tests.neon — see the note there.
 #
-# Level 2 is what src passes cleanly today. The remaining cost of going higher, re-measured
-# after the strictness rewrite — the earlier figures here were taken before it and were badly
-# out of date (level 5 was recorded as 24):
+# Level 3 is what src passes. The cost of going higher, measured rather than guessed:
 #
-#   level 3 —   4 errors
-#   level 4 — 105
-#   level 5 — 105
-#   level 6 — 186
-#   level 7 — 213
+#   level 4 — 101 errors
+#   level 5 — 101
+#   level 6 — 174
 #
-# Level 3's four are all one cause, and it is the same analyser limitation already excepted
-# below: Field\Definition::initialiseDefinition() assigns $optional and $defaultValue, and
-# PHPStan models a readonly property as assignable only in the declaring class's own
-# constructor. A trait cannot satisfy that. So level 3 costs one more ignore entry and no code
-# change, which is a judgement call about whether the level is worth the entry — recorded here
-# rather than taken silently.
+# Level 3 cost one ignore entry and no code change — see initialiseDefinition() below.
+#
+# The jump at level 4 is the real work: it is where unreachable branches and always-true
+# conditions start being reported, and almost all of them are the clone-with limitation
+# described below rather than dead code. A cross-bound guard like
+# `$this->maxSize !== null && $bytes > $this->maxSize` is reported as always-false because
+# PHPStan cannot see that with() ever assigns $maxSize.
+#
+# Which is worth stating plainly, because the level number otherwise overstates the
+# protection: **PHPStan is blind to the entire configuration surface of every field.** A
+# genuine inversion in one of those guards would look identical to the ones being ignored.
+# What covers them is the test suite, where every field's bounds are exercised directly.
 #
 # The jump at level 4 is the real work: it is where unreachable branches and always-true
 # conditions start being reported, and the structured types acquired a lot of defensive
@@ -26,7 +28,7 @@
 # No baseline file by design: errors get fixed, not recorded. The one exception is below,
 # and it is a limitation of the analyser rather than a fault in the code.
 parameters:
-    level: 2
+    level: 3
     paths:
         - src
     treatPhpDocTypesAsCertain: false
@@ -74,3 +76,20 @@ parameters:
         -
             message: '#^Cannot (call method [a-zA-Z_]+\(\)|access property \$[a-zA-Z_]+) on null\.$#'
             path: src/Field/*.php
+        # Field\Definition is a *trait*, and initialiseDefinition() assigns $optional and
+        # $defaultValue from it. PHPStan models a readonly property as assignable only in the
+        # declaring class's own constructor, and a trait cannot satisfy that however the using
+        # class calls it.
+        #
+        # The alternative is duplicating two assignments into all nineteen field constructors to
+        # satisfy the analyser, which trades a real design — one shared half, one varying half —
+        # for an inference detail.
+        #
+        # PHP 8.6's readonly property defaults remove this entirely: `public bool $optional = false;`
+        # on the declaration replaces the initialiser and the call goes with it. Tracked in
+        # docs/ROADMAP.md. Until then, Api\SealedFieldTest checks at runtime that every field's
+        # inherited state really is initialised, which is the guarantee this entry is standing in
+        # for.
+        -
+            message: '#Readonly property .+::\$(optional|defaultValue) is assigned outside of the constructor\.#'
+            path: src/Field/Definition.php
