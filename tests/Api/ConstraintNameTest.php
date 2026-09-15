@@ -4,12 +4,11 @@ declare(strict_types=1);
 namespace Meraki\Schema\Api;
 
 use Meraki\Schema\Field;
-use Meraki\Schema\Property;
+use Meraki\Schema\FieldName;
 use PHPUnit\Framework\TestCase;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\DataProvider;
-use ReflectionMethod;
 
 /**
  * The names a field reports a failure under. These are the strings `meraki/schema-html`
@@ -32,10 +31,11 @@ final class ConstraintNameTest extends TestCase
 		}
 
 		$field = self::build($fqcn);
-		$method = new ReflectionMethod($field, 'getConstraints');
-		$method->setAccessible(true);
 
-		$this->assertSame($expected, array_keys($method->invoke($field)));
+		// `$constraints` is public and the set knows the name each one reports under, so this
+		// asks the field directly. It used to reflect on a `getConstraints()` method that
+		// returned a name-keyed array; both are gone.
+		$this->assertSame($expected, $field->constraints->names);
 	}
 
 	/** @return iterable<string, array{string, list<string>}> */
@@ -85,10 +85,10 @@ final class ConstraintNameTest extends TestCase
 	{
 		// A structured type reports flat names and says which part failed, so a consumer
 		// never splits a string to find out. `cost.amount.min` becomes `minAmount` + a part.
-		$money = new Field\Money(new Property\Name('cost'), ['AUD' => 2]);
+		$money = new Field\Money(new FieldName('cost'), ['AUD' => 2]);
 		$money->minAmountOf('AUD', '10.00');
 
-		$failed = $money->validate(['currency' => 'AUD', 'amount' => '5.00'])->get('minAmount');
+		$failed = $money->validate(['currency' => 'AUD', 'amount' => '5.00'])->forConstraint('minAmount');
 
 		$this->assertSame('minAmount', $failed->name);
 		$this->assertSame('amount', $failed->part);
@@ -98,10 +98,10 @@ final class ConstraintNameTest extends TestCase
 	public function a_constraint_about_the_whole_field_has_no_part(): void
 	{
 		// Something the dotted scheme could not express at all.
-		$text = new Field\Text(new Property\Name('bio'));
+		$text = new Field\Text(new FieldName('bio'));
 		$text->minLengthOf(10);
 
-		$this->assertNull($text->validate('short')->get('minLength')->part);
+		$this->assertNull($text->validate('short')->forConstraint('minLength')->part);
 	}
 
 	#[Test]
@@ -110,10 +110,10 @@ final class ConstraintNameTest extends TestCase
 		// So a message never reads $field->{$constraint->name}: that is a dynamic property
 		// access, which static analysis cannot type, and which renders "Array" for a bound
 		// held as a map.
-		$text = new Field\Text(new Property\Name('bio'));
+		$text = new Field\Text(new FieldName('bio'));
 		$text->minLengthOf(10);
 
-		$this->assertSame(10, $text->validate('short')->get('minLength')->bound);
+		$this->assertSame(10, $text->validate('short')->forConstraint('minLength')->bound);
 	}
 
 	#[Test]
@@ -121,10 +121,10 @@ final class ConstraintNameTest extends TestCase
 	{
 		// Money's minimum is a map keyed by currency. The result carries the value for the
 		// currency actually submitted, already resolved.
-		$money = new Field\Money(new Property\Name('cost'), ['AUD' => 2, 'USD' => 2]);
+		$money = new Field\Money(new FieldName('cost'), ['AUD' => 2, 'USD' => 2]);
 		$money->minAmountOf('AUD', '10.00')->minAmountOf('USD', '7.00');
 
-		$failed = $money->validate(['currency' => 'USD', 'amount' => '5.00'])->get('minAmount');
+		$failed = $money->validate(['currency' => 'USD', 'amount' => '5.00'])->forConstraint('minAmount');
 
 		$this->assertSame('7.00', (string) $failed->bound);
 	}
@@ -132,14 +132,14 @@ final class ConstraintNameTest extends TestCase
 	#[Test]
 	public function a_constraint_with_nothing_to_interpolate_reports_a_null_bound(): void
 	{
-		$address = new Field\Address(new Property\Name('billing'), ['AU']);
+		$address = new Field\Address(new FieldName('billing'), ['AU']);
 
 		$failed = $address->validate([
 			'line1' => 'PO Box 42',
 			'locality' => 'Rockhampton',
 			'postal_code' => '4700',
 			'country_code' => 'AU',
-		])->get('line1Visitable');
+		])->forConstraint('line1Visitable');
 
 		$this->assertNull($failed->bound);
 		$this->assertSame('line1', $failed->part);
@@ -147,7 +147,7 @@ final class ConstraintNameTest extends TestCase
 
 	private static function build(string $fqcn): Field
 	{
-		$name = new Property\Name('f');
+		$name = new FieldName('f');
 
 		return match ($fqcn) {
 			Field\Enum::class => new Field\Enum($name, ['a', 'b']),

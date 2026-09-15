@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Field;
 
-use Meraki\Schema\Property\Name;
+use Meraki\Schema\FieldName;
 use Meraki\Schema\Field;
 use Meraki\Schema\Field\Set;
 use Meraki\Schema\Field\Text;
@@ -39,9 +39,9 @@ final class SetTest extends TestCase
 	#[Test]
 	public function fields_can_be_added(): void
 	{
-		$field1 = new Text(new Name('first'));
+		$field1 = new Text(new FieldName('first'));
 
-		$field2 = new Text(new Name('second'));
+		$field2 = new Text(new FieldName('second'));
 
 		$set = new Set($field1, $field2);
 
@@ -54,36 +54,36 @@ final class SetTest extends TestCase
 	{
 		// Previously the second field was silently discarded, which lost the definition
 		// and gave no clue where it went.
-		$field = new Text(new Name('first'));
+		$field = new Text(new FieldName('first'));
 
 		$set = new Set($field);
 
 		$this->expectException(InvalidArgumentException::class);
 		$this->expectExceptionMessage('A field named "first" already exists.');
 
-		$set->mutableAdd($field);
+		$set->add($field);
 	}
 
 	#[Test]
 	public function a_different_field_sharing_a_name_is_also_rejected(): void
 	{
 		// Identity is the name, not the object: two distinct fields cannot share one.
-		$first = new Text(new Name('email'));
-		$second = new Text(new Name('email'));
+		$first = new Text(new FieldName('email'));
+		$second = new Text(new FieldName('email'));
 
 		$set = new Set($first);
 
 		$this->expectException(InvalidArgumentException::class);
 
-		$set->mutableAdd($second);
+		$set->add($second);
 	}
 
 	#[Test]
 	public function add_returns_a_new_instance(): void
 	{
-		$field1 = new Text(new Name('one'));
+		$field1 = new Text(new FieldName('one'));
 
-		$field2 = new Text(new Name('two'));
+		$field2 = new Text(new FieldName('two'));
 
 		$set = new Set($field1);
 		$newSet = $set->add($field2);
@@ -96,7 +96,7 @@ final class SetTest extends TestCase
 	#[Test]
 	public function it_can_return_the_first_field(): void
 	{
-		$field = new Text(new Name('only'));
+		$field = new Text(new FieldName('only'));
 
 		$set = new Set($field);
 
@@ -114,18 +114,18 @@ final class SetTest extends TestCase
 	#[Test]
 	public function it_can_find_field_by_name(): void
 	{
-		$field = new Text(new Name('username'));
+		$field = new Text(new FieldName('username'));
 
 		$set = new Set($field);
 
 		$this->assertSame($field, $set->findByName('username'));
-		$this->assertSame($field, $set->findByName(new Name('username')));
+		$this->assertSame($field, $set->findByName(new FieldName('username')));
 	}
 
 	#[Test]
 	public function it_returns_null_if_field_name_not_found(): void
 	{
-		$field = new Text(new Name('username'));
+		$field = new Text(new FieldName('username'));
 
 		$set = new Set($field);
 
@@ -135,9 +135,9 @@ final class SetTest extends TestCase
 	#[Test]
 	public function it_can_return_index_of_a_field(): void
 	{
-		$field1 = new Text(new Name('first'));
+		$field1 = new Text(new FieldName('first'));
 
-		$field2 = new Text(new Name('second'));
+		$field2 = new Text(new FieldName('second'));
 
 		$set = new Set($field1, $field2);
 
@@ -147,9 +147,9 @@ final class SetTest extends TestCase
 	#[Test]
 	public function it_returns_null_for_index_if_field_not_found(): void
 	{
-		$field1 = new Text(new Name('first'));
+		$field1 = new Text(new FieldName('first'));
 
-		$field2 = new Text(new Name('second'));
+		$field2 = new Text(new FieldName('second'));
 
 		$set = new Set($field1);
 
@@ -157,24 +157,11 @@ final class SetTest extends TestCase
 	}
 
 	#[Test]
-	public function it_can_prefix_field_names(): void
-	{
-		$set = new Set(new Field\Text(new Name('bar')));
-
-		// Fields are sealed, so prefixing returns a new set of renamed copies rather than
-		// editing the ones already held.
-		$prefixed = $set->prefixNamesWith(new Name('foo'));
-
-		$this->assertNotNull($prefixed->findByName('foo.bar'));
-		$this->assertNull($set->findByName('foo.bar'));
-	}
-
-	#[Test]
 	public function it_can_list_field_names(): void
 	{
-		$field1 = new Text(new Name('one'));
+		$field1 = new Text(new FieldName('one'));
 
-		$field2 = new Text(new Name('two'));
+		$field2 = new Text(new FieldName('two'));
 
 		$set = new Set($field1, $field2);
 
@@ -184,9 +171,9 @@ final class SetTest extends TestCase
 	#[Test]
 	public function it_supports_iteration(): void
 	{
-		$field1 = new Text(new Name('one'));
+		$field1 = new Text(new FieldName('one'));
 
-		$field2 = new Text(new Name('two'));
+		$field2 = new Text(new FieldName('two'));
 
 		$set = new Set($field1, $field2);
 

@@ -5,332 +5,606 @@ namespace Meraki\Schema\Field;
 
 use Meraki\Schema\Field\Address;
 use Meraki\Schema\Field\Address\Type;
-use Meraki\Schema\Field\Composite;
-use Meraki\Schema\Property;
+use Meraki\Schema\Field\Address\Value;
+use Meraki\Schema\FieldName;
+use Meraki\Schema\FieldTestCase;
+use InvalidArgumentException;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
-use PHPUnit\Framework\Attributes\Group;
-use InvalidArgumentException;
 
 #[Group('field')]
 #[CoversClass(Address::class)]
-final class AddressTest extends CompositeTestCase
+#[CoversClass(Value::class)]
+#[CoversClass(Type::class)]
+final class AddressTest extends FieldTestCase
 {
-	private const AU = [
-		'line1' => '1 Queen St',
-		'locality' => 'Brisbane',
-		'administrative_area' => 'QLD',
-		'postal_code' => '4000',
-	];
-
-	public function createSubject(): Address
-	{
-		return new Address(new Property\Name('test'));
-	}
-
 	public function createField(): Address
 	{
-		return new Address(new Property\Name('test'));
+		return new Address(new FieldName('billing'));
+	}
+
+	private function australian(): Address
+	{
+		return new Address(new FieldName('billing'), ['AU']);
+	}
+
+	/** @return array<string, string> */
+	private static function rockhampton(string ...$without): array
+	{
+		return array_diff_key([
+			'line1' => '1 Denham St',
+			'locality' => 'Rockhampton',
+			'administrative_area' => 'QLD',
+			'postal_code' => '4700',
+			'country' => 'AU',
+		], array_flip($without));
+	}
+
+	// ── one field, one value ───────────────────────────────────────────────────────────────
+
+	#[Test]
+	public function it_holds_its_whole_value_rather_than_a_bag_of_sub_fields(): void
+	{
+		$this->assertFalse(property_exists($this->australian(), 'fields'));
 	}
 
 	#[Test]
-	public function it_has_the_correct_name(): void
+	public function it_accepts_the_array_a_form_submits(): void
 	{
-		$this->assertSame('test', $this->createField()->name->value);
+		$resolved = $this->australian()->resolve((object) self::rockhampton());
+
+		// process() converts, so the value object is there before any verdict is.
+		$this->assertInstanceOf(Value::class, $resolved->value);
+		$this->assertSame('1 Denham St', $resolved->value->line1);
 	}
 
 	#[Test]
-	public function it_is_a_composite_field(): void
+	public function it_accepts_its_own_value_object(): void
 	{
-		$this->assertInstanceOf(Composite::class, $this->createField());
+		$value = new Value(
+			line1: '1 Denham St',
+			locality: 'Rockhampton',
+			administrativeArea: 'QLD',
+			postalCode: '4700',
+			countryCode: 'AU',
+		);
+
+		$this->assertEquals($value, $this->australian()->resolve($value)->value);
 	}
 
+	#[Test]
+	#[DataProvider('notAnAddress')]
+	public function it_rejects_what_cannot_be_read_as_an_address(mixed $given): void
+	{
+		$this->assertShapeFailed($this->australian()->validate((object) $given));
+	}
+
+	/** @return array<string, array{mixed}> */
+	public static function notAnAddress(): array
+	{
+		return [
+			'a string' => ['1 Denham St, Rockhampton'],
+			'a number' => [4700],
+			'nothing at all' => [null],
+			'an array with no known parts' => [['street' => '1 Denham St']],
+		];
+	}
+
+	#[Test]
+	public function parts_submitted_as_empty_strings_are_an_address_that_is_wrong(): void
+	{
+		// Not the same as an absent one. `''` was submitted on purpose — a JSON client saying
+		// `"line1": ""` said something — so the shape stands and the parts are judged. An untouched
+		// HTML form sending the same thing is the port's to strip, not this field's to guess at.
+		$resolved = $this->australian()->validate((object)['line1' => '', 'locality' => '  ', 'country' => 'AU']);
+
+		$this->assertShapePassed($resolved);
+		$this->assertConstraintValidationResultFailed('specific', $resolved);
+	}
+
+	#[Test]
+	public function a_constraint_name_carries_no_trace_of_the_field_name(): void
+	{
+		// The point of owning the whole value. A name used to embed the field it came from, so
+		// renaming `billing` changed every constraint it emitted and broke every message provider
+		// matching on them.
+		$field = new Address(new FieldName('invoice_address'), ['AU']);
+
+		$names = implode(',', $field->validate((object) self::rockhampton())->constraintNames);
+
+		$this->assertStringNotContainsString('invoice_address', $names);
+		$this->assertStringNotContainsString('.', $names);
+	}
+
+	#[Test]
+	public function each_constraint_names_the_part_it_is_about(): void
+	{
+		$expected = [
+			'allowedCountries' => 'country',
+			'postalCodeFormat' => 'postal_code',
+			'administrativeArea' => 'administrative_area',
+			'line1Visitable' => 'line1',
+			'specific' => 'line1',
+		];
+
+		foreach ($this->australian()->constraints as $constraint) {
+			$this->assertSame($expected[$constraint->name], $constraint->part, $constraint->name);
+		}
+	}
+
+	// ── a street by default; an area on request ───────────────────────────────────────────
+
+	#[Test]
+	public function an_address_names_a_street_by_default(): void
+	{
+		// An address is a place, and a suburb with a postcode is a region that contains places.
+		$failed = $this->australian()->validate((object) self::rockhampton(without: 'line1'))->forConstraint('specific');
+
+		$this->assertTrue($failed->failed());
+		$this->assertSame('line1', $failed->part);
+	}
+
+	#[Test]
+	public function an_area_is_an_address_once_the_author_says_so(): void
+	{
+		// For a service area or a catchment, where the region *is* the answer rather than an
+		// incomplete version of one.
+		$resolved = $this->australian()->allowWithoutStreet()->validate((object) self::rockhampton(without: 'line1'));
+
+		$this->assertFalse($resolved->anyFailed());
+		$this->assertConstraintValidationResultSkipped('specific', $resolved);
+	}
+
+	// ── what it is for, and what it must be capable of ────────────────────────────────────
+
+	#[Test]
+	public function it_accepts_either_purpose_by_default(): void
+	{
+		$this->assertSame(Type::Either, $this->australian()->type);
+	}
+
+	#[Test]
+	#[DataProvider('restrictions')]
+	public function the_two_restrictions_narrow_rather_than_replace(array $calls, Type $expected): void
+	{
+		// Asking for both in either order lands on Both, rather than the second call undoing the
+		// first. Which is the reason they are two withers and not one enum setter.
+		$field = $this->australian();
+
+		foreach ($calls as $call) {
+			$field = $field->{$call}();
+		}
+
+		$this->assertSame($expected, $field->type);
+	}
+
+	/** @return array<string, array{list<string>, Type}> */
+	public static function restrictions(): array
+	{
+		return [
+			'neither' => [[], Type::Either],
+			'mailable' => [['allowOnlyMailable'], Type::Postal],
+			'physical' => [['allowOnlyPhysical'], Type::Physical],
+			'mailable then physical' => [['allowOnlyMailable', 'allowOnlyPhysical'], Type::Both],
+			'physical then mailable' => [['allowOnlyPhysical', 'allowOnlyMailable'], Type::Both],
+			'mailable twice' => [['allowOnlyMailable', 'allowOnlyMailable'], Type::Postal],
+		];
+	}
+
+	#[Test]
+	public function a_po_box_is_an_address_until_somewhere_visitable_is_asked_for(): void
+	{
+		$poBox = ['line1' => 'PO Box 42'] + self::rockhampton(without: 'line1');
+
+		$this->assertConstraintValidationResultSkipped('line1Visitable', $this->australian()->validate((object) $poBox));
+		$this->assertConstraintValidationResultFailed(
+			'line1Visitable',
+			$this->australian()->allowOnlyPhysical()->validate((object) $poBox),
+		);
+	}
+
+	#[Test]
+	#[DataProvider('poBoxForms')]
+	public function it_recognises_the_usual_po_box_forms(string $line1): void
+	{
+		$field = $this->australian()->allowOnlyPhysical();
+
+		$this->assertConstraintValidationResultFailed(
+			'line1Visitable',
+			$field->validate((object) (['line1' => $line1] + self::rockhampton(without: 'line1'))),
+		);
+	}
+
+	/** @return array<string, array{string}> */
+	public static function poBoxForms(): array
+	{
+		return [
+			'PO Box' => ['PO Box 42'],
+			'P.O. Box' => ['P.O. Box 42'],
+			'post office box' => ['Post Office Box 42'],
+			'GPO Box' => ['GPO Box 42'],
+			'locked bag' => ['Locked Bag 42'],
+			'private bag' => ['Private Bag 42'],
+			'rural route' => ['RR 3'],
+		];
+	}
+
+	#[Test]
+	public function a_street_that_merely_looks_like_a_box_is_not_one(): void
+	{
+		// The rural forms need a number so a street genuinely named this cannot trip them.
+		$field = $this->australian()->allowOnlyPhysical();
+
+		$this->assertConstraintValidationResultPassed(
+			'line1Visitable',
+			$field->validate((object) (['line1' => 'Rrunway Close'] + self::rockhampton(without: 'line1'))),
+		);
+	}
+
+	#[Test]
+	public function what_an_address_is_for_is_independent_of_how_much_of_it_is_required(): void
+	{
+		// A PO box is deliverable and not visitable, and a service area covering a suburb is
+		// visitable and not deliverable. Conflating the two was the mistake.
+		$poBox = ['line1' => 'PO Box 42'] + self::rockhampton(without: 'line1');
+
+		$resolved = $this->australian()->allowOnlyPhysical()->validate((object) $poBox);
+
+		$this->assertTrue($resolved->forConstraint('line1Visitable')->failed());
+		$this->assertFalse($resolved->forConstraint('specific')->failed(), 'a PO box is still a street line');
+	}
+
+	#[Test]
+	#[DataProvider('incoherentPairs')]
+	public function a_mailable_address_that_needs_no_street_is_refused_where_it_is_declared(array $calls): void
+	{
+		// You cannot post to a suburb. Refused at definition time because no input could satisfy it,
+		// so there would be nothing to report per request — and guarded on both withers, because
+		// either call can be the second one.
+		$this->expectException(InvalidArgumentException::class);
+
+		$field = $this->australian();
+
+		foreach ($calls as $call) {
+			$field = $field->{$call}();
+		}
+	}
+
+	/** @return array<string, array{list<string>}> */
+	public static function incoherentPairs(): array
+	{
+		return [
+			'no street, then mailable' => [['allowWithoutStreet', 'allowOnlyMailable']],
+			'mailable, then no street' => [['allowOnlyMailable', 'allowWithoutStreet']],
+			'both purposes, then no street' => [['allowOnlyPhysical', 'allowOnlyMailable', 'allowWithoutStreet']],
+		];
+	}
+
+	#[Test]
+	public function a_mailable_address_needs_no_ceremony_now_that_a_street_is_the_default(): void
+	{
+		$this->assertSame(Type::Postal, $this->australian()->allowOnlyMailable()->type);
+	}
+
+	#[Test]
+	public function an_area_may_still_be_somewhere_you_can_go(): void
+	{
+		// Visitable and vague is coherent — a catchment you can drive into.
+		$field = $this->australian()->allowOnlyPhysical()->allowWithoutStreet();
+
+		$this->assertSame(Type::Physical, $field->type);
+		$this->assertFalse($field->mustBeSpecific);
+	}
+
+	// ── countries ─────────────────────────────────────────────────────────────────────────
+
+	#[Test]
+	public function it_allows_any_country_by_default(): void
+	{
+		$this->assertSame([], $this->createField()->allowedCountries);
+	}
+
+	#[Test]
+	public function a_country_is_accepted_in_any_case_and_stored_upper_cased(): void
+	{
+		$this->assertSame(['AU', 'NZ'], (new Address(new FieldName('a'), ['au']))->allowCountries('nz')->allowedCountries);
+	}
+
+	#[Test]
+	public function an_allowed_country_may_be_written_out_in_full(): void
+	{
+		// So that an author can write what they mean. Stored as the code either way, since that is
+		// what selects the per-country rules.
+		$field = (new Address(new FieldName('a'), ['new zealand']))->allowCountries('Australia');
+
+		$this->assertSame(['NZ', 'AU'], $field->allowedCountries);
+	}
+
+	#[Test]
+	#[DataProvider('countriesSubmitted')]
+	public function a_submitted_country_may_be_named_or_coded(string $given): void
+	{
+		// A form offering a country dropdown should not have to map the label back to a code before
+		// submitting. Unambiguous to accept both: no two countries share a name, and no name
+		// collides with a code.
+		$resolved = $this->australian()->validate((object) (['country' => $given] + self::rockhampton(without: 'country')));
+
+		$this->assertFalse($resolved->anyFailed(), "country '{$given}'");
+		$this->assertSame('AU', $resolved->value->countryCode, 'canonicalised to the code');
+	}
+
+	/** @return array<string, array{string}> */
+	public static function countriesSubmitted(): array
+	{
+		return [
+			'the code' => ['AU'],
+			'the code in lower case' => ['au'],
+			'the name' => ['Australia'],
+			'the name shouted' => ['AUSTRALIA'],
+			'the name in lower case' => ['australia'],
+		];
+	}
+
+	#[Test]
+	public function a_country_with_stray_spacing_is_not_a_country(): void
+	{
+		// Case is a distinction ISO 3166 says is not one; surrounding whitespace is not a
+		// distinction at all, it is damage — and repairing it is the port's job. So this reports
+		// rather than being quietly fixed.
+		$resolved = $this->australian()->validate((object) (['country' => '  Australia  '] + self::rockhampton(without: 'country')));
+
+		$this->assertConstraintValidationResultFailed('allowedCountries', $resolved);
+	}
+
+	#[Test]
+	public function a_country_that_is_neither_is_reported_as_it_was_written(): void
+	{
+		// Left exactly as it came: rewriting it would lose what was actually typed, and guessing at
+		// a near-miss is not this field's business.
+		$resolved = $this->australian()->validate((object) (['country' => 'Oz'] + self::rockhampton(without: 'country')));
+
+		$this->assertConstraintValidationResultFailed('allowedCountries', $resolved);
+		$this->assertSame('Oz', $resolved->value->countryCode);
+	}
+
+	#[Test]
+	public function an_unknown_country_is_refused_where_it_is_written(): void
+	{
+		$this->expectException(InvalidArgumentException::class);
+
+		new Address(new FieldName('a'), ['ZZ']);
+	}
+
+	#[Test]
+	public function it_reports_a_country_that_is_not_allowed(): void
+	{
+		$outside = ['country' => 'NZ'] + self::rockhampton(without: 'country');
+
+		$failed = $this->australian()->validate((object) $outside)->forConstraint('allowedCountries');
+
+		$this->assertTrue($failed->failed());
+		$this->assertSame('country', $failed->part);
+		$this->assertSame(['AU'], $failed->bound);
+	}
+
+	#[Test]
+	public function a_country_is_not_checked_when_any_is_allowed(): void
+	{
+		$this->assertConstraintValidationResultSkipped(
+			'allowedCountries',
+			$this->createField()->validate((object) self::rockhampton()),
+		);
+	}
+
+	#[Test]
+	public function an_address_without_a_country_never_described_a_place(): void
+	{
+		// The same pairing Money makes with a currency. It used to be filled in when the allow-list
+		// happened to hold exactly one country — a rule that changed shape depending on how many
+		// were listed, and that is gone.
+		$resolved = $this->australian()->validate((object) self::rockhampton(without: 'country'));
+
+		$this->assertShapeFailed($resolved);
+		$this->assertConstraintValidationResultSkipped('allowedCountries', $resolved);
+	}
+
+	#[Test]
+	public function an_empty_country_is_no_country(): void
+	{
+		$resolved = $this->australian()->validate((object) (['country' => ''] + self::rockhampton(without: 'country')));
+
+		$this->assertShapeFailed($resolved);
+	}
+
+	#[Test]
+	public function several_allowed_countries_leave_the_country_to_be_submitted(): void
+	{
+		$field = $this->australian()->allowCountries('NZ');
+
+		$this->assertNull($field->validate((object) self::rockhampton(without: 'country'))->value->countryCode);
+	}
+
+	// ── postcodes ─────────────────────────────────────────────────────────────────────────
+
+	#[Test]
+	public function it_reports_a_postcode_the_country_does_not_use(): void
+	{
+		$failed = $this->australian()
+			->validate((object) (['postal_code' => '99'] + self::rockhampton(without: 'postal_code')))
+			->forConstraint('postalCodeFormat');
+
+		$this->assertTrue($failed->failed());
+		$this->assertSame('postal_code', $failed->part);
+	}
+
+	#[Test]
+	public function an_unrestricted_field_checks_the_postcode_against_the_country_submitted(): void
+	{
+		// This used to be impossible. A free-form address got no postcode check at all, because
+		// there was no country to derive a rule from — now there always is, and reading the one
+		// the submitter wrote is not guessing.
+		$this->assertConstraintValidationResultFailed(
+			'postalCodeFormat',
+			$this->createField()->validate((object) (['postal_code' => '99'] + self::rockhampton(without: 'postal_code'))),
+		);
+	}
+
+	#[Test]
+	public function a_postcode_failure_reports_the_pattern_that_applied(): void
+	{
+		// The pattern is per country, so it is only knowable once the address names one — which it
+		// now always does. Otherwise a message could say a postcode was wrong without saying what
+		// would have been right.
+		$field = new Address(new FieldName('billing'), ['AU', 'NZ']);
+
+		$failed = $field->validate((object)[
+			'line1' => '1 Denham St',
+			'locality' => 'Rockhampton',
+			'postal_code' => '99',
+			'country' => 'AU',
+		])->forConstraint('postalCodeFormat');
+
+		$this->assertTrue($failed->failed());
+		$this->assertSame('\d{4}', $failed->bound);
+	}
+
+	#[Test]
+	public function a_country_outside_the_allowed_list_reports_once_rather_than_twice(): void
+	{
+		// Deriving a postcode rule from a country that was already rejected would turn one mistake
+		// into two failures.
+		$resolved = $this->australian()
+			->validate((object) ['country' => 'NZ', 'postal_code' => '99', 'locality' => 'Rockhampton', 'line1' => '1 Queen St']);
+
+		$this->assertConstraintValidationResultFailed('allowedCountries', $resolved);
+		$this->assertConstraintValidationResultSkipped('postalCodeFormat', $resolved);
+	}
+
+	#[Test]
+	public function it_validates_against_whichever_allowed_country_was_submitted(): void
+	{
+		$field = $this->australian()->allowCountries('NZ');
+
+		// 4700 is an Australian postcode; New Zealand's are four digits too, so use one that is not.
+		$this->assertConstraintValidationResultPassed(
+			'postalCodeFormat',
+			$field->validate((object) self::rockhampton()),
+		);
+		$this->assertConstraintValidationResultFailed(
+			'postalCodeFormat',
+			$field->validate((object) ['country' => 'NZ', 'postal_code' => '470000', 'locality' => 'Auckland', 'line1' => '1 Queen St']),
+		);
+	}
+
+	// ── subdivisions ──────────────────────────────────────────────────────────────────────
+
+	#[Test]
+	public function it_reports_a_subdivision_the_country_does_not_have(): void
+	{
+		$failed = $this->australian()
+			->validate((object) (['administrative_area' => 'XX'] + self::rockhampton(without: 'administrative_area')))
+			->forConstraint('administrativeArea');
+
+		$this->assertTrue($failed->failed());
+		$this->assertSame('administrative_area', $failed->part);
+	}
+
+	#[Test]
+	public function it_reports_a_subdivision_belonging_to_a_different_allowed_country(): void
+	{
+		// CA is a US state and not an Australian one, so which country was submitted decides.
+		$field = $this->australian()->allowCountries('US');
+
+		$this->assertConstraintValidationResultFailed(
+			'administrativeArea',
+			$field->validate((object) ['country' => 'AU', 'administrative_area' => 'CA', 'postal_code' => '4700']),
+		);
+		$this->assertConstraintValidationResultPassed(
+			'administrativeArea',
+			$field->validate((object) ['country' => 'US', 'administrative_area' => 'CA', 'postal_code' => '90210']),
+		);
+	}
+
+	#[Test]
+	public function a_subdivision_needs_a_country_to_be_checked_against(): void
+	{
+		$this->assertConstraintValidationResultSkipped(
+			'administrativeArea',
+			$this->createField()->validate((object) ['administrative_area' => 'XX', 'locality' => 'Somewhere']),
+		);
+	}
+
+	// ── the value object ──────────────────────────────────────────────────────────────────
+
+	#[Test]
+	public function a_part_is_kept_exactly_as_it_was_submitted(): void
+	{
+		// Neither trimmed nor collapsed to null. An absent part is null; a blank one is blank, and
+		// the difference is information the field has no business discarding.
+		$value = Value::fromInput(['line1' => '  ', 'locality' => 'Rockhampton', 'postal_code' => ' 4700 ']);
+
+		$this->assertSame('  ', $value->line1);
+		$this->assertSame(' 4700 ', $value->postalCode);
+		$this->assertNull($value->countryCode, 'absent is still null');
+		$this->assertFalse($value->isEmpty(), 'a blank part is a part');
+	}
+
+	#[Test]
+	public function a_part_is_addressed_by_the_name_submitted_data_uses(): void
+	{
+		// Which is the vocabulary a constraint's `part` reports in.
+		$value = Value::fromInput(self::rockhampton());
+
+		$this->assertSame('QLD', $value->partNamed('administrative_area'));
+		$this->assertNull($value->partNamed('not_a_part'));
+	}
+
+	#[Test]
+	public function it_round_trips_through_an_array(): void
+	{
+		$value = Value::fromInput(self::rockhampton());
+
+		$this->assertSame(self::rockhampton(), array_filter($value->toArray(), static fn(?string $p): bool => $p !== null));
+	}
+
+	#[Test]
+	public function an_address_with_nothing_in_it_is_absent_rather_than_vague(): void
+	{
+		$this->assertTrue((new Value())->isEmpty());
+		$this->assertFalse(Value::fromInput(['locality' => 'Rockhampton'])->isEmpty());
+	}
+
+	#[Test]
+	public function it_is_read_part_by_part_rather_than_printed(): void
+	{
+		// No __toString(): the order and punctuation an address takes is per-country, so a single
+		// line assembled here would be wrong in most of the world.
+		$value = Value::fromInput(self::rockhampton());
+
+		$this->assertNotInstanceOf(\Stringable::class, $value);
+		$this->assertFalse(method_exists($value, '__toString'));
+		$this->assertSame(self::rockhampton(), array_filter(
+			$value->toArray(),
+			static fn(?string $part): bool => $part !== null,
+		));
+	}
+
+	#[Test]
+	public function configuring_it_leaves_the_original_alone(): void
+	{
+		$field = $this->australian();
+		$relaxed = $field->allowWithoutStreet()->allowCountries('NZ');
+
+		$this->assertNotSame($field, $relaxed);
+		$this->assertTrue($field->mustBeSpecific);
+		$this->assertSame(['AU'], $field->allowedCountries);
+	}
 
 	#[Test]
 	public function it_has_no_default_value_by_default(): void
 	{
-		$this->assertEquals($this->emptyAddress(), $this->createSubject()->defaultValue->unwrap());
-	}
-
-	#[Test]
-	public function it_allows_no_countries_by_default(): void
-	{
-		$this->assertSame([], $this->createSubject()->allowed);
-	}
-
-	#[Test]
-	public function it_is_of_type_either_by_default(): void
-	{
-		$this->assertSame(Type::Either, $this->createSubject()->type);
-	}
-
-	#[Test]
-	public function it_rejects_a_country_that_does_not_exist(): void
-	{
-		$this->expectException(InvalidArgumentException::class);
-
-		new Address(new Property\Name('test'), ['ZZ']);
-	}
-
-	#[Test]
-	public function it_accepts_a_country_in_any_case(): void
-	{
-		$this->assertSame(['AU'], (new Address(new Property\Name('test'), ['au']))->allowed);
-	}
-
-	// Free-form: no whitelist, so nothing but line1 is required and nothing is checked.
-
-	#[Test]
-	public function a_free_form_address_accepts_anything(): void
-	{
-		$field = $this->createSubject();
-
-		$this->assertFalse($field->validate([
-			'line1' => 'somewhere over there',
-			'locality' => 'Nowhere',
-			'administrative_area' => 'Not A Real State',
-			'postal_code' => 'not-a-postcode',
-			'country_code' => 'AU',
-		])->anyFailed());
-	}
-
-	#[Test]
-	public function a_free_form_address_needs_only_a_street_address(): void
-	{
-		$this->assertFalse($this->createSubject()->validate(['line1' => 'somewhere'])->anyFailed());
-	}
-
-	#[Test]
-	public function a_free_form_address_still_needs_a_street_address(): void
-	{
-		$this->assertTrue($this->createSubject()->validate(['locality' => 'Brisbane'])->anyFailed());
-	}
-
-	// A single allowed country: its rules apply and the country itself is settled.
-
-	#[Test]
-	public function a_single_allowed_country_determines_the_country_field(): void
-	{
-		$field = new Address(new Property\Name('test'), ['AU']);
-
-		$this->assertSame(['country_code'], $field->determined());
-		$this->assertSame('AU', $field->countryCode->defaultValue->unwrap());
-		$this->assertSame('AU', $field->defaultValue->unwrap()['test.country_code']);
-	}
-
-	#[Test]
-	public function a_determined_country_survives_a_prefill_that_omits_it(): void
-	{
-		$field = (new Address(new Property\Name('test'), ['AU']))->prefill(['line1' => '1 Queen St']);
-
-		$this->assertSame('AU', $field->defaultValue->unwrap()['test.country_code']);
-	}
-
-	#[Test]
-	public function a_single_allowed_country_offers_its_subdivisions_as_a_closed_set(): void
-	{
-		$field = new Address(new Property\Name('test'), ['AU']);
-
-		$this->assertInstanceOf(Enum::class, $field->administrativeArea);
-		$this->assertEqualsCanonicalizing(
-			['ACT', 'NSW', 'NT', 'QLD', 'SA', 'TAS', 'VIC', 'WA'],
-			$field->administrativeArea->oneOf,
-		);
-	}
-
-	#[Test]
-	public function it_accepts_a_well_formed_australian_address(): void
-	{
-		$field = new Address(new Property\Name('test'), ['AU']);
-
-		$this->assertFalse($field->validate(self::AU)->anyFailed());
-	}
-
-	#[Test]
-	public function it_rejects_a_postcode_that_does_not_match_the_country(): void
-	{
-		$field = (new Address(new Property\Name('test'), ['AU']));
-
-		$this->assertConstraintValidationResultFailedForField('test.postal_code', 'test.postal_code.format', $field->validate(['postal_code' => '12345'] + self::AU));
-	}
-
-	#[Test]
-	public function it_rejects_a_subdivision_the_country_does_not_have(): void
-	{
-		$field = (new Address(new Property\Name('test'), ['AU']));
-
-		$this->assertTrue($field->validate(['administrative_area' => 'XYZ'] + self::AU)->anyFailed());
-	}
-
-	#[Test]
-	public function it_rejects_an_address_missing_a_part_the_country_requires(): void
-	{
-		$australia = self::AU;
-		unset($australia['locality']);
-
-		$field = (new Address(new Property\Name('test'), ['AU']));
-
-		$this->assertTrue($field->validate($australia)->anyFailed());
-	}
-
-	/**
-	 * Not every country uses every part. Singapore has no administrative areas at all and
-	 * Hong Kong has no postcodes, so requiring either would make those addresses
-	 * impossible to submit.
-	 */
-	#[Test]
-	#[DataProvider('addressesFromCountriesWithMissingParts')]
-	public function it_only_requires_the_parts_a_country_actually_uses(string $country, array $address): void
-	{
-		$field = (new Address(new Property\Name('test'), [$country]));
-
-		$this->assertFalse($field->validate($address)->anyFailed());
-	}
-
-	public static function addressesFromCountriesWithMissingParts(): array
-	{
-		return [
-			'Singapore has no administrative area' => ['SG', [
-				'line1' => '1 Raffles Place',
-				'locality' => 'Singapore',
-				'postal_code' => '048616',
-			]],
-			'Hong Kong has no postal code' => ['HK', [
-				'line1' => '1 Nathan Road',
-				'administrative_area' => 'Kowloon',
-			]],
-		];
-	}
-
-	// Several allowed countries: the country becomes a choice and drives the rules.
-
-	#[Test]
-	public function several_allowed_countries_leave_the_country_to_be_chosen(): void
-	{
-		$field = new Address(new Property\Name('test'), ['AU', 'NZ']);
-
-		$this->assertSame([], $field->determined());
-		$this->assertInstanceOf(Enum::class, $field->countryCode);
-		$this->assertEqualsCanonicalizing(['AU', 'NZ'], $field->countryCode->oneOf);
-	}
-
-	/**
-	 * Which subdivisions are valid depends on the country chosen, so with several allowed
-	 * there is no closed set to offer and it stays free text — checked server-side.
-	 */
-	#[Test]
-	public function several_allowed_countries_leave_the_subdivision_as_free_text(): void
-	{
-		$field = new Address(new Property\Name('test'), ['AU', 'NZ']);
-
-		$this->assertInstanceOf(Text::class, $field->administrativeArea);
-	}
-
-	#[Test]
-	public function it_validates_against_whichever_allowed_country_was_chosen(): void
-	{
-		$field = (new Address(new Property\Name('test'), ['AU', 'NZ']));
-
-		$this->assertFalse($field->validate([
-			'line1' => '1 Queen St',
-			'locality' => 'Auckland',
-			'administrative_area' => 'AUK',
-			'postal_code' => '1010',
-			'country_code' => 'NZ',
-		])->anyFailed());
-	}
-
-	#[Test]
-	public function it_rejects_a_subdivision_belonging_to_a_different_allowed_country(): void
-	{
-		// AUK is a New Zealand region, so it is not valid for an Australian address.
-		$field = (new Address(new Property\Name('test'), ['AU', 'NZ']));
-
-		$this->assertConstraintValidationResultFailedForField(
-			'test.administrative_area',
-			'test.administrative_area.allowed',
-			$field->validate([
-				'administrative_area' => 'AUK',
-				'country_code' => 'AU',
-			] + self::AU),
-		);
-	}
-
-	/**
-	 * One wrong country should be reported once, on the country field — not repeated as
-	 * postcode and subdivision failures derived from a country we already know is wrong.
-	 */
-	#[Test]
-	public function a_country_outside_the_whitelist_fails_only_the_country_field(): void
-	{
-		$field = (new Address(new Property\Name('test'), ['AU', 'NZ']));
-
-		$result = $field->validate(['country_code' => 'US'] + self::AU);
-
-		$this->assertConstraintValidationResultFailedForField('test.country_code', 'type', $result);
-		$this->assertConstraintValidationResultSkippedForField('test.postal_code', 'test.postal_code.format', $result);
-		$this->assertConstraintValidationResultSkippedForField('test.administrative_area', 'test.administrative_area.allowed', $result);
-	}
-
-	#[Test]
-	public function it_normalises_the_country_to_upper_case(): void
-	{
-		$field = (new Address(new Property\Name('test'), ['AU', 'NZ']));
-
-		$this->assertFalse($field->validate(['country_code' => 'au'] + self::AU)->anyFailed());
-	}
-
-	// Configuring after construction.
-
-	#[Test]
-	public function allowing_a_country_later_applies_the_same_rules(): void
-	{
-		$field = $this->createSubject();
-		$field->allow('AU');
-
-		$this->assertSame(['country_code'], $field->determined());
-		$this->assertTrue($field->validate(['postal_code' => '12345'] + self::AU)->anyFailed());
-	}
-
-	// Address type.
-
-	#[Test]
-	#[DataProvider('poBoxExpectations')]
-	public function it_only_rejects_a_po_box_when_the_address_must_be_visitable(Type $type, string $line1, bool $expectedToFail): void
-	{
-		$field = (new Address(new Property\Name('test'), ['AU']))
-			->ofType($type);
-
-		$this->assertSame($expectedToFail, $field->validate(['line1' => $line1] + self::AU)->anyFailed());
-	}
-
-	public static function poBoxExpectations(): array
-	{
-		return [
-			'either accepts a po box' => [Type::Either, 'PO Box 123', false],
-			'postal accepts a po box' => [Type::Postal, 'PO Box 123', false],
-			'physical rejects a po box' => [Type::Physical, 'PO Box 123', true],
-			'both rejects a po box' => [Type::Both, 'PO Box 123', true],
-			'physical rejects a gpo box' => [Type::Physical, 'GPO Box 9', true],
-			'physical rejects a locked bag' => [Type::Physical, 'Locked Bag 4000', true],
-			'physical accepts a street address' => [Type::Physical, '1 Queen St', false],
-			'physical accepts a street that merely starts with p' => [Type::Physical, 'Post Office Lane', false],
-		];
-	}
-
-	/** @return array<string, null> */
-	private function emptyAddress(): array
-	{
-		return [
-			'test.organization' => null,
-			'test.line1' => null,
-			'test.line2' => null,
-			'test.dependent_locality' => null,
-			'test.locality' => null,
-			'test.administrative_area' => null,
-			'test.postal_code' => null,
-			'test.country_code' => null,
-		];
+		$this->assertNull($this->createField()->defaultValue);
 	}
 }

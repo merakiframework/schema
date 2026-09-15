@@ -14,9 +14,20 @@ use Countable;
 abstract class AggregatedValidationResult implements IteratorAggregate, Countable, ValidationResult
 {
 	/**
+	 * Readable by anyone, writable only by this class.
+	 *
+	 * {@see ResolvedField} carefully marks its field, its value and its source `readonly` and then
+	 * inherited a writable array holding the verdicts — so `$result->results = []` turned a
+	 * validated field back into a pending one. A result is the record of what happened to one
+	 * request; nothing outside gets to revise it.
+	 *
+	 * The copy-on-change methods below still work, because `private(set)` is about the *class*
+	 * rather than the instance: `clone $this` then writing to the clone is this class writing to
+	 * its own kind.
+	 *
 	 * @var list<T> $results
 	 */
-	public array $results;
+	public private(set) array $results;
 
 	/**
 	 * The aggregate status, derived on demand from the current results. It is a
@@ -76,10 +87,7 @@ abstract class AggregatedValidationResult implements IteratorAggregate, Countabl
 	 */
 	public function remove(ValidationResult $result): static
 	{
-		$self = clone $this;
-		$self->results = array_filter($this->results, fn(ValidationResult $r): bool => $r !== $result);
-
-		return $self;
+		return $this->filter(fn(ValidationResult $r): bool => $r !== $result);
 	}
 
 	/**
@@ -150,12 +158,25 @@ abstract class AggregatedValidationResult implements IteratorAggregate, Countabl
 	}
 
 	/**
+	 * Every result the predicate keeps, renumbered from zero.
+	 *
+	 * `array_values()` is the whole point of this method rather than an inlined `array_filter`.
+	 * Filtering preserves keys, and {@see self::getFirst()} and {@see self::getLast()} address
+	 * results by position — so a filtered set that kept its original keys reported itself as
+	 * non-empty while handing back `null` for both ends of it.
+	 *
+	 * That was not an edge case. A field's shape result is always position 0 and always passes
+	 * when a constraint failed, so `getFailed()->getFirst()` returned `null` on *every* failing
+	 * field — the most direct way there is to ask this library what went wrong.
+	 *
+	 * It is also what makes the `list<T>` on {@see self::$results} true rather than aspirational.
+	 *
 	 * @param callable(T): bool $predicate
 	 */
 	public function filter(callable $predicate): static
 	{
 		$self = clone $this;
-		$self->results = array_filter($this->results, $predicate);
+		$self->results = array_values(array_filter($this->results, $predicate));
 
 		return $self;
 	}

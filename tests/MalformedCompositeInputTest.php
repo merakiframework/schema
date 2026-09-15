@@ -3,7 +3,6 @@ declare(strict_types=1);
 
 namespace Meraki\Schema;
 
-use Meraki\Schema\Field\Factory;
 use Meraki\Schema\Facade;
 use Meraki\Schema\ValidationStatus;
 use PHPUnit\Framework\TestCase;
@@ -18,16 +17,13 @@ use PHPUnit\Framework\Attributes\CoversClass;
  * raised an uncaught exception, turning a bad request into a 500.
  */
 #[Group('field')]
-#[CoversClass(Field\Composite::class)]
+#[CoversClass(Field\Address::class)]
 #[CoversClass(Field\Collection::class)]
+#[CoversClass(Field\CreditCard::class)]
+#[CoversClass(Field\Money::class)]
 final class MalformedCompositeInputTest extends TestCase
 {
-	private Factory $fields;
 
-	protected function setUp(): void
-	{
-		$this->fields = new Factory();
-	}
 
 	/** @return array<string, array{mixed}> */
 	public static function unusableValues(): array
@@ -43,10 +39,10 @@ final class MalformedCompositeInputTest extends TestCase
 	private function schema(): Facade
 	{
 		$schema = new Facade('checkout');
-		$schema->add($this->fields->createMoneyField('price', ['AUD' => 2]));
-		$schema->add($this->fields->createAddressField('billing', ['AU']));
-		$schema->add($this->fields->createCreditCardField('card'));
-		$schema->add($this->fields->createCollectionField('items', fn(Factory $f): array => [$f->createTextField('sku')]));
+		$schema->add($schema->createMoneyField('price', ['AUD' => 2]));
+		$schema->add($schema->createAddressField('billing', ['AU']));
+		$schema->add($schema->createCreditCardField('card'));
+		$schema->add($schema->createCollectionField('items', $schema->createTextField('sku')));
 
 		return $schema;
 	}
@@ -55,28 +51,28 @@ final class MalformedCompositeInputTest extends TestCase
 	#[DataProvider('unusableValues')]
 	public function a_money_field_fails_rather_than_raises(mixed $value): void
 	{
-		$this->assertTrue($this->schema()->validate(['price' => $value])->anyFailed());
+		$this->assertTrue($this->schema()->validate((object)['price' => $value])->anyFailed());
 	}
 
 	#[Test]
 	#[DataProvider('unusableValues')]
 	public function an_address_field_fails_rather_than_raises(mixed $value): void
 	{
-		$this->assertTrue($this->schema()->validate(['billing' => $value])->anyFailed());
+		$this->assertTrue($this->schema()->validate((object)['billing' => $value])->anyFailed());
 	}
 
 	#[Test]
 	#[DataProvider('unusableValues')]
 	public function a_credit_card_field_fails_rather_than_raises(mixed $value): void
 	{
-		$this->assertTrue($this->schema()->validate(['card' => $value])->anyFailed());
+		$this->assertTrue($this->schema()->validate((object)['card' => $value])->anyFailed());
 	}
 
 	#[Test]
 	#[DataProvider('unusableValues')]
 	public function a_collection_field_fails_rather_than_raises(mixed $value): void
 	{
-		$this->assertTrue($this->schema()->validate(['items' => $value])->anyFailed());
+		$this->assertTrue($this->schema()->validate((object)['items' => $value])->anyFailed());
 	}
 
 	#[Test]
@@ -84,37 +80,37 @@ final class MalformedCompositeInputTest extends TestCase
 	{
 		// Optional excuses an absent value, never a bad one.
 		$schema = new Facade('checkout');
-		$schema->add($this->fields->createMoneyField('price', ['AUD' => 2])->makeOptional());
+		$schema->add($schema->createMoneyField('price', ['AUD' => 2])->makeOptional());
 
-		$this->assertTrue($schema->validate(['price' => 'not-an-array'])->anyFailed());
+		$this->assertTrue($schema->validate((object)['price' => 'not-an-array'])->anyFailed());
 	}
 
 	#[Test]
 	public function an_optional_composite_left_out_is_still_skipped(): void
 	{
 		$schema = new Facade('checkout');
-		$schema->add($this->fields->createMoneyField('price', ['AUD' => 2])->makeOptional());
+		$schema->add($schema->createMoneyField('price', ['AUD' => 2])->makeOptional());
 
-		$this->assertFalse($schema->validate([])->anyFailed());
+		$this->assertFalse($schema->validate((object)[])->anyFailed());
 	}
 
 	#[Test]
 	public function a_list_where_an_item_is_unusable_fails(): void
 	{
 		$schema = new Facade('checkout');
-		$schema->add($this->fields->createCollectionField('items', fn(Factory $f): array => [$f->createTextField('sku')]));
+		$schema->add($schema->createCollectionField('items', $schema->createTextField('sku')));
 
-		$this->assertTrue($schema->validate(['items' => ['not-an-item']])->anyFailed());
+		$this->assertTrue($schema->validate((object)['items' => ['not-an-item']])->anyFailed());
 	}
 
 	#[Test]
 	public function well_formed_input_still_passes(): void
 	{
-		$result = $this->schema()->validate([
-			'price'   => ['amount' => '99.95', 'currency' => 'AUD'],
-			'billing' => ['line1' => '1 Queen St', 'locality' => 'Brisbane', 'administrative_area' => 'QLD', 'postal_code' => '4000'],
-			'card'    => ['holder' => 'Jane Doe', 'number' => '4111111111111111', 'expiry' => '2030-01', 'security_code' => '123'],
-			'items'   => [['sku' => 'ABC']],
+		$result = $this->schema()->validate((object)[
+			'price'   => (object)['amount' => '99.95', 'currency' => 'AUD'],
+			'billing' => (object)['line1' => '1 Queen St', 'locality' => 'Brisbane', 'administrative_area' => 'QLD', 'postal_code' => '4000', 'country' => 'AU'],
+			'card'    => (object)['name' => 'Jane Doe', 'number' => '4111111111111111', 'expiry' => '2030-01', 'security_code' => '123'],
+			'items'   => [(object)['sku' => 'ABC']],
 		]);
 
 		$this->assertFalse($result->anyFailed());
@@ -124,36 +120,37 @@ final class MalformedCompositeInputTest extends TestCase
 	public function an_object_is_still_accepted(): void
 	{
 		$schema = new Facade('checkout');
-		$schema->add($this->fields->createMoneyField('price', ['AUD' => 2]));
+		$schema->add($schema->createMoneyField('price', ['AUD' => 2]));
 
-		$this->assertFalse($schema->validate(['price' => (object) ['amount' => '99.95', 'currency' => 'AUD']])->anyFailed());
+		$this->assertFalse($schema->validate((object)['price' => (object) ['amount' => '99.95', 'currency' => 'AUD']])->anyFailed());
 	}
 
 	#[Test]
-	public function the_failure_is_reported_against_the_composite_itself(): void
+	public function the_failure_is_reported_against_the_field_itself(): void
 	{
 		$schema = new Facade('checkout');
-		$schema->add($this->fields->createMoneyField('price', ['AUD' => 2]));
+		$schema->add($schema->createMoneyField('price', ['AUD' => 2]));
 
-		$result = $schema->validate(['price' => 'not-an-array']);
+		$resolved = $schema->validate((object)['price' => 'not-an-array'])->forField('price');
 
-		/** @var array<string, string> $byField */
-		$byField = [];
+		// One field, one failure. This used to walk a tree of sub-field results looking for a
+		// constraint named `type`, and assert that `price` failed it while `price.amount` and
+		// `price.currency` were skipped — three verdicts for one unreadable value, with the
+		// real problem the only one that mattered.
+		//
+		// A structured field owns its whole value now, so there are no sub-results to bury it
+		// under, and readability is no longer a constraint at all: it is the *shape*, which is
+		// the precondition every constraint depends on rather than one more rule among them.
+		$this->assertTrue($resolved->shape->failed());
+		$this->assertNotContains('type', $resolved->constraintNames, '`type` is not a constraint.');
 
-		foreach ($result as $composite) {
-			foreach ($composite as $fieldResult) {
-				foreach ($fieldResult as $constraint) {
-					if ($constraint->name === 'type') {
-						$byField[(string) $fieldResult->field->name] = $constraint->status->name;
-					}
-				}
-			}
+		// Nothing could be checked against a value that could not be read, so every constraint
+		// the field does have stands skipped rather than failed.
+		foreach ($resolved->constraintNames as $name) {
+			$this->assertTrue(
+				$resolved->forConstraint($name)->status->skipped(),
+				sprintf('"%s" should be skipped when the value is unreadable.', $name),
+			);
 		}
-
-		// The composite owns the failure; its sub-fields are skipped because nothing
-		// reached them, so the one real problem is not buried under three faults.
-		$this->assertSame('Failed', $byField['price']);
-		$this->assertSame('Skipped', $byField['price.amount']);
-		$this->assertSame('Skipped', $byField['price.currency']);
 	}
 }

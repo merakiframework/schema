@@ -4,8 +4,7 @@ declare(strict_types=1);
 namespace Meraki\Schema\Field;
 
 use Meraki\Schema\Field\Date;
-use Meraki\Schema\Field\Factory;
-use Meraki\Schema\Property\Name;
+use Meraki\Schema\FieldName;
 use Meraki\Schema\FieldTestCase;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -18,7 +17,7 @@ final class DateTest extends FieldTestCase
 {
 	public function createField(): Date
 	{
-		return new Date(new Name('date'));
+		return new Date(new FieldName('date'));
 	}
 
 	#[Test]
@@ -29,7 +28,7 @@ final class DateTest extends FieldTestCase
 
 		$result = $field->validate($date);
 
-		$this->assertConstraintValidationResultFailed('type', $result);
+		$this->assertShapeFailed($result);
 	}
 
 	#[Test]
@@ -39,18 +38,18 @@ final class DateTest extends FieldTestCase
 
 		$result = $field->validate('2025-02-23');
 
-		$this->assertConstraintValidationResultPassed('type', $result);
+		$this->assertShapePassed($result);
 	}
 
 	#[Test]
 	public function it_validates_dates_with_a_default_value(): void
 	{
 		$field = $this->createField()
-			->prefill('2025-02-23');
+			->defaultsTo('2025-02-23');
 
 		$result = $field->validate(null);
 
-		$this->assertConstraintValidationResultPassed('type', $result);
+		$this->assertShapePassed($result);
 		$this->assertEquals('2025-02-23', $result->value);
 	}
 
@@ -58,11 +57,11 @@ final class DateTest extends FieldTestCase
 	public function it_validates_dates_with_a_default_value_and_a_value(): void
 	{
 		$field = $this->createField()
-			->prefill('2025-02-23');
+			->defaultsTo('2025-02-23');
 
 		$result = $field->validate('2025-02-24');
 
-		$this->assertConstraintValidationResultPassed('type', $result);
+		$this->assertShapePassed($result);
 		$this->assertEquals('2025-02-24', $result->value);
 	}
 
@@ -74,7 +73,7 @@ final class DateTest extends FieldTestCase
 
 		$result = $field->validate('2025-02-23');
 
-		$this->assertConstraintValidationResultPassed('type', $result);
+		$this->assertShapePassed($result);
 		$this->assertConstraintValidationResultPassed('from', $result);
 	}
 
@@ -86,7 +85,7 @@ final class DateTest extends FieldTestCase
 
 		$result = $field->validate('2025-02-24');
 
-		$this->assertConstraintValidationResultPassed('type', $result);
+		$this->assertShapePassed($result);
 		$this->assertConstraintValidationResultPassed('from', $result);
 	}
 
@@ -98,7 +97,7 @@ final class DateTest extends FieldTestCase
 
 		$result = $field->validate('2025-02-22');
 
-		$this->assertConstraintValidationResultPassed('type', $result);
+		$this->assertShapePassed($result);
 		$this->assertConstraintValidationResultFailed('from', $result);
 	}
 
@@ -110,7 +109,7 @@ final class DateTest extends FieldTestCase
 
 		$result = $field->validate('2025-02-22');
 
-		$this->assertConstraintValidationResultPassed('type', $result);
+		$this->assertShapePassed($result);
 		$this->assertConstraintValidationResultPassed('until', $result);
 	}
 
@@ -122,7 +121,7 @@ final class DateTest extends FieldTestCase
 
 		$result = $field->validate('2025-02-23');
 
-		$this->assertConstraintValidationResultPassed('type', $result);
+		$this->assertShapePassed($result);
 		$this->assertConstraintValidationResultFailed('until', $result);
 	}
 
@@ -134,44 +133,20 @@ final class DateTest extends FieldTestCase
 
 		$result = $field->validate('2025-02-24');
 
-		$this->assertConstraintValidationResultPassed('type', $result);
+		$this->assertShapePassed($result);
 		$this->assertConstraintValidationResultFailed('until', $result);
 	}
 
 	#[Test]
-	public function to_max_constraint_passes_when_input_is_before_max_date(): void
+	public function an_inclusive_upper_bound_is_the_day_after_it(): void
 	{
-		$field = $this->createField()
-			->to('2025-02-21');
+		// to() is gone: an inclusive and an exclusive bound reporting under the same
+		// constraint name left a message unable to say which the author wrote. An inclusive
+		// bound is now said outright, as the day after.
+		$field = $this->createField()->until('2025-02-23');
 
-		$result = $field->validate('2025-02-20');
-
-		$this->assertConstraintValidationResultPassed('type', $result);
-		$this->assertConstraintValidationResultPassed('until', $result);
-	}
-
-	#[Test]
-	public function to_max_constraint_passes_when_input_is_at_max_date(): void
-	{
-		$field = $this->createField()
-			->to('2025-02-22');
-
-		$result = $field->validate('2025-02-22');
-
-		$this->assertConstraintValidationResultPassed('type', $result);
-		$this->assertConstraintValidationResultPassed('until', $result);
-	}
-
-	#[Test]
-	public function to_max_constraint_fails_when_input_past_max_date(): void
-	{
-		$field = $this->createField()
-			->to('2025-02-22');
-
-		$result = $field->validate('2025-02-23');
-
-		$this->assertConstraintValidationResultPassed('type', $result);
-		$this->assertConstraintValidationResultFailed('until', $result);
+		$this->assertConstraintValidationResultPassed('until', $field->validate('2025-02-22'));
+		$this->assertConstraintValidationResultFailed('until', $field->validate('2025-02-23'));
 	}
 
 	#[Test]
@@ -184,7 +159,7 @@ final class DateTest extends FieldTestCase
 
 		$result = $field->validate($value);
 
-		$this->assertConstraintValidationResultPassed('type', $result);
+		$this->assertShapePassed($result);
 		$this->assertConstraintValidationResultPassed('interval', $result);
 	}
 
@@ -198,7 +173,7 @@ final class DateTest extends FieldTestCase
 
 		$result = $field->validate($value);
 
-		$this->assertConstraintValidationResultPassed('type', $result);
+		$this->assertShapePassed($result);
 		$this->assertConstraintValidationResultFailed('interval', $result);
 	}
 
@@ -246,6 +221,6 @@ final class DateTest extends FieldTestCase
 	{
 		$field = $this->createField();
 
-		$this->assertNull($field->defaultValue->unwrap());
+		$this->assertNull($field->defaultValue);
 	}
 }

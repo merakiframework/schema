@@ -33,4 +33,42 @@ enum Type: string
 	{
 		return $this === self::Physical || $this === self::Both;
 	}
+
+	/**
+	 * Whether an address of this type must be something the post can reach, and so cannot be just
+	 * an area — you cannot post to a suburb.
+	 *
+	 * Separate from {@see self::requiresVisitableLocation()} because the two questions are
+	 * independent: a PO box is deliverable and not visitable, and a service area covering a whole
+	 * suburb is visitable and not deliverable.
+	 */
+	public function requiresDeliverability(): bool
+	{
+		return $this === self::Postal || $this === self::Both;
+	}
+
+	/**
+	 * This type, narrowed so that mailability is also required.
+	 *
+	 * Narrowing rather than setting, so that asking for both restrictions in either order lands on
+	 * {@see self::Both} rather than the second call undoing the first.
+	 */
+	public function narrowedToMailable(): self
+	{
+		return match ($this) {
+			self::Either, self::Postal => self::Postal,
+			self::Physical, self::Both => self::Both,
+		};
+	}
+
+	/**
+	 * This type, narrowed so that a visitable location is also required.
+	 */
+	public function narrowedToPhysical(): self
+	{
+		return match ($this) {
+			self::Either, self::Physical => self::Physical,
+			self::Postal, self::Both => self::Both,
+		};
+	}
 }

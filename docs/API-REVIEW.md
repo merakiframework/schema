@@ -75,7 +75,7 @@ match the renderer's bare `min`, and the dot-splitting path only recognises `vis
 `format`, `allowed` and `required` — so it falls through to a default written for a
 different problem. The user is told their input is not a number when it is.
 
-## Removing the `type` constraint
+## Removing the `type` constraint — done
 
 **Decided.** `type` stops being reported as a constraint.
 
@@ -288,9 +288,11 @@ growing an enum in place is no longer needed to support it.
 | --- | --- | --- |
 | Is it a number? | shape | `validateValue()` ✓ |
 | Is it representable at this scale without loss? | a `scale` constraint | `validateValue()` ✗ |
-| Express it at that scale (`123` → `123.00`) | `cast()` | `validateValue()` ✗ |
+| Express it at that scale (`123` → `123.00`) | the application | `validateValue()` ✗ |
 
-The middle one is why a scale-2 field rejects `123.456` with "must be a number".
+The middle one is why a scale-2 field rejects `123.456` with "must be a number". The third is no
+longer the library's at all — padding a number for display is a conversion only the caller can
+want, so `Number` validates the scale and hands back the value unpadded.
 ### Scopes reach properties, never methods
 
 A scope addresses state. It does not call anything, and the reason is not taste:
@@ -314,16 +316,57 @@ public bool $requiresAcceptance { get => /* … */; }
 
 ### Normalisation follows the standard, and is never configurable
 
-Every field normalises to some degree — `123` and `123.00` are the same number, `EXAMPLE.COM`
-and `example.com` are the same domain. That is part of what the type *means*, so it is not
-an option an author sets. It belongs in `cast()`.
+The invariant: **normalisation may only remove a distinction the standard says is not a
+distinction.** Lowercasing a domain is lossless because DNS is case-insensitive; lowercasing an
+email's local part is not, because RFC 5321 permits it to be case-sensitive — which is why
+`EmailAddress` normalises one half and not the other.
 
-The invariant that makes it safe: **normalisation may only remove a distinction the
-standard says is not a distinction.** Lowercasing a domain is lossless because DNS is
-case-insensitive; lowercasing an email's local part is not, because RFC 5321 permits it to
-be case-sensitive — which is why `EmailAddress` normalises one half and not the other.
-Scaling `123` to `123.00` is lossless; scaling `123.456` to two places is not, and so it
-fails rather than rounding.
+That rule survives. Its **scope narrowed sharply**: the core does not *repair* input at all.
+
+- **Repair is the port's job.** Trimming whitespace, fixing case the standard does not mandate,
+  dropping blank rows — all of it belongs where the medium is known. `" a@b.com "` is not an
+  address under RFC 5321, so the core rejects it rather than quietly trimming. An HTML form
+  submits stray whitespace; a JSON client does not, and its `""` means an intentional empty
+  string. Only the port can tell those apart. See docs/CODING-STYLE.md.
+- **Canonicalisation lives in the field's `Value` object**, not in the field — one place per
+  type, so the rule above is applied once and can be read in one place.
+- **Nothing is converted for the application.** `123.5` is not padded to `123.50`; a phone
+  number is not formatted to E.164. The library cannot know whether you want cents, a
+  `Brick\Money`, or a decimal string, so it hands back what it validated and the application
+  converts. See *One hook: `parse()`* below.
+
+### One hook: `parse()`
+
+`process()`, `validateValue()` and `transform()` are one method. They between them parsed most
+values twice — `validateValue()` threw the result of its parse away and `transform()` parsed
+again — and had to agree with each other to be correct.
+
+```php
+abstract protected function parse(mixed $value): mixed;
+```
+
+Three rules, and everything downstream rests on them:
+
+| Rule | Why |
+| --- | --- |
+| Never receives `null` | Absence is settled first, so `null` in the *return* means one thing: unreadable |
+| Never raises | Unreadable input is ordinary, not exceptional; throwing belongs to definition time |
+| Its result is what the constraints see | So `meetsMinValue(BigDecimal $value)` is true by construction |
+
+`type` failing now means exactly "parse returned null".
+
+### Two values on the result, neither throwing
+
+| Value | Is |
+| --- | --- |
+| `$given` | verbatim, for echoing a rejected submission back |
+| `$value` | `parse($given) ?? $given` — the domain type, or what could not be turned into one |
+
+`ResolvedField::$normalized` is gone. It threw on a failed or pending field, which forced
+check-before-read ceremony on every consumer; both of these are always readable, and the verdict
+says which of the two you are holding. The authored default is stored exactly as written and goes
+through `parse()` when it stands in, so `defaultsTo('2026-01-01')` on a `Date` yields the same
+`LocalDate` that submitting that string would.
 
 ### `Password` absorbs `Passphrase`
 
@@ -348,18 +391,12 @@ A baseline the consumer needs to see is exposed as a property backed by a consta
 setter:
 
 ```php
-/** bcrypt truncates beyond this, and password_hash() defaults to bcrypt. */
-public const MAX_BYTES = 72;
-
-/** The ceiling the hashing algorithm imposes. No setter exists. */
-public int $maxBytes { get => self::MAX_BYTES; }
-
 /** Characters. The author may narrow this, never widen it. */
 public private(set) ?int $maxLength = null;
 ```
 
 The hook rather than a bare constant is what keeps the property-equals-constraint rule: a
-message can interpolate the number and `#/fields/password/maxBytes` resolves. And it is
+message can interpolate the number and `#/fields/password/minLength` resolves. And it is
 read-only *by construction* — the absence of a setter **is** the difference between a
 baseline and something an author may narrow, so "changing this needs a core release" is
 enforced rather than documented.
@@ -369,23 +406,37 @@ document is redundant and lets stored data disagree with the code: raise the cor
 and every old document still claims the old one. Expose them, do not persist them.
 `meraki/schema-json` writes `min`/`max` today, so this changes how it treats field config.
 
-#### Length in characters, ceiling in bytes
+#### Length is in characters, and there is no byte ceiling
 
-Both are needed, because one cannot express the other:
+Lengths are counted with `mb_strlen()`, consistently with every other field, so they are code
+points rather than bytes or grapheme clusters. NIST SP 800-63B asks for exactly that, requiring
+each Unicode code point to count as one character. A policy is written in characters because
+that is what a person types and what the standard specifies — a byte-denominated limit would
+admit 64 Latin characters but only 21 CJK ones, so the same written rule would mean different
+things for different users.
 
-| Input | `maxLength` = 64 | `maxBytes` = 72 |
+**`$maxBytes` was removed rather than made configurable.** It existed because bcrypt silently
+truncates at 72 bytes, which is a real hazard:
+
+| Algorithm | Ceiling | Behaviour past it |
 | --- | --- | --- |
-| 80 ASCII characters | fails | fails |
-| 64 CJK characters | passes | **fails** — 192 bytes |
-| 40 emoji | passes | **fails** — 160 bytes |
+| bcrypt | 72 bytes | **silently truncates** — two secrets sharing a 72-byte prefix become the same secret |
+| Argon2id | 2^32-1 bytes | none in practice |
 
-Lengths are counted with `mb_strlen()`, which is already consistent across every field, so
-they are code points rather than bytes or grapheme clusters. The byte ceiling is the case
-that would otherwise be silently truncated by the hash.
+Verified rather than assumed: `password_verify()` accepts a 99-byte string against a bcrypt hash
+of a *different* 87-byte string when they share a 72-byte prefix, and does not for Argon2id.
+PHP's `PASSWORD_DEFAULT` is still bcrypt as of 8.5, so the obvious call has this property.
 
-The message for a byte failure is awkward — "too long; some characters take more space than
-others" — and `maxLength` cannot be tuned low enough to make it unreachable without
-capping passwords at 18 characters. The awkward message is the better trade.
+But it is not this field's hazard. A password field answers "is this an acceptable secret",
+which is a question about the string and the policy; what a hashing algorithm can consume is a
+different question, asked by a different layer. The field cannot know which algorithm will be
+used, so expressing the ceiling here meant asking the author to declare something and then
+re-checking it for them — and the usual fix is not rejection at all but **pre-hashing**
+(`base64_encode(hash('sha256', $secret, true))` before bcrypt), which removes the ceiling
+without refusing anything the user typed. That is an infrastructure decision, and it belongs
+where the hashing happens.
+
+The knowledge is kept in the `Password` class docblock so nobody has to rediscover it.
 
 ### Password strength tiers
 
@@ -436,20 +487,43 @@ its own.
 | Method | Property / constraint |
 | --- | --- |
 | `minLengthOf()`, `maxLengthOf()` | `$minLength`, `$maxLength` |
-| — (baseline, no setter) | `$maxBytes` |
-| `minNumberOfUppercaseChars()`, `maxNumberOfUppercaseChars()` | `$minUppercaseChars`, `$maxUppercaseChars` |
-| `minNumberOfLowercaseChars()`, `maxNumberOfLowercaseChars()` | `$minLowercaseChars`, `$maxLowercaseChars` |
-| `minNumberOfDigits()`, `maxNumberOfDigits()` | `$minDigits`, `$maxDigits` |
-| `minNumberOfSymbols()`, `maxNumberOfSymbols()` | `$minSymbols`, `$maxSymbols` |
+| `minNumberOfUppercaseChars()` | `$minUppercaseChars` |
+| `minNumberOfLowercaseChars()` | `$minLowercaseChars` |
+| `minNumberOfDigits()` | `$minDigits` |
+| `minNumberOfSymbols()` | `$minSymbols` |
 
-Ten flat `?int` properties in place of five `Range` objects. Each carries its own constraint
-name, so a failure says whether the floor or the ceiling was missed — which the `Range`
-shape could not, since one constraint name covered both ends.
+Flat `?int` properties in place of `Range` objects. Each carries its own constraint name, so a
+failure says which rule was missed — which the `Range` shape could not, since one constraint
+name covered both ends.
+
+**There are no per-class maximums.** A minimum describes a policy that exists in the world, and
+is offered off by default. A maximum is a different thing: it shrinks the search space an
+attacker must cover and tells them something about its shape — "at most two digits" is a gift —
+and current guidance is against composition rules generally. Dropping them also removes the only
+source of combinatorial contradictions between the counts.
+
+#### The one contradiction that remains
+
+The four classes are **disjoint** — a character is uppercase, lowercase, a digit or a symbol,
+never two at once — so requiring ten of one and ten of another really does need twenty
+characters. Hence one definition-time check:
+
+> Σ(composition minimums) ≤ `maxLength`
+
+Guarded on every setter that can create the contradiction, since any of them may be written
+last. `maxLengthOf(15)->minNumberOfUppercaseChars(10)->minNumberOfDigits(10)` throws, in any
+order.
+
+**The mirrored check would be a bug**, and is deliberately absent. It would have to say the
+classes must add up to `minLength`, but the classes are disjoint and *not exhaustive*: `漢`, `א`,
+`ก`, `ǅ` and `ᵃ` match none of the four patterns, because `\p{Lu}`/`\p{Ll}` miss the other
+letter categories (`Lo`, `Lt`, `Lm`) and the symbol class excludes all of `\p{L}`. A
+twelve-character CJK secret counts zero in every class while being twelve characters long.
 ### Confirmed this round
 
 | Item | Decision |
 | --- | --- |
-| `Rule\Outcome\_Require` | **`MakeRequired`**, pairing with `MakeOptional`. `class Require {}` is still a parse error on PHP 8.5 — namespaces accept reserved words, class names do not — so the keyword is avoided rather than worked around. `Field::require()` becomes `makeRequired()` to match. |
+| `Rule\Outcome\MakeRequired` | **`MakeRequired`**, pairing with `MakeOptional`. `class Require {}` is still a parse error on PHP 8.5 — namespaces accept reserved words, class names do not — so the keyword is avoided rather than worked around. `Field::require()` becomes `makeRequired()` to match. |
 | `Collection` | `minItems()` → **`minCountOf()`** → `$minCount`. Unambiguous now that `File` has no count of its own. |
 | `Password` presets | The five static constructors go, replaced by **`minStrengthOf(Strength::Strong)`** — a method and an enum, matching the preference for literals and enums, and reading as the floor it is. |
 | `Composite` | Removed outright. The one real use — a repeatable list of multi-field items — is already what `Collection` does: it takes a template of several fields and validates each item against all of them. |
@@ -475,7 +549,7 @@ Properties and constraint names are already correct and do not move.
 
 `Composite` is removed. `Address`, `Money` and `CreditCard` each become a **single field
 holding a single value object**, the way `File` already holds a `File\Metadata`. Input is an
-array or the value object; `cast()` normalises to the object. There are no sub-fields.
+array or the value object; `parse()` reads it into the object. There are no sub-fields.
 
 ```php
 $schema->addAddressField('billing')->allowCountries('AU');
@@ -484,16 +558,19 @@ $schema->validate(['billing' => [
     'line1'        => 'PO Box 42',
     'locality'     => 'Rockhampton',
     'postal_code'  => '470',        // AU postcodes are four digits
-    'country_code' => 'AU',
+    'country'      => 'AU',         // or 'Australia'; either case
 ]]);
 ```
 
 ### Constraint names lose the dots *and* the field name
 
+A `part` is named as submitted data names it — snake_case — because that is the vocabulary the
+author wrote and the one a message provider has to match.
+
 | Today | Becomes | Part |
 | --- | --- | --- |
-| `billing.country_code.allowed` | `allowedCountries` | `countryCode` |
-| `billing.postal_code.format` | `postalCodeFormat` | `postalCode` |
+| `billing.country_code.allowed` | `allowedCountries` | `country` |
+| `billing.postal_code.format` | `postalCodeFormat` | `postal_code` |
 | `billing.line1.visitable` | `line1Visitable` | `line1` |
 | `cost.amount.min` | `minAmount` | `amount` |
 | `cost.amount.scale` | `scale` | `amount` |
@@ -687,12 +764,20 @@ Holding a source rather than a value is what keeps a shared definition safe: a `
 is stateless, whereas reading `now` at definition time and storing it would be the same
 mistake as B7.
 
-Placement follows `Facade::for()` — declared on the schema, inherited by fields added
-afterwards, overridable per field, defaulting to the system clock.
+Placement follows `Facade::for()` — declared on the schema, inherited by fields it *builds*,
+overridable per field, defaulting to the system clock. Note "builds" rather than "added":
+a field is immutable, so it takes the clock at construction and a schema cannot reach into one
+it was handed.
 
-`ResolvedField` carries **`evaluatedAt`**, the instant the verdict was reached. That makes a
-result reproducible and explainable, and it is the natural `bound` for every time-relative
-constraint, so a message can say "expired as of 9 September 2026".
+`ResolvedField` carries **`evaluatedAt`**, the instant the verdict was reached — `null` on a
+field with no clock, because nothing about it depends on the time. That makes a result
+reproducible and explainable, and it is the natural `bound` for every time-relative constraint,
+so a message can say "expired as of 9 September 2026".
+
+`SchemaValidationResult` carries one too, read **once** per request rather than once per field.
+Under a `SystemClock` two fields reading it separately would get instants microseconds apart —
+harmless for a card expiry, not harmless for a rule comparing two time-relative fields to each
+other. One request gets one answer to "what time is it".
 
 **The exception this forces.** Defaults are checked when they are declared, but that cannot
 hold for a time-relative constraint: `defaultsTo('2027-01-01')` with `mustExpireInFuture()`
@@ -702,16 +787,27 @@ the rule needs the carve-out stated rather than discovered.
 
 ## `CreditCard` expiry
 
+*Done.*
+
 | Surface | Name |
 | --- | --- |
 | Method | `mustExpireInFuture()` |
 | Property | `$mustExpireInFuture` |
 | Constraint | `expiryInFuture`, bound = the instant checked against |
+| Constraint | `expiryWithinReach`, bound = the ceiling in years |
 
 No minimum: "not expired" is the constraint itself. A **maximum earns its place as a typo
 guard** — cards are issued three to five years out, so `2099` should be caught — and it is a
-baseline ceiling rather than configuration. An enum of permitted dates does not fit; an
-expiry is whatever the card says.
+baseline ceiling rather than configuration, so it is always asked even when expiry is not
+being enforced. Twenty years, which is far outside anything real on purpose: it is there to
+catch a slipped keystroke, not to have an opinion about unusual cards. An enum of permitted
+dates does not fit; an expiry is whatever the card says.
+
+**The clock moved to the constructor.** It used to arrive with `mustExpireInFuture()`, on the
+argument that a card captured for later reference has no business knowing the time. Adding
+`expiryWithinReach` ended that: it is not optional, and it asks the calendar too. A schema now
+declares the clock once and every card field it builds inherits it, which also needs somewhere
+on the field to keep it that does not depend on which rules were switched on.
 
 ## `PhoneNumber`
 
@@ -750,25 +846,114 @@ A `Location` / `PostalAddress` split was worked through and rejected. With `Addr
 retained, the only difference between the two would be *whether a street is required* — and
 a boolean does not justify a type.
 
-So one class, with two independent dials:
+So one class, with two independent dials. Both start unrestricted and are *narrowed*, which is
+why neither is a setter taking the enum:
 
 | Dial | Expresses | Surface |
 | --- | --- | --- |
-| `Type` | deliverability — can you post to it, can you visit it | the existing FHIR-aligned enum |
-| `mustBeSpecific()` | granularity — is a street required | `$mustBeSpecific` → constraint `specific` |
+| `Type` | purpose — can you post to it, can you visit it | `allowOnlyMailable()`, `allowOnlyPhysical()` → `$type` |
+| granularity | is a street required | `allowWithoutStreet()` → `$mustBeSpecific` → constraint `specific` |
 
-`mustBeSpecific()` adds `line1` to the required set; without it the per-country requiredness
-from libaddressinput still governs everything else. That is why it composes with `Type`
-rather than duplicating it.
+`allowOnlyMailable()` and `allowOnlyPhysical()` each narrow `$type` rather than assign it, so
+asking for both in either order lands on `Type::Both` instead of the second call undoing the
+first. `Type` itself keeps its four FHIR-aligned states; it is no longer part of the surface.
 
-**`Type::Postal` with a non-specific address throws where it is declared.** You cannot post
-to a suburb, and the pattern for a combination with no meaning is to reject it at definition
-time, as the baseline floors do.
+**An address names a street by default**, and `allowWithoutStreet()` is the opt-out. An address
+is a place, and a suburb with a postcode is a region that *contains* places — so the vague form
+is the exception, and the author says so. Without the opt-out the per-country requiredness from
+libaddressinput still governs everything else.
+
+**A mailable address that needs no street throws where it is declared.** You cannot post to a
+suburb, and the pattern for a combination with no meaning is to reject it at definition time, as
+the baseline floors do. Guarded on both withers rather than one, because either call can be the
+second to arrive.
+
+### The country is always submitted
+
+The third field to make the same pairing — `Money` with a currency, `PhoneNumber` with a country,
+and now `Address`. A postcode means nothing on its own: `4700` is Rockhampton in Australia and
+something else elsewhere. An address without a country is a shape failure.
+
+This removed `settleCountry()`, which filled the country in when the allow-list happened to hold
+exactly one. That was defensible — with only Australia allowed, an omitted country really was
+*determined* rather than guessed — but it made the rule change shape depending on how many
+countries were listed, and one constant supplied by the port is cheaper than that.
+
+**It also gained a capability.** An unrestricted address used to get no postcode validation at
+all, because there was no country to derive a rule from:
+
+```php
+// Free-form means free-form: a country typed into an unrestricted address is data, not a
+// rule to start enforcing a postcode format with.
+if ($this->allowedCountries === []) {
+    return null;
+}
+```
+
+That is no longer true — the submitter names the country, so checking their postcode against it
+reads what they wrote rather than inferring it. `resolvedCountry()` collapsed from four branches
+to two.
+
+Presence is what is required, not correctness: a country that is present but unrecognised passes
+the shape and is reported by `allowedCountries`, which can name the list it should have come from.
+
+### A country may be named or coded
+
+`allowCountries()` and the submitted `country` part both take `'AU'`, `'au'` or `'Australia'`,
+and `process()` canonicalises to the code. Unambiguous to accept both: libaddressinput lists 256
+countries, no two share a name, and no name collides with a code. Accepting only the code would
+mean a form offering a country dropdown had to map the label back before submitting.
+
+A country that is neither is left exactly as it arrived, for `allowedCountries` to report —
+rewriting it would lose what was typed, and guessing at a near-miss is not this field's business.
+The part is `country` rather than `country_code`, since either form may be sent; the property
+stays `countryCode`, since it holds a code.
 
 **What would justify the split later** is coordinates, and it is a different reason from the
 one rejected here: a coordinate is not an address at all, whereas "Rockhampton QLD 4700" is
 one — just a vague one. Adding a `Location` type later does not disturb `Address`, so the
 split is deferred rather than ruled out.
+## `Money` scale defaults to the standard
+
+`allowCurrencies()` takes two shapes, which mix in one call:
+
+```php
+$field->allowCurrencies(['AUD', 'JPY']);      // each currency's own ISO 4217 exponent
+$field->allowCurrencies(['AUD' => 3]);        // an override
+$field->allowCurrencies(['JPY', 'AUD' => 3]); // both
+```
+
+A bare entry is a code; a keyed entry names the code and gives it a scale. The last mention of
+a currency wins, so an override may follow a plain mention.
+
+**Why a default at all.** ISO 4217 already assigns every currency an exponent — JPY 0, AUD and
+USD 2, BHD 3, CLF 4 — so making the author restate it was asking them to maintain a table the
+standard already publishes, and to get it wrong quietly. `brick/money` ships that table, which
+is why it is a dependency.
+
+**Why an override at all.** "Money" covers two different quantities. A *settleable amount* is
+what moves between accounts, always a whole number of minor units — you cannot pay half a cent,
+so the currency's exponent is right. A *rate or unit price* — fuel at `$1.859`/L, electricity at
+`$0.2345`/kWh, an ad CPM at `$0.001234` — is denominated in a currency, finer than its minor
+unit, and multiplied by a quantity before anything is settled. Only the second needs the
+override, and writing the number out is the point: an amount finer than the currency allows is a
+typo far more often than it is intent.
+
+**Amounts stay string decimals, not integer minor units.** Integer minor units are what most
+payment APIs take, and they are right for a wire format — but `1250` only means something once
+you know the currency's exponent, so the conversion would have to happen *before* validation.
+This field would then be judging a number whose meaning depends on a fact it has not checked
+yet: whether that currency is even allowed. A string also preserves the scale as written, which
+is exactly what the `scale` constraint judges on — `"1.50"` and `"1.5"` are distinguishable and
+`1250` has already thrown that away. The integer form is what the application wants on the way
+*out*, which makes it a `transformed` target rather than an input shape.
+
+**An unknown currency is refused where it is written, and reported where it is submitted.** The
+same split as `Address` and its countries: an allow-list entry that is not a real currency is a
+typo no input could satisfy, so it throws; a submitted currency that is not real is a value that
+happens to be wrong, so `allowedCurrencies` reports it and a form can mark the right input. As
+ever, an unrestricted field enforces nothing — free-form means free-form.
+
 ## Still to decide
 
 **Nothing.** Every row is settled. The matcher vocabulary is deferred to a stage of its
@@ -831,7 +1016,7 @@ names (there is no bare `min`), and `CreditCard` emits a `checksum` rather than 
   `until`, so a result cannot say which was declared. Two behaviours sharing one constraint
   name is worse than two names for one behaviour, which is how this was previously recorded.
 - `Field\Set::getByName()` is typed `?Field` but throws instead of returning `null`.
-- `Rule\Outcome\_Require` carries a leading underscore.
+- `Rule\Outcome\MakeRequired` carries a leading underscore.
 - Structured types report against sub-field names (`cost.amount.min`), and a message
   provider has to split the string to get anywhere. Whatever replaces dotted names has to
   answer *which part failed* without string surgery.

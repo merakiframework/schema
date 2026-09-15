@@ -5,7 +5,7 @@ namespace Meraki\Schema\Api;
 
 use Meraki\Schema\Facade;
 use Meraki\Schema\Field;
-use Meraki\Schema\Property;
+use Meraki\Schema\FieldName;
 use PHPUnit\Framework\TestCase;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\Attributes\Group;
@@ -21,7 +21,7 @@ final class StructuredTypeTest extends TestCase
 	#[Test]
 	public function a_structured_field_accepts_an_array(): void
 	{
-		$address = new Field\Address(new Property\Name('billing'), ['AU']);
+		$address = new Field\Address(new FieldName('billing'), ['AU']);
 
 		$resolved = $address->resolve([
 			'line1' => '1 Denham St',
@@ -38,7 +38,7 @@ final class StructuredTypeTest extends TestCase
 	#[Test]
 	public function a_structured_field_accepts_its_own_value_object(): void
 	{
-		$address = new Field\Address(new Property\Name('billing'), ['AU']);
+		$address = new Field\Address(new FieldName('billing'), ['AU']);
 		$value = new Field\Address\Value(
 			line1: '1 Denham St',
 			locality: 'Rockhampton',
@@ -53,7 +53,7 @@ final class StructuredTypeTest extends TestCase
 	#[Test]
 	public function a_structured_field_has_no_sub_fields(): void
 	{
-		$address = new Field\Address(new Property\Name('billing'), ['AU']);
+		$address = new Field\Address(new FieldName('billing'), ['AU']);
 
 		$this->assertFalse(property_exists($address, 'fields'));
 	}
@@ -72,16 +72,16 @@ final class StructuredTypeTest extends TestCase
 			'locality' => 'Rockhampton',
 			'postal_code' => '4700',
 			'country_code' => 'AU',
-		]])->get('invoice_address');
+		]])->forConstraint('invoice_address');
 
-		$this->assertNotNull($failed->get('line1Visitable'));
+		$this->assertNotNull($failed->forConstraint('line1Visitable'));
 		$this->assertStringNotContainsString('invoice_address', implode(',', $failed->constraintNames()));
 	}
 
 	#[Test]
 	public function a_money_field_carries_currency_and_amount_in_one_value(): void
 	{
-		$money = new Field\Money(new Property\Name('cost'), ['AUD' => 2]);
+		$money = new Field\Money(new FieldName('cost'), ['AUD' => 2]);
 
 		$resolved = $money->resolve(['currency' => 'AUD', 'amount' => '12.50']);
 
@@ -93,7 +93,7 @@ final class StructuredTypeTest extends TestCase
 	public function a_file_field_holds_exactly_one_file(): void
 	{
 		// Several files is a collection of file fields, not a field that is itself plural.
-		$file = new Field\File(new Property\Name('resume'));
+		$file = new Field\File(new FieldName('resume'));
 
 		$this->assertInstanceOf(
 			Field\File\Value::class,
@@ -114,7 +114,7 @@ final class StructuredTypeTest extends TestCase
 
 		$result = $schema->validate(['attachments' => []]);
 
-		$this->assertTrue($result->get('attachments')->get('minCount')->failed());
+		$this->assertTrue($result->forConstraint('attachments')->forConstraint('minCount')->failed());
 	}
 
 	#[Test]
@@ -142,7 +142,7 @@ final class StructuredTypeTest extends TestCase
 	{
 		// A suburb, a state and a postcode is an address — just a vague one. Requiring a
 		// street is a separate decision from what the address is for.
-		$address = new Field\Address(new Property\Name('service_area'), ['AU']);
+		$address = new Field\Address(new FieldName('service_area'), ['AU']);
 
 		$resolved = $address->validate([
 			'locality' => 'Rockhampton',
@@ -156,13 +156,13 @@ final class StructuredTypeTest extends TestCase
 	#[Test]
 	public function a_specific_address_requires_a_street(): void
 	{
-		$address = (new Field\Address(new Property\Name('billing'), ['AU']))->mustBeSpecific();
+		$address = (new Field\Address(new FieldName('billing'), ['AU']))->mustBeSpecific();
 
 		$failed = $address->validate([
 			'locality' => 'Rockhampton',
 			'administrative_area' => 'QLD',
 			'postal_code' => '4700',
-		])->get('specific');
+		])->forConstraint('specific');
 
 		$this->assertTrue($failed->failed());
 		$this->assertSame('line1', $failed->part);
@@ -173,7 +173,7 @@ final class StructuredTypeTest extends TestCase
 	{
 		// Two dials, not one enum. Type says what the address is *for*; mustBeSpecific()
 		// says how much of it is required.
-		$visitable = (new Field\Address(new Property\Name('pickup'), ['AU']))
+		$visitable = (new Field\Address(new FieldName('pickup'), ['AU']))
 			->ofType(Field\Address\Type::Physical)
 			->mustBeSpecific();
 
@@ -184,8 +184,8 @@ final class StructuredTypeTest extends TestCase
 			'postal_code' => '4700',
 		]);
 
-		$this->assertTrue($failed->get('line1Visitable')->failed());
-		$this->assertFalse($failed->get('specific')->failed());
+		$this->assertTrue($failed->forConstraint('line1Visitable')->failed());
+		$this->assertFalse($failed->forConstraint('specific')->failed());
 	}
 
 	#[Test]
@@ -195,14 +195,14 @@ final class StructuredTypeTest extends TestCase
 		// definition time, as the baseline floors are.
 		$this->expectException(\InvalidArgumentException::class);
 
-		(new Field\Address(new Property\Name('billing'), ['AU']))->ofType(Field\Address\Type::Postal);
+		(new Field\Address(new FieldName('billing'), ['AU']))->ofType(Field\Address\Type::Postal);
 	}
 
 	#[Test]
 	public function a_determined_country_need_not_be_supplied(): void
 	{
 		// One allowed country settles it, so the author's allow-list answers for the user.
-		$address = new Field\Address(new Property\Name('billing'), ['AU']);
+		$address = new Field\Address(new FieldName('billing'), ['AU']);
 
 		$resolved = $address->validate([
 			'locality' => 'Rockhampton',

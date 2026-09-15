@@ -3,90 +3,113 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Field;
 
-use Meraki\Schema\Field;
-use Meraki\Schema\Property;
+use Meraki\Schema\Field\Uuid\Value;
+use Meraki\Schema\AtomicField;
+use Meraki\Schema\FieldName;
 use InvalidArgumentException;
 
 /**
- * @extends Field<string|null>
+ * A UUID, in the canonical 8-4-4-4-12 hyphenated form.
+ *
+ * Accepts the nil and max UUIDs alongside versions 1 to 8, since both are well-formed and
+ * carry meaning — but neither has a version nibble, so they are allowed by name rather than
+ * by number. See {@see self::NIL} and {@see self::MAX}.
+ *
+ * @extends AtomicField<string|null>
  */
-final class Uuid extends Field
+final readonly class Uuid extends AtomicField
 {
 	private const PATTERN = '/^(?:[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$/i';
 
-	public array $versions = []; // empty array means any version is allowed
+	/** The nil UUID, `00000000-0000-0000-0000-000000000000`. Has no version nibble. */
+	public const NIL = 0;
 
-	public const NULL_VERSION = 0; // 00000000-0000-0000-0000-000000000000
-	public const ALL_BITS_SET_VERSION = -1; // ffffffff-ffff-ffff-ffff-ffffffffffff
+	/** The max UUID, `ffffffff-ffff-ffff-ffff-ffffffffffff`. Has no version nibble. */
+	public const MAX = -1;
+
+	private const NIL_UUID = '00000000-0000-0000-0000-000000000000';
+	private const MAX_UUID = 'ffffffff-ffff-ffff-ffff-ffffffffffff';
+
+	/** @var list<int> Empty means any version is acceptable. */
+	public array $allowedVersions;
 
 	public function __construct(
-		public readonly Property\Name $name,
+		public FieldName $name,
 	) {
+		parent::__construct();
+
+		$this->allowedVersions = [];
+
+		// Last: every property it reads must already be set.
+		$this->constraints = $this->defineConstraints();
 	}
 
 	/**
-	 * Restrict the UUID to a specific version.
+	 * Restricts the field to the given versions, 1 to 8, plus {@see self::NIL} and
+	 * {@see self::MAX} for the two that have no version of their own.
 	 *
-	 * A version of "0" means a "null" UUID (00000000-0000-0000-0000-000000000000).
-	 * A version of "-1" means the "all bits set" UUID (ffffffff-ffff-ffff-ffff-ffffffffffff).
+	 * Accumulates, so repeated calls compose. Lifting the restriction is
+	 * {@see self::clearAllowedVersions()}.
+	 *
+	 * @throws InvalidArgumentException if a version is outside -1, 0, or 1 to 8
 	 */
-	public function restrictToVersion(int ...$versions): self
+	public function allowVersions(int $version, int ...$versions): static
 	{
-		// empty array means "any version is allowed"
-		if (count($versions) === 0) {
-			$this->versions = [];
+		$allowed = $this->allowedVersions;
 
-			return $this;
-		}
-
-		foreach ($versions as $v) {
-			if ($v < -1 || $v > 8) {
-				throw new InvalidArgumentException('Version must be between -1, 0, or 1 to 8.');
+		foreach ([$version, ...$versions] as $v) {
+			if ($v < self::MAX || $v > 8) {
+				throw new InvalidArgumentException('Version must be -1, 0, or 1 to 8.');
 			}
 
-			if (!in_array($v, $this->versions, true)) {
-				$this->versions[] = $v;
+			if (!in_array($v, $allowed, true)) {
+				$allowed[] = $v;
 			}
 		}
 
-		return $this;
+		return $this->with(['allowedVersions' => $allowed]);
 	}
 
-	protected function cast(mixed $value): string
+	/**
+	 * Accepts any version again.
+	 */
+	public function clearAllowedVersions(): static
 	{
-		return $value;
+		return $this->with(['allowedVersions' => []]);
 	}
 
-	protected function getConstraints(): array
+	protected function parse(mixed $value): ?Value
 	{
-		return [
-			'version' => $this->validateVersions(...)
-		];
+		return is_string($value) && preg_match(self::PATTERN, $value) === 1 ? new Value($value) : null;
 	}
 
-	public function validateValue(mixed $value): bool
+	protected function defineConstraints(): Constraint\Set
 	{
-		return is_string($value) && preg_match(self::PATTERN, $value) === 1;
+		return new Constraint\Set(
+			new Constraint('allowedVersions', $this->isAnAllowedVersion(...), $this->allowedVersions),
+		);
 	}
 
-	private function validateVersions(mixed $value): bool
+	private function isAnAllowedVersion(Value $parsed): ?bool
 	{
-		// No restrictions, any version is allowed
-		if (count($this->versions) === 0) {
-			return true;
+		$value = $parsed->uuid;
+
+		// No list means nothing was asked, so nothing was checked.
+		if ($this->allowedVersions === []) {
+			return null;
 		}
 
-		// Null UUID is allowed
-		if (in_array(self::NULL_VERSION, $this->versions, true) && $value === '00000000-0000-0000-0000-000000000000') {
-			return true;
+		$value = strtolower($value);
+
+		// Neither of these carries a version nibble, so each is allowed by name or not at all.
+		if ($value === self::NIL_UUID) {
+			return in_array(self::NIL, $this->allowedVersions, true);
 		}
 
-		// "All bits set" UUID is allowed
-		if (in_array(self::ALL_BITS_SET_VERSION, $this->versions, true) && $value === 'ffffffff-ffff-ffff-ffff-ffffffffffff') {
-			return true;
+		if ($value === self::MAX_UUID) {
+			return in_array(self::MAX, $this->allowedVersions, true);
 		}
 
-		// 1 - 8
-		return in_array(hexdec($value[14]), $this->versions, true);
+		return in_array((int) hexdec($value[14]), $this->allowedVersions, true);
 	}
 }

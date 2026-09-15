@@ -45,7 +45,6 @@ final class ScopeTest extends TestCase
 			'a submitted value' => ['#/fields/username/value', ValueScope::class],
 			'a definition property' => ['#/fields/age/min', PropertyScope::class],
 			'optionality' => ['#/fields/nickname/optional', PropertyScope::class],
-			'a dotted sub-field name' => ['#/fields/cost.amount/value', ValueScope::class],
 			'a camelCase name' => ['#/fields/contactMethod/value', ValueScope::class],
 		];
 	}
@@ -71,6 +70,11 @@ final class ScopeTest extends TestCase
 			'trailing junk after a property' => ['#/fields/username/min/typo'],
 			'trailing junk after a value' => ['#/fields/username/value/typo'],
 			'a name that cannot identify a field' => ['#/fields/not a name/value'],
+			// Sub-fields were addressed this way while a composite registered `cost.amount`
+			// alongside `cost`. A structured field owns its whole value now, so there is no
+			// such field to name — and FieldName refuses a dot outright, which is what makes
+			// this a parse error rather than a lookup that finds nothing.
+			'a dotted sub-field name' => ['#/fields/cost.amount/value'],
 		];
 	}
 

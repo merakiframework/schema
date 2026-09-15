@@ -45,37 +45,6 @@ final class Set implements IteratorAggregate, Countable
 		$this->constraints = array_values($constraints);
 	}
 
-	/**
-	 * Builds a constraint from its parts, so a field declaring several reads as a list of
-	 * checks rather than a list of constructor calls.
-	 *
-	 * @param Closure(mixed): (bool|null) $check
-	 * @param string|int|float|bool|list<string>|null $bound
-	 */
-	public function and(
-		string $name,
-		Closure $check,
-		string|int|float|bool|array|null $bound = null,
-		?string $part = null,
-	): self {
-		return new self(...$this->constraints, ...[new Constraint($name, $check, $bound, $part)]);
-	}
-
-	/**
-	 * Builds a constraint from its parts, so a field declaring several reads as a list of
-	 * checks rather than a list of constructor calls.
-	 *
-	 * @param Closure(mixed): (bool|null) $check
-	 * @param string|int|float|bool|list<string>|null $bound
-	 */
-	public function add(
-		string $name,
-		Closure $check,
-		string|int|float|bool|array|null $bound = null,
-		?string $part = null,
-	): self {
-		return new self(...$this->constraints, ...[new Constraint($name, $check, $bound, $part)]);
-	}
 
 	/**
 	 * Every constraint reported as skipped, for when the shape failed and there was nothing
@@ -103,9 +72,29 @@ final class Set implements IteratorAggregate, Countable
 	}
 
 	/** @return list<string> */
-	public function names(): array
+	/**
+	 * One constraint by name, for reading the bound a message would interpolate without having
+	 * to validate a value first.
+	 *
+	 * Named differently from {@see \Meraki\Schema\ResolvedField::forConstraint()} on purpose:
+	 * this hands back a constraint *definition*, that one a verdict about a value. `named()` also
+	 * reads as what it returns — the constraint named X — where the `for*()` methods read as what
+	 * they are looking up.
+	 */
+	public function named(string $name): ?Constraint
 	{
-		return array_map(static fn(Constraint $c): string => $c->name, $this->constraints);
+		foreach ($this->constraints as $constraint) {
+			if ($constraint->name === $name) {
+				return $constraint;
+			}
+		}
+
+		return null;
+	}
+
+	/** @var list<string> The name each constraint reports under, in order. */
+	public array $names {
+		get => array_map(static fn(Constraint $c): string => $c->name, $this->constraints);
 	}
 
 	public function getIterator(): Traversable

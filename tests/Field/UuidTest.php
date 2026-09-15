@@ -4,7 +4,7 @@ declare(strict_types=1);
 namespace Meraki\Schema\Field;
 
 use Meraki\Schema\Field\Uuid;
-use Meraki\Schema\Property;
+use Meraki\Schema\FieldName;
 use Meraki\Schema\ValidationStatus;
 use Meraki\Schema\FieldTestCase;
 use PHPUnit\Framework\Attributes\Group;
@@ -18,7 +18,7 @@ final class UuidTest extends FieldTestCase
 {
 	public function createSubject(): Uuid
 	{
-		return new Uuid(new Property\Name('uuid'));
+		return new Uuid(new FieldName('uuid'));
 	}
 
 	public function createField(): Uuid
@@ -34,7 +34,7 @@ final class UuidTest extends FieldTestCase
 
 		$result = $sut->validate($uuid);
 
-		$this->assertConstraintValidationResultPassed('type', $result);
+		$this->assertShapePassed($result);
 	}
 
 	public static function validUuids(): array
@@ -62,7 +62,7 @@ final class UuidTest extends FieldTestCase
 
 		$result = $sut->validate($uuid);
 
-		$this->assertConstraintValidationResultFailed('type', $result);
+		$this->assertShapeFailed($result);
 	}
 
 	public static function invalidUuids(): array
@@ -83,11 +83,11 @@ final class UuidTest extends FieldTestCase
 	{
 		$sut = $this->createSubject()
 			
-			->restrictToVersion($version);
+			->allowVersions($version);
 
 		$result = $sut->validate($uuidToPass);
 
-		$this->assertConstraintValidationResultPassed('version', $result);
+		$this->assertConstraintValidationResultPassed('allowedVersions', $result);
 	}
 
 	public static function restrictedUuidsThatShouldPass(): array
@@ -112,11 +112,11 @@ final class UuidTest extends FieldTestCase
 	{
 		$sut = $this->createSubject()
 			
-			->restrictToVersion($version);
+			->allowVersions($version);
 
 		$result = $sut->validate($uuidToFail);
 
-		$this->assertConstraintValidationResultFailed('version', $result);
+		$this->assertConstraintValidationResultFailed('allowedVersions', $result);
 	}
 
 	public static function restrictedUuidsThatShouldFail(): array
@@ -141,12 +141,12 @@ final class UuidTest extends FieldTestCase
 	{
 		$sut = $this->createSubject()
 			
-			->restrictToVersion(4)
-			->restrictToVersion(7);
+			->allowVersions(4)
+			->allowVersions(7);
 
 		$result = $sut->validate($uuid);
 
-		$this->assertConstraintValidationResultHasStatusOf($expectedStatus, 'version', $result);
+		$this->assertConstraintValidationResultHasStatusOf($expectedStatus, 'allowedVersions', $result);
 	}
 
 	public static function restrictedVersions(): array
@@ -164,6 +164,6 @@ final class UuidTest extends FieldTestCase
 	{
 		$sut = $this->createSubject();
 
-		$this->assertNull($sut->defaultValue->unwrap());
+		$this->assertNull($sut->defaultValue);
 	}
 }

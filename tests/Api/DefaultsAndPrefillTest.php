@@ -31,7 +31,7 @@ final class DefaultsAndPrefillTest extends TestCase
 	#[Test]
 	public function an_authored_default_applies_when_nothing_is_submitted(): void
 	{
-		$resolved = $this->schema()->resolve(['username' => 'alice'])->get('nickname');
+		$resolved = $this->schema()->resolve(['username' => 'alice'])->forConstraint('nickname');
 
 		$this->assertSame('anonymous', $resolved->value);
 		$this->assertSame(ValueSource::Default, $resolved->source);
@@ -42,7 +42,7 @@ final class DefaultsAndPrefillTest extends TestCase
 	{
 		$resolved = $this->schema()
 			->resolve(['username' => 'alice'], prefilledWith: ['nickname' => 'ali'])
-			->get('nickname');
+			->forConstraint('nickname');
 
 		$this->assertSame('ali', $resolved->value);
 		$this->assertSame(ValueSource::Prefilled, $resolved->source);
@@ -53,7 +53,7 @@ final class DefaultsAndPrefillTest extends TestCase
 	{
 		$resolved = $this->schema()
 			->resolve(['username' => 'alice', 'nickname' => 'typed'], prefilledWith: ['nickname' => 'ali'])
-			->get('nickname');
+			->forConstraint('nickname');
 
 		$this->assertSame('typed', $resolved->value);
 		$this->assertSame(ValueSource::Submitted, $resolved->source);
@@ -66,7 +66,7 @@ final class DefaultsAndPrefillTest extends TestCase
 		// satisfy it. Checked surfaces that so the user fixes it.
 		$result = $this->schema()->validate([], prefilledWith: ['username' => 'ab']);
 
-		$this->assertTrue($result->get('username')->anyFailed());
+		$this->assertTrue($result->forConstraint('username')->anyFailed());
 	}
 
 	#[Test]
@@ -74,7 +74,7 @@ final class DefaultsAndPrefillTest extends TestCase
 	{
 		$resolved = $this->schema()
 			->validate([], prefilledWith: ['username' => 'ab'], policy: PrefillPolicy::Trusted)
-			->get('username');
+			->forConstraint('username');
 
 		$this->assertFalse($resolved->anyFailed());
 		$this->assertSame('ab', $resolved->value);
@@ -92,7 +92,7 @@ final class DefaultsAndPrefillTest extends TestCase
 		$result = $this->schema()
 			->validate(['username' => 'ab'], prefilledWith: ['username' => 'alice'], policy: PrefillPolicy::Trusted);
 
-		$this->assertTrue($result->get('username')->anyFailed());
+		$this->assertTrue($result->forConstraint('username')->anyFailed());
 	}
 
 	#[Test]
@@ -120,7 +120,7 @@ final class DefaultsAndPrefillTest extends TestCase
 
 				Fiber::suspend();
 
-				return $resolved->get('email')->value;
+				return $resolved->forConstraint('email')->value;
 			},
 		);
 

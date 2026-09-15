@@ -1,11 +1,24 @@
-# Tests are held one level below src. What blocks level 2 is twelve accesses to magic
-# __get properties — $composite->nickname, $variant->password — which PHPStan cannot type
-# and which are the point of the tests doing it.
+# Tests are held one level below src.
 #
-# That magic goes away in 2.0 along with Composite, so annotating around it now would be
-# work thrown away. Revisit once the structured types own their own values.
+# The original note here said level 2 was blocked by twelve accesses to magic __get properties
+# (`$composite->nickname`, `$variant->password`). Composite, Variant and the magic are all gone,
+# so that reason has expired — but level 2 now costs 58 errors for a different reason, mostly
+# assertions on `mixed` returns from result objects. Raising it is tracked in docs/ROADMAP.md.
+#
+# tests/Api was excluded while the 2.0 specification named classes that did not exist yet. The
+# spec group is green, so they all do, and the exclusion is gone.
 parameters:
     level: 1
     paths:
         - tests
     treatPhpDocTypesAsCertain: false
+
+    # Two tests deliberately violate a type to prove what happens at runtime — calling
+    # FieldName::equals() with a string, assigning to a readonly property — and carry a
+    # @phpstan-ignore saying so. Those errors are not reported at level 1, so the annotations
+    # match nothing and PHPStan reports *that* instead.
+    #
+    # This is not suppressing an error: it only stops the complaint about an ignore that did not
+    # fire. Deleting the annotations would be the alternative, and it would lose the note that
+    # the violation is intentional and then need writing again when the level rises.
+    reportUnmatchedIgnoredErrors: false

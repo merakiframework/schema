@@ -6,7 +6,8 @@ namespace Meraki\Schema\Field;
 use Meraki\Schema\Field\DateTime\TimePrecision;
 use Meraki\Schema\FieldTestCase;
 use Meraki\Schema\Field\DateTime;
-use Meraki\Schema\Property\Name;
+use Meraki\Schema\Field\DateTime\PrecisionPolicy;
+use Meraki\Schema\FieldName;
 use Meraki\Schema\ValidationStatus;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -19,14 +20,14 @@ final class DateTimeTest extends FieldTestCase
 {
 	public function createField(): DateTime
 	{
-		return new DateTime(new Name('date_time'));
+		return new DateTime(new FieldName('date_time'));
 	}
 
 	#[Test]
 	#[DataProvider('fromConstraintExpectationsForMinutePrecision')]
 	public function from_constraint_meets_expectations_for_minute_precision(string $minDateTime, string $inputDateTime, ValidationStatus $expectedStatus): void
 	{
-		$field = (new DateTime(new Name('date_time'), precision: TimePrecision::Minutes))
+		$field = (new DateTime(new FieldName('date_time'), precision: TimePrecision::Minutes))
 			->from($minDateTime);
 
 		$result = $field->validate($inputDateTime);
@@ -47,7 +48,7 @@ final class DateTimeTest extends FieldTestCase
 	#[DataProvider('untilConstraintExpectationsForMinutePrecision')]
 	public function until_constraint_meets_expectations_for_minute_precision(string $maxDateTime, string $inputDateTime, ValidationStatus $expectedStatus): void
 	{
-		$field = (new DateTime(new Name('date_time'), precision: TimePrecision::Minutes))
+		$field = (new DateTime(new FieldName('date_time'), precision: TimePrecision::Minutes))
 			->until($maxDateTime);
 
 		$result = $field->validate($inputDateTime);
@@ -68,9 +69,9 @@ final class DateTimeTest extends FieldTestCase
 	#[DataProvider('stepConstraintExpectationsForMinutePrecision')]
 	public function step_constraint_meets_expectations_for_minute_precision(string $from, string $duration, string $input, ValidationStatus $expectedStatus): void
 	{
-		$field = (new DateTime(new Name('date_time'), precision: TimePrecision::Minutes))
+		$field = (new DateTime(new FieldName('date_time'), precision: TimePrecision::Minutes))
 			->from($from)
-			->inIncrementsOf($duration);
+			->atIntervalsOf($duration);
 
 		$result = $field->validate($input);
 
@@ -93,7 +94,7 @@ final class DateTimeTest extends FieldTestCase
 	#[DataProvider('fromConstraintExpectationsForSecondPrecision')]
 	public function from_constraint_meets_expectations_for_second_precision(string $minDateTime, string $inputDateTime, ValidationStatus $expectedStatus): void
 	{
-		$field = (new DateTime(new Name('date_time'), precision: TimePrecision::Seconds))
+		$field = (new DateTime(new FieldName('date_time'), precision: TimePrecision::Seconds))
 			->from($minDateTime);
 
 		$result = $field->validate($inputDateTime);
@@ -114,9 +115,9 @@ final class DateTimeTest extends FieldTestCase
 	#[DataProvider('stepConstraintExpectationsForNanosecondPrecision')]
 	public function step_constraint_meets_expectations_for_nanosecond_precision(string $from, string $duration, string $input, ValidationStatus $expectedStatus): void
 	{
-		$field = (new DateTime(new Name('date_time'), precision: TimePrecision::Nanoseconds))
+		$field = (new DateTime(new FieldName('date_time'), precision: TimePrecision::Nanoseconds))
 			->from($from)
-			->inIncrementsOf($duration);
+			->atIntervalsOf($duration);
 
 		$result = $field->validate($input);
 
@@ -142,7 +143,7 @@ final class DateTimeTest extends FieldTestCase
 
 		$result = $field->validate($date);
 
-		$this->assertConstraintValidationResultFailed('type', $result);
+		$this->assertShapeFailed($result);
 	}
 
 	public static function invalidDateTimes(): array
@@ -174,6 +175,30 @@ final class DateTimeTest extends FieldTestCase
 	{
 		$field = $this->createField();
 
-		$this->assertNull($field->defaultValue->unwrap());
+		$this->assertNull($field->defaultValue);
+	}
+
+	#[Test]
+	public function an_over_precise_value_is_reported_rather_than_thrown(): void
+	{
+		// As with Time: PreservePrecision threw from inside the parse, which escaped
+		// validateValue() and surfaced as a 500 on input anyone could send.
+		$field = new DateTime(new FieldName('dt'), TimePrecision::Minutes, PrecisionPolicy::Reject);
+
+		$result = $field->validate('2026-01-01T12:34:56');
+
+		$this->assertShapePassed($result);
+		$this->assertConstraintValidationResultFailed('precision', $result);
+	}
+
+	#[Test]
+	public function precision_is_not_checked_when_extra_precision_is_discarded(): void
+	{
+		$field = new DateTime(new FieldName('dt'), TimePrecision::Minutes, PrecisionPolicy::Truncate);
+
+		$result = $field->validate('2026-01-01T12:34:56');
+
+		$this->assertConstraintValidationResultSkipped('precision', $result);
+		$this->assertShapePassed($result);
 	}
 }

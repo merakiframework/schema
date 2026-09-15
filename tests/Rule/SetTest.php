@@ -144,28 +144,56 @@ final class SetTest extends TestCase
 		$this->assertFalse($newSet->contains($rule));
 	}
 
+	/**
+	 * A set cannot be changed in place, which is what makes sharing one safe.
+	 *
+	 * These two replace tests that asserted the opposite — `rules_can_be_added_mutably` and its
+	 * removal twin. The capability was real and was the hole in the central claim of 2.0:
+	 * `Facade::copyForRequest()` hands every concurrent request the *same* set instance, on the
+	 * grounds that every way of changing one returns a new set. A public `mutableAdd()` made that
+	 * false, so one caller could change a definition every in-flight request was reading.
+	 */
 	#[Test]
-	public function rules_can_be_added_mutably(): void
+	public function adding_a_rule_leaves_the_original_set_alone(): void
 	{
 		$set = new Set();
 		$rule = $this->createRule();
 
-		$set->mutableAdd($rule);
+		$grown = $set->add($rule);
 
-		$this->assertCount(1, $set);
-		$this->assertTrue($set->contains($rule));
+		$this->assertCount(0, $set);
+		$this->assertCount(1, $grown);
+		$this->assertNotSame($set, $grown);
 	}
 
 	#[Test]
-	public function rules_can_be_removed_mutably(): void
+	public function removing_a_rule_leaves_the_original_set_alone(): void
 	{
 		$rule = $this->createRule();
 		$set = new Set($rule);
 
-		$set->mutableRemove($rule);
+		$shrunk = $set->remove($rule);
 
-		$this->assertCount(0, $set);
-		$this->assertFalse($set->contains($rule));
+		$this->assertCount(1, $set);
+		$this->assertCount(0, $shrunk);
+		$this->assertFalse($shrunk->contains($rule));
+	}
+
+	/**
+	 * Removal renumbers, so a set that has had something taken out is still a list.
+	 *
+	 * `unset()` left a hole, which is the same defect that made `getFailed()->getFirst()` return
+	 * null on a result that plainly had failures.
+	 */
+	#[Test]
+	public function removing_the_first_rule_leaves_the_rest_reachable(): void
+	{
+		$first = $this->createRule();
+		$second = $this->createRule();
+
+		$remaining = (new Set($first, $second))->remove($first);
+
+		$this->assertSame($second, $remaining->first());
 	}
 
 	protected function createRule(): Rule

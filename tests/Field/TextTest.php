@@ -4,7 +4,7 @@ declare(strict_types=1);
 namespace Meraki\Schema\Field;
 
 use Meraki\Schema\Field\Text;
-use Meraki\Schema\Property\Name;
+use Meraki\Schema\FieldName;
 use Meraki\Schema\FieldTestCase;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
@@ -16,7 +16,7 @@ final class TextTest extends FieldTestCase
 {
 	public function createField(): Text
 	{
-		return new Text(new Name('text'));
+		return new Text(new FieldName('text'));
 	}
 
 	#[Test]
@@ -110,6 +110,6 @@ final class TextTest extends FieldTestCase
 	{
 		$field = $this->createField();
 
-		$this->assertNull($field->defaultValue->unwrap());
+		$this->assertNull($field->defaultValue);
 	}
 }

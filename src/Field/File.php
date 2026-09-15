@@ -3,124 +3,136 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Field;
 
-use Meraki\Schema\Field\File\Metadata;
-use Meraki\Schema\Field\AtomicMultiValue as AtomicMultiValueField;
-use Meraki\Schema\Field;
-use Meraki\Schema\Property;
+use Meraki\Schema\Field\File\Value;
+use Meraki\Schema\AtomicField;
+use Meraki\Schema\FieldName;
 use InvalidArgumentException;
 
 /**
- * @psalm-type FileMetadata = array{
- *	name: string,
- *	type: string,
- *	size: int,
- * }
- * Input may be a single file (a FileMetadata array or a Metadata instance) or a
- * list of either.
- * @extends AtomicMultiValueField<list<FileMetadata|Metadata>|FileMetadata|Metadata|null>
+ * One uploaded file.
+ *
+ * Exactly one: a field holds a single value, and several files is a collection of file
+ * fields rather than a field that is itself plural. That is why there is no count here —
+ * `minCountOf()` belongs to {@see Collection}, which is the thing that knows about many.
+ *
+ *     $schema->createCollectionField(
+ *         'attachments',
+ *         $schema->createFileField('file')->allowDocuments(),
+ *     )->minCountOf(1);
+ *
+ * Input is a `$_FILES`-shaped array or a {@see Value}; either way it resolves to a `Value`.
+ * Note what that value can and cannot tell you — see the warning on `Value` about the
+ * claimed MIME type.
+ *
+ * @psalm-type UploadedFile = array{name: string, type: string, size: int}
+ * @extends AtomicField<UploadedFile|Value|null>
  */
-final class File extends AtomicMultiValueField
+final readonly class File extends AtomicField
 {
-	public const UNLIMITED = -1;
-
-	public int $minCount = 1;
-
-	public int $maxCount = self::UNLIMITED;
-
-	public int $minSize = 0; // in bytes
-
-	public int $maxSize = self::UNLIMITED; // in bytes
-
-	/**
-	 * @var list<string>
-	 */
-	public array $allowedTypes = [];
-
-	/**
-	 * @var list<string>
-	 */
-	public array $disallowedTypes = [];
+	public int $minSize;
+	public ?int $maxSize;
+	public array $allowedTypes;
+	public array $disallowedTypes;
 
 	public function __construct(
-		public readonly Property\Name $name,
+		public FieldName $name,
 	) {
+		parent::__construct();
+
+		$this->minSize = 0;
+		$this->maxSize = null;
+		$this->allowedTypes = [];
+		$this->disallowedTypes = [];
+
+		// Last: every property it reads must already be set.
+		$this->constraints = $this->defineConstraints();
 	}
 
-	public function atLeast(int $minFiles): self
-	{
-		if ($minFiles < 1) {
-			throw new InvalidArgumentException('Minimum count must be greater than or equal to 1.');
-		}
-
-		if ($this->maxCount !== self::UNLIMITED && $minFiles > $this->maxCount) {
-			throw new InvalidArgumentException('Minimum count cannot be greater than maximum count.');
-		}
-
-		$this->minCount = $minFiles;
-
-		return $this;
-	}
-
-	public function atMost(int $maxFiles): self
-	{
-		if ($maxFiles !== self::UNLIMITED && $maxFiles < 1) {
-			throw new InvalidArgumentException('Maximum count must be at least 1 or higher.');
-		}
-
-		if ($maxFiles !== self::UNLIMITED && $maxFiles < $this->minCount) {
-			throw new InvalidArgumentException('Maximum count cannot be less than minimum count.');
-		}
-
-		$this->maxCount = $maxFiles;
-
-		return $this;
-	}
-
-	public function minFileSizeOf(int $bytes): self
+	/**
+	 * @param non-negative-int $bytes
+	 * @throws InvalidArgumentException if negative, or above the maximum
+	 */
+	public function minSizeOf(int $bytes): static
 	{
 		if ($bytes < 0) {
-			throw new InvalidArgumentException('Minimum file size must be non-negative.');
+			throw new InvalidArgumentException('A minimum file size cannot be negative.');
 		}
 
-		$this->minSize = $bytes;
+		if ($this->maxSize !== null && $bytes > $this->maxSize) {
+			throw new InvalidArgumentException('A minimum file size cannot exceed the maximum.');
+		}
 
-		return $this;
+		return $this->with(['minSize' => $bytes]);
 	}
 
-	public function maxFileSizeOf(int $bytes): self
+	/**
+	 * @param non-negative-int|null $bytes `null` removes the ceiling
+	 * @throws InvalidArgumentException if negative, or below the minimum
+	 */
+	public function maxSizeOf(?int $bytes): static
 	{
-		if ($bytes < 0 && $bytes !== self::UNLIMITED) {
-			throw new InvalidArgumentException('Maximum file size must be non-negative or unlimited.');
+		if ($bytes === null) {
+			return $this->with(['maxSize' => null]);
 		}
 
-		$this->maxSize = $bytes;
+		if ($bytes < 0) {
+			throw new InvalidArgumentException('A maximum file size cannot be negative.');
+		}
 
-		return $this;
+		if ($bytes < $this->minSize) {
+			throw new InvalidArgumentException('A maximum file size cannot be less than the minimum.');
+		}
+
+		return $this->with(['maxSize' => $bytes]);
 	}
 
-	public function allowTypes(string ...$types): self
+	/**
+	 * Adds to the accepted types, so the presets below compose rather than replace. Lifting
+	 * the restriction entirely is {@see self::clearAllowedTypes()}.
+	 *
+	 * @param non-empty-string $type
+	 * @param non-empty-string ...$types
+	 * @throws InvalidArgumentException if any type is empty
+	 */
+	public function allowTypes(string $type, string ...$types): static
 	{
-		foreach ($types as $additionalType) {
-			if (!in_array($additionalType, $this->allowedTypes, true)) {
-				$this->allowedTypes[] = $additionalType;
-			}
-		}
-
-		return $this;
+		return $this->with(['allowedTypes' => $this->merge($this->allowedTypes, [$type, ...$types])]);
 	}
 
-	public function disallowTypes(string ...$types): self
+	/**
+	 * Accepts every type again, undoing {@see self::allowTypes()} and the presets built on it.
+	 *
+	 * Leaves the refused types alone: clearing both from one call would quietly undo a
+	 * {@see self::disallowScripts()} that was never mentioned.
+	 */
+	public function clearAllowedTypes(): static
 	{
-		foreach ($types as $additionalType) {
-			if (!in_array($additionalType, $this->disallowedTypes, true)) {
-				$this->disallowedTypes[] = $additionalType;
-			}
-		}
-
-		return $this;
+		return $this->with(['allowedTypes' => []]);
 	}
 
-	public function allowImages(array $additionalImageTypes = []): self
+	/**
+	 * Adds to the refused types. Accumulates, and clears through
+	 * {@see self::clearDisallowedTypes()}, exactly as {@see self::allowTypes()} does.
+	 *
+	 * @param non-empty-string $type
+	 * @param non-empty-string ...$types
+	 * @throws InvalidArgumentException if any type is empty
+	 */
+	public function disallowTypes(string $type, string ...$types): static
+	{
+		return $this->with(['disallowedTypes' => $this->merge($this->disallowedTypes, [$type, ...$types])]);
+	}
+
+	/**
+	 * Refuses nothing outright again, undoing {@see self::disallowTypes()} and
+	 * {@see self::disallowScripts()}. Leaves the accepted types alone.
+	 */
+	public function clearDisallowedTypes(): static
+	{
+		return $this->with(['disallowedTypes' => []]);
+	}
+
+	public function allowImages(): static
 	{
 		return $this->allowTypes(
 			'image/jpeg',
@@ -131,7 +143,7 @@ final class File extends AtomicMultiValueField
 		);
 	}
 
-	public function allowVideos(array $additionalVideoTypes = []): self
+	public function allowVideos(): static
 	{
 		return $this->allowTypes(
 			'video/mp4',
@@ -141,19 +153,7 @@ final class File extends AtomicMultiValueField
 		);
 	}
 
-	public function disallowScripts(array $additionalScriptTypes = []): self
-	{
-		return $this->disallowTypes(
-			'application/x-javascript',
-			'application/javascript',
-			'text/javascript',
-			'application/x-php',
-			'text/html',
-			'application/x-sh',
-		);
-	}
-
-	public function allowDocuments(array $additionalDocumentTypes = []): self
+	public function allowDocuments(): static
 	{
 		return $this->allowTypes(
 			'application/pdf',
@@ -170,146 +170,103 @@ final class File extends AtomicMultiValueField
 	}
 
 	/**
-	 * @return Metadata[]
+	 * Refuses the types most often used to smuggle executable content past an upload form.
+	 *
+	 * A convenience against mistakes, not a defence: the type is whatever the client claimed
+	 * (see {@see Value}), so anything deliberate simply claims a different one.
 	 */
-	protected function cast(mixed $value): array
+	public function disallowScripts(): static
 	{
-		// A single file may be given as a Metadata instance or an associative
-		// metadata array; multiple files as a list of either (or a mix).
-		if ($value instanceof Metadata || (is_array($value) && !array_is_list($value))) {
-			$value = [$value];
-		}
-
-		if (!is_array($value)) {
-			throw new InvalidArgumentException('Expected file metadata (an array or a Metadata instance) or a list thereof.');
-		}
-
-		return array_map($this->toMetadata(...), $value);
+		return $this->disallowTypes(
+			'application/x-javascript',
+			'application/javascript',
+			'text/javascript',
+			'application/x-php',
+			'text/html',
+			'application/x-sh',
+		);
 	}
 
-	private function toMetadata(mixed $file): Metadata
+	/**
+	 * Turns what was submitted into a {@see Value}.
+	 *
+	 * Input that cannot be one is passed through untouched rather than rejected here, so
+	 * {@see self::validateValue()} reports it as a shape failure with everything else —
+	 * throwing from here would raise on a *definition* being built, not on the request.
+	 *
+	 * @param UploadedFile|Value|null $value
+	 */
+	/**
+	 * @param array<string, mixed>|Value $value
+	 */
+	protected function parse(mixed $value): ?Value
 	{
-		if ($file instanceof Metadata) {
-			return $file;
+		if ($value instanceof Value) {
+			return $value;
 		}
 
-		if (!is_array($file)) {
-			throw new InvalidArgumentException('Each file must be an associative metadata array or a Metadata instance.');
+		$parts = self::recordIn($value);
+
+		if ($parts === null) {
+			return null;
 		}
 
-		$this->assertCorrectStructure($file);
-
-		return new Metadata($file['name'], $file['type'], $file['size']);
-	}
-
-	public function validateValue(mixed $value): bool
-	{
 		try {
-			$files = $this->cast($value);
-
-			return count($files) > 0;
-		} catch (InvalidArgumentException $e) {
-			return false;
+			return Value::fromInput($parts);
+		} catch (InvalidArgumentException) {
+			return null;
 		}
 	}
 
-	private function assertCorrectStructure(array $value): void
+
+
+	protected function defineConstraints(): Constraint\Set
 	{
-		foreach (['name', 'type', 'size'] as $key) {
-			if (!isset($value[$key])) {
-				throw new InvalidArgumentException("Missing '$key' key in file array.");
+		// Bounds first, then the allow/disallow pair — the order every other field reports in, and
+		// the order a failure reads best in. EmailAddress is the exact parallel.
+		return new Constraint\Set(
+			new Constraint('minSize', $this->meetsMinSize(...), $this->minSize),
+			new Constraint('maxSize', $this->meetsMaxSize(...), $this->maxSize),
+			new Constraint('allowedTypes', $this->isAnAllowedType(...), $this->allowedTypes),
+			new Constraint('disallowedTypes', $this->isNotADisallowedType(...), $this->disallowedTypes),
+		);
+	}
+
+	/**
+	 * @param list<non-empty-string> $existing
+	 * @param list<string> $additional
+	 * @return list<non-empty-string>
+	 */
+	private function merge(array $existing, array $additional): array
+	{
+		foreach ($additional as $type) {
+			if ($type === '') {
+				throw new InvalidArgumentException('A media type cannot be empty.');
 			}
 		}
 
-		foreach (['name', 'type'] as $key) {
-			if (!is_string($value[$key]) || $value[$key] === '') {
-				throw new InvalidArgumentException("Key '$key' must be a string in file array.");
-			}
-		}
-
-		if (!is_int($value['size'])) {
-			throw new InvalidArgumentException("Key 'size' must be an integer in file array.");
-		}
-
-		if ($value['size'] < 0) {
-			throw new InvalidArgumentException("Key 'size' must be a non-negative integer in file array.");
-		}
+		return array_values(array_unique([...$existing, ...$additional]));
 	}
 
-	protected function getConstraints(): array
+	private function isAnAllowedType(Value $file): ?bool
 	{
-		return [
-			'minCount' => $this->validateMinCount(...),
-			'maxCount' => $this->validateMaxCount(...),
-			'allowedTypes' => $this->validateAllowedTypes(...),
-			'disallowedTypes' => $this->validateDisallowedTypes(...),
-			'minSize' => $this->validateMinSize(...),
-			'maxSize' => $this->validateMaxSize(...),
-		];
+		// No list means nothing was asked, so nothing was checked.
+		return $this->allowedTypes === [] ? null : in_array($file->type, $this->allowedTypes, true);
 	}
 
-	private function validateMinCount(mixed $value): ?bool
+	private function isNotADisallowedType(Value $file): ?bool
 	{
-		return count($this->cast($value)) >= $this->minCount;
+		return $this->disallowedTypes === [] ? null : !in_array($file->type, $this->disallowedTypes, true);
 	}
 
-	private function validateMaxCount(mixed $value): ?bool
+	/** Unlike the others this never skips: zero is a bound that every file meets. */
+	private function meetsMinSize(Value $file): bool
 	{
-		return $this->maxCount === self::UNLIMITED || count($this->cast($value)) <= $this->maxCount;
+		return $file->size >= $this->minSize;
 	}
 
-	private function validateAllowedTypes(mixed $value): ?bool
+	private function meetsMaxSize(Value $file): ?bool
 	{
-		if (empty($this->allowedTypes)) {
-			return true;
-		}
-
-		foreach ($this->cast($value) as $file) {
-			if (!in_array($file->type, $this->allowedTypes, true)) {
-				return false;
-			}
-		}
-
-		return true;
-	}
-
-	private function validateDisallowedTypes(mixed $value): ?bool
-	{
-		if (empty($this->disallowedTypes)) {
-			return true;
-		}
-
-		foreach ($this->cast($value) as $file) {
-			if (in_array($file->type, $this->disallowedTypes, true)) {
-				return false;
-			}
-		}
-
-		return true;
-	}
-
-	private function validateMinSize(mixed $value): ?bool
-	{
-		foreach ($this->cast($value) as $file) {
-			if ($file->size < $this->minSize) {
-				return false;
-			}
-		}
-		return true;
-	}
-
-	private function validateMaxSize(mixed $value): ?bool
-	{
-		if ($this->maxSize === self::UNLIMITED) {
-			return true;
-		}
-
-		foreach ($this->cast($value) as $file) {
-			if ($file->size > $this->maxSize) {
-				return false;
-			}
-		}
-
-		return true;
+		return $this->maxSize === null ? null : $file->size <= $this->maxSize;
 	}
 }

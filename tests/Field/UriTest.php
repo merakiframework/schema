@@ -4,7 +4,7 @@ declare(strict_types=1);
 namespace Meraki\Schema\Field;
 
 use Meraki\Schema\Field\Uri;
-use Meraki\Schema\Property;
+use Meraki\Schema\FieldName;
 use Meraki\Schema\FieldTestCase;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
@@ -17,7 +17,7 @@ final class UriTest extends FieldTestCase
 {
 	public function createSubject(): Uri
 	{
-		return new Uri(new Property\Name('test'));
+		return new Uri(new FieldName('test'));
 	}
 
 	public function createField(): Uri
@@ -33,7 +33,7 @@ final class UriTest extends FieldTestCase
 
 		$result = $sut->validate($uri);
 
-		$this->assertConstraintValidationResultPassed('type', $result);
+		$this->assertShapePassed($result);
 	}
 
 	#[Test]
@@ -44,7 +44,7 @@ final class UriTest extends FieldTestCase
 
 		$result = $sut->validate($uri);
 
-		$this->assertConstraintValidationResultFailed('type', $result);
+		$this->assertShapeFailed($result);
 	}
 
 	#[Test]
@@ -130,6 +130,6 @@ final class UriTest extends FieldTestCase
 	{
 		$sut = $this->createSubject();
 
-		$this->assertNull($sut->defaultValue->unwrap());
+		$this->assertNull($sut->defaultValue);
 	}
 }

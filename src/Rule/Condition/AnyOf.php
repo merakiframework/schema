@@ -6,8 +6,6 @@ namespace Meraki\Schema\Rule\Condition;
 use Meraki\Schema\Facade;
 use Meraki\Schema\Rule\Condition;
 use Meraki\Schema\Rule\ConditionGroup;
-use Meraki\Schema\Rule\ConditionFactory;
-use InvalidArgumentException;
 
 final class AnyOf implements ConditionGroup
 {

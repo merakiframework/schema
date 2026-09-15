@@ -27,25 +27,6 @@ class Set implements \IteratorAggregate, \Countable
 		return null;
 	}
 
-	/**
-	 * Applies every rule in order, and reports what they did.
-	 *
-	 * Order matters: a rule can observe a change an earlier one made.
-	 *
-	 * @return list<AppliedOutcome>
-	 */
-	public function apply(array $data, Facade $schema): array
-	{
-		$applied = [];
-
-		foreach ($this->rules as $rule) {
-			foreach ($rule->evaluate($schema, $data) as $outcome) {
-				$applied[] = $outcome;
-			}
-		}
-
-		return $applied;
-	}
 
 	public function first(): ?Rule
 	{
@@ -57,7 +38,15 @@ class Set implements \IteratorAggregate, \Countable
 		return $this->indexOf($rule) !== null;
 	}
 
-	public function mutableAdd(Rule ...$rules): void
+	/**
+	 * Private, because a set handed to a schema must not be changeable from outside it.
+	 *
+	 * `Facade::copyForRequest()` shares the very same instance rather than copying it, on the
+	 * grounds that every way of changing one returns a new set. That was true of `add()` and
+	 * `remove()` and was not true of this, so one caller reaching in here changed a definition
+	 * every concurrent request was reading.
+	 */
+	private function mutableAdd(Rule ...$rules): void
 	{
 		foreach ($rules as $rule) {
 			if (!$this->exists($rule)) {
@@ -74,13 +63,18 @@ class Set implements \IteratorAggregate, \Countable
 		return $clone;
 	}
 
-	public function mutableRemove(Rule $rule): void
+	/**
+	 * Private, for the reason {@see self::mutableAdd()} gives.
+	 *
+	 * The renumbering is not cosmetic. `unset()` leaves a hole, so a set that had ever removed
+	 * anything stopped being a list while still claiming to be one — the same defect that made
+	 * `getFailed()->getFirst()` return null on a result that plainly had failures.
+	 */
+	private function mutableRemove(Rule $rule): void
 	{
-		foreach ($this->rules as $index => $storedRule) {
-			if ($storedRule === $rule) {
-				unset($this->rules[$index]);
-			}
-		}
+		$this->rules = array_values(
+			array_filter($this->rules, static fn(Rule $stored): bool => $stored !== $rule),
+		);
 	}
 
 	public function remove(Rule $rule): self

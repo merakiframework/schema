@@ -5,7 +5,7 @@ namespace Meraki\Schema\Field;
 
 
 use Meraki\Schema\Field\Name;
-use Meraki\Schema\Property\Name as FieldName;
+use Meraki\Schema\FieldName;
 use Meraki\Schema\FieldTestCase;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
@@ -29,7 +29,7 @@ final class NameTest extends FieldTestCase
 
 		$result = $type->validate($name);
 
-		$this->assertConstraintValidationResultPassed('type', $result);
+		$this->assertShapePassed($result);
 	}
 
 	public static function validNames(): array
@@ -52,6 +52,6 @@ final class NameTest extends FieldTestCase
 	{
 		$field = $this->createField();
 
-		$this->assertNull($field->defaultValue->unwrap());
+		$this->assertNull($field->defaultValue);
 	}
 }

@@ -53,16 +53,16 @@ final class ScopeResolver
 		return $field->resolvedValueFor($this->given[(string) $field->name] ?? null);
 	}
 
+	/**
+	 * Every public property of a field is addressable, with no exceptions list.
+	 *
+	 * There used to be one — `Field::NOT_ADDRESSABLE`, holding `schema` — because a field
+	 * carried a back-reference to its owner, and a scope stepping into it climbed to the root
+	 * and walked forever (defect B8). The back-reference is gone, so the guard has nothing left
+	 * to name. A field's public properties really are its whole API now.
+	 */
 	private function propertyOf(Field $field, string $property): mixed
 	{
-		if (in_array($property, Field::NOT_ADDRESSABLE, true)) {
-			throw new InvalidArgumentException(sprintf(
-				'"%s" on field "%s" is internal wiring, not part of the field\'s addressable API.',
-				$property,
-				(string) $field->name,
-			));
-		}
-
 		if (!property_exists($field, $property)) {
 			throw new InvalidArgumentException(sprintf(
 				'No property "%s" on field "%s".',

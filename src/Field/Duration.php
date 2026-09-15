@@ -3,8 +3,9 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Field;
 
-use Meraki\Schema\Field;
-use Meraki\Schema\Property;
+use Meraki\Schema\AtomicField;
+use Meraki\Schema\FieldName;
+use Meraki\Schema\Field\Duration\Value;
 use Brick\DateTime;
 use Brick\DateTime\DateTimeException;
 
@@ -15,94 +16,100 @@ use Brick\DateTime\DateTimeException;
  * The temporal fields, which name points in time, take `from`/`until` and recur at
  * intervals instead.
  *
- * @extends Field<string|null>
+ * @extends AtomicField<string|null>
  */
-final class Duration extends Field
+final readonly class Duration extends AtomicField
 {
 	/**
 	 * The authored baseline: a duration is a length of time within a day, counted in whole
-	 * minutes. Narrow it, or widen the ceiling with maxValueOf().
+	 * minutes. Narrow it, or widen the ceiling with {@see self::maxValueOf()}.
+	 *
+	 * These are deliberate bounds, not "unset" — a duration field with no opinion at all would
+	 * accept `P100Y`, which no form means.
 	 */
-	public private(set) ?DateTime\Duration $minValue;
+	public ?DateTime\Duration $minValue;
 
-	public private(set) ?DateTime\Duration $maxValue;
+	public ?DateTime\Duration $maxValue;
 
-	public private(set) ?DateTime\Duration $step;
+	public ?DateTime\Duration $step;
 
 	public function __construct(
-		public readonly Property\Name $name,
+		public FieldName $name,
 	) {
+		parent::__construct();
+
 		$this->minValue = DateTime\Duration::zero();
 		$this->maxValue = DateTime\Duration::ofDays(1);
 		$this->step = DateTime\Duration::ofMinutes(1);
+
+		// Last: every property it reads must already be set.
+		$this->constraints = $this->defineConstraints();
 	}
 
-	public function minValueOf(string $value): self
+	public function minValueOf(string $value): static
 	{
-		$this->minValue = $this->cast($value);
-
-		return $this;
+		return $this->with(['minValue' => $this->mustParse($value)]);
 	}
 
-	public function maxValueOf(string $value): self
+	public function maxValueOf(string $value): static
 	{
-		$this->maxValue = $this->cast($value);
-
-		return $this;
+		return $this->with(['maxValue' => $this->mustParse($value)]);
 	}
 
-	public function inIncrementsOf(string $value): self
+	public function inIncrementsOf(string $value): static
 	{
-		$this->step = $this->cast($value);
-
-		return $this;
+		return $this->with(['step' => $this->mustParse($value)]);
 	}
 
-	public function validateValue(mixed $value): bool
+	protected function parse(mixed $value): ?Value
 	{
 		if (!is_string($value)) {
-			return false;
+			return null;
 		}
 
 		try {
-			$this->cast($value);
-
-			return true;
+			return new Value($this->mustParse($value));
 		} catch (DateTimeException) {
-			return false;
+			return null;
 		}
 	}
 
-	protected function cast(mixed $value): DateTime\Duration
+	/**
+	 * Only ever called on a value that passed, so the parse cannot fail here.
+	 */
+
+	protected function defineConstraints(): Constraint\Set
+	{
+		return new Constraint\Set(
+			new Constraint('minValue', $this->checkMinValue(...), $this->minValue?->__toString()),
+			new Constraint('maxValue', $this->checkMaxValue(...), $this->maxValue?->__toString()),
+			new Constraint('step', $this->checkStep(...), $this->step?->__toString()),
+		);
+	}
+
+	private function mustParse(mixed $value): DateTime\Duration
 	{
 		return DateTime\Duration::parse($value);
 	}
 
-	public function constraints(): Constraint\Set
+	private function checkMinValue(Value $parsed): ?bool
 	{
-		return (new Constraint\Set())
-			->and('minValue', $this->checkMinValue(...), (string) $this->minValue)
-			->and('maxValue', $this->checkMaxValue(...), (string) $this->maxValue)
-			->and('step', $this->checkStep(...), (string) $this->step);
+		$value = $parsed->duration;
+
+		return $this->minValue === null ? null : $value->isGreaterThanOrEqualTo($this->minValue);
 	}
 
-	protected function getConstraints(): array
+	private function checkMaxValue(Value $parsed): ?bool
 	{
-		return [];
+		$value = $parsed->duration;
+
+		return $this->maxValue === null ? null : $value->isLessThanOrEqualTo($this->maxValue);
 	}
 
-	private function checkMinValue(mixed $value): ?bool
+	private function checkStep(Value $parsed): ?bool
 	{
-		return $this->minValue === null ? null : $this->cast($value)->isGreaterThanOrEqualTo($this->minValue);
-	}
+		$value = $parsed->duration;
 
-	private function checkMaxValue(mixed $value): ?bool
-	{
-		return $this->maxValue === null ? null : $this->cast($value)->isLessThanOrEqualTo($this->maxValue);
-	}
-
-	private function checkStep(mixed $value): ?bool
-	{
 		if ($this->step === null) {
 			return null;
 		}
@@ -118,6 +125,6 @@ final class Duration extends Field
 		// minutes in steps of 10 accepts 5, 15, 25 rather than 10, 20, 30.
 		$from = $this->minValue?->toNanos() ?? 0;
 
-		return ($this->cast($value)->toNanos() - $from) % $this->step->toNanos() === 0;
+		return ($value->toNanos() - $from) % $this->step->toNanos() === 0;
 	}
 }

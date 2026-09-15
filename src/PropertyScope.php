@@ -14,7 +14,7 @@ use InvalidArgumentException;
  */
 final readonly class PropertyScope extends Scope
 {
-	public function __construct(Property\Name $field, public string $property)
+	public function __construct(FieldName $field, public string $property)
 	{
 		if ($property === '') {
 			throw new InvalidArgumentException('A property scope must name a property.');
@@ -32,12 +32,12 @@ final readonly class PropertyScope extends Scope
 	}
 
 	/**
-	 * @param Property\Name|string $field
+	 * @param FieldName|string $field
 	 */
-	public static function of(Property\Name|string $field, string $property): self
+	public static function of(FieldName|string $field, string $property): self
 	{
 		return new self(
-			$field instanceof Property\Name ? $field : new Property\Name($field),
+			$field instanceof FieldName ? $field : new FieldName($field),
 			$property,
 		);
 	}

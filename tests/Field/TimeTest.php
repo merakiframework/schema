@@ -5,7 +5,8 @@ namespace Meraki\Schema\Field;
 
 use Meraki\Schema\Field\Time\Precision;
 use Meraki\Schema\Field\Time;
-use Meraki\Schema\Property\Name;
+use Meraki\Schema\Field\Time\PrecisionPolicy;
+use Meraki\Schema\FieldName;
 use Meraki\Schema\FieldTestCase;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
@@ -18,7 +19,7 @@ final class TimeTest extends FieldTestCase
 {
 	public function createField(): Time
 	{
-		return new Time(new Name('time'));
+		return new Time(new FieldName('time'));
 	}
 
 	#[Test]
@@ -29,7 +30,7 @@ final class TimeTest extends FieldTestCase
 
 		$result = $type->validate($time);
 
-		$this->assertConstraintValidationResultPassed('type', $result);
+		$this->assertShapePassed($result);
 	}
 
 	#[Test]
@@ -40,7 +41,7 @@ final class TimeTest extends FieldTestCase
 
 		$result = $type->validate($time);
 
-		$this->assertConstraintValidationResultFailed('type', $result);
+		$this->assertShapeFailed($result);
 	}
 
 	#[Test]
@@ -91,26 +92,26 @@ final class TimeTest extends FieldTestCase
 	#[DataProvider('validIncrements')]
 	public function step_constraint_passes_when_met(Precision $precision, string $min, string $duration, string $value): void
 	{
-		$type = (new Time(new Name('time'), precision: $precision))
+		$type = (new Time(new FieldName('time'), precision: $precision))
 			->from($min)
-			->inIncrementsOf($duration);
+			->atIntervalsOf($duration);
 
 		$result = $type->validate($value);
 
-		$this->assertConstraintValidationResultPassed('step', $result);
+		$this->assertConstraintValidationResultPassed('interval', $result);
 	}
 
 	#[Test]
 	#[DataProvider('invalidIncrements')]
 	public function step_constraint_fails_when_not_met(Precision $precision, string $min, string $duration, string $value): void
 	{
-		$type = (new Time(new Name('time'), precision: $precision))
+		$type = (new Time(new FieldName('time'), precision: $precision))
 			->from($min)
-			->inIncrementsOf($duration);
+			->atIntervalsOf($duration);
 
 		$result = $type->validate($value);
 
-		$this->assertConstraintValidationResultFailed('step', $result);
+		$this->assertConstraintValidationResultFailed('interval', $result);
 	}
 
 	public static function validIncrements(): array
@@ -185,6 +186,40 @@ final class TimeTest extends FieldTestCase
 	{
 		$field = $this->createField();
 
-		$this->assertNull($field->defaultValue->unwrap());
+		$this->assertNull($field->defaultValue);
+	}
+
+	#[Test]
+	public function an_over_precise_value_is_reported_rather_than_thrown(): void
+	{
+		// This used to raise an uncaught InvalidArgumentException out of validate(), because
+		// PreservePrecision threw and validateValue() catches only DateTimeException. Input is
+		// attacker-controlled, so it has to come back as a failure.
+		$field = new Time(new FieldName('t'), Precision::Minutes, PrecisionPolicy::Reject);
+
+		$result = $field->validate('12:34:56');
+
+		$this->assertShapePassed($result);
+		$this->assertConstraintValidationResultFailed('precision', $result);
+	}
+
+	#[Test]
+	public function a_value_within_the_precision_passes_when_precision_is_preserved(): void
+	{
+		$field = new Time(new FieldName('t'), Precision::Minutes, PrecisionPolicy::Reject);
+
+		$this->assertConstraintValidationResultPassed('precision', $field->validate('12:34'));
+	}
+
+	#[Test]
+	public function precision_is_not_checked_when_extra_precision_is_discarded(): void
+	{
+		// Truncating asks nothing of the value's precision, so there is nothing to report.
+		$field = new Time(new FieldName('t'), Precision::Minutes, PrecisionPolicy::Truncate);
+
+		$result = $field->validate('12:34:56');
+
+		$this->assertConstraintValidationResultSkipped('precision', $result);
+		$this->assertShapePassed($result);
 	}
 }

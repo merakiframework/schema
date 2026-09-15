@@ -3,8 +3,9 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Field;
 
-use Meraki\Schema\Field;
-use Meraki\Schema\Property;
+use Meraki\Schema\Field\Name\Value;
+use Meraki\Schema\AtomicField;
+use Meraki\Schema\FieldName;
 
 /**
  * A "name" field is used to represent a person's full name.
@@ -17,62 +18,84 @@ use Meraki\Schema\Property;
  *  - each "word" must be at least one character long
  *  - should use Roman Numerals to represent numbers (e.g. John Doe IV)
  *
- * @extends Field<string|null>
+ * @extends AtomicField<string|null>
  * @see https://www.w3.org/International/questions/qa-personal-names
  * @see https://shinesolutions.com/2018/01/08/falsehoods-programmers-believe-about-names-with-examples/
  */
-final class Name extends Field
+final readonly class Name extends AtomicField
 {
 	private const PATTERN = "/^(?![\ \.\,\'\-]+$)[\p{L}\.\,\'\ \-]+$/u";
 
-	public private(set) int $minLength = 1;
+	/** @var non-negative-int $minLength */
+	public int $minLength;
 
-	public private(set) ?int $maxLength = 255;
+	/** @var non-negative-int|null $maxLength */
+	public ?int $maxLength;
 
 	public function __construct(
-		public readonly Property\Name $name,
+		public FieldName $name,
 	) {
+		parent::__construct();
+
+		$this->minLength = 1;
+		$this->maxLength = 255;
+		$this->constraints = $this->defineConstraints();
 	}
 
 	public function minLengthOf(int $minChars): self
 	{
-		$this->minLength = $minChars;
+		if ($minChars < 1) {
+			throw new \InvalidArgumentException('A minimum length must be at least 1.');
+		}
 
-		return $this;
+		if ($this->maxLength !== null && $minChars > $this->maxLength) {
+			throw new \InvalidArgumentException('A minimum length cannot exceed the maximum.');
+		}
+
+		return $this->with(['minLength' => $minChars]);
 	}
 
 	public function maxLengthOf(?int $maxChars): self
 	{
 		if ($maxChars === null) {
-			$this->maxLength = null;
-
-			return $this;
+			return $this->with(['maxLength' => null]);
 		}
 
-		$this->maxLength = $maxChars;
+		if ($maxChars < 1) {
+			throw new \InvalidArgumentException('A maximum length must be at least 1.');
+		}
 
-		return $this;
+		if ($maxChars < $this->minLength) {
+			throw new \InvalidArgumentException('A maximum length cannot be less than the minimum.');
+		}
+
+		return $this->with(['maxLength' => $maxChars]);
 	}
 
-	protected function cast(mixed $value): string
+	protected function parse(mixed $value): ?Value
 	{
-		return (string)$value;
+		return is_string($value) && preg_match(self::PATTERN, $value) === 1 ? new Value($value) : null;
 	}
 
-	public function validateValue(mixed $value): bool
+	protected function defineConstraints(): Constraint\Set
 	{
-		return is_string($value) && preg_match(self::PATTERN, $value) === 1;
+		return new Constraint\Set(
+			new Constraint('minLength', $this->meetsMinLength(...), $this->minLength),
+			new Constraint('maxLength', $this->meetsMaxLength(...), $this->maxLength),
+		);
 	}
 
-	public function constraints(): Constraint\Set
+	private function meetsMinLength(Value $parsed): bool
 	{
-		return (new Constraint\Set())
-			->and('minLength', fn(mixed $v): bool => mb_strlen($v) >= $this->minLength, $this->minLength)
-			->and('maxLength', fn(mixed $v): ?bool => $this->maxLength === null ? null : mb_strlen($v) <= $this->maxLength, $this->maxLength);
+		$value = $parsed->name;
+
+		return mb_strlen($value) >= $this->minLength;
 	}
 
-	protected function getConstraints(): array
+	private function meetsMaxLength(Value $parsed): ?bool
 	{
-		return [];
+		$value = $parsed->name;
+
+		return $this->maxLength === null ? null : mb_strlen($value) <= $this->maxLength;
 	}
 }

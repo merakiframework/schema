@@ -3,7 +3,6 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Field;
 
-use Meraki\Schema\Field\Factory;
 use Meraki\Schema\Facade;
 use PHPUnit\Framework\TestCase;
 use PHPUnit\Framework\Attributes\Test;
@@ -20,12 +19,7 @@ use PHPUnit\Framework\Attributes\CoversClass;
 #[CoversClass(Uri::class)]
 final class UriValidationTest extends TestCase
 {
-	private Factory $fields;
 
-	protected function setUp(): void
-	{
-		$this->fields = new Factory();
-	}
 
 	/** @return array<string, array{string}> */
 	public static function notUris(): array
@@ -55,7 +49,7 @@ final class UriValidationTest extends TestCase
 	private function schema(): Facade
 	{
 		$schema = new Facade('link');
-		$schema->add($this->fields->createUriField('url'));
+		$schema->add($schema->createUriField('url'));
 
 		return $schema;
 	}
@@ -64,24 +58,24 @@ final class UriValidationTest extends TestCase
 	#[DataProvider('notUris')]
 	public function a_value_that_is_not_a_uri_fails(string $value): void
 	{
-		$this->assertTrue($this->schema()->validate(['url' => $value])->anyFailed());
+		$this->assertTrue($this->schema()->validate((object)['url' => $value])->anyFailed());
 	}
 
 	#[Test]
 	#[DataProvider('uris')]
 	public function a_well_formed_uri_passes(string $value): void
 	{
-		$this->assertFalse($this->schema()->validate(['url' => $value])->anyFailed());
+		$this->assertFalse($this->schema()->validate((object)['url' => $value])->anyFailed());
 	}
 
 	#[Test]
 	public function a_scheme_allowlist_can_be_declared(): void
 	{
 		$schema = new Facade('link');
-		$schema->add($this->fields->createUriField('url')->allowSchemes('https'));
+		$schema->add($schema->createUriField('url')->allowSchemes('https'));
 
-		$this->assertFalse($schema->validate(['url' => 'https://example.com'])->anyFailed());
-		$this->assertTrue($schema->validate(['url' => 'http://example.com'])->anyFailed());
+		$this->assertFalse($schema->validate((object)['url' => 'https://example.com'])->anyFailed());
+		$this->assertTrue($schema->validate((object)['url' => 'http://example.com'])->anyFailed());
 	}
 
 	#[Test]
@@ -90,10 +84,10 @@ final class UriValidationTest extends TestCase
 		// The reason the allowlist exists: anything rendered back into a page or followed
 		// by a redirect must not be able to carry script or inline content.
 		$schema = new Facade('link');
-		$schema->add($this->fields->createUriField('url')->allowSchemes('http', 'https'));
+		$schema->add($schema->createUriField('url')->allowSchemes('http', 'https'));
 
-		$this->assertTrue($schema->validate(['url' => 'javascript:alert(document.cookie)'])->anyFailed());
-		$this->assertTrue($schema->validate(['url' => 'data:text/html;base64,PHNjcmlwdD4='])->anyFailed());
+		$this->assertTrue($schema->validate((object)['url' => 'javascript:alert(document.cookie)'])->anyFailed());
+		$this->assertTrue($schema->validate((object)['url' => 'data:text/html;base64,PHNjcmlwdD4='])->anyFailed());
 	}
 
 	#[Test]
@@ -101,22 +95,22 @@ final class UriValidationTest extends TestCase
 	{
 		// Deliberate: a URI field is not only ever a web link. Declaring the allowlist is
 		// how a caller says otherwise.
-		$this->assertFalse($this->schema()->validate(['url' => 'ftp://example.com'])->anyFailed());
+		$this->assertFalse($this->schema()->validate((object)['url' => 'ftp://example.com'])->anyFailed());
 	}
 
 	#[Test]
 	public function length_constraints_still_apply(): void
 	{
 		$schema = new Facade('link');
-		$schema->add($this->fields->createUriField('url')->maxLengthOf(20));
+		$schema->add($schema->createUriField('url')->maxLengthOf(20));
 
-		$this->assertTrue($schema->validate(['url' => 'https://example.com/a/very/long/path'])->anyFailed());
-		$this->assertFalse($schema->validate(['url' => 'https://example.com'])->anyFailed());
+		$this->assertTrue($schema->validate((object)['url' => 'https://example.com/a/very/long/path'])->anyFailed());
+		$this->assertFalse($schema->validate((object)['url' => 'https://example.com'])->anyFailed());
 	}
 
 	#[Test]
 	public function a_non_string_fails(): void
 	{
-		$this->assertTrue($this->schema()->validate(['url' => 123])->anyFailed());
+		$this->assertTrue($this->schema()->validate((object)['url' => 123])->anyFailed());
 	}
 }
