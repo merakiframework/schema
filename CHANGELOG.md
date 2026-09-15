@@ -10,6 +10,34 @@ is a commit subject, with the body kept because the body is where the reasoning 
 
 ## Unreleased
 
+### Check every {@see}, and raise PHPStan to level 3
+
+`716214a8` · 2026-09-15
+
+tools/check-references.php resolves every {@see} in src/ against what
+actually exists, and composer ci fails if one does not. It found five dead on
+its first run: FieldResult pointing at SchemaValidationResult::get(), Rule at
+a Rule\Set::apply() that moved to the Facade, Date at an inclusive to() that
+was deliberately removed, and two fields at a validateValue() from before
+parse() absorbed it.
+
+This is the rot that keeps recurring because nothing notices it -- an IDE
+renders a dead link silently and a test suite has no opinion about comments.
+The comments here carry the reasoning, which is the expensive part to
+reconstruct, so a dead link erodes trust in all of them.
+
+PHPStan src is level 3. It cost one ignore entry and no code change:
+Field\Definition is a trait and initialiseDefinition() assigns  and
+ from it, which PHPStan cannot model because it treats a
+readonly property as assignable only in the declaring class's own
+constructor. PHP 8.6's readonly defaults remove the entry entirely.
+
+The note in phpstan.neon now says the thing the level number hides: the
+analyser is blind to the entire configuration surface of every field, because
+with() clones through a string-keyed array. A genuine inversion in a
+cross-bound guard would look identical to the ones being ignored. What covers
+them is the suite.
+
 ### Regenerate the changelog after the merge
 
 `805bf1ac` · 2026-09-15

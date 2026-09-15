@@ -71,9 +71,10 @@ The same split produced nine `DateTest` assertions that named `min`/`max`, were 
 reported, and so asserted nothing at all for as long as they existed — found only when the
 test helper was made to fail on an unreported constraint.
 
-And it reaches users. A money field below its minimum:
+And it reached users. A money field below its minimum, *as `1.x` spelled it*:
 
 ```php
+// 1.x — kept here because it is the argument for the change
 $schema->addMoneyField('cost', ['AUD' => 2])->minOf('AUD', '10.00');
 $schema->validate(['cost' => ['currency' => 'AUD', 'amount' => '5.00']]);
 ```
@@ -555,19 +556,22 @@ twelve-character CJK secret counts zero in every class while being twelve charac
 Properties and constraint names are already correct and do not move.
 ## Structured types
 
-`Composite` is removed. `Address`, `Money` and `CreditCard` each become a **single field
-holding a single value object**, the way `File` already holds a `File\Metadata`. Input is an
-array or the value object; `parse()` reads it into the object. There are no sub-fields.
+`Composite` is removed. `Address`, `Money` and `CreditCard` are each a **single field holding a
+single value object**, the way `File` holds a `File\Value`. Input is a record — an object — or the
+value object itself; `parse()` reads it into the object. There are no sub-fields.
 
 ```php
-$schema->addAddressField('billing')->allowCountries('AU');
+$schema->add($schema->createAddressField('billing', ['AU']));
 
-$schema->validate(['billing' => [
-    'line1'        => 'PO Box 42',
-    'locality'     => 'Rockhampton',
-    'postal_code'  => '470',        // AU postcodes are four digits
-    'country'      => 'AU',         // or 'Australia'; either case
-]]);
+$schema->validate((object) [
+    'billing' => (object) [
+        'line1'               => 'PO Box 42',
+        'locality'            => 'Rockhampton',
+        'administrative_area' => 'QLD',
+        'postal_code'         => '470',      // AU postcodes are four digits
+        'country'             => 'AU',       // or 'Australia'; either case
+    ],
+]);
 ```
 
 ### Constraint names lose the dots *and* the field name
