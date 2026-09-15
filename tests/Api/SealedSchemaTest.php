@@ -8,6 +8,7 @@ use Meraki\Schema\Facade;
 use Meraki\Schema\Field;
 use Meraki\Schema\Rule;
 use Error;
+use LogicException;
 use PHPUnit\Framework\Attributes\CoversNothing;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
@@ -127,6 +128,51 @@ final class SealedSchemaTest extends TestCase
 
 		// @phpstan-ignore property.readOnlyByPhpDocAssignNotInScope, assign.propertyReadOnly
 		$resolved->results = [];
+	}
+
+	/**
+	 * A schema nobody put a field in cannot be validated, and says so.
+	 *
+	 * Refused rather than answered, because there is no honest answer. An empty result reports
+	 * `allPassed()` as true — vacuously, nothing failed — and `status` as `Pending` — nothing was
+	 * judged. Both are defensible and they contradict each other, so a caller gets whichever one
+	 * they happened to ask for.
+	 *
+	 * A `LogicException` rather than a failed result: no input could make it right, so there is
+	 * nothing to report to a user. It is a mistake in the code.
+	 */
+	#[Test]
+	public function a_schema_with_no_fields_cannot_be_validated(): void
+	{
+		$this->expectException(LogicException::class);
+		$this->expectExceptionMessage('has no fields');
+
+		(new Facade('nothing'))->validate((object) []);
+	}
+
+	#[Test]
+	public function a_schema_with_no_fields_cannot_be_resolved_either(): void
+	{
+		// Resolving is the same question asked without checking, so it gets the same answer.
+		$this->expectException(LogicException::class);
+
+		(new Facade('nothing'))->resolve();
+	}
+
+	/**
+	 * Building one is still fine — a schema is empty for as long as it takes to add the first
+	 * field, and that is the ordinary way to write one.
+	 */
+	#[Test]
+	public function an_empty_schema_may_still_be_built(): void
+	{
+		$schema = new Facade('nothing');
+
+		$this->assertCount(0, $schema->fields);
+
+		$schema->add($schema->createTextField('username'));
+
+		$this->assertFalse($schema->validate((object) ['username' => 'kim'])->anyFailed());
 	}
 
 	/**

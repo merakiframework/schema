@@ -10,6 +10,21 @@ is a commit subject, with the body kept because the body is where the reasoning 
 
 ## Unreleased
 
+### Fix the last 1.x snippets in the 2.0 API doc
+
+`4c5dae05` · 2026-09-15
+
+Two kinds of stale, and only one was wrong. The passage explaining why dotted
+constraint names were bad shows 1.x spelling because that *is* the argument
+-- it now says so rather than reading as current. The passage describing the
+structured types was the genuinely stale one: it described the current design
+in the old API, with array input and a File\Metadata that was renamed to
+File\Value. Rewritten and run to confirm it does what it claims.
+
+docs/LIMITATIONS.md keeps its 1.x reproducers deliberately: they are the
+record of what each defect was, and rewriting them in an API where the defect
+cannot occur would lose the point.
+
 ### Check every {@see}, and raise PHPStan to level 3
 
 `716214a8` · 2026-09-15

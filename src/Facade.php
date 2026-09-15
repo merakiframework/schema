@@ -6,6 +6,7 @@ namespace Meraki\Schema;
 use Brick\DateTime\Clock;
 use Brick\DateTime\Clock\SystemClock;
 use InvalidArgumentException;
+use LogicException;
 use Meraki\Schema\Field;
 use Meraki\Schema\Rule;
 use Meraki\Schema\PrefillPolicy;
@@ -147,6 +148,8 @@ final class Facade
 	 */
 	private function against(?object $data, ?object $prefilledWith, callable $each): SchemaValidationResult
 	{
+		$this->assertThereIsSomethingToValidate();
+
 		$given = $this->extractData($data);
 		$prefilled = $prefilledWith === null ? [] : $this->extractData($prefilledWith);
 		$working = $this->copyForRequest();
@@ -195,6 +198,31 @@ final class Facade
 		}
 
 		return new SchemaValidationResult($this->clock->getTime(), ...$results);
+	}
+
+	/**
+	 * A schema with no fields cannot be validated.
+	 *
+	 * Not an edge case answered quietly, because there is no honest answer to give. An empty
+	 * result reports `allPassed()` as true — vacuously, since nothing failed — and `status` as
+	 * `Pending`, since there is nothing to have judged. Both readings are defensible and they
+	 * contradict each other, so a caller gets whichever one they happened to ask for.
+	 *
+	 * Refusing is better than picking. Validating a schema nobody put a field in is a mistake in
+	 * the code rather than a fact about the request, which is why it raises rather than failing:
+	 * there is no input that could make it right, so there is nothing to report to a user.
+	 *
+	 * @throws LogicException naming the schema
+	 */
+	private function assertThereIsSomethingToValidate(): void
+	{
+		if ($this->fields->isEmpty()) {
+			throw new LogicException(sprintf(
+				'The schema "%s" has no fields, so there is nothing to validate. Add at least one '
+				. 'with add() before validating.',
+				(string) $this->name,
+			));
+		}
 	}
 
 	/**
