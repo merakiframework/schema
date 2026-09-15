@@ -175,6 +175,55 @@ final class ValueObjectTest extends TestCase
 	}
 
 	/**
+	 * Every field's result carries the same members, whatever shape the field's value has.
+	 *
+	 * A collection used to be the exception: its result wrapped a `ResolvedField` privately and
+	 * re-exposed a chosen few members through `get` hooks, so `given`, `source` and `evaluatedAt`
+	 * were unreachable and `value` did not even appear in a `var_dump()`. A caller could not write
+	 * one piece of code that read any field's result, which is the whole point of having one.
+	 */
+	#[Test]
+	#[DataProvider('fieldsAndAValueTheyAccept')]
+	public function every_result_carries_the_same_members(string $class, mixed $accepted): void
+	{
+		$resolved = self::construct($class)->validate($accepted);
+
+		foreach (['field', 'given', 'value', 'source', 'evaluatedAt', 'appliedOutcomes', 'shape'] as $member) {
+			$this->assertTrue(
+				property_exists($resolved, $member),
+				$class . "'s result does not carry \$" . $member . '.',
+			);
+		}
+
+		$this->assertInstanceOf(Field\ShapeValidationResult::class, $resolved->shape);
+		$this->assertSame($accepted, $resolved->given);
+	}
+
+	/**
+	 * A row that failed makes the collection fail, and the schema with it.
+	 *
+	 * The two axes are separate — `minCount` is about the list, a bad quantity is about row 2 —
+	 * but a caller asking "did this field pass" must be told about both, or a form reports success
+	 * on a request it rejected.
+	 */
+	#[Test]
+	public function a_failing_row_fails_the_collection_and_the_schema(): void
+	{
+		$schema = new \Meraki\Schema\Facade('invoice');
+		$schema->add($schema->createCollectionField('lines', $schema->createNumberField('qty')));
+
+		$result = $schema->validate((object) ['lines' => [(object) ['qty' => 'not a number']]]);
+		$collection = $result->forField('lines');
+
+		$this->assertTrue($collection->anyFailed());
+		$this->assertFalse($result->allPassed());
+
+		// And the collection's own verdicts are untouched by the row's.
+		$this->assertTrue($collection->forConstraint('minCount')->passed());
+		$this->assertCount(1, $collection->failedItems);
+	}
+
+	/**
 	 * A secret and a card number must not be printable: stringifying is how they end up in a log.
 	 *
 	 * @see Field\Password\Value

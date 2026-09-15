@@ -4,76 +4,69 @@ declare(strict_types=1);
 namespace Meraki\Schema\Field\Collection;
 
 use Meraki\Schema\Field\Collection;
-use Meraki\Schema\Field\ConstraintValidationResult;
-use Meraki\Schema\Field\ShapeValidationResult;
-use Meraki\Schema\AggregatedValidationResult;
-use Meraki\Schema\Field;
-use Meraki\Schema\FieldResult;
 use Meraki\Schema\ResolvedField;
-use Meraki\Schema\ValidationStatus;
+use Meraki\Schema\ValidationResult;
+use Meraki\Schema\ValueSource;
+use Brick\DateTime\Instant;
 
 /**
- * A collection resolved against one request: the collection's own verdicts, plus one
- * {@see Item} per submitted item.
+ * A collection resolved against one request: everything any field's result carries, plus one
+ * {@see Item} per submitted row.
  *
- * Both halves are needed and they answer different questions. `minCount` is about the list;
- * `starts_at` being in the past is about item 3. Aggregating them means `anyFailed()` covers
- * everything, while `get()` and `item()` let a caller ask about each separately.
+ * ### It *is* a resolved field rather than wrapping one
  *
- * @extends AggregatedValidationResult<ResolvedField|Item>
+ * It used to hold a private `ResolvedField` and re-expose a chosen few of its members through
+ * virtual properties. That made a collection the one field whose result did not look like a
+ * result: `given`, `source` and `evaluatedAt` were not reachable at all, and `value` was a `get`
+ * hook — so it did not appear in a `var_dump()` either, and a collection result read as though it
+ * had no value.
+ *
+ * Extending is the whole fix. Every member arrives as a real property, so a caller writes the same
+ * code for a collection as for a text field and a debugger shows the same thing.
+ *
+ * ### Two axes, and both count
+ *
+ * `minCount` is about the list; `starts_at` being in the past is about row 3. The rows are passed
+ * to the parent alongside the collection's own verdicts, so `anyFailed()` and `$status` cover
+ * both — a collection whose third row failed is a failed field, which is what a form needs to
+ * know. Asking about each separately is {@see self::forConstraint()} and {@see self::itemAt()},
+ * and neither is flattened into the other.
  */
-final class Result extends AggregatedValidationResult implements FieldResult
+final class Result extends ResolvedField
 {
 	/**
-	 * @param ResolvedField $own the collection's own value and constraint verdicts
-	 * @param array<string|int, Item> $items one per submitted item, in the order they arrived and
+	 * @param array<string|int, Item> $items one per submitted row, in the order they arrived and
 	 *        under the key they arrived with
+	 * @param ValidationResult ...$results the collection's *own* shape and constraint verdicts
 	 */
 	public function __construct(
-		public readonly Collection $field,
-		private readonly ResolvedField $own,
+		Collection $field,
+		mixed $given,
+		mixed $value,
+		array $appliedOutcomes = [],
+		ValueSource $source = ValueSource::Submitted,
+		?Instant $evaluatedAt = null,
 		public readonly array $items = [],
+		ValidationResult ...$results,
 	) {
 		// array_values because a string key spread into a variadic becomes a *named argument*,
-		// which `ValidationResult ...$results` cannot accept. The aggregate only needs the
-		// verdicts; the keys are kept on $items, where they are addressable.
-		parent::__construct($own, ...array_values($items));
+		// which a `ValidationResult ...` parameter cannot accept. The keys are kept on $items,
+		// where they are addressable.
+		parent::__construct(
+			$field,
+			$given,
+			$value,
+			$appliedOutcomes,
+			$source,
+			$evaluatedAt,
+			...$results,
+			...array_values($items),
+		);
 	}
 
 	/**
-	 * Whether the submitted value was a list at all — the collection's own shape, not any item's.
-	 *
-	 * Read off the inner result rather than recomputed, so there is one answer to the question.
-	 */
-	public ShapeValidationResult $shape {
-		get => $this->own->shape;
-	}
-
-	/**
-	 * The collection's *own* constraint names — `minCount`, `maxCount`, `unique` — not any item's,
-	 * for the same reason {@see self::get()} reads only its own.
-	 *
-	 * @return list<string>
-	 */
-	public array $constraintNames {
-		get => $this->own->constraintNames;
-	}
-
-	/**
-	 * One of the collection's *own* constraints, by name — `minCount`, `maxCount`.
-	 *
-	 * Not an item's: ask for that with {@see self::item()}, because `minCount` and an item's
-	 * `starts_at` are different kinds of answer and flattening them is what made failures
-	 * unattributable before.
-	 */
-	public function forConstraint(string $constraintName): ?ConstraintValidationResult
-	{
-		return $this->own->forConstraint($constraintName);
-	}
-
-	/**
-	 * One item's result, by the key it was submitted under — a position for a plain list, a name
-	 * for an array that gave one. `null` if there was no such item.
+	 * One row's result, by the key it was submitted under — a position for a plain list, a name
+	 * for an array that gave one. `null` if there was no such row.
 	 */
 	public function itemAt(string|int $key): ?Item
 	{
@@ -81,7 +74,7 @@ final class Result extends AggregatedValidationResult implements FieldResult
 	}
 
 	/**
-	 * Every item that failed, so a caller can report them without walking the list.
+	 * Every row that failed, so a caller can report them without walking the list.
 	 *
 	 * @var list<Item>
 	 */
@@ -90,9 +83,35 @@ final class Result extends AggregatedValidationResult implements FieldResult
 	}
 
 	/**
-	 * The list as the collection resolved it — see {@see ResolvedField::$value}.
+	 * Kept as a {@see self} so attaching verdicts does not drop back to a plain
+	 * {@see ResolvedField} and lose the rows.
 	 */
-	public mixed $value {
-		get => $this->own->value;
+	public function withResults(ValidationResult ...$results): self
+	{
+		return new self(
+			$this->collection,
+			$this->given,
+			$this->value,
+			$this->appliedOutcomes,
+			$this->source,
+			$this->evaluatedAt,
+			$this->items,
+			...$results,
+		);
+	}
+
+	/**
+	 * The field, typed as what it always is.
+	 *
+	 * `$field` is inherited and declared `Field`, and PHP will not let a subclass narrow a
+	 * property's type. This is the narrowing, as a separate name rather than a lie about the
+	 * inherited one.
+	 */
+	public Collection $collection {
+		get {
+			assert($this->field instanceof Collection);
+
+			return $this->field;
+		}
 	}
 }

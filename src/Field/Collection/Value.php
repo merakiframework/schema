@@ -105,6 +105,70 @@ final readonly class Value implements ParsedValue, IteratorAggregate, Countable
 	}
 
 	/**
+	 * The key each row arrived under, in order — `0, 1, 2` for a plain list, the names for an
+	 * array that gave them.
+	 *
+	 * @return list<string|int>
+	 */
+	public function keys(): array
+	{
+		return array_keys($this->rows);
+	}
+
+	public function has(string|int $key): bool
+	{
+		return array_key_exists($key, $this->rows);
+	}
+
+	/**
+	 * One row, by the key it arrived under. `null` if there was no such row.
+	 *
+	 * A plain record of one value per template field, so `$row->sku` is that field's parsed value.
+	 * It is not a result — there is no verdict here. Ask {@see Result::itemAt()} for that.
+	 */
+	public function rowAt(string|int $key): ?object
+	{
+		$row = $this->rows[$key] ?? null;
+
+		// A row that was not a record at all is kept verbatim so it can fail on its own terms,
+		// and handing one back as though it were a record would be worse than handing back null.
+		return $row instanceof \stdClass ? $row : null;
+	}
+
+	/**
+	 * One template field's parsed value, in one row.
+	 *
+	 * The common reading, and worth a name because the alternative is
+	 * `$value->rows['line 2']->sku ?? null` with two ways to be absent in it — no such row, and
+	 * no such field. Both answer `null` here.
+	 */
+	public function valueOf(string|int $key, string $field): mixed
+	{
+		return $this->rowAt($key)?->{$field} ?? null;
+	}
+
+	/**
+	 * Every row's value for one template field, under the same keys the rows have.
+	 *
+	 * For the question a collection is usually asked — "what were the SKUs" — without the caller
+	 * writing the loop and deciding what to do about a row that was not a record.
+	 *
+	 * @return array<string|int, mixed>
+	 */
+	public function column(string $field): array
+	{
+		$values = [];
+
+		foreach ($this->rows as $key => $row) {
+			if ($row instanceof \stdClass && property_exists($row, $field)) {
+				$values[$key] = $row->{$field};
+			}
+		}
+
+		return $values;
+	}
+
+	/**
 	 * Iterates the rows under their own keys, so a named row stays named.
 	 *
 	 * @return Traversable<string|int, object|mixed>

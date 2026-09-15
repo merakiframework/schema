@@ -159,8 +159,23 @@ change rather than a break in what `parse()` returns.
 
 There is no exemption, including for `Collection` — whose value is *many* values rather than one,
 and which therefore had the strongest claim to being special. It gets a `Collection\Value` like
-everything else, holding the rows under their submitted keys and answering `equals()` and
-`hasRepeats()` about them. So the return type is the whole contract: a value object, or nothing.
+everything else, holding the rows under their submitted keys. So the return type is the whole
+contract: a value object, or nothing.
+
+That value is where a collection's rows are reached, because rows are *data* and the result holds
+*verdicts*:
+
+```php
+$lines = $resolved->value;              // Collection\Value
+
+$lines->keys();                         // ['first run', 'second run']
+$lines->rowAt('first run')->sku;        // Text\Value  — one row's field
+$lines->valueOf('second run', 'qty');   // Number\Value — or null, for either kind of absence
+$lines->column('sku');                  // every row's sku, under the row keys
+$lines->hasRepeats();                   // what the `unique` constraint asks
+
+$resolved->itemAt('first run');         // Collection\Item — that row's *verdicts*
+```
 
 Two values are deliberately **not** printable: `Password\Value` and `CreditCard\Value` have no
 `__toString()`, because stringifying is how a secret reaches a log or a template. Both are asserted

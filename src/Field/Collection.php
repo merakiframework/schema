@@ -248,11 +248,13 @@ final readonly class Collection implements Field
 		array $appliedOutcomes = [],
 		ValueSource $givenAs = ValueSource::Submitted,
 	): Result {
-		$source = $this->sourceOf($given, $givenAs);
-
 		return new Result(
 			$this,
-			new ResolvedField($this, $given, $this->itemsIn($given), $appliedOutcomes, $source, $this->evaluatedAt()),
+			$given,
+			$this->itemsIn($given),
+			$appliedOutcomes,
+			$this->sourceOf($given, $givenAs),
+			$this->evaluatedAt(),
 			$this->eachItem($given, static fn(Field $f, mixed $v): ResolvedField => self::resolvedLeaf($f, $v)),
 		);
 	}
@@ -326,12 +328,16 @@ final readonly class Collection implements Field
 	): Result {
 		$items = $this->itemsIn($given);
 		$source = $this->sourceOf($given, $givenAs);
-		$own = new ResolvedField($this, $given, $items, $appliedOutcomes, $source, $this->evaluatedAt());
 
 		return new Result(
 			$this,
-			$own->withResults(...$this->check($items, $source, $policy)),
+			$given,
+			$items,
+			$appliedOutcomes,
+			$source,
+			$this->evaluatedAt(),
 			$this->eachItem($given, static fn(Field $f, mixed $v): ResolvedField => self::validatedLeaf($f, $v)),
+			...$this->check($items, $source, $policy),
 		);
 	}
 

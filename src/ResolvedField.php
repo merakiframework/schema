@@ -27,7 +27,7 @@ use InvalidArgumentException;
  * constraints. A field whose result has a different *shape* implements {@see FieldResult} instead,
  * the way {@see Field\Collection\Result} does.
  *
- * @extends AggregatedValidationResult<ConstraintValidationResult|Field\ShapeValidationResult>
+ * @extends AggregatedValidationResult<ValidationResult>
  */
 class ResolvedField extends AggregatedValidationResult implements FieldResult
 {
@@ -46,8 +46,18 @@ class ResolvedField extends AggregatedValidationResult implements FieldResult
 	 *        against, or null when this field has no clock because nothing about it depends on
 	 *        the time. Recording it is what makes a verdict reproducible: re-asking the same
 	 *        question of the same input at the same instant gives the same answer.
-	 * @param ConstraintValidationResult ...$results empty until validation runs, which is
-	 *        why a merely-resolved field reports {@see ValidationStatus::Pending}.
+	 * @param ValidationResult ...$results empty until validation runs, which is why a merely
+	 *        resolved field reports {@see ValidationStatus::Pending}.
+	 *
+	 *        Ordinarily a {@see Field\ShapeValidationResult} and one
+	 *        {@see ConstraintValidationResult} per constraint. Typed wider than that so a subclass
+	 *        can report its own kind alongside them — {@see Field\Collection\Result} adds one per
+	 *        row — and have those count towards `anyFailed()` and `$status`, which is what makes a
+	 *        collection whose third row failed report as a failed field.
+	 *
+	 *        Everything that reads a specific kind filters for it, so an extra kind passes through
+	 *        {@see self::$shape}, {@see self::$constraintNames} and {@see self::forConstraint()}
+	 *        without being mistaken for a constraint.
 	 */
 	public function __construct(
 		public readonly Field $field,
@@ -56,7 +66,7 @@ class ResolvedField extends AggregatedValidationResult implements FieldResult
 		public readonly array $appliedOutcomes = [],
 		public readonly ValueSource $source = ValueSource::Submitted,
 		public readonly ?Instant $evaluatedAt = null,
-		ConstraintValidationResult|Field\ShapeValidationResult ...$results,
+		ValidationResult ...$results,
 	) {
 		parent::__construct(...$results);
 
@@ -140,7 +150,7 @@ class ResolvedField extends AggregatedValidationResult implements FieldResult
 	 * The same field with constraint results attached. Resolution and validation are two
 	 * steps, because a form is rendered before it is submitted.
 	 */
-	public function withResults(ConstraintValidationResult|Field\ShapeValidationResult ...$results): self
+	public function withResults(ValidationResult ...$results): self
 	{
 		return new self($this->field, $this->given, $this->value, $this->appliedOutcomes, $this->source, $this->evaluatedAt, ...$results);
 	}

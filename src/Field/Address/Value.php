@@ -189,5 +189,4 @@ final readonly class Value implements ParsedValue
 
 		return $property === null ? null : $this->{$property};
 	}
-
 }

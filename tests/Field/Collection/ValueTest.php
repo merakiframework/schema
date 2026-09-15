@@ -49,6 +49,49 @@ final class ValueTest extends TestCase
 	}
 
 	#[Test]
+	public function it_reaches_a_row_and_a_field_by_key(): void
+	{
+		$value = $this->rowsFor([
+			'first run' => (object) ['sku' => 'A1', 'qty' => '2'],
+			'second run' => (object) ['sku' => 'B2', 'qty' => '3'],
+		]);
+
+		$this->assertSame(['first run', 'second run'], $value->keys());
+		$this->assertTrue($value->has('second run'));
+		$this->assertFalse($value->has('third run'));
+
+		$this->assertSame('A1', $value->rowAt('first run')->sku->text);
+		$this->assertSame('B2', $value->valueOf('second run', 'sku')->text);
+	}
+
+	/**
+	 * Two ways to be absent, one answer. A caller writing `$value->rows[$k]->sku ?? null` has to
+	 * think about both; this does not.
+	 */
+	#[Test]
+	public function a_missing_row_or_field_reads_as_nothing(): void
+	{
+		$value = $this->rowsFor([(object) ['sku' => 'A1', 'qty' => '2']]);
+
+		$this->assertNull($value->rowAt('nope'));
+		$this->assertNull($value->valueOf('nope', 'sku'));
+		$this->assertNull($value->valueOf(0, 'not_a_template_field'));
+	}
+
+	#[Test]
+	public function it_reads_one_field_across_every_row(): void
+	{
+		$value = $this->rowsFor([
+			'a' => (object) ['sku' => 'A1', 'qty' => '2'],
+			'b' => (object) ['sku' => 'B2', 'qty' => '3'],
+		]);
+
+		// Keyed as the rows are, so a named row stays named.
+		$this->assertSame(['a', 'b'], array_keys($value->column('sku')));
+		$this->assertSame(['A1', 'B2'], array_map(strval(...), array_values($value->column('sku'))));
+	}
+
+	#[Test]
 	public function it_iterates_rows_under_their_own_keys(): void
 	{
 		$value = $this->rowsFor(['only' => (object) ['sku' => 'A1', 'qty' => '2']]);

@@ -7,6 +7,7 @@ use Meraki\Schema\Field\ConstraintValidationResult;
 use Meraki\Schema\Field\ShapeValidationResult;
 use Meraki\Schema\Field\Password;
 use Meraki\Schema\ResolvedField;
+use Meraki\Schema\ValidationResult;
 use Brick\DateTime\Instant;
 use Meraki\Schema\ValueSource;
 use SensitiveParameter;
@@ -42,7 +43,7 @@ final class Result extends ResolvedField
 		array $appliedOutcomes = [],
 		ValueSource $source = ValueSource::Submitted,
 		?Instant $evaluatedAt = null,
-		ConstraintValidationResult|ShapeValidationResult ...$results,
+		ValidationResult ...$results,
 	) {
 		parent::__construct($password, $given, $value, $appliedOutcomes, $source, $evaluatedAt, ...$results);
 	}
@@ -85,7 +86,7 @@ final class Result extends ResolvedField
 	 * Kept as a {@see self} so attaching verdicts does not drop back to a plain
 	 * {@see ResolvedField} and lose the measurement.
 	 */
-	public function withResults(ConstraintValidationResult|ShapeValidationResult ...$results): self
+	public function withResults(ValidationResult ...$results): self
 	{
 		return new self($this->password, $this->given, $this->value, $this->appliedOutcomes, $this->source, $this->evaluatedAt, ...$results);
 	}
