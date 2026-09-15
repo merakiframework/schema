@@ -10,6 +10,36 @@ is a commit subject, with the body kept because the body is where the reasoning 
 
 ## Unreleased
 
+### Rewrite the README for 2.0, and add the missing docs
+
+`5da537af` · 2026-09-15
+
+The README was 1.x throughout -- addTextField(), matches(), minOf(), array
+input -- so every snippet in it was wrong. Rewritten, and every claim in it
+verified against the running code rather than from memory.
+
+New docs:
+
+  docs/README.md    an index, split by what the reader is trying to do
+  docs/DESIGN.md    the decisions that shape everything else, and what each
+                    one costs. Mostly refusals
+  docs/EXTENDING.md writing your own field type, pointing at a runnable
+                    example rather than a snippet nobody executes
+
+COMPARISON gained the axis it was missing: what a new type costs in each
+library, which is where the gap is widest and where this one's advantage is a
+consequence of the architecture rather than a feature. It also gained the
+honest other half -- the constraint axis, where Symfony ships eighty and this
+ships none you can add to an existing field.
+
+Its closing section was written from the 1.x alpha and claimed no CI, no
+static analysis and no changelog. All three exist; what is actually missing
+is production use, which is a different and more honest thing to say.
+
+examples/custom-field.php is a complete field type defined outside the
+package -- about forty lines, nothing registered -- so the strongest claim in
+the docs is one CI runs.
+
 ### Generate the changelog, and add four focused examples
 
 `cf31b6a7` · 2026-09-15
