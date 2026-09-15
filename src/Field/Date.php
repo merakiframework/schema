@@ -3,114 +3,118 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Field;
 
-use Meraki\Schema\Field;
-use Meraki\Schema\Property;
+use Meraki\Schema\AtomicField;
+use Meraki\Schema\FieldName;
 use Brick\DateTime\DateTimeException;
 use Brick\DateTime\Period;
+use Meraki\Schema\Field\Date\Value;
 use Brick\DateTime\LocalDate;
 
 /**
- * @extends Field<string|null>
+ * A calendar date, written as `YYYY-MM-DD`.
+ *
+ * A point in time rather than a quantity, so it is bounded by `from`/`until` and recurs at an
+ * *interval*. {@see Duration}, which is a length of time, takes value bounds and steps.
+ *
+ * @extends AtomicField<string|null>
  */
-final class Date extends Field
+final readonly class Date extends AtomicField
 {
+	/** Inclusive. */
 	public LocalDate $from;
+
+	/** Exclusive — see {@see self::to()} for the inclusive form. */
 	public LocalDate $until;
+
 	public Period $interval;
 
 	public function __construct(
-		public readonly Property\Name $name,
+		public FieldName $name,
 	) {
+		parent::__construct();
+
 		$this->from = LocalDate::min();
 		$this->until = LocalDate::max();
 		$this->interval = Period::ofDays(1);
+		$this->constraints = $this->defineConstraints();
 	}
 
 	/**
 	 * This is inclusive of the date provided.
 	 */
-	public function from(string $date): self
+	public function from(string $date): static
 	{
-		$this->from = LocalDate::parse($date);
-
-		return $this;
+		return $this->with(['from' => LocalDate::parse($date)]);
 	}
 
 	/**
 	 * This is exclusive of the date provided.
 	 */
-	public function until(string $date): self
+	public function until(string $date): static
 	{
-		$this->until = LocalDate::parse($date);
+		return $this->with(['until' => LocalDate::parse($date)]);
+	}
 
-		return $this;
+	public function atIntervalsOf(string $date): static
+	{
+		return $this->with(['interval' => Period::parse($date)]);
+	}
+
+	protected function parse(mixed $value): ?Value
+	{
+		if (!is_string($value)) {
+			return null;
+		}
+
+		try {
+			return new Value($this->mustParse($value));
+		} catch (DateTimeException) {
+			return null;
+		}
 	}
 
 	/**
-	 * This is inclusive of the date provided.
+	 * Only ever called on a value that passed, so the parse cannot fail here.
 	 */
-	public function to(string $date): self
-	{
-		$this->until = LocalDate::parse($date)->plusDays(1);
 
-		return $this;
+	protected function defineConstraints(): Constraint\Set
+	{
+		return new Constraint\Set(
+			new Constraint('from', $this->isOnOrAfterFrom(...), (string) $this->from),
+			new Constraint('until', $this->isBeforeUntil(...), (string) $this->until),
+			new Constraint('interval', $this->isOnAnInterval(...), (string) $this->interval),
+		);
 	}
 
-	public function atIntervalsOf(string $date): self
-	{
-		$this->interval = Period::parse($date);
-
-		return $this;
-	}
-
-	protected function cast(mixed $value): LocalDate
+	private function mustParse(mixed $value): LocalDate
 	{
 		return LocalDate::parse($value);
 	}
 
-	public function validateValue(mixed $value): bool
+	private function isOnOrAfterFrom(Value $parsed): bool
 	{
-		if (!is_string($value)) {
-			return false;
-		}
+		$date = $parsed->date;
 
-		try {
-			$date = $this->cast($value);
-			return true;
-		} catch (DateTimeException $e) {
-			return false;
-		}
+		return $date->isAfterOrEqualTo($this->from);
 	}
 
-	protected function getConstraints(): array
+	private function isBeforeUntil(Value $parsed): bool
 	{
-		return [
-			'from' => $this->validateFrom(...),
-			'until' => $this->validateUntil(...),
-			'interval' => $this->validateInterval(...),
-		];
+		$date = $parsed->date;
+
+		return $date->isBefore($this->until);
 	}
 
-	private function validateFrom(mixed $value): bool
+	private function isOnAnInterval(Value $parsed): bool
 	{
-		return $this->cast($value)->isAfterOrEqualTo($this->from);
-	}
-
-	private function validateUntil(mixed $value): bool
-	{
-		return $this->cast($value)->isBefore($this->until);
-	}
-
-	private function validateInterval(mixed $value): bool
-	{
-		$date = $this->cast($value);
+		$date = $parsed->date;
 
 		if ($date->isEqualTo($this->from)) {
 			return true;
 		}
 
-		// Day-based intervals (including the P1D default): the number of days
-		// from `from` must be a whole multiple of the interval.
+		// Day-based intervals (including the P1D default): the number of days from `from` must
+		// be a whole multiple of the interval.
 		if ($this->interval->getYears() === 0 && $this->interval->getMonths() === 0) {
 			$intervalDays = $this->interval->getDays();
 
@@ -121,8 +125,7 @@ final class Date extends Field
 			return $this->from->daysUntil($date) % $intervalDays === 0;
 		}
 
-		// Month/year based intervals: step from `from` until we land on or pass
-		// the value.
+		// Month/year based intervals: step from `from` until we land on or pass the value.
 		$cursor = $this->from;
 
 		while ($cursor->isBeforeOrEqualTo($date)) {

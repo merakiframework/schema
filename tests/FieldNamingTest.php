@@ -3,9 +3,7 @@ declare(strict_types=1);
 
 namespace Meraki\Schema;
 
-use Meraki\Schema\Field\Factory;
 use Meraki\Schema\Facade;
-use Meraki\Schema\Property;
 use InvalidArgumentException;
 use PHPUnit\Framework\TestCase;
 use PHPUnit\Framework\Attributes\Test;
@@ -14,16 +12,11 @@ use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\CoversClass;
 
 #[Group('field')]
-#[CoversClass(Property\Name::class)]
+#[CoversClass(FieldName::class)]
 #[CoversClass(Facade::class)]
 final class FieldNamingTest extends TestCase
 {
-	private Factory $fields;
 
-	protected function setUp(): void
-	{
-		$this->fields = new Factory();
-	}
 
 	/** @return array<string, array{string}> */
 	public static function unusableNames(): array
@@ -58,58 +51,44 @@ final class FieldNamingTest extends TestCase
 	{
 		$this->expectException(InvalidArgumentException::class);
 
-		new Property\Name($name);
+		new FieldName($name);
 	}
 
 	#[Test]
 	#[DataProvider('usableNames')]
 	public function a_usable_name_is_accepted(string $name): void
 	{
-		$this->assertSame($name, (string) new Property\Name($name));
+		$this->assertSame($name, (string) new FieldName($name));
 	}
 
+
 	#[Test]
-	public function a_name_must_be_a_string(): void
+	public function a_field_name_cannot_contain_a_dot(): void
 	{
+		// A dot used to join a composite to its parts — `price` registered `price.amount`
+		// beside itself — so a top-level name carrying one was ambiguous and was rejected for
+		// that reason. A structured field owns its whole value now and registers nothing
+		// beside itself, so there is no ambiguity left.
+		//
+		// The dot stays refused anyway, and it is worth saying why: `#/fields/price.amount` is
+		// still a scope path somebody may have written against 1.x, and a name that could
+		// swallow one would make a stale path silently address a real field instead of
+		// failing. Refusing it keeps that an error.
 		$this->expectException(InvalidArgumentException::class);
 
-		new Property\Name(123);
-	}
-
-	#[Test]
-	public function a_top_level_field_cannot_carry_the_composite_separator(): void
-	{
-		// It would be indistinguishable from a sub-field of some composite.
-		$schema = new Facade('checkout');
-		$schema->add($this->fields->createMoneyField('price', ['AUD' => 2]));
-
-		$this->expectException(InvalidArgumentException::class);
-
-		$schema->add($this->fields->createTextField('price.amount'));
-	}
-
-	#[Test]
-	public function a_composite_still_names_its_sub_fields_with_the_separator(): void
-	{
-		$schema = new Facade('checkout');
-		$schema->add($this->fields->createAddressField('billing', ['AU']));
-
-		$names = $schema->fields->getByName('billing')->fields->listFieldNames();
-
-		$this->assertContains('billing.line1', $names);
-		$this->assertContains('billing.postal_code', $names);
+		new FieldName('price.amount');
 	}
 
 	#[Test]
 	public function a_duplicate_field_name_is_rejected(): void
 	{
 		$schema = new Facade('signup');
-		$schema->add($this->fields->createTextField('email'));
+		$schema->add($schema->createTextField('email'));
 
 		$this->expectException(InvalidArgumentException::class);
 		$this->expectExceptionMessage('A field named "email" already exists.');
 
-		$schema->add($this->fields->createEmailAddressField('email'));
+		$schema->add($schema->createEmailAddressField('email'));
 	}
 
 	#[Test]
@@ -118,10 +97,10 @@ final class FieldNamingTest extends TestCase
 		// The definition used to vanish with no error, leaving a schema that quietly
 		// validated something other than what was written.
 		$schema = new Facade('signup');
-		$schema->add($this->fields->createTextField('email'));
+		$schema->add($schema->createTextField('email'));
 
 		try {
-			$schema->add($this->fields->createEmailAddressField('email'));
+			$schema->add($schema->createEmailAddressField('email'));
 		} catch (InvalidArgumentException) {
 			// expected
 		}

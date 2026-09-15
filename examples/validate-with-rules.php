@@ -1,6 +1,6 @@
 <?php
 /**
- * Conditional rules: a field's requiredness depends on another field's value.
+ * Conditional rules: whether one field is required depends on another field's value.
  *
  * Run: php examples/validate-with-rules.php
  */
@@ -10,76 +10,110 @@ declare(strict_types=1);
 require_once __DIR__ . '/../vendor/autoload.php';
 
 use Meraki\Schema\Facade;
-use Meraki\Schema\Field;
-use Meraki\Schema\Rule\Builder;
+use Meraki\Schema\Field\ShapeValidationResult;
 use Meraki\Schema\SchemaValidationResult;
 
-function report(SchemaValidationResult $result): void
+function report(string $label, SchemaValidationResult $result): void
 {
+	echo $label . PHP_EOL;
+
 	if (!$result->anyFailed()) {
-		echo "Valid.\n\n";
+		echo '  valid' . PHP_EOL . PHP_EOL;
 
 		return;
 	}
 
-	echo "Invalid:\n";
+	foreach ($result->getFailed() as $field) {
+		foreach ($field->getFailed() as $failure) {
+			// Three kinds of failure, and the field says which without anything here having to
+			// re-inspect what was submitted to work it out.
+			$why = match (true) {
+				!$failure instanceof ShapeValidationResult => $failure->name,
+				$failure->wasMissing() => 'is required, and nothing was supplied',
+				default => 'could not be read as this kind of value',
+			};
 
-	foreach ($result->getFailed() as $fieldResult) {
-		foreach ($fieldResult->getFailed() as $failure) {
-			echo '  ' . $fieldResult->field->name . ' failed "' . $failure->name . "\"\n";
+			printf('  %-24s %s' . PHP_EOL, $field->field->name, $why);
 		}
 	}
 
-	echo "\n";
+	echo PHP_EOL;
 }
 
-// `for()` declares the region once, so the address below is validated against
-// Australian rules without repeating the country on the field.
-$schema = (new Facade('booking'))->for('AU');
+// for() declares the acceptable countries once on the *factory*, so every address it builds
+// carries the same list without repeating it. It says which countries are allowed — the address
+// still has to name the one it is in, the way an amount of money has to name its currency.
 
-$schema->add($fields->createUuidField('id')->restrictToVersion(7));
-$schema->add($fields->createNameField('full_name')->minLengthOf(1)->maxLengthOf(255));
-$schema->add($fields->createTextField('licence_number')->minLengthOf(1)->maxLengthOf(255));
-$schema->add($fields->createAddressField('pickup_location'));
+$schema = new Facade('booking');
 
-$schema->add($fields->createBooleanField('has_log_book')
+$hasLogBook = $schema->createBooleanField('has_log_book')->defaultsTo(true);
+$timeCompleted = $schema->createDurationField('log_book_time_completed')
 	->makeOptional()
-	->prefill(true));
+	->minValueOf('PT0M')
+	->maxValueOf('PT200H');
 
-$schema->add($fields->createDurationField('log_book_time_completed')
-	->makeOptional()
-	->minOf('PT0M')
-	->maxOf('PT200H'));
+$schema->add(
+	$schema->createUuidField('id')->allowVersions(7),
+	$schema->createNameField('full_name')->minLengthOf(1)->maxLengthOf(255),
+	$schema->createTextField('licence_number')->minLengthOf(1)->maxLengthOf(255),
+	$schema->createAddressField('pickup_location'),
+	$schema->createEnumField('transmission_type', ['automatic', 'manual'])->defaultsTo('automatic'),
+	$hasLogBook,
+	$timeCompleted,
+);
 
-$schema->add($fields->createEnumField(
-	'transmission_type',
-	['automatic', 'manual'],
-	fn(Field\Enum $type): Field\Enum => $type->prefill('automatic')
-));
+// Keeping a log book means the completed time has to be supplied — and not keeping one means it
+// is not merely optional but irrelevant, so anything submitted for it is discarded.
+//
+// Both halves are one rule with one condition. Written as two rules with hand-inverted
+// conditions they could drift apart, and nothing would notice.
+$schema->addRule(
+	$schema->when($hasLogBook)->equals(true)
+		->thenRequire($timeCompleted)
+		->otherwiseIgnore($timeCompleted)
+);
 
-// Keeping a log book means the completed time has to be supplied.
-$schema->whenAllMatch(fn(Builder $rule): Builder =>
-	$rule->whenEquals('#/fields/has_log_book/value', true)
-		->thenRequire('#/fields/log_book_time_completed'));
-
-$data = [
+// An object, because a payload is a record of named fields — and `pickup_location` is a record
+// of parts, so it is one too. Arrays are for lists.
+$booking = (object) [
 	'id' => '017f22e2-79b0-7cc3-98c4-dc0c0c07398f',
 	'full_name' => 'Jane Doe',
 	'licence_number' => 'QLD-1234567',
-	'pickup_location' => [
+	'pickup_location' => (object) [
 		'line1' => '1 Queen St',
 		'locality' => 'Brisbane',
 		'administrative_area' => 'QLD',
 		'postal_code' => '4000',
+		'country' => 'AU',
 	],
 	'has_log_book' => true,
 	'transmission_type' => 'automatic',
 ];
 
-// has_log_book is true, so the rule requires log_book_time_completed — which is
-// missing, so validation fails despite every supplied value being well-formed.
-report($schema->validate($data));
+/** The same booking with one field changed — a record is cloned rather than unioned. */
+$withChange = static function (string $field, mixed $value) use ($booking): object {
+	$changed = clone $booking;
+	$changed->{$field} = $value;
 
-// Supply it and the same schema passes. (Validating twice also applies the rules
-// twice, which is exactly the case Scope::resolve() has to survive.)
-report($schema->validate(['log_book_time_completed' => 'PT10H'] + $data));
+	return $changed;
+};
+
+// The rule fires and requires the duration, which is missing — so this fails even though every
+// value that *was* supplied is well-formed.
+report('A log book, but no time recorded:', $schema->validate($booking));
+
+// Supply it and the same schema passes.
+report('The same booking with the time:', $schema->validate($withChange('log_book_time_completed', 'PT10H')));
+
+// No log book, so the else-branch discards whatever was sent for the duration. A stale value
+// left behind by a form that stopped showing the field cannot fail the request.
+$noLogBook = $withChange('has_log_book', false);
+$noLogBook->log_book_time_completed = 'not-a-duration';
+
+report('No log book, and a stale duration:', $schema->validate($noLogBook));
+
+// Validating repeatedly applies the rules repeatedly against the same shared schema. That it
+// gives the same answer every time is the guarantee a long-lived worker depends on.
+$twice = $schema->validate($booking)->anyFailed() === $schema->validate($booking)->anyFailed();
+
+echo 'Same answer when validated twice: ' . var_export($twice, true) . PHP_EOL;

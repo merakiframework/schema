@@ -21,11 +21,11 @@ final readonly class ValueScope extends Scope
 	public const SEGMENT = 'value';
 
 	/**
-	 * @param Property\Name|string $field
+	 * @param FieldName|string $field
 	 */
-	public static function of(Property\Name|string $field): self
+	public static function of(FieldName|string $field): self
 	{
-		return new self($field instanceof Property\Name ? $field : new Property\Name($field));
+		return new self($field instanceof FieldName ? $field : new FieldName($field));
 	}
 
 	public function __toString(): string

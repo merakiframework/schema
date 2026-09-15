@@ -4,7 +4,7 @@ declare(strict_types=1);
 namespace Meraki\Schema\Field;
 
 use Meraki\Schema\Field\Enum;
-use Meraki\Schema\Property\Name;
+use Meraki\Schema\FieldName;
 use Meraki\Schema\FieldTestCase;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
@@ -17,14 +17,14 @@ final class EnumTest extends FieldTestCase
 {
 	public function createField(): Enum
 	{
-		return new Enum(new Name('test'), ['AUD', 'USD', 'EUR']);
+		return new Enum(new FieldName('test'), ['AUD', 'USD', 'EUR']);
 	}
 	#[Test]
 	public function it_has_the_correct_name(): void
 	{
 		$field = $this->createField();
 
-		$this->assertSame('test', $field->name->value);
+		$this->assertSame('test', (string) $field->name);
 	}
 
 	#[Test]
@@ -34,19 +34,18 @@ final class EnumTest extends FieldTestCase
 
 		$result = $field->validate('USD');
 
-		$this->assertConstraintValidationResultPassed('type', $result);
+		$this->assertShapePassed($result);
 	}
 
-	#[Test]
-	public function it_allows_new_values_to_be_added(): void
-	{
-		$field = $this->createField()->allow('GBP');
 
-		$result = $field->validate('GBP');
-
-		$this->assertConstraintValidationResultPassed('type', $result);
-	}
-
+	/**
+	 * The list of cases is the type, so a value outside it is a shape failure.
+	 *
+	 * Deliberately not a constraint. That was tried, on the argument that a renderer wants the
+	 * list to interpolate into "must be one of: AUD, USD" — but an enum renderer reads `$cases`
+	 * to draw its options anyway, so the bound carried nothing it did not already have, and the
+	 * field ended up answering the same question twice.
+	 */
 	#[Test]
 	public function it_does_not_allow_invalid_values(): void
 	{
@@ -54,7 +53,8 @@ final class EnumTest extends FieldTestCase
 
 		$result = $field->validate('GBP');
 
-		$this->assertConstraintValidationResultFailed('type', $result);
+		$this->assertShapeFailed($result);
+		$this->assertCount(0, $field->constraints);
 	}
 
 
@@ -63,6 +63,6 @@ final class EnumTest extends FieldTestCase
 	{
 		$field = $this->createField();
 
-		$this->assertNull($field->defaultValue->unwrap());
+		$this->assertNull($field->defaultValue);
 	}
 }

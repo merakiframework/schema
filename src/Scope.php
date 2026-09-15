@@ -12,8 +12,8 @@ use Stringable;
  * A scope used to be a cursor: it implemented `Iterator`, and resolving one walked its
  * position to the end of the path. Because a rule builds its scope once and keeps it, that
  * made resolution a write to shared state — two requests could move each other's cursor,
- * an outcome applied twice started from an exhausted cursor, and `serialize($schema)`
- * changed as a side effect of reading. Two workarounds downstream existed only to paper
+ * an outcome applied twice started from an exhausted cursor, and a schema's own state
+ * changed as a side effect of being read. Two workarounds downstream existed only to paper
  * over it. A scope is now an immutable value: resolving one cannot disturb it, so those
  * problems have nowhere left to live.
  *
@@ -35,7 +35,7 @@ abstract readonly class Scope implements Stringable
 	 */
 	public const COLLECTION = 'fields';
 
-	public function __construct(public Property\Name $field)
+	public function __construct(public FieldName $field)
 	{
 	}
 
@@ -74,18 +74,36 @@ abstract readonly class Scope implements Stringable
 			throw new InvalidArgumentException(sprintf('"%s" is missing a field name.', $path));
 		}
 
-		if (count($segments) > 3) {
+		// A fourth segment addresses a part of the value — `#/fields/billing/value/country` — and
+		// only that. A collection's items are not addressable: which row `0` is depends on what
+		// was submitted, so a stored rule naming one would mean different rows on different
+		// requests.
+		if (count($segments) === 4) {
+			if ($property !== ValueScope::SEGMENT) {
+				throw new InvalidArgumentException(sprintf(
+					'"%s" addresses a part, which only a value has. Write it as "#/%s/%s/%s/<part>".',
+					$path,
+					self::COLLECTION,
+					$name,
+					ValueScope::SEGMENT,
+				));
+			}
+
+			return new PartScope(new FieldName($name), $segments[3]);
+		}
+
+		if (count($segments) > 4) {
 			throw new InvalidArgumentException(sprintf(
-				'"%s" has more segments than a scope can address. Sub-fields and collection '
-				. 'items are not addressable yet.',
+				'"%s" has more segments than a scope can address. A part of a value is as deep as '
+				. 'this goes; collection items are not addressable.',
 				$path,
 			));
 		}
 
 		return match (true) {
-			$property === null => new FieldScope(new Property\Name($name)),
-			$property === ValueScope::SEGMENT => new ValueScope(new Property\Name($name)),
-			default => new PropertyScope(new Property\Name($name), $property),
+			$property === null => new FieldScope(new FieldName($name)),
+			$property === ValueScope::SEGMENT => new ValueScope(new FieldName($name)),
+			default => new PropertyScope(new FieldName($name), $property),
 		};
 	}
 

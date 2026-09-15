@@ -3,10 +3,19 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Field;
 
-use Meraki\Schema\Field;
-use Meraki\Schema\Field\CompositeTestCase;
 use Meraki\Schema\Field\CreditCard;
-use Meraki\Schema\Property\Name;
+use Meraki\Schema\Field\CreditCard\Value;
+use Meraki\Schema\FieldName;
+use Meraki\Schema\FieldTestCase;
+use Brick\DateTime\Clock\FixedClock;
+use Brick\DateTime\Clock\SystemClock;
+use Meraki\Schema\Facade;
+use Brick\DateTime\LocalDate;
+use Brick\DateTime\LocalTime;
+use Brick\DateTime\TimeZone;
+use ReflectionMethod;
+use SensitiveParameter;
+use Stringable;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -14,248 +23,390 @@ use PHPUnit\Framework\Attributes\DataProvider;
 
 #[Group('field')]
 #[CoversClass(CreditCard::class)]
-final class CreditCardTest extends CompositeTestCase
+#[CoversClass(Value::class)]
+final class CreditCardTest extends FieldTestCase
 {
-	public function createSubject(): CreditCard
-	{
-		return new CreditCard(new Name('credit_card'));
-	}
+	/** A date that is neither the start nor the end of its month, so off-by-one shows. */
+	private const TODAY = '2026-09-12';
 
 	public function createField(): CreditCard
 	{
-		return $this->createSubject();
+		// Pinned, so nothing here depends on when the suite runs. Every card field holds a clock —
+		// `expiryWithinReach` asks the calendar whether or not expiry is being enforced.
+		return new CreditCard(new FieldName('card'), self::clockAt(self::TODAY));
+	}
+
+	/** A field that also refuses a card that has already expired. */
+	private function expiring(): CreditCard
+	{
+		return $this->createField()->mustExpireInFuture();
+	}
+
+	private static function clockAt(string $date): FixedClock
+	{
+		return new FixedClock(
+			LocalDate::parse($date)->atTime(LocalTime::midnight())->atTimeZone(TimeZone::utc())->getInstant(),
+		);
+	}
+
+	/** @return array<string, string> */
+	private static function card(array $overrides = [], string ...$without): array
+	{
+		return array_diff_key($overrides + [
+			'number' => '4242424242424242',
+			'expiry' => '2027-01',
+			'name' => 'J Bloggs',
+		], array_flip($without));
+	}
+
+	// ── what a card is ────────────────────────────────────────────────────────────────────
+
+	#[Test]
+	public function it_holds_the_whole_card_as_one_value(): void
+	{
+		$value = $this->createField()->resolve((object) self::card())->value;
+
+		$this->assertInstanceOf(Value::class, $value);
+		$this->assertSame('4242424242424242', $value->number);
+		$this->assertSame('J Bloggs', $value->name);
 	}
 
 	#[Test]
-	public function subfields_are_created(): void
+	public function a_number_may_be_typed_in_groups(): void
 	{
-		$field = $this->createSubject();
+		// People type cards in fours, so the spacing is stripped rather than rejected.
+		$value = $this->createField()->resolve((object) self::card(['number' => '4242 4242 4242 4242']))->value;
 
-		$this->assertInstanceOf(Field\Name::class, $field->holder);
-		$this->assertInstanceOf(Field\Text::class, $field->number);
-		$this->assertInstanceOf(Field\Date::class, $field->expiry);
-		$this->assertInstanceOf(Field\Text::class, $field->securityCode);
+		$this->assertSame('4242424242424242', $value->number);
 	}
 
 	#[Test]
-	public function subfields_have_correct_names(): void
+	public function a_complete_card_passes(): void
 	{
-		$field = $this->createSubject();
-
-		$this->assertEquals('credit_card.holder', (string)$field->holder->name);
-		$this->assertEquals('credit_card.number', (string)$field->number->name);
-		$this->assertEquals('credit_card.expiry', (string)$field->expiry->name);
-		$this->assertEquals('credit_card.security_code', (string)$field->securityCode->name);
+		$this->assertFalse($this->createField()->validate((object) self::card())->anyFailed());
 	}
 
 	#[Test]
-	#[DataProvider('validCreditCards')]
-	public function it_validates_valid_credit_cards(string $holder, string $number, string $expiry, string $securityCode): void
+	public function each_constraint_names_the_part_it_is_about(): void
 	{
-		$field = $this->createSubject();
+		$expected = [
+			'numberFormat' => 'number',
+			'numberChecksum' => 'number',
+			'expiryFormat' => 'expiry',
+			'expiryInFuture' => 'expiry',
+			'expiryWithinReach' => 'expiry',
+			'namePresent' => 'name',
+			'securityCodeFormat' => 'security_code',
+		];
 
-		$result = $field->validate([
-			'holder' =>$holder,
-			'number' =>$number,
-			'expiry' =>$expiry,
-			'security_code' =>$securityCode,
-		]);
-
-		$this->assertConstraintValidationResultPassedForField('credit_card.holder', 'type', $result);
-
-		$this->assertConstraintValidationResultPassedForField('credit_card.number', 'type', $result);
-		$this->assertConstraintValidationResultPassedForField('credit_card.number', 'minLength', $result);
-		$this->assertConstraintValidationResultPassedForField('credit_card.number', 'maxLength', $result);
-
-		$this->assertConstraintValidationResultPassedForField('credit_card.expiry', 'type', $result);
-
-		$this->assertConstraintValidationResultPassedForField('credit_card.security_code', 'type', $result);
-		$this->assertConstraintValidationResultPassedForField('credit_card.security_code', 'minLength', $result);
-		$this->assertConstraintValidationResultPassedForField('credit_card.security_code', 'maxLength', $result);
+		foreach ($this->createField()->constraints as $constraint) {
+			$this->assertSame($expected[$constraint->name], $constraint->part, $constraint->name);
+		}
 	}
 
-	public static function validCreditCards(): array
+	#[Test]
+	public function a_card_with_nothing_in_it_could_not_be_read_as_a_card(): void
 	{
-		// https://www.creditscardgenerator.com/
+		// A composite with no parts at all is not a half-filled one; it is not one. So it fails the
+		// shape rather than every required part in turn, which says the real thing once instead of
+		// three times.
+		$result = $this->createField()->validate((object) []);
+
+		$this->assertShapeFailed($result);
+		$this->assertConstraintValidationResultSkipped('numberFormat', $result);
+	}
+
+	#[Test]
+	public function an_empty_value_object_reads_the_same_way(): void
+	{
+		// The same card, built rather than submitted. Which route it arrived by is not a difference
+		// the field should care about.
+		$this->assertShapeFailed($this->createField()->validate(new Value()));
+	}
+
+	#[Test]
+	public function a_partly_filled_card_is_still_a_card(): void
+	{
+		// Which is where the per-part constraints earn their keep: something was entered, so the
+		// report says which halves are missing rather than rejecting the lot.
+		$result = $this->createField()->validate((object) self::card(without: 'name'));
+
+		$this->assertShapePassed($result);
+		$this->assertConstraintValidationResultFailed('namePresent', $result);
+	}
+
+	#[Test]
+	public function nothing_at_all_is_absent(): void
+	{
+		// Null is the only absent card: the field was never filled in, which is a different report
+		// from filling it in wrongly.
+		$this->assertShapeFailed($this->createField()->validate(null));
+	}
+
+	#[Test]
+	public function a_card_knows_whether_it_holds_the_three(): void
+	{
+		$this->assertTrue($this->createField()->resolve((object) self::card())->value->isComplete());
+		$this->assertFalse(Value::fromInput(self::card(without: 'name'))->isComplete());
+		$this->assertFalse((new Value())->isComplete());
+		// The security code is the one part a card can do without.
+		$this->assertTrue(Value::fromInput(self::card())->isComplete());
+		$this->assertTrue(Value::fromInput(self::card(['security_code' => '123']))->isComplete());
+	}
+
+	// ── the three required parts ──────────────────────────────────────────────────────────
+
+	#[Test]
+	#[DataProvider('requiredParts')]
+	public function a_missing_required_part_is_reported_against_that_part(string $missing, string $constraint): void
+	{
+		// Reported here rather than as a shape failure so a form can mark the field that is
+		// actually missing — "that is not a card" could not say which.
+		$failed = $this->createField()->validate((object) self::card(without: $missing))->forConstraint($constraint);
+
+		$this->assertTrue($failed->failed(), $constraint);
+		$this->assertSame($missing, $failed->part);
+	}
+
+	/** @return array<string, array{string, string}> */
+	public static function requiredParts(): array
+	{
 		return [
-			'visa (13 digits)' => ['Matthew James', '4267 7724 0310 2', '2026-04', '242'],
-			'visa (16 digits)' => ['Kenneth Miller MD', '4014 1828 2909 8807', '2027-10', '936'],
-			'visa (19 digits)' => ['Ryan Hall', '4958 5581 8834 3371 583', '2027-12', '449'],
-			'mastercard' => ['Brandon Ramirez', '2720 0792 6056 8240', '2026-12', '594'],
-			'amex' => ['Elizabeth Cooper', '3407 769523 04412', '2029-04', '9635'],
-			'discover (16 digits)' => ['Mark Lopez', '6466 5921 0488 9001', '2027-02', '960'],
-			'discover (19 digits)' => ['Skylar Reed', '6469 8745 3650 4031 151', '2028-03', '289'],
-			'diners club (14 digits)' => ['William Morgan', '3038 4195 6843 39', '2028-09', '038'],
-			'diners club (16 digits)' => ['Audrey Price III', '3882 2342 3459 5629', '2028-08', '803'],
-			'diners club (19 digits)' => ['William Murphy Jr.', '3049 1782 8122 4673 778', '2030-05', '067'],
-			'jcb (16 digits)' => ['Mark Williams PhD', '3529 7754 7388 9643', '2027-07', '446'],
-			'jcb (19 digits)' => ['Victoria Smith', '3579 7188 3488 3186 616', '2026-10', '198'],
+			'a number' => ['number', 'numberFormat'],
+			'an expiry' => ['expiry', 'expiryFormat'],
+			'a name' => ['name', 'namePresent'],
 		];
 	}
 
 	#[Test]
-	public function it_fails_if_holder_is_not_provided(): void
+	public function the_security_code_is_the_one_optional_part(): void
 	{
-		$field = $this->createSubject();
+		$result = $this->createField()->validate((object) self::card());
 
-		$result = $field->validate([
-			'holder' =>'',
-			'number' =>'4014 1828 2909 8807',
-			'expiry' =>'2027-10',
-			'security_code' =>'936',
-		]);
-
-		$this->assertConstraintValidationResultFailedForField('credit_card.holder', 'type', $result);
+		$this->assertConstraintValidationResultSkipped('securityCodeFormat', $result);
+		$this->assertFalse($result->anyFailed());
 	}
 
 	#[Test]
-	public function it_fails_if_number_is_not_provided(): void
+	#[DataProvider('securityCodes')]
+	public function a_security_code_is_checked_once_given(string $code, bool $valid): void
 	{
-		$field = $this->createSubject();
+		$result = $this->createField()->validate((object) self::card(['security_code' => $code]));
 
-		$result = $field->validate([
-			'holder' =>'Kenneth Miller MD',
-			'number' =>'',
-			'expiry' =>'2027-10',
-			'security_code' =>'936',
-		]);
+		$this->assertSame(
+			$valid,
+			$result->forConstraint('securityCodeFormat')->passed(),
+			"security code '{$code}'",
+		);
+	}
 
-		$this->assertConstraintValidationResultFailedForField('credit_card.number', 'minLength', $result);
+	/** @return array<string, array{string, bool}> */
+	public static function securityCodes(): array
+	{
+		return [
+			'three digits' => ['123', true],
+			'four digits, as American Express uses' => ['1234', true],
+			'two digits' => ['12', false],
+			'five digits' => ['12345', false],
+			'letters' => ['abc', false],
+		];
+	}
+
+	// ── the number ────────────────────────────────────────────────────────────────────────
+
+	#[Test]
+	public function it_reports_a_number_that_fails_its_check_digit(): void
+	{
+		// Every card number carries a Luhn digit, so one that fails it is not a card number. No
+		// processor would accept it, and catching it here saves a round trip.
+		$this->assertConstraintValidationResultFailed(
+			'numberChecksum',
+			$this->createField()->validate((object) self::card(['number' => '4242424242424241'])),
+		);
 	}
 
 	#[Test]
-	public function it_fails_if_number_is_too_short(): void
+	#[DataProvider('badlyFormedNumbers')]
+	public function a_number_that_is_not_digits_of_the_right_length_reports_once(string $number): void
 	{
-		$field = $this->createSubject();
+		// The checksum is skipped rather than also failing: two failures for one mistake is one
+		// too many.
+		$result = $this->createField()->validate((object) self::card(['number' => $number]));
 
-		$result = $field->validate([
-			'holder' =>'Kenneth Miller MD',
-			'number' =>'4014 1828 2909',
-			'expiry' =>'2027-10',
-			'security_code' =>'936',
-		]);
+		$this->assertConstraintValidationResultFailed('numberFormat', $result);
+		$this->assertConstraintValidationResultSkipped('numberChecksum', $result);
+	}
 
-		$this->assertConstraintValidationResultFailedForField('credit_card.number', 'minLength', $result);
+	/** @return array<string, array{string}> */
+	public static function badlyFormedNumbers(): array
+	{
+		return [
+			'too short' => ['424242'],
+			'too long' => ['42424242424242424242'],
+			'letters' => ['4242abcd4242efgh'],
+		];
+	}
+
+	// ── expiry ────────────────────────────────────────────────────────────────────────────
+
+	#[Test]
+	public function an_expiry_month_runs_to_the_end_of_that_month(): void
+	{
+		// A card expiring 2026-09 is good until the 30th. Taking the first of the month would
+		// reject a valid card for up to thirty days.
+		$value = $this->createField()->resolve((object) self::card(['expiry' => '2026-09']))->value;
+
+		$this->assertSame('2026-09-30', (string) $value->expiry);
 	}
 
 	#[Test]
-	public function it_fails_if_number_is_too_long(): void
+	#[DataProvider('expiries')]
+	public function it_judges_expiry_against_its_clock(string $expiry, bool $stillValid): void
 	{
-		$field = $this->createSubject();
+		$this->assertSame(
+			$stillValid,
+			$this->expiring()->validate((object) self::card(['expiry' => $expiry]))->forConstraint('expiryInFuture')->passed(),
+			"expiry {$expiry} against " . self::TODAY,
+		);
+	}
 
-		$result = $field->validate([
-			'holder' =>'Kenneth Miller MD',
-			'number' =>'4958 5581 8834 3371 5819',
-			'expiry' =>'2027-10',
-			'security_code' =>'936',
-		]);
-
-		$this->assertConstraintValidationResultFailedForField('credit_card.number', 'maxLength', $result);
+	/** @return array<string, array{string, bool}> */
+	public static function expiries(): array
+	{
+		return [
+			'this month' => ['2026-09', true],
+			'last month' => ['2026-08', false],
+			'next month' => ['2026-10', true],
+			'the last day of this month' => ['2026-09-30', true],
+			// A full date is taken literally rather than widened to its month's end: if the author
+			// was that precise, they meant it.
+			'an exact date already past' => ['2026-09-01', false],
+			'today exactly' => [self::TODAY, true],
+		];
 	}
 
 	#[Test]
-	public function it_fails_if_security_code_is_not_provided(): void
+	public function expiry_is_not_checked_unless_it_was_asked_for(): void
 	{
-		$field = $this->createSubject();
-
-		$result = $field->validate([
-			'holder' =>'Kenneth Miller MD',
-			'number' =>'4014 1828 2909 8807',
-			'expiry' =>'2027-10',
-			'security_code' =>'',
-		]);
-
-		$this->assertConstraintValidationResultFailedForField('credit_card.security_code', 'minLength', $result);
+		// A form capturing a card for later reference is not one about to charge it.
+		$this->assertConstraintValidationResultSkipped(
+			'expiryInFuture',
+			$this->createField()->validate((object) self::card(['expiry' => '2020-01'])),
+		);
 	}
 
 	#[Test]
-	public function it_fails_if_security_code_is_too_short(): void
+	public function an_unreadable_expiry_reports_once(): void
 	{
-		$field = $this->createSubject();
+		$result = $this->expiring()->validate((object) self::card(['expiry' => 'soon']));
 
-		$result = $field->validate([
-			'holder' =>'Kenneth Miller MD',
-			'number' =>'4014 1828 2909 8807',
-			'expiry' =>'2027-10',
-			'security_code' =>'93',
-		]);
-
-		$this->assertConstraintValidationResultFailedForField('credit_card.security_code', 'minLength', $result);
+		$this->assertConstraintValidationResultFailed('expiryFormat', $result);
+		$this->assertConstraintValidationResultSkipped('expiryInFuture', $result);
 	}
 
 	#[Test]
-	public function it_fails_if_security_code_is_too_long(): void
+	public function it_holds_a_source_of_the_instant_rather_than_an_instant(): void
 	{
-		$field = $this->createSubject();
+		// Reading the date once into a property would start rejecting valid cards the day after the
+		// schema was built, and would be shared mutable state besides.
+		$field = $this->expiring();
 
-		$result = $field->validate([
-			'holder' =>'Kenneth Miller MD',
-			'number' =>'4014 1828 2909 8807',
-			'expiry' =>'2027-10',
-			'security_code' =>'93675',
-		]);
-
-		$this->assertConstraintValidationResultFailedForField('credit_card.security_code', 'maxLength', $result);
+		$this->assertSame(self::TODAY, (string) $field->determineToday());
+		$this->assertSame(self::TODAY, (string) $field->determineToday(), 'a clock is consulted, not cached');
 	}
 
+	#[Test]
+	public function every_card_field_holds_a_clock(): void
+	{
+		// The clock used to arrive with `mustExpireInFuture()`, on the argument that a card
+		// captured for later reference has no business knowing the time. That stopped being true
+		// when `expiryWithinReach` arrived: catching `2099` as a typo is not optional, and it is
+		// a question about the calendar like any other.
+		//
+		// A field given none falls back to a SystemClock, which is stateless and therefore safe
+		// on a definition shared across requests.
+		$field = new CreditCard(new FieldName('card'));
+
+		$this->assertInstanceOf(SystemClock::class, $field->clock);
+	}
+
+	#[Test]
+	public function a_schema_can_declare_the_clock_instead(): void
+	{
+		// Built once for every field the schema makes, the same shape as `for()`.
+		$schema = new Facade('checkout', clock: self::clockAt(self::TODAY));
+
+		$this->assertSame(self::TODAY, (string) $schema->createCreditCardField('card')->determineToday());
+	}
+
+	#[Test]
+	public function it_falls_back_to_the_system_clock(): void
+	{
+		// The default exists so that the common case needs no ceremony. Asserting only that there is
+		// a real date and that a long-past card fails against it, since the real clock moves.
+		$field = $this->createField()->mustExpireInFuture();
+
+		$this->assertNotNull($field->determineToday());
+		$this->assertFalse($field->validate((object) self::card(['expiry' => '2020-01']))->forConstraint('expiryInFuture')->passed());
+	}
+
+	// ── a card number must not leak ───────────────────────────────────────────────────────
+
+	#[Test]
+	public function it_keeps_the_number_the_consumer_will_have_to_send(): void
+	{
+		// Masking here would only mean whatever talks to the processor reaching past this object for
+		// the real thing. Display is what lastFourDigits() is for.
+		$value = $this->createField()->resolve((object) self::card())->value;
+
+		$this->assertSame('4242424242424242', $value->number);
+		$this->assertSame('4242', $value->lastFourDigits());
+		$this->assertNull((new Value())->lastFourDigits());
+	}
+
+	#[Test]
+	public function it_cannot_be_printed_by_accident(): void
+	{
+		// No __toString(), deliberately: interpolation is exactly how a card number reaches a log,
+		// and a masking one would still invite the habit.
+		$value = $this->createField()->resolve((object) self::card())->value;
+
+		$this->assertNotInstanceOf(Stringable::class, $value);
+		$this->assertFalse(method_exists($value, '__toString'));
+	}
+
+	#[Test]
+	public function the_secret_parts_are_marked_sensitive(): void
+	{
+		// The guard that replaces masking. A declaration test rather than a behavioural one on
+		// purpose: whether an argument reaches a trace depends on zend.exception_ignore_args, which
+		// is the host's setting and not ours — so the attribute being present is the part we own.
+		$sensitive = static function (string $method, int $at): bool {
+			$parameter = (new ReflectionMethod(Value::class, $method))->getParameters()[$at];
+
+			return $parameter->getAttributes(SensitiveParameter::class) !== [];
+		};
+
+		$this->assertTrue($sensitive('__construct', 0), '$number');
+		$this->assertTrue($sensitive('__construct', 3), '$securityCode');
+		$this->assertTrue($sensitive('fromInput', 0), 'the submitted array holds both');
+		$this->assertFalse($sensitive('__construct', 2), '$name is not a secret');
+	}
+
+	#[Test]
+	public function configuring_it_leaves_the_original_alone(): void
+	{
+		$field = $this->createField();
+		$strict = $field->mustExpireInFuture();
+
+		$this->assertNotSame($field, $strict);
+		$this->assertFalse($field->mustExpireInFuture);
+		$this->assertTrue($strict->mustExpireInFuture);
+	}
 
 	#[Test]
 	public function it_has_no_default_value_by_default(): void
 	{
-		$field = $this->createSubject();
-
-		$this->assertEquals(
-			['credit_card.holder' => null, 'credit_card.number' => null, 'credit_card.expiry' => null, 'credit_card.security_code' => null],
-			$field->defaultValue->unwrap()
-		);
-		$this->assertEquals(null, $field->holder->defaultValue->unwrap());
-		$this->assertEquals(null, $field->number->defaultValue->unwrap());
-		$this->assertEquals(null, $field->expiry->defaultValue->unwrap());
-		$this->assertEquals(null, $field->securityCode->defaultValue->unwrap());
-	}
-
-	#[Test]
-	public function it_fails_if_expiry_is_not_provided(): void
-	{
-		$field = $this->createSubject();
-
-		$result = $field->validate([
-			'holder' =>'Kenneth Miller MD',
-			'number' =>'4014 1828 2909 8807',
-			'expiry' =>'',
-			'security_code' =>'936',
-		]);
-
-		$this->assertConstraintValidationResultFailedForField('credit_card.expiry', 'type', $result);
-	}
-
-	#[Test]
-	public function it_fails_if_expiry_is_in_the_past(): void
-	{
-		$field = $this->createSubject();
-
-		$result = $field->validate([
-			'holder' =>'Kenneth Miller MD',
-			'number' =>'4014 1828 2909 8807',
-			'expiry' =>'2020-01',
-			'security_code' =>'936',
-		]);
-
-		$this->assertConstraintValidationResultFailedForField('credit_card.expiry', 'from', $result);
-	}
-
-	#[Test]
-	public function end_of_month_day_is_automatically_added_to_end_of_expiry_date(): void
-	{
-		$field = $this->createSubject();
-
-		$result = $field->validate([
-			'holder' =>'Kenneth Miller MD',
-			'number' =>'4014 1828 2909 8807',
-			'expiry' =>'2029-07',
-			'security_code' =>'936',
-		]);
-
-		$this->assertEquals('2029-07-31', $result->get('credit_card.expiry')->value);
+		$this->assertNull($this->createField()->defaultValue);
 	}
 }

@@ -39,6 +39,7 @@ final class ScopeResolver
 		$field = $this->schema->fields->getByName($scope->field);
 
 		return match (true) {
+			$scope instanceof PartScope => $this->partOf($field, $scope->part),
 			$scope instanceof ValueScope => $this->valueOf($field),
 			$scope instanceof PropertyScope => $this->propertyOf($field, $scope->property),
 			default => $field,
@@ -53,16 +54,82 @@ final class ScopeResolver
 		return $field->resolvedValueFor($this->given[(string) $field->name] ?? null);
 	}
 
-	private function propertyOf(Field $field, string $property): mixed
+	/**
+	 * One named part of what the field was given.
+	 *
+	 * The part *name* is checked against the value class rather than against a value, so a
+	 * mistyped part fails where the rule is written instead of resolving to `null` on every
+	 * request afterwards — which is the failure this library spends most of its guards avoiding,
+	 * and which is invisible precisely because `null` is a legitimate answer for a part nobody
+	 * filled in.
+	 *
+	 * @throws InvalidArgumentException if the field's value has no parts, or not that one
+	 */
+	private function partOf(Field $field, string $part): mixed
 	{
-		if (in_array($property, Field::NOT_ADDRESSABLE, true)) {
+		$valueClass = self::valueClassOf($field);
+
+		if ($valueClass === null || !is_a($valueClass, Field\HasParts::class, true)) {
 			throw new InvalidArgumentException(sprintf(
-				'"%s" on field "%s" is internal wiring, not part of the field\'s addressable API.',
-				$property,
+				'"%s" holds one value rather than named parts, so it has no "%s" to address.',
 				(string) $field->name,
+				$part,
 			));
 		}
 
+		if (!in_array($part, $valueClass::partNames(), true)) {
+			throw new InvalidArgumentException(sprintf(
+				'"%s" has no part "%s". It has: %s.',
+				(string) $field->name,
+				$part,
+				implode(', ', $valueClass::partNames()),
+			));
+		}
+
+		$value = $this->valueOf($field);
+
+		// Nothing was submitted, so every part of it is absent. Not an error: a rule asking
+		// "is the shipping country the billing country" on a request that gave neither is
+		// answerable, and the answer is that they are both nothing.
+		return $value instanceof Field\HasParts ? ($value->parts()[$part] ?? null) : null;
+	}
+
+	/**
+	 * What a field parses to, read off its own `parse()` signature.
+	 *
+	 * Static, because a scope is validated when the rule is written and there is no request then.
+	 * Reflection rather than an instance because the answer is a fact about the class — every
+	 * field's `parse()` declares its return type, which is the contract
+	 * {@see Field\Definition::parse()} exists to enforce.
+	 *
+	 * @return class-string|null
+	 */
+	private static function valueClassOf(Field $field): ?string
+	{
+		static $cache = [];
+
+		$key = $field::class;
+
+		if (!array_key_exists($key, $cache)) {
+			$returns = (new \ReflectionMethod($field, 'parse'))->getReturnType();
+			$cache[$key] = $returns instanceof \ReflectionNamedType && !$returns->isBuiltin()
+				? $returns->getName()
+				: null;
+		}
+
+		return $cache[$key];
+	}
+
+	/**
+	 * Every public property of a field is addressable, with no exceptions list.
+	 *
+	 * There used to be one — `Field::NOT_ADDRESSABLE`, holding `schema` — because a field
+	 * carried a back-reference to its owner, and a scope stepping into it climbed to the root
+	 * and walked forever (defect B8). The back-reference is gone, so the guard has nothing left
+	 * to name. A field's public properties really are its whole API now.
+	 */
+	private function propertyOf(Field $field, string $property): mixed
+	{
 		if (!property_exists($field, $property)) {
 			throw new InvalidArgumentException(sprintf(
 				'No property "%s" on field "%s".',

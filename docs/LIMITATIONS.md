@@ -1,13 +1,16 @@
 # Known limitations
 
 This page exists so you can decide whether to adopt `meraki/schema` with your eyes open.
-It is written from an audit of the library at `v1.13.0-alpha`, and every defect below has
-a reproducer you can paste into a script and run.
+Every defect below has a reproducer you can paste into a script and run.
+
+It began as an audit of `v1.13.0-alpha` and has been kept current since. Where a defect is
+fixed it says so and keeps the original description, because the record of what went wrong is
+worth more than a shorter page.
 
 The library is **pre-release**. See [ROADMAP.md](ROADMAP.md) for the release ladder and
 [the release verdict](ROADMAP.md#release-verdict) for why.
 
-- [Known defects](#known-defects) — [B9](#b9) is open; [B7](#b7) is fixed on `main`
+- [Known defects](#known-defects) — all fixed; kept as the record of what they were
 - [Design constraints](#design-constraints) — intentional behaviour that will surprise you
 - [Not yet implemented](#not-yet-implemented) — advertised but inert
 - [Rough edges](#rough-edges) — smaller API warts
@@ -20,9 +23,18 @@ The library is **pre-release**. See [ROADMAP.md](ROADMAP.md) for the release lad
 
 ### B9 — `prefill()` leaks between concurrent requests
 
-**Open.** Fixed as part of the structured-types stage; see [ROADMAP.md](ROADMAP.md).
+**Fixed in 2.0.** `prefill()` is gone; a prefill now arrives with the request as
+`validate($submitted, prefilledWith: $known)` and is never written anywhere. The reproducer
+below is now `LongLivedProcessTest::prefill_still_leaks_between_concurrent_requests`, inverted
+to assert isolation, alongside `a_prefilled_value_is_never_retained_by_the_schema` for the
+retention half. `ResolvedField::$source` reports which of submitted, prefilled or the authored
+default the judged value came from.
 
-`prefill()` writes one request's data onto every field, exactly as `input()` did before it
+The description below is kept as the record of what the defect was.
+
+---
+
+`prefill()` wrote one request's data onto every field, exactly as `input()` did before it
 was removed. So a worker that fills in what it knows about a user — their saved email,
 their last address — puts one request's data where another request reads it. This is
 [B7](#b7) unchanged, in the one method that survived it, and it survived because a default
@@ -244,12 +256,27 @@ $schema->validate(['price.amount' => '1500']);                               // 
 
 ## Not yet implemented
 
-### `Passphrase` dictionary checking
+### Password strength is estimated against English
 
-The `dictionary` constraint appears in a passphrase field's results and would appear in
-its serialized form, but it does nothing. The only accepted dictionary is `'none'`, and
-the check behind the unreachable `'custom'` option is a stub that returns a hard-coded
-value. Treat passphrase validation as entropy-only.
+`Password::minStrengthOf()` measures guess-resistance with zxcvbn, whose ranked dictionaries are
+English-centric: common English passwords, English words, English-speaking names and surnames. A
+secret built from words in another language is scored as though those words were unknown, so it
+reads as stronger than it is.
+
+A genuinely random secret is *under*-estimated for the opposite reason — 32 random hex characters
+carry 128 bits and report 104.6 — because zxcvbn's fallback model assumes a smaller alphabet than
+the generator used. That direction is harmless; the dictionary gap is not.
+
+Mitigating it properly needs locale-specific frequency lists. Several zxcvbn forks ship them
+(`zone-eu/zxcvbn-php-et` adds Estonian, for instance) but there is no general mechanism here for
+selecting one.
+
+### Dictionary checking
+
+The old `Passphrase` field carried a `dictionary` constraint that did nothing: the only
+accepted value was `'none'`, and the check behind the unreachable `'custom'` option was a stub
+returning a hard-coded result. It did not survive the merge into `Password` — a constraint that
+appears in results and in serialized documents while doing nothing is worse than its absence.
 
 ### Collection failures carry no item index
 
@@ -269,6 +296,24 @@ Fixed in `2.0.0`, where a structured value carries its own shape rather than bei
 ---
 
 ## Recently fixed
+
+### Password strength ignored patterns and repetition
+
+Until `Password` absorbed `Passphrase`, strength was estimated as `log2(pool size) × length`,
+which counted which classes of character appeared and never looked at the arrangement. Forty
+copies of the letter `x` scored 188 bits and satisfied the `Cryptographic` tier.
+
+Fixed by measuring with zxcvbn instead, which matches against common passwords, words, names,
+keyboard walks, repeats and sequences. The same secrets now score 6–14 bits and satisfy nothing:
+
+| Secret | Before | After |
+| --- | --- | --- |
+| 40 × `x` | 188 bits | 8.9 bits |
+| `abcdefghijklmnopqrst` | 94 bits | 6.3 bits |
+| `P@ssw0rd123` | 72 bits | 13.9 bits |
+
+The tier thresholds were recalibrated to the new scale — they are not comparable between
+estimators — and `tests/Field/PasswordTest::length_alone_does_not_make_a_secret_strong()` pins it.
 
 ### B3 — `CreditCard` had no Luhn check
 
@@ -360,7 +405,7 @@ Smaller warts, listed so they are not surprises. All are slated for the `1.14.0`
 | `Field\Set::getByName()` never returns `null` | Its return type says `?Field` but it throws when not found. `findByName()` is the nullable one. |
 | Filtering a result detaches the field | `Field\ValidationResult::__clone()` deep-clones the field, so `$fieldResult->getFailed()->field` is a *copy*, not the field in your schema. Do not compare it by identity. |
 | Constraint config is publicly mutable | `$field->min = -5` bypasses the validation in `minLengthOf()`. Use the fluent setters. |
-| `Rule\Outcome\_Require` has a leading underscore | Working around the `require` keyword. It will be renamed before the API freezes. |
+| `Rule\Outcome\MakeRequired` has a leading underscore | Working around the `require` keyword. It will be renamed before the API freezes. |
 | No `remove()` on `Field\Set` | Fields can be added to a schema but not removed. |
 | Rules cannot target composite sub-fields | Neither `#/fields/addr/line1` nor `#/fields/addr.line1` resolves — `Facade::traverse()` only searches the top-level field set. Collection items (`#/fields/items/0/sku`) are likewise unreachable. |
 | `Scope` carries a mutable cursor | Resolving advances an internal position, so a scope held by a rule outcome is shared mutable state. `meraki/schema-html` works around this in two places. Unsafe under concurrency. |

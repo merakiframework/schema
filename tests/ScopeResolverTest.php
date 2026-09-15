@@ -3,7 +3,6 @@ declare(strict_types=1);
 
 namespace Meraki\Schema;
 
-use Meraki\Schema\Field\Factory;
 use InvalidArgumentException;
 use PHPUnit\Framework\TestCase;
 use PHPUnit\Framework\Attributes\Test;
@@ -22,18 +21,13 @@ use PHPUnit\Framework\Attributes\Group;
 #[CoversClass(ScopeResolver::class)]
 final class ScopeResolverTest extends TestCase
 {
-	private Factory $fields;
 
-	protected function setUp(): void
-	{
-		$this->fields = new Factory();
-	}
 
 	private function schema(): Facade
 	{
 		$schema = new Facade('signup');
-		$schema->add($this->fields->createTextField('username')->minLengthOf(3));
-		$schema->add($this->fields->createTextField('nickname')->prefill('anonymous'));
+		$schema->add($schema->createTextField('username')->minLengthOf(3));
+		$schema->add($schema->createTextField('nickname')->defaultsTo('anonymous'));
 
 		return $schema;
 	}
@@ -46,7 +40,7 @@ final class ScopeResolverTest extends TestCase
 		$resolved = (new ScopeResolver($schema, ['username' => 'alice']))
 			->resolve(ValueScope::of('username'));
 
-		$this->assertSame('alice', $resolved->unwrap());
+		$this->assertSame('alice', $resolved->text);
 	}
 
 	#[Test]
@@ -57,7 +51,7 @@ final class ScopeResolverTest extends TestCase
 		$resolved = (new ScopeResolver($schema, []))
 			->resolve(ValueScope::of('nickname'));
 
-		$this->assertSame('anonymous', $resolved->unwrap());
+		$this->assertSame('anonymous', $resolved->text);
 	}
 
 	#[Test]
@@ -69,8 +63,8 @@ final class ScopeResolverTest extends TestCase
 		$alice = (new ScopeResolver($schema, ['username' => 'alice']))->resolve($scope);
 		$mallory = (new ScopeResolver($schema, ['username' => 'mallory']))->resolve($scope);
 
-		$this->assertSame('alice', $alice->unwrap());
-		$this->assertSame('mallory', $mallory->unwrap());
+		$this->assertSame('alice', $alice->text);
+		$this->assertSame('mallory', $mallory->text);
 	}
 
 	#[Test]
@@ -90,21 +84,21 @@ final class ScopeResolverTest extends TestCase
 	public function resolving_leaves_the_schema_untouched(): void
 	{
 		$schema = $this->schema();
-		$before = serialize($schema);
+		$before = print_r($schema, true);
 
 		$resolver = new ScopeResolver($schema, ['username' => 'alice', 'nickname' => 'al']);
 		$resolver->resolve(ValueScope::of('username'));
 		$resolver->resolve(PropertyScope::of('username', 'minLength'));
 		$resolver->resolve(ValueScope::of('nickname'));
 
-		$this->assertSame($before, serialize($schema));
+		$this->assertSame($before, print_r($schema, true));
 	}
 
 	#[Test]
 	public function a_field_scope_resolves_to_the_field_itself(): void
 	{
 		$schema = new Facade('signup');
-		$field = $this->fields->createTextField('username');
+		$field = $schema->createTextField('username');
 		$schema->add($field);
 
 		$resolved = (new ScopeResolver($schema))->resolve(FieldScope::of('username'));
@@ -116,7 +110,7 @@ final class ScopeResolverTest extends TestCase
 	public function optionality_is_addressable(): void
 	{
 		$schema = new Facade('signup');
-		$schema->add($this->fields->createTextField('nickname')->makeOptional());
+		$schema->add($schema->createTextField('nickname')->makeOptional());
 
 		$this->assertTrue((new ScopeResolver($schema))->resolve(PropertyScope::of('nickname', 'optional')));
 	}
@@ -126,7 +120,7 @@ final class ScopeResolverTest extends TestCase
 	{
 		// A field's public properties are its API; only the back-reference is excluded.
 		$schema = new Facade('signup');
-		$schema->add($this->fields->createTextField('username')->minLengthOf(3)->maxLengthOf(20));
+		$schema->add($schema->createTextField('username')->minLengthOf(3)->maxLengthOf(20));
 
 		$resolver = new ScopeResolver($schema);
 
@@ -135,25 +129,30 @@ final class ScopeResolverTest extends TestCase
 	}
 
 	#[Test]
-	public function a_scope_cannot_step_into_a_fields_schema_back_reference(): void
+	public function a_field_has_no_back_reference_to_its_schema(): void
 	{
-		// The back-reference points at the field's owner. When resolution was a walk, this
-		// climbed to the root and followed the same path forever; the resolver reads a
-		// name-keyed set and has no pointer to follow, so the guard is all that is left of
-		// defect B8.
-		$schema = new Facade('booking');
-		$schema->add($this->fields->createBooleanField('has_log_book'));
+		// Defect B8: a field held its owner, so a scope stepping into `schema` climbed to the
+		// root and walked the same path forever. It was guarded with a `NOT_ADDRESSABLE` list
+		// naming the property.
+		//
+		// Both are gone. The field no longer has the property, so there is nothing to guard —
+		// which is why this asserts the *absence* rather than the rejection: resolving
+		// `#/fields/x/schema` now fails identically to any other unknown property, and a test
+		// spelling `schema` would pass just as well against a typo. Re-adding the
+		// back-reference is what should break, and only this notices that.
+		$field = (new Facade('booking'))->createBooleanField('has_log_book');
 
-		$this->expectException(InvalidArgumentException::class);
-
-		(new ScopeResolver($schema))->resolve(PropertyScope::of('has_log_book', 'schema'));
+		$this->assertFalse(
+			property_exists($field, 'schema'),
+			'A field must not point back at the schema holding it (defect B8).',
+		);
 	}
 
 	#[Test]
 	public function an_unknown_property_is_rejected(): void
 	{
 		$schema = new Facade('signup');
-		$schema->add($this->fields->createTextField('username'));
+		$schema->add($schema->createTextField('username'));
 
 		$this->expectException(InvalidArgumentException::class);
 
@@ -164,7 +163,7 @@ final class ScopeResolverTest extends TestCase
 	public function an_unknown_field_is_rejected(): void
 	{
 		$schema = new Facade('signup');
-		$schema->add($this->fields->createTextField('username'));
+		$schema->add($schema->createTextField('username'));
 
 		$this->expectException(InvalidArgumentException::class);
 
@@ -177,7 +176,7 @@ final class ScopeResolverTest extends TestCase
 		// Rule outcomes build their scope once and resolve it on every validation run. When
 		// a scope was a cursor the second pass started from an exhausted one and threw.
 		$schema = new Facade('signup');
-		$schema->add($this->fields->createTextField('username')->minLengthOf(3));
+		$schema->add($schema->createTextField('username')->minLengthOf(3));
 
 		$resolver = new ScopeResolver($schema);
 		$scope = PropertyScope::of('username', 'minLength');

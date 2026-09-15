@@ -3,7 +3,6 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Rule;
 
-use Meraki\Schema\Field\Factory;
 use Meraki\Schema\Facade;
 use Meraki\Schema\Rule;
 use Meraki\Schema\Rule\Condition;
@@ -28,12 +27,7 @@ use PHPUnit\Framework\Attributes\{Test, CoversClass, Group};
 #[CoversClass(Rule::class)]
 final class RepeatedApplicationTest extends TestCase
 {
-	private Factory $fields;
 
-	protected function setUp(): void
-	{
-		$this->fields = new Factory();
-	}
 
 	#[Test]
 	public function an_outcome_can_be_applied_more_than_once(): void
@@ -42,7 +36,7 @@ final class RepeatedApplicationTest extends TestCase
 		// fail the same way. A second run that threw, or quietly stopped applying the
 		// outcome, would show up here.
 		$schema = $this->createSchemaWithAFiringRule();
-		$data = ['method' => 'phone'];
+		$data = (object)['method' => 'phone'];
 
 		$this->assertTrue($schema->validate($data)->anyFailed());
 		$this->assertTrue($schema->validate($data)->anyFailed());
@@ -52,7 +46,7 @@ final class RepeatedApplicationTest extends TestCase
 	public function repeated_validation_gives_the_same_answer(): void
 	{
 		$schema = $this->createSchemaWithAFiringRule();
-		$data = ['method' => 'phone', 'phone_number' => '0411 222 333'];
+		$data = (object)['method' => 'phone', 'phone_number' => '0411 222 333'];
 
 		$this->assertFalse($schema->validate($data)->anyFailed());
 		$this->assertFalse($schema->validate($data)->anyFailed());
@@ -65,7 +59,7 @@ final class RepeatedApplicationTest extends TestCase
 		// one request, not of the schema, so the definition must come back unchanged.
 		$schema = $this->createSchemaWithAFiringRule();
 
-		$schema->validate(['method' => 'phone']);
+		$schema->validate((object)['method' => 'phone']);
 
 		$this->assertTrue($schema->fields->findByName('phone_number')->optional);
 	}
@@ -83,11 +77,11 @@ final class RepeatedApplicationTest extends TestCase
 	private function createSchemaWithAFiringRule(): Facade
 	{
 		$schema = new Facade('test');
-		$schema->add($this->fields->createEnumField('method', ['email', 'phone'])->prefill('phone'));
-		$schema->add($this->fields->createTextField('phone_number')->makeOptional());
+		$schema->add($schema->createEnumField('method', ['email', 'phone'])->defaultsTo('phone'));
+		$schema->add($schema->createTextField('phone_number')->makeOptional());
 		$schema->addRule(new Rule(
 			new Condition\AllOf(new Condition\Equals('#/fields/method/value', 'phone')),
-			[new Outcome\_Require('#/fields/phone_number')],
+			[new Outcome\MakeRequired('#/fields/phone_number')],
 		));
 
 		return $schema;

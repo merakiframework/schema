@@ -4,143 +4,243 @@ declare(strict_types=1);
 namespace Meraki\Schema\Field;
 
 use Meraki\Schema\Field\PhoneNumber\Type;
-use Meraki\Schema\Field;
-use Meraki\Schema\Property;
+use Meraki\Schema\AtomicField;
+use Meraki\Schema\FieldName;
+use Meraki\Schema\Field\PhoneNumber\Value;
 use libphonenumber\PhoneNumber as LibPhoneNumber;
+use libphonenumber\PhoneNumberFormat;
 use libphonenumber\PhoneNumberUtil;
 use libphonenumber\NumberParseException;
 use InvalidArgumentException;
+use LogicException;
 
 /**
- * A "phone number" field, validated with libphonenumber.
+ * A telephone number, validated with libphonenumber.
  *
- * With no allowed countries it accepts any valid international (E.164, '+'-prefixed)
- * number. Once one or more countries are allowed it additionally accepts those
- * countries' national/local format (e.g. AU '0412 345 678'), and restricts which
- * countries a number may belong to. An optional number-type restriction (mobile,
- * landline, or either) can be applied on top.
+ * ### A number is submitted with its country, always
  *
- * @extends Field<string|null>
+ * The same pairing {@see Money} makes between an amount and its currency, and for the same
+ * reason: `0411 222 333` means nothing until you know where it is from, and neither does
+ * `+15551234567` — the `+1` prefix covers **twenty-five** regions, so E.164 alone cannot tell
+ * you whether that is American or Canadian. libphonenumber agrees: asked for the region of a
+ * bare `+1` number it answers `null`.
+ *
+ * ```php
+ * ['number' => '0411 222 333', 'country' => 'AU']
+ * ```
+ *
+ * Both halves are required. A bare string is a shape failure, and so is a missing country —
+ * there is nothing to report against, because the input never described a phone number.
+ *
+ * This replaced an `unambiguous` constraint and a rule that resolved a national number against
+ * the allow-list when exactly one country was on it. Both were machinery for guessing what the
+ * submitter meant, and asking for the country outright removes the need for either.
+ *
+ * The country is an ISO 3166-1 alpha-2 code rather than a dialling prefix, because a prefix does
+ * not identify a country — `+44` covers four regions, `+61` three, `+7` two — and because it is
+ * what libphonenumber parses against, and what a localisation lookup needs.
+ *
+ * @psalm-type NumberAndCountry = array{number: string, country: string}
+ * @extends AtomicField<NumberAndCountry|null>
  */
-final class PhoneNumber extends Field
+final readonly class PhoneNumber extends AtomicField
 {
 	/**
-	 * Allowed regions as ISO 3166-1 alpha-2 codes, upper-cased. Empty means
-	 * international-only (no national/local parsing).
+	 * Allowed regions as ISO 3166-1 alpha-2 codes, upper-cased. Empty accepts any international
+	 * number and no national one.
 	 *
-	 * @var array<string>
+	 * @var list<string>
 	 */
-	public array $allowed = [];
+	public array $allowedCountries;
 
-	public Type $allowedType = Type::Any;
+	public Type $numberType;
 
+	/**
+	 * @param array<string> $allowedCountries
+	 * @throws InvalidArgumentException if a country is not a region libphonenumber knows
+	 */
 	public function __construct(
-		public readonly Property\Name $name,
+		public FieldName $name,
 		array $allowedCountries = [],
 	) {
+		parent::__construct();
 
-		$this->allow(...$allowedCountries);
+		$this->numberType = Type::Any;
+		$this->allowedCountries = self::supported([], $allowedCountries);
+
+		// Last: every property it reads must already be set.
+		$this->constraints = $this->defineConstraints();
 	}
 
-	public function allow(string ...$countries): self
+	/**
+	 * Adds to the acceptable countries. Accumulates, like every other `allow*()`.
+	 *
+	 * Note what this does *not* do: adding a second country stops national-format input from
+	 * resolving on its own, because there is no longer one obvious answer. See the class note.
+	 *
+	 * @throws InvalidArgumentException if a country is not a region libphonenumber knows
+	 */
+	public function allowCountries(string $country, string ...$countries): static
 	{
-		$supported = self::util()->getSupportedRegions();
+		return $this->with(['allowedCountries' => self::supported($this->allowedCountries, [$country, ...$countries])]);
+	}
 
-		foreach ($countries as $country) {
+	/**
+	 * Accepts any country again, which also means national-format input stops resolving.
+	 */
+	public function clearAllowedCountries(): static
+	{
+		return $this->with(['allowedCountries' => []]);
+	}
+
+	public function ofType(Type $type): static
+	{
+		return $this->with(['numberType' => $type]);
+	}
+
+	/**
+	 * Whether this is a telephone number at all.
+	 *
+	 * True for a number that is valid for *some* country this field allows, even when which one
+	 * cannot be settled — that is the `unambiguous` constraint's business, and failing the shape
+	 * check here would report the wrong problem.
+	 */
+
+
+	/**
+	 * The resolved number, or `null` when no country can be settled without guessing.
+	 *
+	 * Null rather than an exception because this runs mid-validation: the ambiguity is something
+	 * to report, not to raise.
+	 */
+	/**
+	 * @param NumberAndCountry $value
+	 */
+	protected function parse(mixed $value): ?Value
+	{
+		$number = self::numberIn($value);
+		$country = self::countryIn($value);
+
+		// Either half missing means this never described a number. No constraint can speak to
+		// that, so it is the shape that fails.
+		if ($number === null || $country === null) {
+			return null;
+		}
+
+		// Valid *for that region* rather than valid somewhere. It is what stops an Australian
+		// number passing a field told it is a New Zealand one, and it settles the international
+		// case too: libphonenumber ignores the region when a number is already E.164, so
+		// `+61…` paired with `US` would otherwise sail through with the two halves disagreeing.
+		$parsed = self::parseForRegion($number, $country);
+
+		return $parsed === null ? null : new Value($parsed);
+	}
+
+	protected function defineConstraints(): Constraint\Set
+	{
+		return new Constraint\Set(
+			new Constraint('allowedCountries', $this->isFromAnAllowedCountry(...), $this->allowedCountries),
+			new Constraint('numberType', $this->isAnAllowedType(...), $this->numberType->value),
+		);
+	}
+
+	private function isFromAnAllowedCountry(Value $parsed): ?bool
+	{
+		$number = $parsed->number;
+
+		// Nothing was asked.
+		if ($this->allowedCountries === []) {
+			return null;
+		}
+
+		return in_array(self::util()->getRegionCodeForNumber($number), $this->allowedCountries, true);
+	}
+
+	private function isAnAllowedType(Value $parsed): ?bool
+	{
+		$number = $parsed->number;
+
+		if ($this->numberType === Type::Any) {
+			return null;
+		}
+
+		return $this->numberType->matches(self::util()->getNumberType($number));
+	}
+
+	/**
+	 * @param list<string> $existing
+	 * @param array<string> $additional
+	 * @return list<string>
+	 * @throws InvalidArgumentException
+	 */
+	private static function supported(array $existing, array $additional): array
+	{
+		$known = self::util()->getSupportedRegions();
+
+		foreach ($additional as $country) {
 			$country = strtoupper($country);
 
-			if (!in_array($country, $supported, true)) {
+			if (!in_array($country, $known, true)) {
 				throw new InvalidArgumentException("Country '{$country}' is not a supported region.");
 			}
 
-			if (!in_array($country, $this->allowed, true)) {
-				$this->allowed[] = $country;
+			if (!in_array($country, $existing, true)) {
+				$existing[] = $country;
 			}
 		}
 
-		return $this;
-	}
-
-	public function ofType(Type $type): self
-	{
-		$this->allowedType = $type;
-
-		return $this;
-	}
-
-	public function validateValue(mixed $value): bool
-	{
-		return is_string($value) && $this->parse($value) !== null;
-	}
-
-	protected function getConstraints(): array
-	{
-		return [
-			'allowedCountries' => $this->validateAllowedCountries(...),
-			'numberType' => $this->validateNumberType(...),
-		];
-	}
-
-	private function validateAllowedCountries(mixed $value): ?bool
-	{
-		if ($this->allowed === []) {
-			return null;
-		}
-
-		$proto = is_string($value) ? $this->parse($value) : null;
-
-		if ($proto === null) {
-			return null;
-		}
-
-		return in_array(self::util()->getRegionCodeForNumber($proto), $this->allowed, true);
-	}
-
-	private function validateNumberType(mixed $value): ?bool
-	{
-		if ($this->allowedType === Type::Any) {
-			return null;
-		}
-
-		$proto = is_string($value) ? $this->parse($value) : null;
-
-		if ($proto === null) {
-			return null;
-		}
-
-		return $this->allowedType->matches(self::util()->getNumberType($proto));
+		return $existing;
 	}
 
 	/**
-	 * Parses the value into a valid number, or null if it is not a valid phone
-	 * number. International ('+') numbers are parsed region-agnostically; otherwise
-	 * each allowed region is tried (so local format only works once countries are
-	 * configured).
+	 * The number out of either accepted shape, trimmed; `null` when there is none to read.
 	 */
-	private function parse(string $value): ?LibPhoneNumber
+	/**
+	 * Taken exactly as submitted. libphonenumber copes with the spaces and brackets people write
+	 * a number in, so there is nothing here worth repairing — and `''` is left to fail the parse
+	 * rather than being quietly read as "no number given".
+	 */
+	private static function numberIn(mixed $value): ?string
 	{
-		$util = self::util();
-		$value = trim($value);
+		$parts = self::recordIn($value);
 
+		if ($parts === null || !isset($parts['number']) || !is_string($parts['number'])) {
+			return null;
+		}
+
+		return $parts['number'];
+	}
+
+	/**
+	 * The country the input named, upper-cased; `null` when it named none.
+	 */
+	private static function countryIn(mixed $value): ?string
+	{
+		$parts = self::recordIn($value);
+
+		if ($parts === null || !isset($parts['country']) || !is_string($parts['country'])) {
+			return null;
+		}
+
+		// Upper-cased because ISO 3166-1 defines the codes that way, so `au` and `AU` are one
+		// country. Not trimmed: `' AU '` is not a code, and libphonenumber agrees — it refuses it.
+		return strtoupper($parts['country']);
+	}
+
+
+	/**
+	 * Parsed against one region, and valid *for that region* — not merely valid somewhere, which
+	 * would let an Australian number through a New Zealand-only field.
+	 */
+	private static function parseForRegion(string $number, string $region): ?LibPhoneNumber
+	{
 		try {
-			if (str_starts_with($value, '+')) {
-				$proto = $util->parse($value, null);
-
-				return $util->isValidNumber($proto) ? $proto : null;
-			}
-
-			foreach ($this->allowed as $region) {
-				$proto = $util->parse($value, $region);
-
-				if ($util->isValidNumberForRegion($proto, $region)) {
-					return $proto;
-				}
-			}
+			$proto = self::util()->parse($number, $region);
 		} catch (NumberParseException) {
 			return null;
 		}
 
-		return null;
+		return self::util()->isValidNumberForRegion($proto, $region) ? $proto : null;
 	}
 
 	private static function util(): PhoneNumberUtil

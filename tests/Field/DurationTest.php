@@ -4,7 +4,7 @@ declare(strict_types=1);
 namespace Meraki\Schema\Field;
 
 use Meraki\Schema\Field\Duration;
-use Meraki\Schema\Property\Name;
+use Meraki\Schema\FieldName;
 use Meraki\Schema\FieldTestCase;
 use Meraki\Schema\ValidationStatus;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -18,7 +18,7 @@ final class DurationTest extends FieldTestCase
 {
 	public function createField(): Duration
 	{
-		return new Duration(new Name('duration'));
+		return new Duration(new FieldName('duration'));
 	}
 	#[Test]
 	public function default_min_constraint_is_zero(): void
@@ -52,7 +52,7 @@ final class DurationTest extends FieldTestCase
 
 		$result = $type->validate($duration);
 
-		$this->assertConstraintValidationResultPassed('type', $result);
+		$this->assertShapePassed($result);
 	}
 
 	public static function validDurations(): array
@@ -85,7 +85,7 @@ final class DurationTest extends FieldTestCase
 
 		$result = $type->validate($duration);
 
-		$this->assertConstraintValidationResultFailed('type', $result);
+		$this->assertShapeFailed($result);
 	}
 
 	public static function invalidDurations(): array
@@ -209,6 +209,6 @@ final class DurationTest extends FieldTestCase
 	{
 		$field = $this->createField();
 
-		$this->assertNull($field->defaultValue->unwrap());
+		$this->assertNull($field->defaultValue);
 	}
 }

@@ -20,6 +20,14 @@ final class AppliedOutcome
 		public readonly Rule $rule,
 		/** The outcome it applied. */
 		public readonly Outcome $outcome,
+		/**
+		 * Whether the rule's condition held.
+		 *
+		 * `false` means this came from the else-branch, which is still something the rule
+		 * *did* — a consumer asking why a field is optional wants the answer either way. Only
+		 * the branch differs, and a renderer explaining the rule needs to know which.
+		 */
+		public readonly bool $conditionMatched = true,
 	) {
 	}
 

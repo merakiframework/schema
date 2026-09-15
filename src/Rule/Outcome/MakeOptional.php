@@ -3,8 +3,8 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Rule\Outcome;
 
+use Meraki\Schema\Field;
 use Meraki\Schema\Rule\Outcome;
-use Meraki\Schema\Facade;
 use Meraki\Schema\FieldScope;
 use Meraki\Schema\Scope;
 use InvalidArgumentException;
@@ -35,9 +35,9 @@ final class MakeOptional implements Outcome
 		$this->scope = $scope;
 	}
 
-	public function apply(Facade $schema): void
+	public function applyTo(Field $field): Field
 	{
-		$schema->fields->getByName($this->scope->field)->makeOptional();
+		return $field->makeOptional();
 	}
 
 	public function getScope(): FieldScope

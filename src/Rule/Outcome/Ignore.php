@@ -3,8 +3,8 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Rule\Outcome;
 
+use Meraki\Schema\Field;
 use Meraki\Schema\Rule\Outcome;
-use Meraki\Schema\Facade;
 use Meraki\Schema\FieldScope;
 use Meraki\Schema\Scope;
 use InvalidArgumentException;
@@ -35,13 +35,17 @@ final class Ignore implements Outcome
 		$this->scope = $scope;
 	}
 
-	public function apply(Facade $schema): void
+	public function applyTo(Field $field): Field
 	{
-		// Nothing to do to the definition. "Ignore this field" is a statement about one
-		// request, so it is honoured where the request is: Facade::against() sees this
-		// outcome among the ones that were applied and withholds the submitted value. It
-		// used to set a flag on the field, which meant a schema remembered, between
-		// requests, that some earlier request's value had been discarded.
+		// The definition is untouched, so the field comes back exactly as it went in.
+		// "Ignore this field" is a statement about one request, not about the field, so it is
+		// honoured where the request is: Facade::against() sees this outcome among the ones
+		// that were applied and withholds the submitted value.
+		//
+		// It used to set a flag on the field instead, which meant a schema remembered —
+		// between requests, and for everyone — that some earlier request's value had been
+		// discarded.
+		return $field;
 	}
 
 	public function getScope(): FieldScope

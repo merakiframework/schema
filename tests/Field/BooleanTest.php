@@ -4,7 +4,7 @@ declare(strict_types=1);
 namespace Meraki\Schema\Field;
 
 use Meraki\Schema\Field\Boolean;
-use Meraki\Schema\Property\Name;
+use Meraki\Schema\FieldName;
 use Meraki\Schema\FieldTestCase;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
@@ -17,14 +17,14 @@ final class BooleanTest extends FieldTestCase
 {
 	public function createField(): Boolean
 	{
-		return new Boolean(new Name('test'));
+		return new Boolean(new FieldName('test'));
 	}
 	#[Test]
 	public function it_has_the_correct_name(): void
 	{
 		$field = $this->createField();
 
-		$this->assertSame('test', $field->name->value);
+		$this->assertSame('test', (string) $field->name);
 	}
 
 	#[Test]
@@ -32,7 +32,7 @@ final class BooleanTest extends FieldTestCase
 	public function it_only_allows_boolean_values(mixed $booleanValue): void
 	{
 		$trueResult = $this->createField()->validate($booleanValue);
-		$this->assertConstraintValidationResultPassed('type', $trueResult);
+		$this->assertShapePassed($trueResult);
 	}
 
 	public static function validBooleanValues(): array
@@ -49,7 +49,7 @@ final class BooleanTest extends FieldTestCase
 	{
 		$field = $this->createField();
 
-		$this->assertNull($field->defaultValue->unwrap());
+		$this->assertNull($field->defaultValue);
 	}
 
 	#[Test]
@@ -58,7 +58,7 @@ final class BooleanTest extends FieldTestCase
 		$field = $this->createField()->makeOptional()->mustBeAccepted();
 
 		$this->assertFalse($field->optional);
-		$this->assertTrue($field->mustBeAccepted);
+		$this->assertTrue($field->requiresAcceptance);
 	}
 
 	#[Test]

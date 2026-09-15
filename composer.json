@@ -29,8 +29,10 @@
         "php": "^8.5",
         "brick/date-time": "^0.7.0",
         "brick/math": "^0.12.1",
+        "brick/money": "^0.11.0",
         "commerceguys/addressing": "^2.0",
-        "giggsey/libphonenumber-for-php-lite": "^8.13"
+        "giggsey/libphonenumber-for-php-lite": "^8.13",
+        "bjeavons/zxcvbn-php": "^1.4"
     },
     "require-dev": {
         "phpunit/phpunit": "^11.3",
@@ -64,8 +66,13 @@
             "@composer validate --strict",
             "@composer audit",
             "@analyse",
-            "@test:coverage"
-        ]
+            "@test:coverage",
+            "@test:examples",
+            "@test:changelog"
+        ],
+        "test:examples": "php tools/check-examples.php",
+        "changelog": "php tools/changelog.php",
+        "test:changelog": "php tools/changelog.php --check"
     },
     "extra": {
         "branch-alias": {
@@ -76,6 +83,8 @@
         "test": "Run the test suite.",
         "test:coverage": "Run the suite with coverage (needs Xdebug or pcov).",
         "analyse": "Run PHPStan.",
-        "ci": "Run everything CI runs, in the same order."
+        "ci": "Run everything CI runs, in the same order.",
+        "changelog": "Regenerate CHANGELOG.md from the commit history.",
+        "test:changelog": "Fail if CHANGELOG.md is out of date."
     }
 }

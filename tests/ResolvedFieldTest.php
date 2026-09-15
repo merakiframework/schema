@@ -19,12 +19,12 @@ final class ResolvedFieldTest extends TestCase
 {
 	private function field(string $name = 'username'): Field
 	{
-		return (new Field\Text(new Property\Name($name)))->minLengthOf(3);
+		return (new Field\Text(new FieldName($name)))->minLengthOf(3);
 	}
 
 	private function resolved(mixed $given, mixed $value, ConstraintValidationResult ...$results): ResolvedField
 	{
-		return new ResolvedField($this->field(), $given, $value, [], ...$results);
+		return new ResolvedField($this->field(), $given, $value, [], ValueSource::Submitted, null, ...$results);
 	}
 
 	#[Test]
@@ -52,9 +52,9 @@ final class ResolvedFieldTest extends TestCase
 
 		$this->assertTrue($field->anyFailed());
 		$this->assertSame(ValidationStatus::Failed, $field->status);
-		$this->assertSame(ValidationStatus::Failed, $field->get('min')?->status);
-		$this->assertSame(ValidationStatus::Passed, $field->get('type')?->status);
-		$this->assertNull($field->get('nonexistent'));
+		$this->assertSame(ValidationStatus::Failed, $field->forConstraint('min')?->status);
+		$this->assertSame(ValidationStatus::Passed, $field->forConstraint('type')?->status);
+		$this->assertNull($field->forConstraint('nonexistent'));
 	}
 
 	#[Test]
@@ -66,41 +66,33 @@ final class ResolvedFieldTest extends TestCase
 	}
 
 	#[Test]
-	public function transformed_is_the_typed_value_once_it_passes(): void
+	public function the_value_is_what_was_validated(): void
 	{
 		$field = $this->resolved('abc', 'abc', ConstraintValidationResult::pass('type'), ConstraintValidationResult::pass('min'));
 
-		$this->assertSame('abc', $field->transformed);
+		$this->assertSame('abc', $field->value);
 	}
 
 	#[Test]
-	public function transformed_is_null_when_the_field_was_skipped(): void
+	public function the_value_is_null_when_nothing_was_supplied(): void
 	{
 		// Nothing was supplied and nothing was required, so there is legitimately no value.
 		$field = $this->resolved(null, null, ConstraintValidationResult::skip('type'), ConstraintValidationResult::skip('min'));
 
-		$this->assertNull($field->transformed);
+		$this->assertNull($field->value);
 	}
 
 	#[Test]
-	public function transformed_throws_when_the_field_failed(): void
+	public function the_value_is_readable_whatever_the_verdict(): void
 	{
-		// Returning null here would hide the difference between absent and wrong.
-		$field = $this->resolved('ab', 'ab', ConstraintValidationResult::pass('type'), ConstraintValidationResult::fail('min'));
+		// It used to throw on a failure, which forced check-before-read ceremony on every consumer.
+		// Now a rejected field still hands back what it was judging, so a form redrawing it has
+		// something to show — and $given has the untouched submission besides.
+		$failed = $this->resolved('ab', 'ab', ConstraintValidationResult::pass('type'), ConstraintValidationResult::fail('min'));
+		$pending = $this->resolved('abc', 'abc');
 
-		$this->expectException(LogicException::class);
-		$this->expectExceptionMessage('"username" failed validation (min)');
-
-		$field->transformed;
-	}
-
-	#[Test]
-	public function transformed_throws_before_validation_has_run(): void
-	{
-		$this->expectException(LogicException::class);
-		$this->expectExceptionMessage('has not been validated');
-
-		$this->resolved('abc', 'abc')->transformed;
+		$this->assertSame('ab', $failed->value);
+		$this->assertSame('abc', $pending->value, 'readable before validation has run, too');
 	}
 
 	#[Test]
@@ -112,7 +104,7 @@ final class ResolvedFieldTest extends TestCase
 
 		$this->assertTrue($field->wasAlteredByRule());
 		$this->assertTrue($field->appliedOutcomes[0]->is(Outcome\MakeOptional::class));
-		$this->assertFalse($field->appliedOutcomes[0]->is(Outcome\_Require::class));
+		$this->assertFalse($field->appliedOutcomes[0]->is(Outcome\MakeRequired::class));
 	}
 
 	#[Test]
@@ -140,7 +132,7 @@ final class ResolvedFieldTest extends TestCase
 	{
 		// getFailed() and friends clone; the identity of the field must survive that.
 		$field = $this->field();
-		$resolved = new ResolvedField($field, 'ab', 'ab', [], ConstraintValidationResult::pass('type'), ConstraintValidationResult::fail('min'));
+		$resolved = new ResolvedField($field, 'ab', 'ab', [], ValueSource::Submitted, null, ConstraintValidationResult::pass('type'), ConstraintValidationResult::fail('min'));
 
 		$failed = $resolved->getFailed();
 

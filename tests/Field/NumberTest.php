@@ -4,7 +4,8 @@ declare(strict_types=1);
 namespace Meraki\Schema\Field;
 
 use Meraki\Schema\Field\Number;
-use Meraki\Schema\Property\Name;
+use Meraki\Schema\FieldName;
+use InvalidArgumentException;
 use Meraki\Schema\FieldTestCase;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
@@ -17,7 +18,7 @@ final class NumberTest extends FieldTestCase
 {
 	public function createField(): Number
 	{
-		return new Number(new Name('number'));
+		return new Number(new FieldName('number'));
 	}
 
 	#[Test]
@@ -28,7 +29,7 @@ final class NumberTest extends FieldTestCase
 
 		$result = $field->validate($number);
 
-		$this->assertConstraintValidationResultPassed('type', $result);
+		$this->assertShapePassed($result);
 	}
 
 	#[Test]
@@ -88,7 +89,7 @@ final class NumberTest extends FieldTestCase
 
 		$result = $field->validate($number);
 
-		$this->assertConstraintValidationResultFailed('type', $result);
+		$this->assertShapeFailed($result);
 	}
 
 	public static function invalidNumbers(): array
@@ -268,6 +269,85 @@ final class NumberTest extends FieldTestCase
 	{
 		$field = $this->createField();
 
-		$this->assertNull($field->defaultValue->unwrap());
+		$this->assertNull($field->defaultValue);
+	}
+
+	#[Test]
+	#[DataProvider('withinFourSignificantDigits')]
+	public function max_precision_counts_significant_digits(string $value): void
+	{
+		$field = $this->createField()->maxPrecisionOf(4);
+
+		$this->assertConstraintValidationResultPassed('maxPrecision', $field->validate($value));
+	}
+
+	/** @return array<string, array{string}> */
+	public static function withinFourSignificantDigits(): array
+	{
+		return [
+			'four after the point' => ['12.34'],
+			'leading zeros do not count' => ['0.001234'],
+			'all before the point' => ['1234'],
+			'a trailing zero is a digit the author wrote' => ['1.0'],
+			'the sign is not a digit' => ['-12.34'],
+			'zero has no significant digits at all' => ['0'],
+		];
+	}
+
+	#[Test]
+	#[DataProvider('beyondFourSignificantDigits')]
+	public function max_precision_fails_above_the_ceiling(string $value): void
+	{
+		$field = $this->createField()->maxPrecisionOf(4);
+
+		$this->assertConstraintValidationResultFailed('maxPrecision', $field->validate($value));
+	}
+
+	/** @return array<string, array{string}> */
+	public static function beyondFourSignificantDigits(): array
+	{
+		return [
+			'one digit too many after the point' => ['12.345'],
+			'one digit too many before it' => ['12345'],
+		];
+	}
+
+	#[Test]
+	public function precision_and_scale_ask_different_questions(): void
+	{
+		// Neither implies the other: this value sits at two decimal places but carries six
+		// significant digits, so scale is satisfied and precision is not.
+		$field = $this->createField()->scaleTo(2)->maxPrecisionOf(4);
+
+		$result = $field->validate('1234.56');
+
+		$this->assertConstraintValidationResultPassed('scale', $result);
+		$this->assertConstraintValidationResultFailed('maxPrecision', $result);
+	}
+
+	#[Test]
+	public function scale_and_precision_ask_different_questions_the_other_way_round(): void
+	{
+		// And the reverse: four significant digits, but six decimal places.
+		$field = $this->createField()->scaleTo(2)->maxPrecisionOf(4);
+
+		$result = $field->validate('0.001234');
+
+		$this->assertConstraintValidationResultFailed('scale', $result);
+		$this->assertConstraintValidationResultPassed('maxPrecision', $result);
+	}
+
+	#[Test]
+	public function an_unset_precision_is_not_checked(): void
+	{
+		$this->assertConstraintValidationResultSkipped('maxPrecision', $this->createField()->validate('1.23456789'));
+	}
+
+	#[Test]
+	public function a_precision_below_one_digit_is_rejected_where_it_is_declared(): void
+	{
+		$this->expectException(InvalidArgumentException::class);
+
+		$this->createField()->maxPrecisionOf(0);
 	}
 }

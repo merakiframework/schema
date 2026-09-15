@@ -153,6 +153,45 @@ abstract class AggregatedValidationResultTestCase extends ValidationResultTestCa
 		$this->assertSame($second, $sut->getLast());
 	}
 
+	/**
+	 * Filtering must renumber, because the ends are addressed by position.
+	 *
+	 * The subject here starts with a *passing* result, so filtering to the failures discards
+	 * position 0 — which is the case every existing test happens to avoid, and the one that was
+	 * broken. `array_filter` preserves keys, so the survivor stayed at key 1 and both ends of a
+	 * demonstrably non-empty set came back null.
+	 *
+	 * Not a contrived arrangement: a field's shape result is always position 0 and always passes
+	 * when a constraint failed, so `getFailed()->getFirst()` was null on every failing field.
+	 */
+	#[Test]
+	public function filtering_away_the_first_result_still_leaves_both_ends_reachable(): void
+	{
+		$pass = $this->createPassedResult();
+		$fail = $this->createFailedResult();
+
+		$onlyFailed = $this->createSubject($pass, $fail)->getFailed();
+
+		$this->assertTrue($onlyFailed->isNotEmpty());
+		$this->assertSame($fail, $onlyFailed->getFirst());
+		$this->assertSame($fail, $onlyFailed->getLast());
+	}
+
+	/**
+	 * The same guarantee for {@see AggregatedValidationResult::remove()}, which filters too.
+	 */
+	#[Test]
+	public function removing_the_first_result_still_leaves_both_ends_reachable(): void
+	{
+		$first = $this->createPassedResult();
+		$second = $this->createFailedResult();
+
+		$remaining = $this->createSubject($first, $second)->remove($first);
+
+		$this->assertSame($second, $remaining->getFirst());
+		$this->assertSame($second, $remaining->getLast());
+	}
+
 	#[Test]
 	public function it_knows_if_it_is_empty(): void
 	{

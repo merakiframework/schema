@@ -45,7 +45,6 @@ final class ScopeTest extends TestCase
 			'a submitted value' => ['#/fields/username/value', ValueScope::class],
 			'a definition property' => ['#/fields/age/min', PropertyScope::class],
 			'optionality' => ['#/fields/nickname/optional', PropertyScope::class],
-			'a dotted sub-field name' => ['#/fields/cost.amount/value', ValueScope::class],
 			'a camelCase name' => ['#/fields/contactMethod/value', ValueScope::class],
 		];
 	}
@@ -69,8 +68,15 @@ final class ScopeTest extends TestCase
 			// The old parser ignored trailing segments, so "#/fields/x/min/typo" quietly
 			// resolved as "min" — a mistake that behaved like a working scope.
 			'trailing junk after a property' => ['#/fields/username/min/typo'],
-			'trailing junk after a value' => ['#/fields/username/value/typo'],
+			// A part belongs to a value, so it goes under `value`. Anywhere else is a typo.
+			'a part hung off a property' => ['#/fields/username/min/country'],
+			'a fifth segment' => ['#/fields/billing/value/country/extra'],
 			'a name that cannot identify a field' => ['#/fields/not a name/value'],
+			// Sub-fields were addressed this way while a composite registered `cost.amount`
+			// alongside `cost`. A structured field owns its whole value now, so there is no
+			// such field to name — and FieldName refuses a dot outright, which is what makes
+			// this a parse error rather than a lookup that finds nothing.
+			'a dotted sub-field name' => ['#/fields/cost.amount/value'],
 		];
 	}
 

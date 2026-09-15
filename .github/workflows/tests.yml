@@ -41,6 +41,11 @@ jobs:
       - name: Run tests
         run: vendor/bin/phpunit --coverage-text --coverage-clover=coverage.xml
 
+      # The examples are documentation, and the whole suite stayed green through a rewrite that
+      # broke every one of them — nothing executed them. This does.
+      - name: Run examples
+        run: php tools/check-examples.php
+
       - name: Upload coverage
         if: matrix.php == '8.5'
         uses: actions/upload-artifact@v4

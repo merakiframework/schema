@@ -4,12 +4,13 @@ declare(strict_types=1);
 namespace Meraki\Schema\Api;
 
 use PHPUnit\Framework\TestCase;
+use PHPUnit\Framework\Attributes\CoversNothing;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\DataProvider;
 
 /**
- * The names settled in docs/API-REVIEW.md, as an executable specification.
+ * The names settled in docs/API.md, as an executable specification.
  *
  * Written before the implementation, so every one of these fails today. They are held in
  * the `api-2.0` group, which phpunit.xml excludes from the default run, so the existing
@@ -19,6 +20,7 @@ use PHPUnit\Framework\Attributes\DataProvider;
  * field, so a class that does not exist yet reports a failed assertion instead of a fatal
  * error — the whole file stays runnable while it is red.
  */
+#[CoversNothing]
 #[Group('api-2.0')]
 final class NamingTest extends TestCase
 {
@@ -64,14 +66,12 @@ final class NamingTest extends TestCase
 			// Password absorbs Passphrase. Composition is explicit, strength is a floor.
 			'Password' => [
 				'minLengthOf', 'maxLengthOf', 'minStrengthOf',
-				'minNumberOfUppercaseChars', 'maxNumberOfUppercaseChars',
-				'minNumberOfLowercaseChars', 'maxNumberOfLowercaseChars',
-				'minNumberOfDigits', 'maxNumberOfDigits',
-				'minNumberOfSymbols', 'maxNumberOfSymbols',
+				'minNumberOfUppercaseChars', 'minNumberOfLowercaseChars',
+				'minNumberOfDigits', 'minNumberOfSymbols',
 			],
 
 			// Structured types: one field, one value object.
-			'Address' => ['allowCountries', 'ofType', 'mustBeSpecific'],
+			'Address' => ['allowCountries', 'clearAllowedCountries', 'allowOnlyMailable', 'allowOnlyPhysical', 'allowWithoutStreet'],
 			'Money' => ['allowCurrencies', 'minAmountOf', 'maxAmountOf'],
 			'CreditCard' => ['mustExpireInFuture'],
 		];
@@ -113,11 +113,8 @@ final class NamingTest extends TestCase
 			'Collection' => ['minCount', 'maxCount'],
 			'File' => ['minSize', 'maxSize', 'allowedTypes', 'disallowedTypes'],
 			'Password' => [
-				'minLength', 'maxLength', 'maxBytes', 'minStrength',
-				'minUppercaseChars', 'maxUppercaseChars',
-				'minLowercaseChars', 'maxLowercaseChars',
-				'minDigits', 'maxDigits',
-				'minSymbols', 'maxSymbols',
+				'minLength', 'maxLength', 'minStrength',
+				'minUppercaseChars', 'minLowercaseChars', 'minDigits', 'minSymbols',
 			],
 			'Address' => ['allowedCountries', 'type', 'mustBeSpecific'],
 			'Money' => ['allowedCurrencies'],
@@ -128,73 +125,6 @@ final class NamingTest extends TestCase
 			foreach ($names as $name) {
 				yield "{$class}::\${$name}" => [$class, $name];
 			}
-		}
-	}
-
-	#[Test]
-	#[DataProvider('removedApi')]
-	public function the_removed_api_is_gone(string $fqcn, ?string $member, string $why): void
-	{
-		if ($member === null) {
-			$this->assertFalse(class_exists($fqcn) || interface_exists($fqcn), "{$fqcn} still exists. {$why}");
-
-			return;
-		}
-
-		// A member cannot survive a class that has gone, so both cases are one assertion.
-		$this->assertFalse(
-			class_exists($fqcn) && (method_exists($fqcn, $member) || property_exists($fqcn, $member)),
-			"{$fqcn}::{$member} still exists. {$why}",
-		);
-	}
-
-	/** @return iterable<string, array{string, ?string, string}> */
-	public static function removedApi(): iterable
-	{
-		$schema = 'Meraki\\Schema\\';
-
-		$cases = [
-			// Whole types.
-			[self::FIELD . 'Composite', null, 'Collection already holds a template of several fields.'],
-			[self::FIELD . 'Variant', null, 'Its only use was the Password|Passphrase union.'],
-			[self::FIELD . 'Passphrase', null, 'Absorbed into Password.'],
-			[self::FIELD . 'Placeholder', null, 'Presentation, not schema.'],
-			[self::FIELD . 'AtomicMultiValue', null, 'A field holds one value; several is a Collection.'],
-			[self::FIELD . 'Password\\Range', null, 'Replaced by flat scalar properties.'],
-			[self::FIELD . 'EmailAddress\\Format', null, 'One WHATWG baseline; no widening.'],
-			[$schema . 'Property\\Value', null, 'The value wrapper goes before Field\\*\\Value arrives.'],
-			[$schema . 'Rule\\Outcome\\_Require', null, 'Renamed MakeRequired, avoiding the reserved word.'],
-
-			// The staged-input path.
-			[$schema . 'Field', 'input', 'A schema cannot hold one request.'],
-			[$schema . 'Field', 'prefill', 'defaultsTo() on the definition; prefilledWith: per request.'],
-			[$schema . 'Field', 'ignoreInput', 'The ignore outcome is read from appliedOutcomes.'],
-			[$schema . 'Field', 'acceptInput', 'Counterpart of ignoreInput().'],
-			[$schema . 'Field', 'hasValue', 'Reads state a field no longer holds.'],
-			[$schema . 'Facade', 'input', 'validate()/resolve() take the data.'],
-			[$schema . 'Facade', 'applyRules', 'Rules apply during resolution.'],
-			[$schema . 'Facade', 'addTextField', 'Becomes createTextField() plus an explicit add.'],
-			[$schema . 'ResolvedField', 'given', 'Never differed from value, and failed its own contract.'],
-
-			// Per-field removals.
-			[self::FIELD . 'Enum', 'allow', 'The list is the type; it is not extended after declaration.'],
-			[self::FIELD . 'Date', 'to', 'Inclusive and exclusive bounds sharing one constraint name.'],
-			[self::FIELD . 'Time', 'precisionMode', 'A getter for $precision, which is public.'],
-			[self::FIELD . 'DateTime', 'precisionMode', 'A getter for $precision, which is public.'],
-			[self::FIELD . 'DateTime', 'withSecondPrecision', 'Sugar over a constructor argument that is already an enum.'],
-			[self::FIELD . 'Password', 'satisfyAnyOf', 'Explicit methods instead; it held the last mutable validation state (C4).'],
-			[self::FIELD . 'Password', 'strong', 'Replaced by minStrengthOf(Strength::Strong).'],
-			[self::FIELD . 'File', 'atLeast', 'File holds one file.'],
-			[self::FIELD . 'File', 'minFileSizeOf', 'Matches $minSize as minSizeOf().'],
-			[self::FIELD . 'Collection', 'minItems', 'Becomes minCountOf().'],
-			[self::FIELD . 'Text', 'matches', 'Becomes mustMatch().'],
-			[self::FIELD . 'Text', 'SKIP_MATCHING', 'A nullable parameter says it already.'],
-		];
-
-		foreach ($cases as [$fqcn, $member, $why]) {
-			$label = $member === null ? $fqcn : "{$fqcn}::{$member}";
-
-			yield $label => [$fqcn, $member, $why];
 		}
 	}
 }

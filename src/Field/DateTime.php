@@ -3,34 +3,46 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Field;
 
-use Meraki\Schema\Field\DateTime\PreservePrecision;
 use Meraki\Schema\Field\DateTime\TimePrecision;
-use Meraki\Schema\Field\DateTime\PrecisionCaster;
-use Meraki\Schema\Field\DateTime\TruncatePrecision;
-use Meraki\Schema\Field;
-use Meraki\Schema\Property;
-use Brick\Math\BigDecimal;
+use Meraki\Schema\Field\DateTime\PrecisionPolicy;
+use Meraki\Schema\AtomicField;
+use Meraki\Schema\FieldName;
 use Brick\Math\BigInteger;
 use Brick\DateTime\TimeZone;
 use Brick\DateTime\DateTimeException;
+use Meraki\Schema\Field\DateTime\Value;
 use Brick\DateTime\LocalDateTime;
 use Brick\DateTime\Duration;
 use InvalidArgumentException;
 
 /**
- * @extends Field<string|null>
+ * A date and time of day.
+ *
+ * `$precision` says how much of what was submitted is significant, and the caster says what to
+ * do with the rest.
+ *
+ * A point in time rather than a quantity, so it is bounded by `from`/`until` and recurs at an
+ * *interval*. {@see Duration}, which is a length of time, takes value bounds and steps.
+ *
+ * @extends AtomicField<string|null>
  */
-final class DateTime extends Field
+final readonly class DateTime extends AtomicField
 {
+	/** Inclusive. */
 	public LocalDateTime $from;
+
+	/** Exclusive. */
 	public LocalDateTime $until;
+
 	public Duration $interval;
 
 	public function __construct(
-		public readonly Property\Name $name,
-		public readonly TimePrecision $precision = TimePrecision::Minutes,
-		private PrecisionCaster $caster = new TruncatePrecision(),
+		public FieldName $name,
+		public TimePrecision $precision = TimePrecision::Minutes,
+		public PrecisionPolicy $policy = PrecisionPolicy::Truncate,
 	) {
+		parent::__construct();
+
 		$this->from = LocalDateTime::min();
 		$this->until = LocalDateTime::max();
 		$this->interval = match ($precision) {
@@ -38,53 +50,39 @@ final class DateTime extends Field
 			TimePrecision::Seconds => Duration::ofSeconds(1),
 			default => Duration::ofNanos(1),
 		};
-	}
 
-	public static function withSecondPrecision(Property\Name $name): self
-	{
-		return new self($name, TimePrecision::Seconds);
-	}
-
-	public static function withNanosecondPrecision(Property\Name $name): self
-	{
-		return new self($name, TimePrecision::Nanoseconds);
-	}
-
-	public static function withMinutePrecision(Property\Name $name): self
-	{
-		return new self($name, TimePrecision::Minutes);
+		// Last: every property it reads must already be set.
+		$this->constraints = $this->defineConstraints();
 	}
 
 	/**
 	 * This is inclusive of the date-time provided.
 	 */
-	public function from(string $dateTime): self
+	public function from(string $dateTime): static
 	{
-		$this->from = $this->cast($dateTime);
-
-		return $this;
+		return $this->with(['from' => $this->mustParse($dateTime)]);
 	}
 
 	/**
 	 * This is exclusive of the date-time provided.
 	 */
-	public function until(string $dateTime): self
+	public function until(string $dateTime): static
 	{
-		$this->until = $this->cast($dateTime);
-
-		return $this;
+		return $this->with(['until' => $this->mustParse($dateTime)]);
 	}
 
 	/**
-	 * Constrain value to be at intervals of the provided duration (in ISO 8601 format).
+	 * Accepts only date-times falling on the given interval from {@see self::$from}, written
+	 * as an ISO 8601 duration.
 	 *
-	 * @throws \InvalidArgumentException when trying to step in increments not allowed by the precision
+	 * @throws InvalidArgumentException when the interval is finer than the precision, which
+	 *         would accept date-times the field cannot represent
 	 */
-	public function inIncrementsOf(string $duration): self
+	public function atIntervalsOf(string $duration): static
 	{
-		$duration = Duration::parse($duration);
-		$hasSeconds = $duration->toSecondsPart() !== 0;
-		$hasNanos = $duration->toNanosPart() !== 0;
+		$interval = Duration::parse($duration);
+		$hasSeconds = $interval->toSecondsPart() !== 0;
+		$hasNanos = $interval->toNanosPart() !== 0;
 
 		if ($this->precision === TimePrecision::Minutes && ($hasSeconds || $hasNanos)) {
 			throw new InvalidArgumentException('Cannot step in seconds or nanoseconds when precision is in minutes.');
@@ -94,96 +92,102 @@ final class DateTime extends Field
 			throw new InvalidArgumentException('Cannot step in nanoseconds when precision is in seconds.');
 		}
 
-		$this->interval = $duration;
-
-		return $this;
+		return $this->with(['interval' => $interval]);
 	}
 
-	public function validateValue(mixed $value): bool
+	protected function parse(mixed $value): ?Value
 	{
 		if (!is_string($value)) {
-			return false;
+			return null;
 		}
 
 		try {
-			$dateTime = $this->cast($value);
-			return true;
-		} catch (DateTimeException $e) {
-			return false;
+			return new Value($this->mustParse($value));
+		} catch (DateTimeException) {
+			return null;
 		}
 	}
 
-	protected function cast(mixed $value): LocalDateTime
+	/**
+	 * Only ever called on a value that passed, so the parse cannot fail here.
+	 */
+
+	protected function defineConstraints(): Constraint\Set
 	{
-		return $this->caster->cast($value, $this->precision);
+		return new Constraint\Set(
+			new Constraint('from', $this->isOnOrAfterFrom(...), (string) $this->from),
+			new Constraint('until', $this->isBeforeUntil(...), (string) $this->until),
+			new Constraint('interval', $this->isOnAnInterval(...), (string) $this->interval),
+			new Constraint('precision', $this->hasAcceptablePrecision(...), $this->precision->value),
+		);
 	}
 
-	protected function getConstraints(): array
+	/**
+	 * Whether the value is no finer than this field describes.
+	 *
+	 * Skipped when the caster truncates: nothing is being asked of the precision, because
+	 * anything extra is discarded before any other constraint sees it.
+	 */
+	private function hasAcceptablePrecision(Value $parsed): ?bool
 	{
-		return [
-			'from' => $this->validateFrom(...),
-			'until' => $this->validateUntil(...),
-			'interval' => $this->validateInterval(...),
-		];
+		$dateTime = $parsed->dateTime;
+
+		if (!$this->policy->rejectsExtraPrecision()) {
+			return null;
+		}
+
+		return $this->precision->covers($dateTime);
 	}
 
-	private function validateFrom(mixed $value): bool
+	/**
+	 * The field owns the parse, because the field is what knows which type it holds; the
+	 * precision owns the granularity, and the policy owns what happens to the rest.
+	 */
+	private function mustParse(mixed $value): LocalDateTime
 	{
-		return $this->cast($value)->isAfterOrEqualTo($this->from);
+		return $this->policy->applyTo(LocalDateTime::parse($value), $this->precision);
 	}
 
-	private function validateUntil(mixed $value): bool
+	private function isOnOrAfterFrom(Value $parsed): bool
 	{
-		return $this->cast($value)->isBefore($this->until);
+		$dateTime = $parsed->dateTime;
+
+		return $dateTime->isAfterOrEqualTo($this->from);
 	}
 
-	private function validateInterval(mixed $value): bool
+	private function isBeforeUntil(Value $parsed): bool
 	{
-		// Note: Inline nanosecond calculation here avoids float coercion issues
-		// from intermediate method calls in large int multiplications.
+		$dateTime = $parsed->dateTime;
 
-		$input = $this->cast($value)->atTimeZone(TimeZone::utc())->getInstant();
-		$from = $this->from->atTimeZone(TimeZone::utc())->getInstant();
+		return $dateTime->isBefore($this->until);
+	}
 
-		$inputNanos = BigInteger::of($input->getEpochSecond())
-			->multipliedBy(BigInteger::of(1_000_000_000))
-			->plus(BigInteger::of($input->getNano()));
-		$fromNanos = BigInteger::of($from->getEpochSecond())
-			->multipliedBy(BigInteger::of(1_000_000_000))
-			->plus(BigInteger::of($from->getNano()));
-		$stepNanos = BigInteger::of($this->interval->getSeconds())
+	private function isOnAnInterval(Value $parsed): bool
+	{
+		$dateTime = $parsed->dateTime;
+
+		// Nanoseconds are computed inline rather than through intermediate helpers, which
+		// coerce to float on large multiplications and lose the low digits.
+		$input = $this->nanosOf($dateTime);
+		$from = $this->nanosOf($this->from);
+
+		$intervalNanos = BigInteger::of($this->interval->getSeconds())
 			->multipliedBy(BigInteger::of(1_000_000_000))
 			->plus(BigInteger::of($this->interval->getNanos()));
 
-		// Safety check: avoid division by zero
-		if ($stepNanos->isZero()) {
+		if ($intervalNanos->isZero()) {
 			return false;
 		}
 
-		return $inputNanos->minus($fromNanos)->remainder($stepNanos)->isZero();
-	}
-	/**
-	 * The precision mode ('truncate' or 'preserve') derived from the caster.
-	 */
-	public function precisionMode(): string
-	{
-		return $this->getPrecisionMode();
+		return $input->minus($from)->remainder($intervalNanos)->isZero();
 	}
 
-	private function getPrecisionMode(): string
+	private function nanosOf(LocalDateTime $dateTime): BigInteger
 	{
-		return match ($this->caster::class) {
-			TruncatePrecision::class => 'truncate',
-			PreservePrecision::class => 'preserve',
-		};
-	}
+		$instant = $dateTime->atTimeZone(TimeZone::utc())->getInstant();
 
-	private static function getCasterFromPrecisionMode(string $precisionMode): PrecisionCaster
-	{
-		return match ($precisionMode) {
-			'truncate' => new TruncatePrecision(),
-			'preserve' => new PreservePrecision(),
-			default => throw new InvalidArgumentException("Unknown precision mode: $precisionMode"),
-		};
+		return BigInteger::of($instant->getEpochSecond())
+			->multipliedBy(BigInteger::of(1_000_000_000))
+			->plus(BigInteger::of($instant->getNano()));
 	}
 }

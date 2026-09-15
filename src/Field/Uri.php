@@ -3,38 +3,53 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Field;
 
-use Meraki\Schema\Field;
-use Meraki\Schema\Property;
+use Meraki\Schema\Field\Uri\Value;
+use Meraki\Schema\AtomicField;
+use Meraki\Schema\FieldName;
 use InvalidArgumentException;
 use Uri\Rfc3986\Uri as Rfc3986Uri;
 use Uri\InvalidUriException;
 
 /**
- * @extends Field<string|null>
+ * @extends AtomicField<string|null>
  * @todo allow for use of different uri/url standards (e.g. whatwg)
  * @todo allow for specifying the "kind" of URI (e.g. "IRI" or "URI" or "URL" or "URN".)
  * @todo allow for specifying the "type" of URI, (e.g. "absolute" or "relative" or "network-path" or "scheme-relative".)
  */
-final class Uri extends Field
+final readonly class Uri extends AtomicField
 {
-	public private(set) int $minLength = 0;
+	/** @var non-negative-int */
+	public int $minLength;
 
-	public private(set) ?int $maxLength = null;
+	/** @var non-negative-int|null `null` means no limit. */
+	public ?int $maxLength;
 
 	/**
 	 * Schemes this field will accept, lower-cased. Empty means any: a URI is not always a
 	 * web link, and a caller who needs it to be says so with {@see self::allowSchemes()}.
 	 *
-	 * @var array<string>
+	 * @var list<non-empty-string>
 	 */
-	public array $allowedSchemes = [];
+	public array $allowedSchemes;
 
 	public function __construct(
-		public readonly Property\Name $name,
+		public FieldName $name,
 	) {
+		parent::__construct();
+
+		$this->minLength = 0;
+		$this->maxLength = null;
+		$this->allowedSchemes = [];
+
+		// Last: every property it reads must already be set.
+		$this->constraints = $this->defineConstraints();
 	}
 
-	public function minLengthOf(int $minChars): self
+	/**
+	 * @param non-negative-int $minChars
+	 * @throws InvalidArgumentException if negative, or above the maximum
+	 */
+	public function minLengthOf(int $minChars): static
 	{
 		if ($minChars < 0) {
 			throw new InvalidArgumentException('Minimum length must be a positive integer.');
@@ -44,17 +59,17 @@ final class Uri extends Field
 			throw new InvalidArgumentException('Minimum length cannot be greater than maximum length.');
 		}
 
-		$this->minLength = $minChars;
-
-		return $this;
+		return $this->with(['minLength' => $minChars]);
 	}
 
-	public function maxLengthOf(?int $maxChars): self
+	/**
+	 * @param non-negative-int|null $maxChars `null` removes the limit
+	 * @throws InvalidArgumentException if negative, or below the minimum
+	 */
+	public function maxLengthOf(?int $maxChars): static
 	{
 		if ($maxChars === null) {
-			$this->maxLength = null;
-
-			return $this;
+			return $this->with(['maxLength' => null]);
 		}
 
 		if ($maxChars < 0) {
@@ -65,18 +80,7 @@ final class Uri extends Field
 			throw new InvalidArgumentException('Maximum length cannot be less than minimum length.');
 		}
 
-		if ($maxChars > PHP_INT_MAX) {
-			throw new InvalidArgumentException('Maximum length cannot exceed PHP_INT_MAX.');
-		}
-
-		$this->maxLength = $maxChars;
-
-		return $this;
-	}
-
-	protected function cast(mixed $value): string	// Rfc3986Uri | WhatWgUri | string | null
-	{
-		return $value;
+		return $this->with(['maxLength' => $maxChars]);
 	}
 
 	/**
@@ -84,18 +88,61 @@ final class Uri extends Field
 	 * followed as a redirect should declare one, so that `javascript:` and `data:` cannot
 	 * reach it.
 	 *
-	 * Called with no arguments, the restriction is lifted.
+	 * Accumulates, like every other `allow*()`. Lifting the restriction is
+	 * {@see self::clearAllowedSchemes()}.
+	 *
+	 * @param non-empty-string $scheme
+	 * @param non-empty-string ...$schemes
+	 * @throws InvalidArgumentException if a scheme is empty
 	 */
-	public function allowSchemes(string ...$schemes): self
+	public function allowSchemes(string $scheme, string ...$schemes): static
 	{
-		$this->allowedSchemes = array_values(array_unique(array_map(strtolower(...), $schemes)));
+		$allowed = $this->allowedSchemes;
 
-		return $this;
+		foreach ([$scheme, ...$schemes] as $candidate) {
+			if ($candidate === '') {
+				throw new InvalidArgumentException('A scheme cannot be empty.');
+			}
+
+			$candidate = strtolower($candidate);
+
+			if (!in_array($candidate, $allowed, true)) {
+				$allowed[] = $candidate;
+			}
+		}
+
+		return $this->with(['allowedSchemes' => $allowed]);
 	}
 
-	public function validateValue(mixed $value): bool
+	/**
+	 * Accepts any scheme again. Worth being deliberate about: this is what lets `javascript:`
+	 * and `data:` back in.
+	 */
+	public function clearAllowedSchemes(): static
 	{
-		return $this->parse($value) !== null;
+		return $this->with(['allowedSchemes' => []]);
+	}
+
+	/**
+	 * The submitted string, once it is known to be a URI — not the parsed object.
+	 *
+	 * The parse is the check, and then it is thrown away, because `minLength` and `maxLength`
+	 * measure the string the author actually typed: stringifying a parsed URI can hand back a
+	 * canonicalised form of a different length. A consumer wanting the object builds it from this
+	 * string, which is one line and is their choice of representation rather than ours.
+	 */
+	protected function parse(mixed $value): ?Value
+	{
+		return is_string($value) && $this->readUri($value) !== null ? new Value($value) : null;
+	}
+
+	protected function defineConstraints(): Constraint\Set
+	{
+		return new Constraint\Set(
+			new Constraint('minLength', $this->meetsMinimumLength(...), $this->minLength),
+			new Constraint('maxLength', $this->meetsMaximumLength(...), $this->maxLength),
+			new Constraint('allowedSchemes', $this->isAnAllowedScheme(...), $this->allowedSchemes),
+		);
 	}
 
 	/**
@@ -103,7 +150,7 @@ final class Uri extends Field
 	 * grammar is a matter of public record, and the previous pattern had every group
 	 * optional, so it accepted any string at all.
 	 */
-	private function parse(mixed $value): ?Rfc3986Uri
+	private function readUri(mixed $value): ?Rfc3986Uri
 	{
 		if (!is_string($value) || $value === '') {
 			return null;
@@ -116,26 +163,30 @@ final class Uri extends Field
 		}
 	}
 
-	public function constraints(): Constraint\Set
+	private function meetsMinimumLength(Value $parsed): bool
 	{
-		return (new Constraint\Set())
-			->and('minLength', fn(mixed $v): bool => mb_strlen($v) >= $this->minLength, $this->minLength)
-			->and('maxLength', fn(mixed $v): ?bool => $this->maxLength === null ? null : mb_strlen($v) <= $this->maxLength, $this->maxLength)
-			->and('allowedSchemes', $this->validateScheme(...), $this->allowedSchemes);
+		$value = $parsed->uri;
+
+		return mb_strlen($value) >= $this->minLength;
 	}
 
-	protected function getConstraints(): array
+	private function meetsMaximumLength(Value $parsed): ?bool
 	{
-		return [];
+		$value = $parsed->uri;
+
+		return $this->maxLength === null ? null : mb_strlen($value) <= $this->maxLength;
 	}
 
-	private function validateScheme(mixed $value): ?bool
+	private function isAnAllowedScheme(Value $parsed): ?bool
 	{
+		$value = $parsed->uri;
+
+		// No list means nothing was asked, so nothing was checked.
 		if ($this->allowedSchemes === []) {
 			return null;
 		}
 
-		$scheme = $this->parse($value)?->getScheme();
+		$scheme = $this->readUri($value)?->getScheme();
 
 		// A relative reference has no scheme, so it cannot satisfy an allowlist.
 		return $scheme !== null && in_array(strtolower($scheme), $this->allowedSchemes, true);

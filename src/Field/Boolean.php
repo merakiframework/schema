@@ -3,54 +3,65 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Field;
 
-use Meraki\Schema\Field;
-use Meraki\Schema\Property;
+use Meraki\Schema\Field\Boolean\Value;
+use Meraki\Schema\AtomicField;
+use Meraki\Schema\FieldName;
 
 /**
- * @extends Field<bool|null>
+ * A true/false answer.
+ *
+ * Takes a PHP `bool` and nothing else. A checkbox that submits `"on"`, a select that submits
+ * `"1"`, a JSON body that sends `"true"` — those are all shapes of a *medium*, and converting
+ * them is the job of whatever read the request. A schema describes the value, not the wire.
+ *
+ * @extends AtomicField<bool|null>
  */
-final class Boolean extends Field
+final readonly class Boolean extends AtomicField
 {
-	public private(set) bool $mustBeAccepted = false;
+	/** Set by {@see self::mustBeAccepted()}. */
+	public bool $requiresAcceptance;
 
 	public function __construct(
-		public readonly Property\Name $name,
+		public FieldName $name,
 	) {
+		parent::__construct();
+
+		$this->requiresAcceptance = false;
+		$this->constraints = $this->defineConstraints();
 	}
 
 	/**
-	 * Requires the field to be present and `true` (e.g. an "I agree to the terms"
-	 * checkbox). Makes the field required and adds an `accepted` constraint that
-	 * fails on `false`.
+	 * Requires the field to be present and `true` (i.e. "I agree to the terms" checkbox).
+	 *
+	 * Both halves are needed: making it required alone would accept an explicit `false`, and
+	 * the constraint alone would accept the field being left out.
 	 */
-	public function mustBeAccepted(): self
+	public function mustBeAccepted(): static
 	{
-		$this->mustBeAccepted = true;
-		$this->require();
-
-		return $this;
+		return $this->with([
+			'requiresAcceptance' => true,
+			'optional' => false,
+		]);
 	}
 
-	protected function cast(mixed $value): bool
+	protected function parse(mixed $value): ?Value
 	{
-		return $value;
-		// return filter_var($value, FILTER_VALIDATE_BOOL, FILTER_NULL_ON_FAILURE)
-		// 	?? throw new \InvalidArgumentException('Invalid boolean value: ' . $value);
+		// The wrapper is what keeps `false` distinct from "unreadable" now. It used to rely on the
+		// `?? $raw` upstream, with a comment explaining the hazard; an object is never falsy, so
+		// there is no longer a hazard to explain.
+		return is_bool($value) ? new Value($value) : null;
 	}
 
-	public function validateValue(mixed $value): bool
+	protected function defineConstraints(): Constraint\Set
 	{
-		return is_bool($value);
+		return new Constraint\Set(
+			new Constraint('accepted', $this->wasAccepted(...), $this->requiresAcceptance),
+		);
 	}
 
-	protected function getConstraints(): array
+	private function wasAccepted(Value $parsed): ?bool
 	{
-		if (!$this->mustBeAccepted) {
-			return [];
-		}
-
-		return [
-			'accepted' => fn(mixed $value): ?bool => is_bool($value) ? $value === true : null,
-		];
+		// Nothing was asked unless acceptance was required, so nothing is checked.
+		return $this->requiresAcceptance ? $parsed->answer === true : null;
 	}
 }

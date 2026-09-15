@@ -5,10 +5,14 @@ namespace Meraki\Schema\Api;
 
 use Meraki\Schema\Facade;
 use Meraki\Schema\Field;
-use Meraki\Schema\Property;
+use Meraki\Schema\FieldName;
 use Brick\DateTime\Clock\FixedClock;
 use Brick\DateTime\Instant;
+use Brick\DateTime\ZonedDateTime;
 use PHPUnit\Framework\TestCase;
+use ReflectionMethod;
+use ReflectionProperty;
+use PHPUnit\Framework\Attributes\CoversNothing;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\Attributes\Group;
 
@@ -18,6 +22,7 @@ use PHPUnit\Framework\Attributes\Group;
  * stateless and safe on a shared definition, whereas reading `now` once and storing it would
  * be B7 again.
  */
+#[CoversNothing]
 #[Group('api-2.0')]
 final class ClockTest extends TestCase
 {
@@ -25,7 +30,15 @@ final class ClockTest extends TestCase
 
 	private function fixed(string $at = self::NOW): FixedClock
 	{
-		return new FixedClock(Instant::parse($at));
+		return new FixedClock(self::instant($at));
+	}
+
+	/**
+	 * `Instant` has no `parse()`, so the instant comes from a zoned date-time.
+	 */
+	private static function instant(string $at): Instant
+	{
+		return ZonedDateTime::parse($at)->getInstant();
 	}
 
 	#[Test]
@@ -35,18 +48,47 @@ final class ClockTest extends TestCase
 		$schema = new Facade('checkout', clock: $this->fixed());
 		$schema->add($schema->createCreditCardField('card')->mustExpireInFuture());
 
-		$this->assertSame(
-			self::NOW,
-			(string) $schema->resolve(['card' => []])->evaluatedAt,
+		// Instants are compared as instants, not as strings: Brick omits zero seconds, so
+		// `2026-09-09T00:00:00Z` prints as `2026-09-09T00:00Z`, and pinning the formatting would
+		// assert Brick's choices rather than this library's behaviour.
+		$this->assertTrue(
+			self::instant(self::NOW)->isEqualTo($schema->resolve((object)['card' => (object)[]])->evaluatedAt),
 		);
+	}
+
+	/**
+	 * The per-request copy carries the clock, rather than quietly building a SystemClock.
+	 *
+	 * Latent when it was found: the request's instant is read from the original, and a field is a
+	 * shared instance that already holds its own clock, so nothing observed the difference. It
+	 * stops being latent the moment anything builds a field on the working copy — and it would
+	 * have surfaced as a fixed-clock test failing for a reason nobody would connect to
+	 * `copyForRequest()`.
+	 */
+	#[Test]
+	public function the_per_request_copy_inherits_the_schemas_clock(): void
+	{
+		$clock = $this->fixed();
+		$schema = (new Facade('checkout', clock: $clock))->for('AU');
+
+		$copy = (new ReflectionMethod($schema, 'copyForRequest'))->invoke($schema);
+
+		$this->assertSame($clock, (new ReflectionProperty(Facade::class, 'clock'))->getValue($copy));
+
+		// And the country defaults, for the same reason: a field built on the copy must be the
+		// field the author would have got from the original.
+		$this->assertSame(['AU'], $copy->createAddressField('billing')->allowedCountries);
+		$this->assertSame($clock, $copy->createCreditCardField('card')->clock);
 	}
 
 	#[Test]
 	public function a_field_may_override_the_schemas_clock(): void
 	{
-		$card = new Field\CreditCard(new Property\Name('card'), clock: $this->fixed('2030-01-01T00:00:00Z'));
+		$card = new Field\CreditCard(new FieldName('card'), clock: $this->fixed('2030-01-01T00:00:00Z'));
 
-		$this->assertSame('2030-01-01T00:00:00Z', (string) $card->resolve([])->evaluatedAt);
+		$this->assertTrue(
+			self::instant('2030-01-01T00:00:00Z')->isEqualTo($card->resolve((object)[])->evaluatedAt),
+		);
 	}
 
 	#[Test]
@@ -54,53 +96,56 @@ final class ClockTest extends TestCase
 	{
 		// Which makes a verdict reproducible: the same input and the same instant give the
 		// same answer, whenever the question is asked again.
-		$card = new Field\CreditCard(new Property\Name('card'), clock: $this->fixed());
+		$card = new Field\CreditCard(new FieldName('card'), clock: $this->fixed());
 
-		$resolved = $card->validate([
-			'holder' => 'K Miller',
+		$resolved = $card->validate((object) [
+			'name' => 'K Miller',
 			'number' => '4014 1828 2909 8807',
 			'expiry' => '2029-07',
 			'security_code' => '936',
 		]);
 
-		$this->assertSame(self::NOW, (string) $resolved->evaluatedAt);
+		$this->assertTrue(self::instant(self::NOW)->isEqualTo($resolved->evaluatedAt));
 	}
 
 	#[Test]
 	public function an_expiry_in_the_past_fails_against_the_clock(): void
 	{
-		$card = (new Field\CreditCard(new Property\Name('card'), clock: $this->fixed()))
+		$card = (new Field\CreditCard(new FieldName('card'), clock: $this->fixed()))
 			->mustExpireInFuture();
 
-		$failed = $card->validate([
-			'holder' => 'K Miller',
+		$failed = $card->validate((object) [
+			'name' => 'K Miller',
 			'number' => '4014 1828 2909 8807',
 			'expiry' => '2020-01',
 			'security_code' => '936',
-		])->get('expiryInFuture');
+		])->forConstraint('expiryInFuture');
 
 		$this->assertTrue($failed->failed());
-		$this->assertSame(self::NOW, (string) $failed->bound);
+
+		// The bound is the instant it was judged from, so a message can say what "expired" was
+		// measured against. A string because a bound is what a message interpolates.
+		$this->assertSame((string) self::instant(self::NOW), $failed->bound);
 	}
 
 	#[Test]
 	public function the_same_card_passes_or_fails_purely_by_moving_the_clock(): void
 	{
-		$submitted = [
-			'holder' => 'K Miller',
+		$submitted = (object) [
+			'name' => 'K Miller',
 			'number' => '4014 1828 2909 8807',
 			'expiry' => '2029-07',
 			'security_code' => '936',
 		];
 
-		$before = (new Field\CreditCard(new Property\Name('card'), clock: $this->fixed('2026-01-01T00:00:00Z')))
+		$before = (new Field\CreditCard(new FieldName('card'), clock: $this->fixed('2026-01-01T00:00:00Z')))
 			->mustExpireInFuture();
 
-		$after = (new Field\CreditCard(new Property\Name('card'), clock: $this->fixed('2031-01-01T00:00:00Z')))
+		$after = (new Field\CreditCard(new FieldName('card'), clock: $this->fixed('2031-01-01T00:00:00Z')))
 			->mustExpireInFuture();
 
-		$this->assertFalse($before->validate($submitted)->get('expiryInFuture')->failed());
-		$this->assertTrue($after->validate($submitted)->get('expiryInFuture')->failed());
+		$this->assertFalse($before->validate($submitted)->forConstraint('expiryInFuture')->failed());
+		$this->assertTrue($after->validate($submitted)->forConstraint('expiryInFuture')->failed());
 	}
 
 	#[Test]
@@ -109,9 +154,14 @@ final class ClockTest extends TestCase
 		// Defaults are checked when declared, but that cannot hold here: the answer changes
 		// with the calendar, so a default valid at boot would fail years later without
 		// anything having been edited. The carve-out is deliberate.
-		$card = new Field\CreditCard(new Property\Name('card'), clock: $this->fixed());
+		$card = new Field\CreditCard(new FieldName('card'), clock: $this->fixed());
 
-		$card->mustExpireInFuture()->defaultsTo(['expiry' => '2029-07']);
+		$card->mustExpireInFuture()->defaultsTo((object) [
+			'name' => 'K Miller',
+			'number' => '4014 1828 2909 8807',
+			'expiry' => '2029-07',
+			'security_code' => '936',
+		]);
 
 		$this->addToAssertionCount(1);
 	}
@@ -121,15 +171,15 @@ final class ClockTest extends TestCase
 	{
 		// Cards are issued three to five years ahead, so 2099 is a slip rather than a card.
 		// A baseline ceiling, not configuration.
-		$card = new Field\CreditCard(new Property\Name('card'), clock: $this->fixed());
+		$card = new Field\CreditCard(new FieldName('card'), clock: $this->fixed());
 
-		$failed = $card->validate([
-			'holder' => 'K Miller',
+		$failed = $card->validate((object) [
+			'name' => 'K Miller',
 			'number' => '4014 1828 2909 8807',
 			'expiry' => '2099-01',
 			'security_code' => '936',
 		]);
 
-		$this->assertTrue($failed->get('expiryWithinReach')->failed());
+		$this->assertTrue($failed->forConstraint('expiryWithinReach')->failed());
 	}
 }

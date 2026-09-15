@@ -3,8 +3,8 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Rule;
 
-use Meraki\Schema\Field\Factory;
 use Meraki\Schema\Facade;
+use Meraki\Schema\PropertyScope;
 use Meraki\Schema\Rule\Outcome;
 use InvalidArgumentException;
 use PHPUnit\Framework\TestCase;
@@ -22,18 +22,13 @@ use PHPUnit\Framework\Attributes\{Test, CoversClass, Group};
 #[CoversClass(Facade::class)]
 final class ScopeValidationTest extends TestCase
 {
-	private Factory $fields;
 
-	protected function setUp(): void
-	{
-		$this->fields = new Factory();
-	}
 
 	private function schema(): Facade
 	{
 		$schema = new Facade('signup');
-		$schema->add($this->fields->createTextField('username')->minLengthOf(3));
-		$schema->add($this->fields->createTextField('nickname')->makeOptional());
+		$schema->add($schema->createTextField('username')->minLengthOf(3));
+		$schema->add($schema->createTextField('nickname')->makeOptional());
 
 		return $schema;
 	}
@@ -46,11 +41,7 @@ final class ScopeValidationTest extends TestCase
 		$this->expectException(InvalidArgumentException::class);
 		$this->expectExceptionMessageMatches('/usernmae/');
 
-		$schema->whenAllMatch(
-			fn($rule) => $rule
-				->whenEquals('#/fields/usernmae/value', 'admin')
-				->thenRequire('#/fields/nickname'),
-		);
+		$schema->addRule($schema->when('usernmae')->equals('admin')->thenRequire('nickname'));
 	}
 
 	#[Test]
@@ -61,10 +52,8 @@ final class ScopeValidationTest extends TestCase
 		$this->expectException(InvalidArgumentException::class);
 		$this->expectExceptionMessageMatches('/nope/');
 
-		$schema->whenAllMatch(
-			fn($rule) => $rule
-				->whenEquals('#/fields/username/nope', 3)
-				->thenRequire('#/fields/nickname'),
+		$schema->addRule(
+			$schema->when(PropertyScope::of('username', 'nope'))->equals(3)->thenRequire('nickname'),
 		);
 	}
 
@@ -74,7 +63,7 @@ final class ScopeValidationTest extends TestCase
 		// This is the type error replacing the old runtime "can only be applied to fields".
 		$this->expectException(InvalidArgumentException::class);
 
-		new Outcome\_Require('#/fields/username/value');
+		new Outcome\MakeRequired('#/fields/username/value');
 	}
 
 	#[Test]
@@ -85,11 +74,7 @@ final class ScopeValidationTest extends TestCase
 
 		$this->expectException(InvalidArgumentException::class);
 
-		$schema->whenAllMatch(
-			fn($rule) => $rule
-				->whenEquals('#/fields/username/value', 'admin')
-				->thenRequire('#/fields/username'),
-		);
+		$schema->addRule($schema->when('username')->equals('admin')->thenRequire('username'));
 	}
 
 	#[Test]
@@ -97,13 +82,9 @@ final class ScopeValidationTest extends TestCase
 	{
 		$schema = $this->schema();
 
-		$schema->whenAllMatch(
-			fn($rule) => $rule
-				->whenEquals('#/fields/username/value', 'admin')
-				->thenRequire('#/fields/nickname'),
-		);
+		$schema->addRule($schema->when('username')->equals('admin')->thenRequire('nickname'));
 
-		$this->assertTrue($schema->validate(['username' => 'admin'])->anyFailed());
-		$this->assertFalse($schema->validate(['username' => 'bob'])->anyFailed());
+		$this->assertTrue($schema->validate((object)['username' => 'admin'])->anyFailed());
+		$this->assertFalse($schema->validate((object)['username' => 'bob'])->anyFailed());
 	}
 }
