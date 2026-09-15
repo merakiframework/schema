@@ -46,37 +46,33 @@ final readonly class Enum extends AtomicField
 	}
 
 	/**
-	 * Reads any scalar. Whether it is one of *this* field's cases is a constraint, not the shape.
+	 * The list of cases **is** the type, so a value outside it is a shape failure.
 	 *
-	 * The distinction matters to whoever has to write the message. Shape failure means "that is
-	 * not the kind of thing this field holds" and has nothing to interpolate; `allowedCases` means
-	 * "that is not one of these" and carries the list. This field used to decide membership here,
-	 * so a rejected case came back as *unreadable* with no constraint name and no bound, and a
-	 * renderer wanting "must be one of: free, pro, team" had to reach past the result to the field
-	 * — exactly the pattern the constraint rewrite exists to end.
+	 * Not a constraint, and this was tried the other way round. The argument for a constraint was
+	 * that a renderer wants to say "must be one of: free, pro, team" and needs the list to
+	 * interpolate — but an enum renderer already reads {@see self::$cases} to draw the options at
+	 * all, so it never needed a bound to carry them. What the constraint bought was a second,
+	 * parallel answer to a question the shape had already answered.
 	 *
-	 * It is the one field where membership *is* the whole point, and it was the one field that
-	 * could not express it.
+	 * Reading it as shape is also what makes it consistent: `Date` reports an unparseable string
+	 * as shape rather than as a `format` constraint, for exactly this reason. "That is not one of
+	 * these" and "that is not a date" are the same kind of statement — the value is not the kind
+	 * of thing this field holds.
+	 *
+	 * Strict, including type. A field's cases are all of one type — see {@see self::validateCases()}
+	 * — so `1` and `'1'` are never both cases, and treating them as one would only hide a mistake
+	 * somewhere upstream.
 	 */
 	protected function parse(mixed $value): ?Value
 	{
-		return is_scalar($value) ? new Value($value) : null;
+		return in_array($value, $this->cases, true) ? new Value($value) : null;
 	}
 
+	/**
+	 * None. Membership is the shape, and there is nothing else an enum checks.
+	 */
 	protected function defineConstraints(): Constraint\Set
 	{
-		return new Constraint\Set(
-			// The bound is the list itself, which is what a message interpolates. Compare
-			// {@see Uuid}'s `allowedVersions`, which is the same shape of question.
-			new Constraint('allowedCases', $this->isAnAllowedCase(...), array_map(strval(...), $this->cases)),
-		);
-	}
-
-	private function isAnAllowedCase(Value $parsed): bool
-	{
-		// Strict, including type. A field's cases are all of one type — see validateCases() — so
-		// `1` and `'1'` are never both cases, and treating them as the same would only hide a
-		// mistake somewhere upstream.
-		return in_array($parsed->case, $this->cases, true);
+		return new Constraint\Set();
 	}
 }

@@ -93,10 +93,9 @@ final class ConstraintNameTest extends TestCase
 			// template and reports under the template field's own names.
 			'Collection' => ['minCount', 'maxCount', 'unique'],
 
-			// Membership is a constraint, not the shape. It is the one field where membership is
-			// the whole point, and reporting it as "unreadable" left a renderer with no name to
-			// match on and no list to interpolate.
-			'Enum' => ['allowedCases'],
+			// The list is the type, so membership is shape rather than a constraint. A renderer
+			// reads $cases to draw the options anyway, so a bound carrying them adds nothing.
+			'Enum' => [],
 		];
 
 		foreach ($names as $class => $expected) {
