@@ -10,7 +10,7 @@ use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\DataProvider;
 
 /**
- * The names settled in docs/API-REVIEW.md, as an executable specification.
+ * The names settled in docs/API.md, as an executable specification.
  *
  * Written before the implementation, so every one of these fails today. They are held in
  * the `api-2.0` group, which phpunit.xml excludes from the default run, so the existing

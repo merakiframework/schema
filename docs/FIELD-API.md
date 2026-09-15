@@ -449,5 +449,5 @@ verdicts, which still come from constraints.
 - **Validation groups / partial validation.** Discussed as `ValidationScope` in an earlier draft of
   this document and never built. It is a roadmap item, not part of the contract — see
   [ROADMAP.md](ROADMAP.md).
-- **Method and constraint naming decisions.** [API-REVIEW.md](API-REVIEW.md) is where those are
+- **Method and constraint naming decisions.** [API.md](API.md) is where those are
   argued and settled; this document describes the contract they are expressed in.

@@ -43,15 +43,20 @@ class Set implements IteratorAggregate, Countable
 		return null;
 	}
 
-	public function getByName(string|FieldName $name): ?Field
+	/**
+	 * The field of that name, or a failure — never `null`.
+	 *
+	 * Typed `Field` rather than `?Field`, which is what it always returned: it threw on a miss and
+	 * the nullable type was a lie every caller had to write a dead check against. {@see self::findByName()}
+	 * is the nullable one, and the pair reads as the difference — *get* it, or go *find* whether it
+	 * is there.
+	 *
+	 * @throws InvalidArgumentException if no field of that name is present
+	 */
+	public function getByName(string|FieldName $name): Field
 	{
-		$field = $this->findByName($name);
-
-		if ($field !== null) {
-			return $field;
-		}
-
-		throw new InvalidArgumentException(sprintf('Field with name "%s" does not exist.', (string)$name));
+		return $this->findByName($name)
+			?? throw new InvalidArgumentException(sprintf('Field with name "%s" does not exist.', (string) $name));
 	}
 
 	public function findByName(string|FieldName $name): ?Field
@@ -106,20 +111,6 @@ class Set implements IteratorAggregate, Countable
 		}
 	}
 
-	public function containsDuplicateFieldTypes(): bool
-	{
-		$types = [];
-
-		foreach ($this->fields as $field) {
-			if (in_array($field::class, $types, true)) {
-				return true;
-			}
-
-			$types[] = $field::class;
-		}
-
-		return false;
-	}
 
 	public function add(Field ...$fields): self
 	{
@@ -176,7 +167,7 @@ class Set implements IteratorAggregate, Countable
 	/**
 	 * @return list<Field>
 	 */
-	public function __toArray(): array
+	public function toArray(): array
 	{
 		return $this->fields;
 	}

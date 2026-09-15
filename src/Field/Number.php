@@ -26,7 +26,7 @@ use TypeError;
  * be a number" about a value that plainly was one.
  *
  * **Nothing here pads.** A field that yielded `123.00` for `123` was planned and dropped — see
- * docs/API-REVIEW.md, "transformed — dropped, and why". {@see Number\Value} holds the number as
+ * docs/API.md, "transformed — dropped, and why". {@see Number\Value} holds the number as
  * written, and the scale is on the field for a consumer that wants to format against it, which is
  * where formatting belongs anyway: how a number is written is a locale's business.
  *

@@ -1,7 +1,15 @@
-# API review for 2.0
+# The 2.0 API
 
-Every feature and every constraint has to be confirmed across **three surfaces** before the
-`2.0.0` API freeze. This page is the working checklist; nothing ships unconfirmed.
+What the API *is*, and why each part of it is shaped that way.
+
+This was "API review for 2.0" — a working checklist with a `Status` column reading `open` on
+every row, written while the design was still being argued. It is not a review any more: the
+decisions are made and implemented, and the rows that were open are settled or recorded as
+dropped. The argument is kept rather than deleted, because the reasoning is the part that is
+expensive to reconstruct and the part a future change has to answer.
+
+Every feature is confirmed across **three surfaces**, which is the discipline that kept the
+three from drifting apart:
 
 | Surface | The question it answers | What it means now |
 | --- | --- | --- |
@@ -965,64 +973,79 @@ ever, an unrestricted field enforces nothing — free-form means free-form.
 **Nothing.** Every row is settled. The matcher vocabulary is deferred to a stage of its
 own, after the field API is implemented, and is not part of this review.
 
-## The checklist
+## The field surface
 
-Constraint names are those emitted today, with `type` removed. Status is `open` until all
-three surfaces are confirmed.
+Read off the classes, and **kept true by a test rather than by this page**:
+[`tests/Api/ConstraintNameTest.php`](../tests/Api/ConstraintNameTest.php) asserts the constraint
+names for every field, and [`tests/Api/NamingTest.php`](../tests/Api/NamingTest.php) asserts the
+configuration methods and properties. Both run in the default suite. If this table and those tests
+ever disagree, the tests are right.
 
-Constraint names below are read off the fields themselves, not from the source, so they are
-what actually reaches a message provider. `type` is excluded — it is [being
-removed](#removing-the-type-constraint). Names marked *(conditional)* appear only when the
-matching declaration is used.
+That is the whole reason this section is short now. It used to be a checklist with a `Status`
+column reading `open` on every row, tracking a design that had not been built — and it went stale
+the moment it was, because nothing executed it.
 
-| Field | Definition surface | Constraint names emitted | Status |
+| Field | Configuration | Constraint names | Value |
 | --- | --- | --- | --- |
-| `Text` | `minLengthOf`, `maxLengthOf`, `matches` | `min`, `max`, `pattern` | open |
-| `Name` | `minLengthOf`, `maxLengthOf` | `min`, `max` | open |
-| `Number` | `scaleTo`, `minOf`, `maxOf`, `inIncrementsOf` | `min`, `max`, `step` | open |
-| `Boolean` | `mustBeAccepted` | `accepted` *(conditional)* | open |
-| `Enum` | `allow` | — | open |
-| `Date` | `from`, `until`, `to`, `atIntervalsOf` | `from`, `until`, `interval` | open |
-| `Time` | `from`, `until`, `inIncrementsOf`, `precisionMode` | `from`, `until`, `step` | open |
-| `DateTime` | `from`, `until`, `inIncrementsOf`, `precisionMode` | `from`, `until`, `interval` | open |
-| `Duration` | `minOf`, `maxOf`, `inIncrementsOf` | `min`, `max`, `step` | open |
-| `EmailAddress` | `minLengthOf`, `maxLengthOf`, `allowDomain`, `disallowDomain` | `min`, `max`, `allowedDomains`, `disallowedDomains` | open |
-| `PhoneNumber` | `allow`, `ofType` | `allowedCountries`, `numberType` | open |
-| `Uri` | `minLengthOf`, `maxLengthOf`, `allowSchemes` | `min`, `max`, `scheme` | open |
-| `Uuid` | `restrictToVersion` | `version` | open |
-| `Password` | `minLengthOf`, `maxLengthOf`, `minNumberOf*`/`maxNumberOf*` ×4, `satisfyAnyOf` | `length`, `lowercase`, `uppercase`, `digits`, `symbols`, `anyOf` | open |
-| `Passphrase` | presets only | `entropy`, `dictionary` | open |
-| `File` | `atLeast`, `atMost`, `minFileSizeOf`, `maxFileSizeOf`, `allowTypes`, `disallowTypes`, `allowImages`, `allowVideos`, `allowDocuments`, `disallowScripts` | `minCount`, `maxCount`, `allowedTypes`, `disallowedTypes`, `minSize`, `maxSize` | open |
-| `Money` | `allow`, `minOf`, `maxOf`, `inIncrementsOf` | `<name>.amount.{scale,min,max,step}` | open |
-| `Address` | `allow`, `ofType`, `determined` | `<name>.<part>.required` ×7, `.line1.visitable`, `.postal_code.format`, `.administrative_area.allowed`, `.country_code.allowed` | open |
-| `CreditCard` | — | `<name>.number.checksum` | open |
-| `Collection` | `minItems`, `maxItems` | `minItems`, `maxItems` *(conditional)* | open |
-| `Variant` | — | none of its own; the matching alternative's result is returned | open |
+| `Address` | `allowCountries()`, `allowOnlyMailable()`, `allowOnlyPhysical()`, `allowWithoutStreet()`, `clearAllowedCountries()` | `allowedCountries`, `postalCodeFormat`, `administrativeArea`, `line1Visitable`, `specific` | `Address\Value` |
+| `Boolean` | `mustBeAccepted()` | `accepted` | `Boolean\Value` |
+| `Collection` | `allowDuplicates()`, `maxCountOf()`, `minCountOf()` | `minCount`, `maxCount`, `unique` | `Collection\Value` |
+| `CreditCard` | `mustExpireInFuture()` | `numberFormat`, `numberChecksum`, `expiryFormat`, `expiryInFuture`, `expiryWithinReach`, `namePresent`, `securityCodeFormat` | `CreditCard\Value` |
+| `Date` | `atIntervalsOf()`, `from()`, `until()` | `from`, `until`, `interval` | `Date\Value` |
+| `DateTime` | `atIntervalsOf()`, `from()`, `until()` | `from`, `until`, `interval`, `precision` | `DateTime\Value` |
+| `Duration` | `inIncrementsOf()`, `maxValueOf()`, `minValueOf()` | `minValue`, `maxValue`, `step` | `Duration\Value` |
+| `EmailAddress` | `allowDomains()`, `clearAllowedDomains()`, `clearDisallowedDomains()`, `disallowDomains()`, `maxLengthOf()`, `minLengthOf()` | `minLength`, `maxLength`, `allowedDomains`, `disallowedDomains` | `EmailAddress\Value` |
+| `Enum` | — | — | `Enum\Value` |
+| `File` | `allowDocuments()`, `allowImages()`, `allowTypes()`, `allowVideos()`, `clearAllowedTypes()`, `clearDisallowedTypes()`, `disallowScripts()`, `disallowTypes()`, `maxSizeOf()`, `minSizeOf()` | `minSize`, `maxSize`, `allowedTypes`, `disallowedTypes` | `File\Value` |
+| `Money` | `allowCurrencies()`, `clearAllowedCurrencies()`, `maxAmountOf()`, `minAmountOf()` | `allowedCurrencies`, `minAmount`, `maxAmount`, `scale` | `Money\Value` |
+| `Name` | — | `minLength`, `maxLength` | `Name\Value` |
+| `Number` | `inIncrementsOf()`, `maxPrecisionOf()`, `maxValueOf()`, `minValueOf()`, `scaleTo()` | `minValue`, `maxValue`, `step`, `scale`, `maxPrecision` | `Number\Value` |
+| `Password` | `maxLengthOf()`, `minLengthOf()`, `minNumberOfDigits()`, `minNumberOfLowercaseChars()`, `minNumberOfSymbols()`, `minNumberOfUppercaseChars()`, `minStrengthOf()` | `minLength`, `maxLength`, `minStrength`, `minUppercaseChars`, `minLowercaseChars`, `minDigits`, `minSymbols` | `Password\Value` |
+| `PhoneNumber` | `allowCountries()`, `clearAllowedCountries()`, `ofType()` | `allowedCountries`, `numberType` | `PhoneNumber\Value` |
+| `Text` | `maxLengthOf()`, `minLengthOf()`, `mustMatch()` | `minLength`, `maxLength`, `pattern` | `Text\Value` |
+| `Time` | `atIntervalsOf()`, `from()`, `until()` | `from`, `until`, `interval`, `precision` | `Time\Value` |
+| `Uri` | `allowSchemes()`, `clearAllowedSchemes()`, `maxLengthOf()`, `minLengthOf()` | `minLength`, `maxLength`, `allowedSchemes` | `Uri\Value` |
+| `Uuid` | `allowVersions()`, `clearAllowedVersions()` | `allowedVersions` | `Uuid\Value` |
 
-Three rows differ from what this table said before, which is worth noting because they were
-wrong rather than stale: `Uri` gained `scheme` with the B2 fix, `Money` emits only dotted
-names (there is no bare `min`), and `CreditCard` emits a `checksum` rather than nothing.
+**Shared by every field**, so not repeated above: `defaultsTo()`, `makeOptional()`,
+`makeRequired()`, `equals()`, `resolve()`, `validate()`, `resolvedValueFor()`.
+
+A few things the table says that are worth saying in words:
+
+- **`Name` has no configuration at all.** Its length bounds are a baseline, not a dial — a
+  person's name is between 1 and 255 characters and an author has nothing useful to add.
+- **`Enum` reports no constraints.** The list of cases *is* the type, so a value outside it is a
+  shape failure, the same way an unparseable string is for `Date`. A renderer reads `$cases` to
+  draw its options anyway, so a constraint carrying them would answer one question twice.
+- **No name carries the field it came from.** `postalCodeFormat`, not
+  `billing_address.postal_code.format`. Which *part* a constraint concerns is on the result as
+  `$constraint->part`, so a message provider never splits a string to find out.
+- **Every field parses to its own value class**, and that class answers for its own equality. See
+  [FIELD-API.md](FIELD-API.md#why-a-value-object-always).
 
 ### Cross-cutting rows
 
 | Feature | Open question |
 | --- | --- |
-| Optionality | `makeOptional()`/`require()` on the definition. Provenance **is** exposed: `$resolved->appliedOutcomes` says which rule made a field optional, so a renderer can tell an authored optional from a rule-driven one. Confirm the two spellings. |
+| Optionality | **Settled** — `makeOptional()` and `makeRequired()` on the definition. Paired spellings, because `require()` reads as an imperative next to a wither that hands back a copy. Provenance is on the result: `$resolved->appliedOutcomes` says which rule made a field optional, so a renderer can tell an authored optional from a rule-driven one. |
 | Defaults | **Settled** — `defaultsTo()` on the definition, `resolve($submitted, prefilledWith: $known)` per request, `$resolved->source` recording which won. See [FIELD-API.md](FIELD-API.md#defaults). |
 | Ignored input | **Settled** — `ignoreInput()`/`acceptInput()` are removed. The `ignore` outcome is read from `appliedOutcomes` when resolving, so it never touches the definition. |
-| Presets | `Password::strong()`, `Passphrase::moderate()`, `DateTime::withSecondPrecision()`. Confirm these survive and whether other fields gain them. |
+| ~~Presets~~ | **Dropped for `2.0`.** `Password::strong()`, `DateTime::withSecondPrecision()` and the rest were never built, and a preset is a named bundle of calls an author can write themselves. Revisit after the release, when there is usage to name them from — inventing the bundles first is how you end up with `moderate()` and nobody able to say what it means. |
 | ~~`transformed` type~~ | *Settled: there is no `transformed`.* Every field parses to a value object this library defines, so the parsed value is the typed value. See [above](#transformed--dropped-and-why). |
 
-### Known API leaks to close
+### Known API leaks
 
-- `Passphrase::getConstraints()` and `Variant::getConstraints()` are **public**; on every
-  other field the method is protected. Still open.
-- `Date` exposes both `until()` and `to()`, and they are **not** the same thing: `until()`
-  is exclusive, `to()` is inclusive (it stores `date + 1 day`). Both report under the name
-  `until`, so a result cannot say which was declared. Two behaviours sharing one constraint
-  name is worse than two names for one behaviour, which is how this was previously recorded.
-- `Field\Set::getByName()` is typed `?Field` but throws instead of returning `null`.
-- `Rule\Outcome\MakeRequired` carries a leading underscore.
-- Structured types report against sub-field names (`cost.amount.min`), and a message
-  provider has to split the string to get anywhere. Whatever replaces dotted names has to
-  answer *which part failed* without string surgery.
+All closed. Kept as the record of what they were, because each one is a shape worth
+recognising again:
+
+- ~~`Passphrase::getConstraints()` and `Variant::getConstraints()` are public~~ — both classes
+  are gone, and `getConstraints()` became the `$constraints` property on every field.
+- ~~`Date` exposes both `until()` and `to()`~~ — `to()` is gone. It was *inclusive* where
+  `until()` is exclusive, and both reported under the name `until`, so a result could not say
+  which had been declared. Two behaviours sharing one constraint name is worse than two names
+  for one behaviour.
+- ~~`Rule\Outcome\MakeRequired` carries a leading underscore~~ — renamed.
+- ~~Structured types report against sub-field names (`cost.amount.min`)~~ — gone. A constraint
+  carries the part it concerns as `$constraint->part`, so nothing splits a string.
+- `Field\Set::getByName()` is typed `?Field` and throws instead of returning `null` — **fixed**;
+  it is typed `Field` and `findByName()` is the nullable one.

@@ -95,7 +95,8 @@ class Set implements \IteratorAggregate, \Countable
 		return new \ArrayIterator($this->rules);
 	}
 
-	public function __toArray(): array
+	/** @return list<Rule> */
+	public function toArray(): array
 	{
 		return $this->rules;
 	}

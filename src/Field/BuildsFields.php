@@ -21,7 +21,7 @@ use Meraki\Schema\FieldName;
  * ```
  *
  * This replaced a separate `Field\Factory` object. Two entry points for one job is what
- * docs/API-REVIEW.md exists to remove, and the factory had no state worth being a separate
+ * docs/API.md exists to remove, and the factory had no state worth being a separate
  * object for — only the country list below, which belongs to the schema being authored anyway.
  *
  * **Building is not registering.** Every method here hands back a field and does nothing else;

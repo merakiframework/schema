@@ -16,7 +16,7 @@ use PHPUnit\Framework\Attributes\CoversTrait;
  * These were `FactoryTest`, covering a separate `Field\Factory` object. The builders moved onto
  * the schema and the factory is gone: it had no state worth being its own object for — only the
  * country list below, which belongs to the schema being authored anyway — and two entry points
- * for one job is what docs/API-REVIEW.md exists to remove.
+ * for one job is what docs/API.md exists to remove.
  *
  * What they cover is unchanged, and is still about *building* rather than registering: which
  * countries a newly built region-aware field inherits.

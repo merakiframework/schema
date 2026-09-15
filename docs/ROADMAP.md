@@ -6,7 +6,7 @@ No dates. The ordering is real; the timing is not promised.
 - [The releases](#the-release-ladder)
 - [Architecture: immutable definition + `ResolvedField`](#architecture-immutable-definition--resolvedfield)
 - [Rule authoring in 2.0](#rule-authoring)
-- [API review](API-REVIEW.md) — the per-feature confirmation checklist
+- [API review](API.md) — the per-feature confirmation checklist
 - [Planned features](#planned-features)
 
 ---
@@ -64,10 +64,10 @@ Breaking by construction, so a major version regardless.
 | **The seam** | Immutable definition; per-request state moves into [`ResolvedField`](#architecture-immutable-definition--resolvedfield). Fixes B7 and B9 along with the purity and mutation defects. `Field` sheds `input()`, `ignoreInput()`, `acceptInput()`, `prefill()` and its value properties. |
 | **Defaults** | Split in two. An authored constant stays on the definition as `defaultsTo()` and serialises; a per-request value moves to `resolve($submitted, prefilledWith: $known)` and lands on the result. Makes "a serialised schema can never contain user data" true by construction. Fixes [B9](LIMITATIONS.md#b9). |
 | **Real PHP types** | The core takes arrays, lists, objects and scalars; the UI layer converts. `EmailAddress` takes one address; `Field\AtomicMultiValue` and the comma-splitting in `EmailAddress::parseValue()` go — both are `<input type="email" multiple>` leaking into the domain. |
-| **Structured types** | `Composite` is removed. `Address`, `Money` and `CreditCard` become distinct types with their own public API, each taking an object shape and validating it. Dotted constraint names (`addr.postal_code.format`) go with it, so the replacements have to be chosen deliberately — downstream message providers match on them. **`Variant` is removed** — this line said it stayed, on the grounds that a union is a type rather than conditional logic, which is a good argument for a capability nothing was asking for: its only use anywhere was making `Password` and `Passphrase` appear as one field, and those merged into one type. It can come back if a real union turns up; see [API-REVIEW.md](API-REVIEW.md). |
+| **Structured types** | `Composite` is removed. `Address`, `Money` and `CreditCard` become distinct types with their own public API, each taking an object shape and validating it. Dotted constraint names (`addr.postal_code.format`) go with it, so the replacements have to be chosen deliberately — downstream message providers match on them. **`Variant` is removed** — this line said it stayed, on the grounds that a union is a type rather than conditional logic, which is a good argument for a capability nothing was asking for: its only use anywhere was making `Password` and `Passphrase` appear as one field, and those merged into one type. It can come back if a real union turns up; see [API.md](API.md). |
 | **Scopes** | *Done.* Typed and immutable; resolution moved out of the field classes into `ScopeResolver`. `ScopeTarget` and `traverse()` are gone, and `Field::NOT_ADDRESSABLE` went with the back-reference it guarded — every public property of a field is addressable, with no exceptions list. `Wizard\RuleScopes` is `schema-html`'s and goes with the ports. |
 | **Rules** | *Done.* [Matcher vocabulary](#rule-authoring), `otherwise()`, and rules built as values: `$schema->when($f)->equals(…)->thenRequire($g)`, composed with `allOf()`/`anyOf()` and added with `addRule()`/`addRules()`. `whenAllMatch()`/`whenAnyMatch()` and both rule builders are gone. An outcome is now an *operation* — `applyTo(Field): Field` — which is what makes it work against an immutable field at all; every one of them was calling a wither and discarding the result, so rules had silently stopped doing anything. Only `equals`/`notEquals` exist so far; the ten comparison matchers in the table below are still to come. |
-| **API surface** | `addXField()` becomes `createXField()` plus an explicit add; `pairWith()` and `Field::$schema` are removed; `type` stops being reported as a constraint; every row in [API-REVIEW.md](API-REVIEW.md) confirmed and the public API frozen. |
+| **API surface** | `addXField()` becomes `createXField()` plus an explicit add; `pairWith()` and `Field::$schema` are removed; `type` stops being reported as a constraint; every row in [API.md](API.md) confirmed and the public API frozen. |
 | **Retire the rewrite-era tests** | *Done.* A rewrite needs tests asserting the *old* behaviour is gone; they earn their keep while both shapes exist in living memory and become noise the moment `2.0` ships, since nobody writing against a 2.x API needs telling that a 1.x one is absent. Each was run one last time to confirm the removal, then deleted — four standalone tests plus `NamingTest`'s 31-row removal matrix. Tests asserting a *live* design boundary were kept, and the distinction is recorded in TODO.md. `AtomicField::getConstraints()` has gone too, with `constraints()` becoming the `$constraints` property. |
 
 ### `2.1`, `2.2`, … — feature releases
@@ -80,7 +80,7 @@ Additive, after the redesign has settled. Each is a minor version.
 | **`Duration` on PHP's own class** | PHP 8.6 is expected to add a native duration type; adopt it in place of the current handling. Requires PHP 8.6. |
 | **Readonly property defaults** | [The RFC](https://wiki.php.net/rfc/readonly_property_defaults) is implemented for 8.6 and removes the only reason `AtomicField` has a constructor. `public bool $optional = false;` on the declaration replaces it, and the `parent::__construct()` call goes from all 23 fields — with it, the hazard that `tests/Api/SealedFieldTest::its_inherited_state_is_initialised()` exists to catch. Empty the constructor rather than deleting it, so the calls can be removed field by field instead of in one commit. Requires PHP 8.6. |
 | **PHPStan: clone-with narrowing** | `phpstan.neon` carries the project's only `ignoreErrors` entries, both from one cause: `AtomicField::with()` clones with a string-keyed array, so PHPStan cannot see that a property is ever assigned anywhere but the constructor, and narrows it to its initial value. Remove when PHPStan models PHP 8.5 clone-with. **8.6's readonly defaults do not fix this** — the analyser would still see a single initialiser. Blocks raising the level past 6, where the closed-union `bound` type starts being enforced. |
-| ~~**Typed value extraction**~~ | *Done in `2.0`, and not as `transformed`.* Every field's `parse()` returns a value object this library defines, so the parsed value **is** the typed value and there is no second property to populate. See [API-REVIEW.md](API-REVIEW.md#transformed--dropped-and-why). |
+| ~~**Typed value extraction**~~ | *Done in `2.0`, and not as `transformed`.* Every field's `parse()` returns a value object this library defines, so the parsed value **is** the typed value and there is no second property to populate. See [API.md](API.md#transformed--dropped-and-why). |
 | **Cross-field constraints** | `confirm_password === password`, `end_date > start_date`. |
 | **The rest** | Custom constraints on built-in fields, validation groups, normalisation, external validation hooks, field metadata for the UI, JSON Schema interoperability, a dictionary/map field. |
 
@@ -151,7 +151,7 @@ somebody typed. A rejected form is re-rendered from `given`, and showing a coerc
 of what was typed turns a correction into a second mistake.
 
 `transformed` was in this sketch too, and is gone for the opposite reason: the parsed value is
-already the typed value. See [API-REVIEW.md](API-REVIEW.md#transformed--dropped-and-why).
+already the typed value. See [API.md](API.md#transformed--dropped-and-why).
 
 Notable consequences:
 
@@ -244,7 +244,7 @@ client-side JavaScript:
 
 One spelling per matcher. An earlier sketch had a `createRuleFor($f)->whenItIsAtLeast(18)`
 shorthand alongside `when($f)->isAtLeast(18)`; it is dropped, because two names for one
-constraint is precisely what [API-REVIEW.md](API-REVIEW.md) exists to remove (see `until()`
+constraint is precisely what [API.md](API.md) exists to remove (see `until()`
 vs `to()` on `Date`).
 
 Only `equals` and `not_equals` exist today, so everything from the third row down is new
@@ -384,7 +384,7 @@ Every other constraint narrows a value that is already the right shape; `type` d
 whether there *is* a usable value at all, which is the precondition for the rest. It also
 conflates "no value was supplied" with "a value was supplied but is the wrong shape",
 which downstream code currently has to disentangle by hand. Both become structurally
-distinct on `ResolvedField`. See [API-REVIEW.md](API-REVIEW.md) for the consequences.
+distinct on `ResolvedField`. See [API.md](API.md) for the consequences.
 ### What does and does not change
 
 **Unchanged:** the serialized form. `#/fields/x/value` stays the wire format, conditions

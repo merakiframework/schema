@@ -32,7 +32,7 @@ final class SetTest extends TestCase
 
 		$this->assertCount(0, $set);
 		$this->assertEmpty($set);
-		$this->assertEquals([], $set->__toArray());
+		$this->assertEquals([], $set->toArray());
 		$this->assertTrue($set->isEmpty());
 	}
 
@@ -46,7 +46,7 @@ final class SetTest extends TestCase
 		$set = new Set($field1, $field2);
 
 		$this->assertCount(2, $set);
-		$this->assertSame([$field1, $field2], $set->__toArray());
+		$this->assertSame([$field1, $field2], $set->toArray());
 	}
 
 	#[Test]

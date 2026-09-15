@@ -109,7 +109,7 @@ final class SetTest extends TestCase
 		$rule2 = $this->createRule();
 		$set = new Set($rule1, $rule2);
 
-		$rules = $set->__toArray();
+		$rules = $set->toArray();
 
 		$this->assertCount(2, $rules);
 		$this->assertContains($rule1, $rules);

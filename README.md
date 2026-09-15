@@ -523,7 +523,7 @@ state. Serial reuse is safe. The structural fix is the `2.0.0` redesign.
   in the meantime. Read this before adopting.
 - **[docs/ROADMAP.md](docs/ROADMAP.md)** — what `2.0.0` changes and why, and the feature
   releases after it.
-- **[docs/API-REVIEW.md](docs/API-REVIEW.md)** — the per-feature API confirmation
+- **[docs/API.md](docs/API.md)** — the per-feature API confirmation
   checklist, to be settled before the `2.0.0` freeze.
 - **[docs/COMPARISON.md](docs/COMPARISON.md)** — how this compares with the alternatives,
   including when to pick one of them instead.
