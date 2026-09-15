@@ -80,7 +80,7 @@ Additive, after the redesign has settled. Each is a minor version.
 | **`Duration` on PHP's own class** | PHP 8.6 is expected to add a native duration type; adopt it in place of the current handling. Requires PHP 8.6. |
 | **Readonly property defaults** | [The RFC](https://wiki.php.net/rfc/readonly_property_defaults) is implemented for 8.6 and removes the only reason `AtomicField` has a constructor. `public bool $optional = false;` on the declaration replaces it, and the `parent::__construct()` call goes from all 23 fields — with it, the hazard that `tests/Api/SealedFieldTest::its_inherited_state_is_initialised()` exists to catch. Empty the constructor rather than deleting it, so the calls can be removed field by field instead of in one commit. Requires PHP 8.6. |
 | **PHPStan: clone-with narrowing** | `phpstan.neon` carries the project's only `ignoreErrors` entries, both from one cause: `AtomicField::with()` clones with a string-keyed array, so PHPStan cannot see that a property is ever assigned anywhere but the constructor, and narrows it to its initial value. Remove when PHPStan models PHP 8.5 clone-with. **8.6's readonly defaults do not fix this** — the analyser would still see a single initialiser. Blocks raising the level past 6, where the closed-union `bound` type starts being enforced. |
-| **Typed value extraction** | `transformed` populated per field type — `BigDecimal`, `LocalDate`, a parsed phone number, an address value object. |
+| ~~**Typed value extraction**~~ | *Done in `2.0`, and not as `transformed`.* Every field's `parse()` returns a value object this library defines, so the parsed value **is** the typed value and there is no second property to populate. See [API-REVIEW.md](API-REVIEW.md#transformed--dropped-and-why). |
 | **Cross-field constraints** | `confirm_password === password`, `end_date > start_date`. |
 | **The rest** | Custom constraints on built-in fields, validation groups, normalisation, external validation hooks, field metadata for the UI, JSON Schema interoperability, a dictionary/map field. |
 
@@ -119,7 +119,7 @@ produced by `validate()`:
 
 | Definition (immutable) | Per-request (`ResolvedField`) |
 | --- | --- |
-| field set, names, types, nesting | submitted value, resolved value, transformed value |
+| field set, names, types, nesting | submitted value, resolved value |
 | constraint configuration | constraint results |
 | authored optionality | rule outcomes actually applied |
 | `prefill()` defaults | |
@@ -136,19 +136,22 @@ extends the existing aggregated-result type, so it *is* the field's result:
 ```
 ResolvedField
     field            // the effective definition
-    value            // what was validated
-    source           // Submitted | Prefilled | Default
-    transformed      // the typed value — BigDecimal, LocalDate, parsed phone number
+    given            // exactly what was submitted, unchanged
+    value            // what was validated — a Field\ParsedValue
+    source           // Submitted | Prefilled | Default | None
+    evaluatedAt      // the instant time-relative constraints were judged against
     appliedOutcomes  // which rules changed what, and why
-    anyFailed(), getFailed(), resultsFor(...)
+    anyFailed(), getFailed(), forConstraint(...)
 ```
 
-`given` was in this sketch and has been dropped: it never differed from `value` for any
-field type, including the composite case it was meant for, so it failed the contract it was
-written for. It returns when `transformed` is populated per type and there is a real
-coercion gap to describe. `source` replaces the part of it people actually needed — whether
-a value came from the request or was filled in — which a renderer needs and nothing else
-could answer. See [FIELD-API.md](FIELD-API.md#what-a-resolved-field-carries).
+`given` was dropped from this sketch once and came back. The argument for dropping it was that
+it never differed from `value` for any field type — which stopped being true the moment `parse()`
+began returning a value object, since `value` is now `Number\Value` where `given` is the `'0050'`
+somebody typed. A rejected form is re-rendered from `given`, and showing a coerced value in place
+of what was typed turns a correction into a second mistake.
+
+`transformed` was in this sketch too, and is gone for the opposite reason: the parsed value is
+already the typed value. See [API-REVIEW.md](API-REVIEW.md#transformed--dropped-and-why).
 
 Notable consequences:
 
@@ -160,9 +163,11 @@ Notable consequences:
   (`addr.postal_code.format`), so a resolved composite is a resolved field whose result
   names are paths. Collections extend the same scheme with an index — `items[1].sku.max`
   — which is how indexed collection results arrive.
-- **Reading `transformed` on a failed field throws**, naming the field and the failed
-  constraints. On a skipped optional field it is `null`, because the value is legitimately
-  absent rather than wrong.
+- **Nothing on a result throws.** `transformed` was to throw when read on a failed field; there
+  is no `transformed`, and `value` holds whatever there was to judge — the parsed value, or the
+  raw input when nothing could read it. A form redrawing a rejected field needs something to
+  show, and a property that throws on exactly the requests where it is most needed is the wrong
+  shape for that.
 - **Resolving and validating are separate steps.** Rendering a form for the first time
   resolves without validating; that state is what `ValidationStatus::Pending` has always
   described. Hence `Resolved`, not `Validated`.

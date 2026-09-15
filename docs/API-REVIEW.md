@@ -7,7 +7,7 @@ Every feature and every constraint has to be confirmed across **three surfaces**
 | --- | --- | --- |
 | **Definition** | How does an author declare it? | `->minLengthOf(3)` on a sealed field, via withers |
 | **Rule** | How does a matcher reference it? | `PropertyScope::of('age', 'min')` — `#/fields/age/min`. The property segment is a real public property, and `addRule()` rejects one that is not |
-| **Resolved** | How does it appear after validation? | The constraint name on a `ConstraintValidationResult`, and the `transformed` type on the `ResolvedField` |
+| **Resolved** | How does it appear after validation? | The constraint name on a `ConstraintValidationResult`, and the value type on the `ResolvedField` |
 
 A row is **confirmed** only when all three are settled and consistent with the rest of the
 table. Until then it is **open**.
@@ -307,7 +307,7 @@ A scope addresses state. It does not call anything, and the reason is not taste:
   zero-argument method that answers a question should have been a property anyway.
 
 When the answer is computed rather than stored, a property hook gives you the question
-*and* keeps it state, which is already the idiom in `ResolvedField::$transformed` and
+*and* keeps it state, which is already the idiom in `ResolvedField::$value` and
 `AggregatedValidationResult::$status`:
 
 ```php
@@ -597,7 +597,7 @@ ConstraintValidationResult::fail('postalCodeFormat', part: 'postalCode')
 $address = $result->get('billing');
 
 $address->get('postalCodeFormat')->part;   // 'postalCode'
-$address->transformed;                     // Address\Value, once transformed lands
+$address->value;                           // Address\Value
 ```
 
 What that does downstream — today `meraki/schema-html` splits the name:
@@ -727,32 +727,37 @@ decided to drop as unneeded complexity and which `Field.php` still references ei
 Introducing `Field\Address\Value` while the old wrapper is still around means two `Value`
 classes in scope at once.
 
-## What `transformed` returns
+## `transformed` — **dropped**, and why
 
-| Field | Type | Why |
-| --- | --- | --- |
-| `Number` | `BigDecimal` | |
-| `Date`, `Time`, `DateTime` | `LocalDate`, `LocalTime`, `LocalDateTime` | |
-| `Duration` | `Duration` | |
-| `Money` | `Money\Value` | |
-| `Address` | `Address\Value` | |
-| `CreditCard` | `CreditCard\Value` | |
-| `File` | `File\Value` | |
-| `PhoneNumber` | `string`, in E.164 | libphonenumber's own object stringifies to a debug representation |
-| everything else | its scalar | identity |
+There is no second value on a result. `$value` is the parsed value, and the parsed value is
+already the typed one.
 
-The rule: **use the library's value object when it stringifies to the value it represents.**
-`BigDecimal` and `LocalDate` do. `libphonenumber\PhoneNumber` does not —
+The table that used to be here mapped each field to the type `transformed` should return, under
+one rule: *use the library's value object when it stringifies to the value it represents.* Three
+fields got a library `Value`, the rest got a third party's class or a bare scalar, and
+`PhoneNumber` got a hand-made exception because `libphonenumber\PhoneNumber` stringifies to
+`"Country Code: 61 National Number: 411222333"`.
 
-```
-(string) $number                      → "Country Code: 61 National Number: 411222333"
-$util->format($number, E164)          → "+61411222333"
+That rule generalised. Every field now returns a value object this library defines — see
+[FIELD-API.md](FIELD-API.md#parse--the-one-hook) — so the exception is the rule, and the case
+that forced it is one method on the value:
+
+```php
+$resolved->value->toE164();     // "+61411222333"
+$resolved->value->number;       // libphonenumber's own object, unchanged
 ```
 
-Its `__toString()` is a debug representation, so `"{$resolved->transformed}"` in a template
-would render that, and reaching E.164 requires the `PhoneNumberUtil` singleton, which is a
-dependency the field should absorb rather than export. So `PhoneNumber` transforms to the
-E.164 string.
+So the whole feature collapses into `parse()`'s return type, and the three properties the sketch
+had become two: `given`, exactly what was submitted, and `value`, what the field made of it.
+
+The one thing genuinely lost is a *canonical string per field*, and it was lost deliberately.
+`Number` was to yield `123.00` for a scale-2 field; it does not, because padding is formatting and
+formatting is a locale's business. The scale is on the field for a consumer that wants to format
+against it.
+
+**What this means for the ports:** there is no third value to read, and nothing to wait for. A
+renderer formats from `$value` — which is a value object with a known type — plus the field's own
+configuration.
 ## Time-relative constraints take a clock
 
 A field that asks "is this in the future" needs *now*, so it holds a **`Clock`** — a source
@@ -811,7 +816,8 @@ on the field to keep it that does not depend on which rules were switched on.
 
 ## `PhoneNumber`
 
-`transformed` is an **E.164 string**. A value object was considered so the resolved country
+The value is a **`PhoneNumber\Value`**, which compares in E.164 and hands it over with
+`toE164()`. A bare E.164 string was the earlier answer, so the resolved country
 could travel with it, and rejected because nothing needs the country.
 
 One thing to record, because it is easy to assume otherwise: **the country is not recoverable
@@ -946,7 +952,7 @@ This field would then be judging a number whose meaning depends on a fact it has
 yet: whether that currency is even allowed. A string also preserves the scale as written, which
 is exactly what the `scale` constraint judges on — `"1.50"` and `"1.5"` are distinguishable and
 `1250` has already thrown that away. The integer form is what the application wants on the way
-*out*, which makes it a `transformed` target rather than an input shape.
+*out*, which makes it something the value object exposes rather than an input shape.
 
 **An unknown currency is refused where it is written, and reported where it is submitted.** The
 same split as `Address` and its countries: an allow-list entry that is not a real currency is a
@@ -1005,7 +1011,7 @@ names (there is no bare `min`), and `CreditCard` emits a `checksum` rather than 
 | Defaults | **Settled** — `defaultsTo()` on the definition, `resolve($submitted, prefilledWith: $known)` per request, `$resolved->source` recording which won. See [FIELD-API.md](FIELD-API.md#defaults). |
 | Ignored input | **Settled** — `ignoreInput()`/`acceptInput()` are removed. The `ignore` outcome is read from `appliedOutcomes` when resolving, so it never touches the definition. |
 | Presets | `Password::strong()`, `Passphrase::moderate()`, `DateTime::withSecondPrecision()`. Confirm these survive and whether other fields gain them. |
-| `transformed` type | Confirm the target type per field — `BigDecimal`, `LocalDate`, parsed phone number, an address value object. Nothing populates it yet, so this is a `2.1` decision that the naming here must not foreclose. |
+| ~~`transformed` type~~ | *Settled: there is no `transformed`.* Every field parses to a value object this library defines, so the parsed value is the typed value. See [above](#transformed--dropped-and-why). |
 
 ### Known API leaks to close
 
