@@ -6,6 +6,7 @@ namespace Meraki\Schema\Api;
 use Meraki\Schema\Field;
 use Meraki\Schema\FieldName;
 use PHPUnit\Framework\TestCase;
+use PHPUnit\Framework\Attributes\CoversNothing;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -17,6 +18,7 @@ use PHPUnit\Framework\Attributes\DataProvider;
  * `type` does not appear: it is removed, and missing / malformed / constraint-failed become
  * structurally distinct on the resolved field instead.
  */
+#[CoversNothing]
 #[Group('api-2.0')]
 final class ConstraintNameTest extends TestCase
 {
@@ -120,8 +122,7 @@ final class ConstraintNameTest extends TestCase
 	public function a_constraint_about_the_whole_field_has_no_part(): void
 	{
 		// Something the dotted scheme could not express at all.
-		$text = new Field\Text(new FieldName('bio'));
-		$text->minLengthOf(10);
+		$text = (new Field\Text(new FieldName('bio')))->minLengthOf(10);
 
 		$this->assertNull($text->validate('short')->forConstraint('minLength')->part);
 	}
@@ -132,8 +133,7 @@ final class ConstraintNameTest extends TestCase
 		// So a message never reads $field->{$constraint->name}: that is a dynamic property
 		// access, which static analysis cannot type, and which renders "Array" for a bound
 		// held as a map.
-		$text = new Field\Text(new FieldName('bio'));
-		$text->minLengthOf(10);
+		$text = (new Field\Text(new FieldName('bio')))->minLengthOf(10);
 
 		$this->assertSame(10, $text->validate('short')->forConstraint('minLength')->bound);
 	}
@@ -143,8 +143,9 @@ final class ConstraintNameTest extends TestCase
 	{
 		// Money's minimum is a map keyed by currency. The result carries the value for the
 		// currency actually submitted, already resolved.
-		$money = new Field\Money(new FieldName('cost'), ['AUD' => 2, 'USD' => 2]);
-		$money->minAmountOf('AUD', '10.00')->minAmountOf('USD', '7.00');
+		$money = (new Field\Money(new FieldName('cost'), ['AUD' => 2, 'USD' => 2]))
+			->minAmountOf('AUD', '10.00')
+			->minAmountOf('USD', '7.00');
 
 		$failed = $money->validate((object)['currency' => 'USD', 'amount' => '5.00'])->forConstraint('minAmount');
 

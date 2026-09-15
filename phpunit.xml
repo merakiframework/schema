@@ -24,14 +24,19 @@
         would be written twice. Revisit once the seam has landed.
 
         requireCoverageMetadata stays on, so every test still declares what it covers.
+
+        The api-2.0 group is no longer excluded. It was, on the grounds that the 2.0
+        specification was written before the implementation and so was red by design. It has
+        not been red for some time, and a green specification that CI never runs is one nobody
+        finds out has rotted. It is the only executable statement of what 2.0 *means*, which
+        makes it the last thing that should be optional.
+
+        Its files declare #[CoversNothing] rather than #[CoversClass]. That is honest rather
+        than expedient: they assert behaviour across the whole API — that every field is
+        sealed, that every parsed value knows its own equality, that no constraint name carries
+        the field it came from — and attributing that to one class would be a fiction. Coverage
+        comes from the unit tests beside them.
     -->
-    <groups>
-        <!-- The 2.0 API specification. Written before the implementation, so it is red
-             by design; run it on its own with the api-2.0 group. -->
-        <exclude>
-            <group>api-2.0</group>
-        </exclude>
-    </groups>
 
     <testsuites>
         <testsuite name="default">

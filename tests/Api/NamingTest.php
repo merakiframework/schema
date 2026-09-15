@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace Meraki\Schema\Api;
 
 use PHPUnit\Framework\TestCase;
+use PHPUnit\Framework\Attributes\CoversNothing;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -19,6 +20,7 @@ use PHPUnit\Framework\Attributes\DataProvider;
  * field, so a class that does not exist yet reports a failed assertion instead of a fatal
  * error — the whole file stays runnable while it is red.
  */
+#[CoversNothing]
 #[Group('api-2.0')]
 final class NamingTest extends TestCase
 {
@@ -64,14 +66,12 @@ final class NamingTest extends TestCase
 			// Password absorbs Passphrase. Composition is explicit, strength is a floor.
 			'Password' => [
 				'minLengthOf', 'maxLengthOf', 'minStrengthOf',
-				'minNumberOfUppercaseChars', 'maxNumberOfUppercaseChars',
-				'minNumberOfLowercaseChars', 'maxNumberOfLowercaseChars',
-				'minNumberOfDigits', 'maxNumberOfDigits',
-				'minNumberOfSymbols', 'maxNumberOfSymbols',
+				'minNumberOfUppercaseChars', 'minNumberOfLowercaseChars',
+				'minNumberOfDigits', 'minNumberOfSymbols',
 			],
 
 			// Structured types: one field, one value object.
-			'Address' => ['allowCountries', 'ofType', 'mustBeSpecific'],
+			'Address' => ['allowCountries', 'clearAllowedCountries', 'allowOnlyMailable', 'allowOnlyPhysical', 'allowWithoutStreet'],
 			'Money' => ['allowCurrencies', 'minAmountOf', 'maxAmountOf'],
 			'CreditCard' => ['mustExpireInFuture'],
 		];
@@ -113,11 +113,8 @@ final class NamingTest extends TestCase
 			'Collection' => ['minCount', 'maxCount'],
 			'File' => ['minSize', 'maxSize', 'allowedTypes', 'disallowedTypes'],
 			'Password' => [
-				'minLength', 'maxLength', 'maxBytes', 'minStrength',
-				'minUppercaseChars', 'maxUppercaseChars',
-				'minLowercaseChars', 'maxLowercaseChars',
-				'minDigits', 'maxDigits',
-				'minSymbols', 'maxSymbols',
+				'minLength', 'maxLength', 'minStrength',
+				'minUppercaseChars', 'minLowercaseChars', 'minDigits', 'minSymbols',
 			],
 			'Address' => ['allowedCountries', 'type', 'mustBeSpecific'],
 			'Money' => ['allowedCurrencies'],

@@ -10,6 +10,7 @@ use Meraki\Schema\ValueSource;
 use InvalidArgumentException;
 use Fiber;
 use PHPUnit\Framework\TestCase;
+use PHPUnit\Framework\Attributes\CoversNothing;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\Attributes\Group;
 
@@ -17,6 +18,7 @@ use PHPUnit\Framework\Attributes\Group;
  * The split that closes B9: an authored constant lives on the definition and serialises; a
  * value fetched for one user arrives with the request and never touches the schema.
  */
+#[CoversNothing]
 #[Group('api-2.0')]
 final class DefaultsAndPrefillTest extends TestCase
 {

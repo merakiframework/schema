@@ -10,6 +10,7 @@ use Brick\DateTime\Clock\FixedClock;
 use Brick\DateTime\Instant;
 use Brick\DateTime\ZonedDateTime;
 use PHPUnit\Framework\TestCase;
+use PHPUnit\Framework\Attributes\CoversNothing;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\Attributes\Group;
 
@@ -19,6 +20,7 @@ use PHPUnit\Framework\Attributes\Group;
  * stateless and safe on a shared definition, whereas reading `now` once and storing it would
  * be B7 again.
  */
+#[CoversNothing]
 #[Group('api-2.0')]
 final class ClockTest extends TestCase
 {

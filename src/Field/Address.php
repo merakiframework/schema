@@ -182,9 +182,13 @@ final readonly class Address extends AtomicField
 	/**
 	 * Turns what was submitted into a {@see Value}.
 	 *
-	 * A country is upper-cased, and filled in when the whitelist leaves only one choice —
-	 * otherwise an address restricted to a single country would resolve without the country it is
-	 * restricted to.
+	 * A country is upper-cased, and **never filled in**. It used to be supplied when the allow-list
+	 * happened to hold exactly one country, which made the rule change shape depending on how many
+	 * were listed — an address was complete or incomplete according to a detail of the field's
+	 * configuration rather than according to what was submitted. A country is now always the
+	 * submitter's to give, the same pairing {@see Money} makes with a currency.
+	 *
+	 * See `Field\AddressTest::an_address_without_a_country_never_described_a_place`.
 	 *
 	 * @param array<string, mixed>|Value $value
 	 */
