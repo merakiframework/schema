@@ -38,14 +38,43 @@ final class EnumTest extends FieldTestCase
 	}
 
 
+	/**
+	 * A value outside the cases is a *constraint* failure, not a shape failure.
+	 *
+	 * The distinction is the whole reason this field has a constraint at all. Shape failure means
+	 * "that is not the kind of thing this field holds" and has nothing to interpolate; membership
+	 * means "that is not one of these" and carries the list, so a renderer can say
+	 * "must be one of: AUD, USD" without reaching past the result to the field.
+	 */
 	#[Test]
-	public function it_does_not_allow_invalid_values(): void
+	public function a_value_outside_the_cases_fails_the_membership_constraint(): void
 	{
 		$field = $this->createField();
 
 		$result = $field->validate('GBP');
 
-		$this->assertShapeFailed($result);
+		$this->assertShapePassed($result);
+		$this->assertConstraintValidationResultFailed('allowedCases', $result);
+	}
+
+	#[Test]
+	public function the_membership_failure_carries_the_cases_as_its_bound(): void
+	{
+		$result = $this->createField()->validate('GBP');
+
+		$this->assertSame(
+			array_map(strval(...), $this->createField()->cases),
+			$result->forConstraint('allowedCases')->bound,
+		);
+	}
+
+	/**
+	 * Something that is not a scalar at all cannot be a case, so that really is the shape.
+	 */
+	#[Test]
+	public function a_value_that_could_never_be_a_case_fails_the_shape(): void
+	{
+		$this->assertShapeFailed($this->createField()->validate((object)['not' => 'scalar']));
 	}
 
 

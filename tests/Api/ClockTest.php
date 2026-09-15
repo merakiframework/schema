@@ -44,9 +44,11 @@ final class ClockTest extends TestCase
 		$schema = new Facade('checkout', clock: $this->fixed());
 		$schema->add($schema->createCreditCardField('card')->mustExpireInFuture());
 
-		$this->assertSame(
-			self::NOW,
-			(string) $schema->resolve(['card' => []])->evaluatedAt,
+		// Instants are compared as instants, not as strings: Brick omits zero seconds, so
+		// `2026-09-09T00:00:00Z` prints as `2026-09-09T00:00Z`, and pinning the formatting would
+		// assert Brick's choices rather than this library's behaviour.
+		$this->assertTrue(
+			self::instant(self::NOW)->isEqualTo($schema->resolve((object)['card' => (object)[]])->evaluatedAt),
 		);
 	}
 
@@ -55,7 +57,9 @@ final class ClockTest extends TestCase
 	{
 		$card = new Field\CreditCard(new FieldName('card'), clock: $this->fixed('2030-01-01T00:00:00Z'));
 
-		$this->assertSame('2030-01-01T00:00:00Z', (string) $card->resolve([])->evaluatedAt);
+		$this->assertTrue(
+			self::instant('2030-01-01T00:00:00Z')->isEqualTo($card->resolve((object)[])->evaluatedAt),
+		);
 	}
 
 	#[Test]
@@ -65,14 +69,14 @@ final class ClockTest extends TestCase
 		// same answer, whenever the question is asked again.
 		$card = new Field\CreditCard(new FieldName('card'), clock: $this->fixed());
 
-		$resolved = $card->validate([
-			'holder' => 'K Miller',
+		$resolved = $card->validate((object) [
+			'name' => 'K Miller',
 			'number' => '4014 1828 2909 8807',
 			'expiry' => '2029-07',
 			'security_code' => '936',
 		]);
 
-		$this->assertSame(self::NOW, (string) $resolved->evaluatedAt);
+		$this->assertTrue(self::instant(self::NOW)->isEqualTo($resolved->evaluatedAt));
 	}
 
 	#[Test]
@@ -81,22 +85,25 @@ final class ClockTest extends TestCase
 		$card = (new Field\CreditCard(new FieldName('card'), clock: $this->fixed()))
 			->mustExpireInFuture();
 
-		$failed = $card->validate([
-			'holder' => 'K Miller',
+		$failed = $card->validate((object) [
+			'name' => 'K Miller',
 			'number' => '4014 1828 2909 8807',
 			'expiry' => '2020-01',
 			'security_code' => '936',
 		])->forConstraint('expiryInFuture');
 
 		$this->assertTrue($failed->failed());
-		$this->assertSame(self::NOW, (string) $failed->bound);
+
+		// The bound is the instant it was judged from, so a message can say what "expired" was
+		// measured against. A string because a bound is what a message interpolates.
+		$this->assertSame((string) self::instant(self::NOW), $failed->bound);
 	}
 
 	#[Test]
 	public function the_same_card_passes_or_fails_purely_by_moving_the_clock(): void
 	{
-		$submitted = [
-			'holder' => 'K Miller',
+		$submitted = (object) [
+			'name' => 'K Miller',
 			'number' => '4014 1828 2909 8807',
 			'expiry' => '2029-07',
 			'security_code' => '936',
@@ -120,7 +127,12 @@ final class ClockTest extends TestCase
 		// anything having been edited. The carve-out is deliberate.
 		$card = new Field\CreditCard(new FieldName('card'), clock: $this->fixed());
 
-		$card->mustExpireInFuture()->defaultsTo(['expiry' => '2029-07']);
+		$card->mustExpireInFuture()->defaultsTo((object) [
+			'name' => 'K Miller',
+			'number' => '4014 1828 2909 8807',
+			'expiry' => '2029-07',
+			'security_code' => '936',
+		]);
 
 		$this->addToAssertionCount(1);
 	}
@@ -132,8 +144,8 @@ final class ClockTest extends TestCase
 		// A baseline ceiling, not configuration.
 		$card = new Field\CreditCard(new FieldName('card'), clock: $this->fixed());
 
-		$failed = $card->validate([
-			'holder' => 'K Miller',
+		$failed = $card->validate((object) [
+			'name' => 'K Miller',
 			'number' => '4014 1828 2909 8807',
 			'expiry' => '2099-01',
 			'security_code' => '936',

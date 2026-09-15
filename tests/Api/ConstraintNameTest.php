@@ -44,35 +44,57 @@ final class ConstraintNameTest extends TestCase
 		$names = [
 			'Text' => ['minLength', 'maxLength', 'pattern'],
 			'Name' => ['minLength', 'maxLength'],
-			'Number' => ['minValue', 'maxValue', 'step', 'scale'],
+
+			// `scale` and `maxPrecision` are different questions and neither implies the other:
+			// scale counts digits after the point and is exact, precision counts significant
+			// digits wherever they fall and is a ceiling.
+			'Number' => ['minValue', 'maxValue', 'step', 'scale', 'maxPrecision'],
 			'Duration' => ['minValue', 'maxValue', 'step'],
 
+			// `precision` is what a field accepts, not what it stores — a time field told to take
+			// minutes refuses a value carrying seconds rather than truncating it.
 			'Date' => ['from', 'until', 'interval'],
-			'Time' => ['from', 'until', 'interval'],
-			'DateTime' => ['from', 'until', 'interval'],
+			'Time' => ['from', 'until', 'interval', 'precision'],
+			'DateTime' => ['from', 'until', 'interval', 'precision'],
 
+			'Boolean' => ['accepted'],
 			'EmailAddress' => ['minLength', 'maxLength', 'allowedDomains', 'disallowedDomains'],
 			'Uri' => ['minLength', 'maxLength', 'allowedSchemes'],
 			'Uuid' => ['allowedVersions'],
-			'PhoneNumber' => ['allowedCountries', 'numberType', 'unambiguous'],
 
+			// No `unambiguous`: a number is submitted with its country, so there is no ambiguity
+			// left for a constraint to report. The pairing settles it before any check runs.
+			'PhoneNumber' => ['allowedCountries', 'numberType'],
+
+			// No `maxBytes`, and no composition *maximums*. What a hashing algorithm can swallow
+			// is the hashing layer's business — see Field\Password — and a maximum number of
+			// digits or symbols is a rule with no security argument behind it.
 			'Password' => [
-				'minLength', 'maxLength', 'maxBytes', 'minStrength',
-				'minUppercaseChars', 'maxUppercaseChars',
-				'minLowercaseChars', 'maxLowercaseChars',
-				'minDigits', 'maxDigits',
-				'minSymbols', 'maxSymbols',
+				'minLength', 'maxLength', 'minStrength',
+				'minUppercaseChars', 'minLowercaseChars', 'minDigits', 'minSymbols',
 			],
 
 			'File' => ['minSize', 'maxSize', 'allowedTypes', 'disallowedTypes'],
 
-			// Structured types: flat, and no longer prefixed with the field's own name.
+			// Structured types: flat, and no longer prefixed with the field's own name. Each part
+			// a constraint concerns is carried on the result as `part` rather than spelled into
+			// the name, which is what let the dotted names go.
 			'Money' => ['allowedCurrencies', 'minAmount', 'maxAmount', 'scale'],
-			'Address' => ['allowedCountries', 'postalCodeFormat', 'line1Visitable', 'specific'],
-			'CreditCard' => ['numberChecksum', 'expiryInFuture'],
+			'Address' => ['allowedCountries', 'postalCodeFormat', 'administrativeArea', 'line1Visitable', 'specific'],
+			'CreditCard' => [
+				'numberFormat', 'numberChecksum',
+				'expiryFormat', 'expiryInFuture', 'expiryWithinReach',
+				'namePresent', 'securityCodeFormat',
+			],
 
-			// The list is the type, so membership is shape rather than a constraint.
-			'Enum' => [],
+			// A collection bounds the list and refuses repeats; each item is checked against the
+			// template and reports under the template field's own names.
+			'Collection' => ['minCount', 'maxCount', 'unique'],
+
+			// Membership is a constraint, not the shape. It is the one field where membership is
+			// the whole point, and reporting it as "unreadable" left a renderer with no name to
+			// match on and no list to interpolate.
+			'Enum' => ['allowedCases'],
 		];
 
 		foreach ($names as $class => $expected) {
@@ -88,7 +110,7 @@ final class ConstraintNameTest extends TestCase
 		$money = new Field\Money(new FieldName('cost'), ['AUD' => 2]);
 		$money->minAmountOf('AUD', '10.00');
 
-		$failed = $money->validate(['currency' => 'AUD', 'amount' => '5.00'])->forConstraint('minAmount');
+		$failed = $money->validate((object)['currency' => 'AUD', 'amount' => '5.00'])->forConstraint('minAmount');
 
 		$this->assertSame('minAmount', $failed->name);
 		$this->assertSame('amount', $failed->part);
@@ -124,7 +146,7 @@ final class ConstraintNameTest extends TestCase
 		$money = new Field\Money(new FieldName('cost'), ['AUD' => 2, 'USD' => 2]);
 		$money->minAmountOf('AUD', '10.00')->minAmountOf('USD', '7.00');
 
-		$failed = $money->validate(['currency' => 'USD', 'amount' => '5.00'])->forConstraint('minAmount');
+		$failed = $money->validate((object)['currency' => 'USD', 'amount' => '5.00'])->forConstraint('minAmount');
 
 		$this->assertSame('7.00', (string) $failed->bound);
 	}
@@ -154,6 +176,9 @@ final class ConstraintNameTest extends TestCase
 			Field\Money::class => new Field\Money($name, ['AUD' => 2]),
 			Field\Address::class => new Field\Address($name, ['AU']),
 			Field\PhoneNumber::class => new Field\PhoneNumber($name, ['AU']),
+			// A collection's template is variadic and must not be empty: one field is enough
+			// to build a valid one, and the names asserted here are the collection's own.
+			Field\Collection::class => new Field\Collection($name, new Field\Text(new FieldName('item'))),
 			default => new $fqcn($name),
 		};
 	}

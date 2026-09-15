@@ -5,6 +5,7 @@ namespace Meraki\Schema\Api;
 
 use Meraki\Schema\Facade;
 use Meraki\Schema\PrefillPolicy;
+use Meraki\Schema\ValidationStatus;
 use Meraki\Schema\ValueSource;
 use InvalidArgumentException;
 use Fiber;
@@ -31,9 +32,9 @@ final class DefaultsAndPrefillTest extends TestCase
 	#[Test]
 	public function an_authored_default_applies_when_nothing_is_submitted(): void
 	{
-		$resolved = $this->schema()->resolve(['username' => 'alice'])->forConstraint('nickname');
+		$resolved = $this->schema()->resolve((object)['username' => 'alice'])->forField('nickname');
 
-		$this->assertSame('anonymous', $resolved->value);
+		$this->assertSame('anonymous', $resolved->value->text);
 		$this->assertSame(ValueSource::Default, $resolved->source);
 	}
 
@@ -41,10 +42,10 @@ final class DefaultsAndPrefillTest extends TestCase
 	public function a_prefill_beats_the_authored_default(): void
 	{
 		$resolved = $this->schema()
-			->resolve(['username' => 'alice'], prefilledWith: ['nickname' => 'ali'])
-			->forConstraint('nickname');
+			->resolve((object)['username' => 'alice'], prefilledWith: (object)['nickname' => 'ali'])
+			->forField('nickname');
 
-		$this->assertSame('ali', $resolved->value);
+		$this->assertSame('ali', $resolved->value->text);
 		$this->assertSame(ValueSource::Prefilled, $resolved->source);
 	}
 
@@ -52,10 +53,10 @@ final class DefaultsAndPrefillTest extends TestCase
 	public function what_was_submitted_beats_a_prefill(): void
 	{
 		$resolved = $this->schema()
-			->resolve(['username' => 'alice', 'nickname' => 'typed'], prefilledWith: ['nickname' => 'ali'])
-			->forConstraint('nickname');
+			->resolve((object)['username' => 'alice', 'nickname' => 'typed'], prefilledWith: (object)['nickname' => 'ali'])
+			->forField('nickname');
 
-		$this->assertSame('typed', $resolved->value);
+		$this->assertSame('typed', $resolved->value->text);
 		$this->assertSame(ValueSource::Submitted, $resolved->source);
 	}
 
@@ -64,24 +65,27 @@ final class DefaultsAndPrefillTest extends TestCase
 	{
 		// The scenario that decides it: a constraint tightens and stored values no longer
 		// satisfy it. Checked surfaces that so the user fixes it.
-		$result = $this->schema()->validate([], prefilledWith: ['username' => 'ab']);
+		$result = $this->schema()->validate(null, prefilledWith: (object)['username' => 'ab']);
 
-		$this->assertTrue($result->forConstraint('username')->anyFailed());
+		$this->assertTrue($result->forField('username')->anyFailed());
 	}
 
 	#[Test]
 	public function a_trusted_prefill_skips_the_constraints_but_still_passes(): void
 	{
 		$resolved = $this->schema()
-			->validate([], prefilledWith: ['username' => 'ab'], policy: PrefillPolicy::Trusted)
-			->forConstraint('username');
+			->validate(null, prefilledWith: (object)['username' => 'ab'], policy: PrefillPolicy::Trusted)
+			->forField('username');
 
 		$this->assertFalse($resolved->anyFailed());
-		$this->assertSame('ab', $resolved->value);
+		$this->assertSame('ab', $resolved->value->text);
 
-		// Passed, not Skipped: Skipped means there was nothing to check, and would make
-		// transformed return null for a field that plainly has a value.
-		$this->assertSame('ab', $resolved->transformed);
+		// Passed, not Skipped. Skipped means there was nothing to check at all; this field
+		// plainly has a value, and trust waives the rules rather than the value's existence.
+		// The shape still had to pass to get here — trust says a value meets the rules, not
+		// that the field can read it.
+		$this->assertTrue($resolved->shape->passed());
+		$this->assertSame(ValidationStatus::Passed, $resolved->status);
 	}
 
 	#[Test]
@@ -90,9 +94,9 @@ final class DefaultsAndPrefillTest extends TestCase
 		// Trust attaches to a value, and a prefilled value only survives when nothing
 		// overwrote it.
 		$result = $this->schema()
-			->validate(['username' => 'ab'], prefilledWith: ['username' => 'alice'], policy: PrefillPolicy::Trusted);
+			->validate((object)['username' => 'ab'], prefilledWith: (object)['username' => 'alice'], policy: PrefillPolicy::Trusted);
 
-		$this->assertTrue($result->forConstraint('username')->anyFailed());
+		$this->assertTrue($result->forField('username')->anyFailed());
 	}
 
 	#[Test]
@@ -116,11 +120,11 @@ final class DefaultsAndPrefillTest extends TestCase
 
 		$request = static fn(string $email): Fiber => new Fiber(
 			static function () use ($schema, $email): mixed {
-				$resolved = $schema->resolve([], prefilledWith: ['email' => $email]);
+				$resolved = $schema->resolve(null, prefilledWith: (object)['email' => $email]);
 
 				Fiber::suspend();
 
-				return $resolved->forConstraint('email')->value;
+				return $resolved->forField('email')->value->text;
 			},
 		);
 
@@ -142,9 +146,9 @@ final class DefaultsAndPrefillTest extends TestCase
 		$schema = new Facade('profile');
 		$schema->add($schema->createTextField('email'));
 
-		$schema->validate([], prefilledWith: ['email' => 'alice-pii@example.com']);
+		$schema->validate(null, prefilledWith: (object)['email' => 'alice-pii@example.com']);
 
-		$this->assertStringNotContainsString('alice-pii', serialize($schema));
+		$this->assertStringNotContainsString('alice-pii', self::dump($schema));
 	}
 
 	#[Test]
@@ -154,12 +158,31 @@ final class DefaultsAndPrefillTest extends TestCase
 		// typed, so there is nowhere for a request to end up.
 		$schema = $this->schema();
 
-		$schema->validate(['username' => 'alice'], prefilledWith: ['nickname' => 'ali']);
+		$schema->validate((object)['username' => 'alice'], prefilledWith: (object)['nickname' => 'ali']);
 
-		$serialised = serialize($schema);
+		$dumped = self::dump($schema);
 
-		$this->assertStringNotContainsString('alice', $serialised);
-		$this->assertStringNotContainsString('ali', $serialised);
-		$this->assertStringContainsString('anonymous', $serialised);
+		$this->assertStringNotContainsString('alice', $dumped);
+		$this->assertStringNotContainsString('ali', $dumped);
+
+		// The authored default is still there, which is the other half of the claim: a
+		// definition keeps what its author typed and nothing a request brought with it.
+		$this->assertStringContainsString('anonymous', $dumped);
+	}
+
+	/**
+	 * The whole object graph as text, for asserting that something is *not* in it.
+	 *
+	 * `serialize()` would be the obvious tool and cannot be used: a constraint holds a `Closure`,
+	 * so a schema is not PHP-serialisable at all. That is not a gap — serialising a schema is
+	 * `meraki/schema-json`'s job, and it writes the *definition* rather than the object graph,
+	 * which is exactly the distinction this test is about.
+	 *
+	 * `print_r()` walks the graph the same way and prints a closure as a closure, so a value
+	 * hidden anywhere in a field, a constraint's bound or a rule would still show up here.
+	 */
+	private static function dump(Facade $schema): string
+	{
+		return print_r($schema, true);
 	}
 }
