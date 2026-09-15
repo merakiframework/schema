@@ -67,9 +67,12 @@
             "@composer audit",
             "@analyse",
             "@test:coverage",
-            "@test:examples"
+            "@test:examples",
+            "@test:changelog"
         ],
-        "test:examples": "php tools/check-examples.php"
+        "test:examples": "php tools/check-examples.php",
+        "changelog": "php tools/changelog.php",
+        "test:changelog": "php tools/changelog.php --check"
     },
     "extra": {
         "branch-alias": {
@@ -80,6 +83,8 @@
         "test": "Run the test suite.",
         "test:coverage": "Run the suite with coverage (needs Xdebug or pcov).",
         "analyse": "Run PHPStan.",
-        "ci": "Run everything CI runs, in the same order."
+        "ci": "Run everything CI runs, in the same order.",
+        "changelog": "Regenerate CHANGELOG.md from the commit history.",
+        "test:changelog": "Fail if CHANGELOG.md is out of date."
     }
 }
