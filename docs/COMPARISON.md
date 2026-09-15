@@ -130,6 +130,44 @@ Schema only through `if`/`then`/`allOf` gymnastics that are painful to author an
 
 ---
 
+## Extending it: what a new type costs
+
+The axis the table above does not cover, and the one where the gap is widest. The question is
+not "can I add a type" — everything here can — but **what do I keep when I do**.
+
+| Library | Adding a type or rule | Registration | Static types kept | First-class result |
+| --- | --- | --- | --- | --- |
+| **meraki/schema** | Extend `AtomicField`; write `parse()` and `defineConstraints()` | **None** | Full — a real class, its own withers, its own properties | Identical to a built-in |
+| symfony/validator | `Constraint` + `ConstraintValidator` pair | Autoconfigured in Symfony, manual elsewhere | Full | Yes — but it is a *constraint*; there is no field type to be first-class in |
+| symfony/form | `AbstractType` subclass | Service tag | Config is a stringly-keyed options array | Yes, with DI and a theme to write |
+| nette/forms | Control extending `BaseControl`, or `extensionMethod()` | Required | Partial — validators are callbacks and constants | Yes; the closest analogue overall |
+| laminas-inputfilter | `ValidatorInterface` implementation | Plugin manager | Config arrays throughout | A validator, not a type |
+| illuminate/validation | `Validator::extend('isbn', fn)` plus a lang string | One global call | **None** — rules are strings, arguments are strings | No type exists; a named closure |
+| respect/validation | Drop a `Rule` class in a namespace | Convention only | Resolved by magic static; no completion | A rule, not a field |
+| cuyz/valinor | Register a constructor or transformer | On the mapper builder | Excellent | Hydration, not form semantics |
+| opis/json-schema | Custom format or keyword handler | On the validator | Schema is data, not PHP types | Portable, but no domain types |
+
+Two of them make extension genuinely cheap — **respect/validation** (drop a class, convention
+resolves it) and **illuminate/validation** (one closure) — and both pay for it with the type
+system. Two make it type-safe — **symfony/validator** and **valinor** — and both charge
+registration, and neither has a *field type* to extend: Symfony extends the constraint
+vocabulary, valinor extends hydration.
+
+**This library is the only one where a third-party type is indistinguishable from a built-in,
+with no registration and full static types.** That is a consequence of the architecture rather
+than a feature, which is why it is worth stating: serialization is something a competitor could
+add, and this is not. See [EXTENDING.md](EXTENDING.md), and
+[examples/custom-field.php](../examples/custom-field.php), which is a complete field type in
+about forty lines.
+
+**The honest other half.** The *field* axis is where this wins; the *constraint* axis is where
+it loses. Symfony ships something like eighty constraints, and adding one to an existing type is
+a two-class job. Here, adding a constraint to a built-in field is closed entirely — every field
+is `final readonly` — so "I need `Text` to also reject reserved words" means reimplementing
+`Text`. Anyone evaluating this will hit that within a week.
+
+---
+
 ## On messages, where this comparison usually gets lost
 
 Every library above bundles error messages and translations into the validator. This one
@@ -147,10 +185,19 @@ message provider. Today only `meraki/schema-html` ships one.
 
 ## The honest argument against
 
-**Maturity, not design.** Every library in the table above has continuous integration,
-static analysis, published coverage, a changelog, and years of production use. This one
-has none of those yet and is still tagged alpha.
+**Maturity, not design.** Every library in the table above has years of production use behind
+it, a large body of answered questions, and people other than its author who know how it works.
+This one has continuous integration, static analysis, a generated changelog and a test suite in
+the thousands — and none of that is the same thing as having been wrong in public often enough
+to have learned.
 
-For a team choosing a validator today, that — not any missing feature — is the reason to
-choose something else. See [LIMITATIONS.md](LIMITATIONS.md) for what is actually broken,
-and [ROADMAP.md](ROADMAP.md) for the path to a stable release.
+Three specific costs, none of which are bugs:
+
+- **You will write a message provider** unless you also take `meraki/schema-html`.
+- **You cannot add a constraint to a built-in field**, only a whole new field type.
+- **The comparison matchers are not built yet** — rules can ask `equals` and `notEquals`, not
+  `isAtLeast`. The interface they will be written against exists; the verbs do not.
+
+For a team choosing a validator today, that — not any missing feature — is the reason to choose
+something else. See [LIMITATIONS.md](LIMITATIONS.md) for what is actually broken, and
+[ROADMAP.md](ROADMAP.md) for what is planned.

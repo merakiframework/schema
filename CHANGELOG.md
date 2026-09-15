@@ -10,6 +10,37 @@ is a commit subject, with the body kept because the body is where the reasoning 
 
 ## Unreleased
 
+### Generate the changelog, and add four focused examples
+
+`cf31b6a7` · 2026-09-15
+
+CHANGELOG.md is written by tools/changelog.php from the commit history, and
+composer ci fails if it is out of date. A hand-kept changelog is a second
+place to write down what a commit already said, and the two drift the first
+time somebody is in a hurry.
+
+It does not sort commits into Added/Changed/Fixed. That classification lives
+in the author's head at commit time, and a script inferring it from a verb
+produces confident nonsense.
+
+Four examples, each about one thing:
+
+  collections       named rows, minCount, unique across two spellings of a
+                    quantity, and a failing row failing the collection
+  value-equality    why a field's value decides equality rather than ==,
+                    with the Order enum for the ordered ones
+  branching-rules   then/otherwise on one condition, reusing a condition for
+                    two rules, and allOf
+  comparing-fields  whole-value and part-scope comparison between two fields
+
+The branching example first read 'email required: true' on all three rows,
+because the field was required as authored and thenRequire on an
+already-required field changes nothing. Made optional so the rule's effect is
+visible -- a fine way to write an example that proves nothing.
+
+interactive-input prompts when a terminal is attached and plays scripted
+answers when one is not, so CI exercises it rather than skipping it.
+
 ### Scopes can read into a structured value, and compare two fields
 
 `00738a9d` · 2026-09-15
