@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace Meraki\Schema\Field\CreditCard;
 
 use Meraki\Schema\Comparison\Equality;
+use Meraki\Schema\Field\HasParts;
 use Meraki\Schema\Field\ParsedValue;
 use Brick\DateTime\LocalDate;
 use Brick\DateTime\DateTimeException;
@@ -33,7 +34,7 @@ use SensitiveParameter;
  * It does not guess the network. A number beginning `4` is probably a Visa, and "probably" is not
  * a thing to validate against — the ranges move, and the processor is the authority.
  */
-final readonly class Value implements ParsedValue
+final readonly class Value implements ParsedValue, HasParts
 {
 	/**
 	 * @param string|null $number digits only, with any spacing already removed
@@ -161,5 +162,30 @@ final readonly class Value implements ParsedValue
 	public function isComplete(): bool
 	{
 		return $this->number !== null && $this->expiry !== null && $this->name !== null;
+	}
+
+	/**
+	 * The number and the security code are here because a part scope reads what the field
+	 * holds, and withholding them would only send a caller to the properties instead. Nothing
+	 * about a part scope makes a card safe to log — see this class's note on that.
+	 *
+	 * @return list<string>
+	 */
+	public static function partNames(): array
+	{
+		return ['number', 'expiry', 'name', 'security_code'];
+	}
+
+	/**
+	 * @return array<string, mixed>
+	 */
+	public function parts(): array
+	{
+		return [
+			'number' => $this->number,
+			'expiry' => $this->expiry,
+			'name' => $this->name,
+			'security_code' => $this->securityCode,
+		];
 	}
 }

@@ -14,7 +14,7 @@ three from drifting apart:
 | Surface | The question it answers | What it means now |
 | --- | --- | --- |
 | **Definition** | How does an author declare it? | `->minLengthOf(3)` on a sealed field, via withers |
-| **Rule** | How does a matcher reference it? | `PropertyScope::of('age', 'min')` — `#/fields/age/min`. The property segment is a real public property, and `addRule()` rejects one that is not |
+| **Rule** | How does a matcher reference it? | A scope. `#/fields/age/minValue` is a definition property, `#/fields/billing/value` is what was submitted, `#/fields/billing/value/country` is one part of it. Every one is checked by `addRule()`, so a typo fails where it is written |
 | **Resolved** | How does it appear after validation? | The constraint name on a `ConstraintValidationResult`, and the value type on the `ResolvedField` |
 
 A row is **confirmed** only when all three are settled and consistent with the rest of the
@@ -967,6 +967,50 @@ same split as `Address` and its countries: an allow-list entry that is not a rea
 typo no input could satisfy, so it throws; a submitted currency that is not real is a value that
 happens to be wrong, so `allowedCurrencies` reports it and a form can mark the right input. As
 ever, an unrestricted field enforces nothing — free-form means free-form.
+
+## Scopes, and reading into a value
+
+Four kinds, and the segment count says which:
+
+| Scope | Names |
+| --- | --- |
+| `#/fields/nickname` | the field — what an outcome acts on |
+| `#/fields/nickname/value` | what it was given, parsed |
+| `#/fields/age/minValue` | a public property of the definition |
+| `#/fields/billing/value/country` | one part of the value |
+
+A **part** belongs to a value, so it goes under `value` rather than beside it. The short form
+`#/fields/billing/country` reads better and is ambiguous: the third segment already means a
+definition property, and two fields have one that collides with a part of their value —
+`#/fields/card/name` could be the field's name or the cardholder's, and `#/fields/resume/name` the
+field's or the uploaded file's. `$name` is on every field, so the collision is not exotic, and a
+precedence rule would make a *stored* scope change meaning if a field later gained a property.
+
+Only a value that says it has parts can be read into: [`Field\HasParts`](../src/Field/HasParts.php),
+implemented by `Address`, `Money`, `CreditCard`, `File`, `EmailAddress` and `PhoneNumber` values.
+Part names are the keys submitted input uses and the ones a constraint reports as `$constraint->part`
+— `postal_code`, not `postalCode` — so there is one vocabulary rather than three. `partNames()` is
+static so `addRule()` can check a part before any request exists.
+
+### An expectation can be another scope
+
+Which is what makes a rule compare two *fields* rather than a field and a constant:
+
+```php
+// is the whole shipping address the billing address?
+$schema->when(ValueScope::of('shipping'))->equals(ValueScope::of('billing'));
+
+// are they at least in the same country?
+$schema->when(PartScope::of('shipping', 'country'))
+    ->equals(PartScope::of('billing', 'country'));
+```
+
+Both sides go through the same resolver, so a parsed value is compared against a parsed value.
+The two sides need not be the same part or even the same kind of field — comparing a `postal_code`
+to a `line1` is allowed and answers false.
+
+**Collection items are still not addressable.** Which row `0` is depends on what was submitted, so
+a stored rule naming one would mean a different row on a different request.
 
 ## Still to decide
 

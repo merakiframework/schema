@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace Meraki\Schema\Field\PhoneNumber;
 
 use Meraki\Schema\Comparison\Equality;
+use Meraki\Schema\Field\HasParts;
 use Meraki\Schema\Field\ParsedValue;
 use libphonenumber\PhoneNumber as LibPhoneNumber;
 use libphonenumber\PhoneNumberFormat;
@@ -26,7 +27,7 @@ use libphonenumber\PhoneNumberUtil;
  * E.164 is the canonical form and the only one that settles it: it is what the number *is*, with
  * every question of spacing, national prefix and local convention already resolved.
  */
-final readonly class Value implements ParsedValue
+final readonly class Value implements ParsedValue, HasParts
 {
 	public function __construct(public LibPhoneNumber $number)
 	{
@@ -57,5 +58,33 @@ final readonly class Value implements ParsedValue
 	public function __toString(): string
 	{
 		return $this->toE164();
+	}
+
+	/**
+	 * The country and the canonical number.
+	 *
+	 * `country` is the region libphonenumber resolves the number to, which is the part a rule
+	 * actually wants — "is the participant's phone in the same country as the organiser's" is a
+	 * real question and comparing whole numbers cannot answer it.
+	 *
+	 * It is `null` for a number whose region is genuinely ambiguous: `+1` covers twenty-five
+	 * regions, so libphonenumber declines to guess and so does this.
+	 *
+	 * @return list<string>
+	 */
+	public static function partNames(): array
+	{
+		return ['country', 'e164'];
+	}
+
+	/**
+	 * @return array<string, mixed>
+	 */
+	public function parts(): array
+	{
+		return [
+			'country' => PhoneNumberUtil::getInstance()->getRegionCodeForNumber($this->number),
+			'e164' => $this->toE164(),
+		];
 	}
 }

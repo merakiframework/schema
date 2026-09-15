@@ -68,7 +68,9 @@ final class ScopeTest extends TestCase
 			// The old parser ignored trailing segments, so "#/fields/x/min/typo" quietly
 			// resolved as "min" — a mistake that behaved like a working scope.
 			'trailing junk after a property' => ['#/fields/username/min/typo'],
-			'trailing junk after a value' => ['#/fields/username/value/typo'],
+			// A part belongs to a value, so it goes under `value`. Anywhere else is a typo.
+			'a part hung off a property' => ['#/fields/username/min/country'],
+			'a fifth segment' => ['#/fields/billing/value/country/extra'],
 			'a name that cannot identify a field' => ['#/fields/not a name/value'],
 			// Sub-fields were addressed this way while a composite registered `cost.amount`
 			// alongside `cost`. A structured field owns its whole value now, so there is no

@@ -39,6 +39,7 @@ final class ScopeResolver
 		$field = $this->schema->fields->getByName($scope->field);
 
 		return match (true) {
+			$scope instanceof PartScope => $this->partOf($field, $scope->part),
 			$scope instanceof ValueScope => $this->valueOf($field),
 			$scope instanceof PropertyScope => $this->propertyOf($field, $scope->property),
 			default => $field,
@@ -51,6 +52,72 @@ final class ScopeResolver
 	private function valueOf(Field $field): mixed
 	{
 		return $field->resolvedValueFor($this->given[(string) $field->name] ?? null);
+	}
+
+	/**
+	 * One named part of what the field was given.
+	 *
+	 * The part *name* is checked against the value class rather than against a value, so a
+	 * mistyped part fails where the rule is written instead of resolving to `null` on every
+	 * request afterwards — which is the failure this library spends most of its guards avoiding,
+	 * and which is invisible precisely because `null` is a legitimate answer for a part nobody
+	 * filled in.
+	 *
+	 * @throws InvalidArgumentException if the field's value has no parts, or not that one
+	 */
+	private function partOf(Field $field, string $part): mixed
+	{
+		$valueClass = self::valueClassOf($field);
+
+		if ($valueClass === null || !is_a($valueClass, Field\HasParts::class, true)) {
+			throw new InvalidArgumentException(sprintf(
+				'"%s" holds one value rather than named parts, so it has no "%s" to address.',
+				(string) $field->name,
+				$part,
+			));
+		}
+
+		if (!in_array($part, $valueClass::partNames(), true)) {
+			throw new InvalidArgumentException(sprintf(
+				'"%s" has no part "%s". It has: %s.',
+				(string) $field->name,
+				$part,
+				implode(', ', $valueClass::partNames()),
+			));
+		}
+
+		$value = $this->valueOf($field);
+
+		// Nothing was submitted, so every part of it is absent. Not an error: a rule asking
+		// "is the shipping country the billing country" on a request that gave neither is
+		// answerable, and the answer is that they are both nothing.
+		return $value instanceof Field\HasParts ? ($value->parts()[$part] ?? null) : null;
+	}
+
+	/**
+	 * What a field parses to, read off its own `parse()` signature.
+	 *
+	 * Static, because a scope is validated when the rule is written and there is no request then.
+	 * Reflection rather than an instance because the answer is a fact about the class — every
+	 * field's `parse()` declares its return type, which is the contract
+	 * {@see Field\Definition::parse()} exists to enforce.
+	 *
+	 * @return class-string|null
+	 */
+	private static function valueClassOf(Field $field): ?string
+	{
+		static $cache = [];
+
+		$key = $field::class;
+
+		if (!array_key_exists($key, $cache)) {
+			$returns = (new \ReflectionMethod($field, 'parse'))->getReturnType();
+			$cache[$key] = $returns instanceof \ReflectionNamedType && !$returns->isBuiltin()
+				? $returns->getName()
+				: null;
+		}
+
+		return $cache[$key];
 	}
 
 	/**

@@ -42,6 +42,22 @@ use Meraki\Schema\ValueScope;
  * `null` is never parsed either. It is the one expectation that means "nothing", and
  * {@see Field::resolvedValueFor()} answers a null with the field's authored default — so parsing it
  * would quietly turn "when this was left empty" into "when this equals its default".
+ *
+ * ### The expectation can be another scope
+ *
+ * Which is what makes a rule able to compare two fields rather than a field and a constant:
+ *
+ *     // is the whole shipping address the billing address?
+ *     $schema->when(ValueScope::of('shipping'))->equals(ValueScope::of('billing'))
+ *
+ *     // are they at least in the same country?
+ *     $schema->when(PartScope::of('shipping', 'country'))
+ *         ->equals(PartScope::of('billing', 'country'))
+ *
+ * Both sides go through the same {@see ScopeResolver}, so both are read the same way and a parsed
+ * value is compared against a parsed value. Nothing is parsed *into* a field in that case — there
+ * is no literal to read — and the two sides need not be the same kind of field: comparing a
+ * `postal_code` to a `line1` is allowed, and answers false.
  */
 abstract class Comparison implements Condition
 {
@@ -67,9 +83,11 @@ abstract class Comparison implements Condition
 	 */
 	final protected function pointsAtTheExpectedValue(array $data, Facade $schema): bool
 	{
+		$resolver = new ScopeResolver($schema, $data);
+
 		return Values::same(
-			(new ScopeResolver($schema, $data))->resolve($this->scope),
-			$this->expectedAsTheFieldWouldReadIt($schema),
+			$resolver->resolve($this->scope),
+			$this->expectedAsTheFieldWouldReadIt($schema, $resolver),
 		);
 	}
 
@@ -85,6 +103,9 @@ abstract class Comparison implements Condition
 	 */
 	final public function expectationIsReadable(Facade $schema): bool
 	{
+		// A scope is checked by {@see self::getScopes()} instead: "can this field hold that value"
+		// is the wrong question about the other half of a cross-field comparison, where the answer
+		// is whatever the request supplies.
 		if (!$this->parsesItsExpectation()) {
 			return true;
 		}
@@ -111,20 +132,37 @@ abstract class Comparison implements Condition
 	}
 
 	/**
+	 * Both sides, when both are scopes.
+	 *
+	 * {@see \Meraki\Schema\Facade::addRule()} checks every scope a rule mentions, so an expectation
+	 * naming a field that does not exist is refused where the rule is written rather than resolving
+	 * to `null` on every request afterwards.
+	 *
 	 * @return array<Scope>
 	 */
 	public function getScopes(): array
 	{
-		return [$this->scope];
+		return $this->expected instanceof Scope
+			? [$this->scope, $this->expected]
+			: [$this->scope];
 	}
 
 	private function parsesItsExpectation(): bool
 	{
-		return $this->scope instanceof ValueScope && $this->expected !== null;
+		return $this->scope instanceof ValueScope
+			&& $this->expected !== null
+			&& !$this->expected instanceof Scope;
 	}
 
-	private function expectedAsTheFieldWouldReadIt(Facade $schema): mixed
+	private function expectedAsTheFieldWouldReadIt(Facade $schema, ScopeResolver $resolver): mixed
 	{
+		// The other side is somewhere else in the same request. Resolved through the same resolver,
+		// so both sides are read the same way and a parsed value is compared against a parsed
+		// value — which is what makes `when($shipping)->equals($billing)` mean what it reads as.
+		if ($this->expected instanceof Scope) {
+			return $resolver->resolve($this->expected);
+		}
+
 		if (!$this->parsesItsExpectation()) {
 			return $this->expected;
 		}

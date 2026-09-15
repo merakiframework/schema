@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace Meraki\Schema\Field\Address;
 
 use Meraki\Schema\Comparison\Equality;
+use Meraki\Schema\Field\HasParts;
 use Meraki\Schema\Field\ParsedValue;
 
 /**
@@ -28,7 +29,7 @@ use Meraki\Schema\Field\ParsedValue;
  * per-country (libaddressinput's business) and rendering is the UI's. {@see self::toArray()} is
  * how you get at the parts.
  */
-final readonly class Value implements ParsedValue
+final readonly class Value implements ParsedValue, HasParts
 {
 	/**
 	 * Part names as they appear in submitted data, mapped to the property holding them.
@@ -189,5 +190,34 @@ final readonly class Value implements ParsedValue
 		$property = self::PARTS[$key] ?? null;
 
 		return $property === null ? null : $this->{$property};
+	}
+
+	/**
+	 * The eight lines libaddressinput models, named as they arrive. `country` rather than
+	 * `countryCode`, because that is the key submitted input uses and the name the
+	 * `allowedCountries` constraint reports its part under.
+	 *
+	 * @return list<string>
+	 */
+	public static function partNames(): array
+	{
+		return ['organization', 'line1', 'line2', 'dependent_locality', 'locality', 'administrative_area', 'postal_code', 'country'];
+	}
+
+	/**
+	 * @return array<string, mixed>
+	 */
+	public function parts(): array
+	{
+		return [
+			'organization' => $this->organization,
+			'line1' => $this->line1,
+			'line2' => $this->line2,
+			'dependent_locality' => $this->dependentLocality,
+			'locality' => $this->locality,
+			'administrative_area' => $this->administrativeArea,
+			'postal_code' => $this->postalCode,
+			'country' => $this->countryCode,
+		];
 	}
 }

@@ -6,6 +6,7 @@ namespace Meraki\Schema\Field\Money;
 use Meraki\Schema\Comparison\Comparable;
 use Meraki\Schema\Comparison\Equality;
 use Meraki\Schema\Comparison\Order;
+use Meraki\Schema\Field\HasParts;
 use Meraki\Schema\Field\ParsedValue;
 use Brick\Math\BigDecimal;
 use Brick\Math\Exception\MathException;
@@ -34,7 +35,7 @@ use TypeError;
  * here would be wrong in most of the world. An application that wants a string asks for one, from
  * something that knows the locale.
  */
-final readonly class Value implements ParsedValue, Comparable
+final readonly class Value implements ParsedValue, HasParts, Comparable
 {
 	/**
 	 * @param string $currency ISO 4217 alpha-3, upper-cased
@@ -133,4 +134,27 @@ final readonly class Value implements ParsedValue, Comparable
 		return new self(strtoupper($parts['currency']), $amount);
 	}
 
+
+	/**
+	 * The two halves, which are the whole of what money is. A rule comparing currencies
+	 * across two fields — "is the refund in the currency they paid in" — is the case this exists
+	 * for.
+	 *
+	 * @return list<string>
+	 */
+	public static function partNames(): array
+	{
+		return ['currency', 'amount'];
+	}
+
+	/**
+	 * @return array<string, mixed>
+	 */
+	public function parts(): array
+	{
+		return [
+			'currency' => $this->currency,
+			'amount' => $this->amount,
+		];
+	}
 }

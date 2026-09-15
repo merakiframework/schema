@@ -74,10 +74,28 @@ abstract readonly class Scope implements Stringable
 			throw new InvalidArgumentException(sprintf('"%s" is missing a field name.', $path));
 		}
 
-		if (count($segments) > 3) {
+		// A fourth segment addresses a part of the value — `#/fields/billing/value/country` — and
+		// only that. A collection's items are not addressable: which row `0` is depends on what
+		// was submitted, so a stored rule naming one would mean different rows on different
+		// requests.
+		if (count($segments) === 4) {
+			if ($property !== ValueScope::SEGMENT) {
+				throw new InvalidArgumentException(sprintf(
+					'"%s" addresses a part, which only a value has. Write it as "#/%s/%s/%s/<part>".',
+					$path,
+					self::COLLECTION,
+					$name,
+					ValueScope::SEGMENT,
+				));
+			}
+
+			return new PartScope(new FieldName($name), $segments[3]);
+		}
+
+		if (count($segments) > 4) {
 			throw new InvalidArgumentException(sprintf(
-				'"%s" has more segments than a scope can address. Sub-fields and collection '
-				. 'items are not addressable yet.',
+				'"%s" has more segments than a scope can address. A part of a value is as deep as '
+				. 'this goes; collection items are not addressable.',
 				$path,
 			));
 		}

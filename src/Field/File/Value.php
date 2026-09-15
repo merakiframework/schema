@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace Meraki\Schema\Field\File;
 
 use Meraki\Schema\Comparison\Equality;
+use Meraki\Schema\Field\HasParts;
 use Meraki\Schema\Field\ParsedValue;
 use InvalidArgumentException;
 
@@ -25,7 +26,7 @@ use InvalidArgumentException;
  * stringifying invites it into a page or a path unescaped. Read {@see self::$name} and handle it
  * knowingly.
  */
-final readonly class Value implements ParsedValue
+final readonly class Value implements ParsedValue, HasParts
 {
 	/**
 	 * @param non-empty-string $name the client's filename
@@ -95,4 +96,27 @@ final readonly class Value implements ParsedValue
 		return new self($file['name'], $file['type'], (int) $file['size']);
 	}
 
+
+	/**
+	 * `type` is the MIME the *client* claimed, not a verified one — see this class's own
+	 * warning. A rule reading it is reading an assertion by whoever uploaded the file.
+	 *
+	 * @return list<string>
+	 */
+	public static function partNames(): array
+	{
+		return ['name', 'type', 'size'];
+	}
+
+	/**
+	 * @return array<string, mixed>
+	 */
+	public function parts(): array
+	{
+		return [
+			'name' => $this->name,
+			'type' => $this->type,
+			'size' => $this->size,
+		];
+	}
 }

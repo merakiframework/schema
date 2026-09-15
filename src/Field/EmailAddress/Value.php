@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace Meraki\Schema\Field\EmailAddress;
 
 use Meraki\Schema\Comparison\Equality;
+use Meraki\Schema\Field\HasParts;
 use Meraki\Schema\Field\ParsedValue;
 /**
  * One email address, split at the `@` and canonicalised.
@@ -23,7 +24,7 @@ use Meraki\Schema\Field\ParsedValue;
  * would be guessing too. There is deliberately no `__toString()` either: this is the field's
  * internal representation, and {@see self::address()} is how you ask for the text.
  */
-final readonly class Value implements ParsedValue
+final readonly class Value implements ParsedValue, HasParts
 {
 	/**
 	 * @param string $localPart everything before the last `@`, exactly as submitted
@@ -77,5 +78,28 @@ final readonly class Value implements ParsedValue
 	public function address(): string
 	{
 		return $this->localPart . '@' . $this->domain;
+	}
+
+	/**
+	 * Split as RFC 5321 splits it. The domain is already lower-cased and the local part
+	 * deliberately is not, so comparing two `domain` parts is the reliable half of comparing two
+	 * addresses.
+	 *
+	 * @return list<string>
+	 */
+	public static function partNames(): array
+	{
+		return ['local_part', 'domain'];
+	}
+
+	/**
+	 * @return array<string, mixed>
+	 */
+	public function parts(): array
+	{
+		return [
+			'local_part' => $this->localPart,
+			'domain' => $this->domain,
+		];
 	}
 }
