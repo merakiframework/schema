@@ -10,6 +10,54 @@ is a commit subject, with the body kept because the body is where the reasoning 
 
 ## Unreleased
 
+### A simpler result surface, a valid-or-nothing $value, and else* for rules
+
+`56e9987c` · 2026-09-16
+
+Three changes to the reading surface, all asked for after using it.
+
+$value is now the parsed value or null, never the raw input that could not be
+parsed. It used to hand back what arrived, on the grounds that a form
+redrawing a rejection needs something to show -- but $given already holds
+exactly that, unchanged. Having both mean it made $value a union of "the
+domain type" and "whatever turned up", so nothing downstream could rely on
+its type: a rule comparing equals(18) could have been handed the string
+'abc'. Now $given is what was sent and $value is what the field made of it.
+
+The result gained a $constraints aggregate beside $shape, and shorthands for
+the common readings. Two kinds of answer -- could this be read, and does it
+satisfy the rules -- each with the full aggregate API, rather than one list
+with the shape mixed in and, for a collection, a verdict per row as well:
+
+    $field->wasUnreadable()                     // was $field->shape->wasUnreadable()
+    $field->getFailedConstraints()->getFirst()  // was $field->getFailed()->getFirst()
+    $field->constraints->allPassed()            // when you want more
+
+The second of those was the ambiguous one: getFailed() on the field returns
+the shape failure too, so "the first failure" was rarely the constraint the
+caller meant.
+
+otherwise* is else*. elseMakeOptional reads as the sentence it is. Renamed as
+identifiers only -- "otherwise" is an ordinary English word and appears in a
+dozen docblocks with nothing to do with rules.
+
+### Validating a schema with no fields raises
+
+`ebb12073` · 2026-09-16
+
+There is no honest answer to give. An empty result reports allPassed() as
+true -- vacuously, nothing failed -- and status as Pending -- nothing was
+judged. Both are defensible and they contradict each other, so a caller got
+whichever one they happened to ask for.
+
+A LogicException rather than a failed result, matching Draft::build(): no
+input could make it right, so there is nothing to report to a user. It is a
+mistake in the code.
+
+Building one is still fine. A schema is empty for as long as it takes to add
+the first field, which is the ordinary way to write one -- so the check is at
+validate()/resolve() rather than in the constructor.
+
 ### Fix the last 1.x snippets in the 2.0 API doc
 
 `4c5dae05` · 2026-09-15

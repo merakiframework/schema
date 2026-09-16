@@ -94,15 +94,49 @@ consumer that compares, renders or serialises one. The plain scalar is one prope
 
 ## The core repairs nothing
 
-No trimming, no case-fixing, no coercion. `" 42 "` is not a number and `"on"` is not `true`.
+No trimming, no case-fixing, no coercion:
 
-Whatever was submitted is taken as intentional, because *repair is a question about the medium*:
-an HTML checkbox submits `"on"`, a JSON client sends `true`, and a field that accepted both would
-be encoding one medium's conventions into the domain. Converting is the port's job.
+```php
+$age = $schema->createNumberField('age');
 
-The one exception is **canonicalisation**, where a standard says two spellings are one thing: DNS
-on an email domain, ISO 4217 on a currency code, ISO/IEC 7812 on a card number's grouping. That
-lives in the value object, not in `parse()`.
+$age->validate('42')->wasUnreadable();       // false — a numeric string is a number
+$age->validate(' 42 ')->wasUnreadable();     // true  — the spaces were not removed
+$age->validate('')->wasUnreadable();         // true  — an empty string is not a number
+
+$agree = $schema->createBooleanField('agree');
+
+$agree->validate(true)->wasUnreadable();     // false
+$agree->validate('on')->wasUnreadable();     // true  — that is a checkbox, not a boolean
+$agree->validate('true')->wasUnreadable();   // true  — that is JSON's spelling of one
+```
+
+Whatever was submitted is taken as intentional, because *repair is a question about the medium*.
+An HTML checkbox submits `"on"`; a JSON client sends `true`; a CSV import sends `"TRUE"`. A field
+that accepted all three would be encoding three media's conventions into the domain, and the day
+a fourth turns up it is the field's problem. Converting is the port's job:
+
+```php
+// in meraki/schema-html, not here
+$schema->validate((object) [
+    'agree' => isset($_POST['agree']),
+    'age'   => trim($_POST['age']),
+]);
+```
+
+The one exception is **canonicalisation**, where a standard says two spellings are one thing —
+and it lives in the value object rather than in `parse()`:
+
+```php
+$email = $schema->createEmailAddressField('email');
+
+// DNS says a host is case-insensitive, so the domain is lower-cased...
+$email->validate('Kim@Example.TEST')->value->domain;      // 'example.test'
+
+// ...and RFC 5321 says the local part is the receiving server's business, so it is not.
+$email->validate('Kim@Example.TEST')->value->localPart;   // 'Kim'
+```
+
+The difference is that a standard settled it, not that one medium happens to write it that way.
 
 ---
 
@@ -145,15 +179,54 @@ it. `meraki/schema-html` provides a default set.
 
 ---
 
-## Constraints carry their own name, part and bound
+## A failed constraint says everything a message needs
 
-A constraint used to be a bare callable keyed by name, so a result could say only *that*
-something failed. Anything wanting to say more had to go back to the field and guess — by
-splitting the name on dots, or by reading `$field->{$name}`.
+Three things, and each exists because writing the message without it meant guessing.
 
-Now `postalCodeFormat` carries `part: 'postal_code'` and the pattern as its bound. **No name
-carries the field it came from**, so renaming `billing` to `invoice_address` changes nothing
-downstream.
+```php
+$failed = $schema->validate($data)->forField('billing')->getFailedConstraints()->getFirst();
+
+$failed->name;    // 'postalCodeFormat'  — what was checked
+$failed->part;    // 'postal_code'       — which piece of the value it was about
+$failed->bound;   // '\d{4}'             — the limit, ready to interpolate
+```
+
+so a message provider is a lookup rather than a parser:
+
+```php
+match ($failed->name) {
+    'minLength' => "Needs at least {$failed->bound} characters",
+    'postalCodeFormat' => "That is not a valid postcode",
+};
+```
+
+**`name` — what was checked.** It used to be the only thing a result carried, so anything wanting
+to say more had to go back to the field and read `$field->{$name}` — a dynamic property access
+that static analysis cannot type and that renders `"Array"` for a bound held as a map.
+
+**`part` — which piece.** A structured value fails in one place: an address's postcode, a card's
+expiry. That used to be spelled into the name as `billing.postal_code.format`, so a message
+provider did `strrpos($name, '.')` and split the string to find out. Worse, the name carried the
+*field* — renaming `billing` to `invoice_address` changed every constraint it emitted and broke
+every provider matching on them. Now the name is fixed and the part is a separate value.
+
+**`bound` — the limit.** "Too short" is not a useful sentence; "needs at least 3 characters" is.
+Some bounds are only knowable once you see the value — `Money` holds a minimum per currency,
+`Address` a postcode pattern per country — so a constraint can compute one from the submitted
+value rather than declaring it up front:
+
+```php
+$money = $schema->createMoneyField('cost', ['AUD' => 2, 'USD' => 2])
+    ->minAmountOf('AUD', '10.00')
+    ->minAmountOf('USD', '7.00');
+
+// The bound reported is the one that applied to the currency actually submitted.
+$money->validate((object) ['currency' => 'USD', 'amount' => '5.00'])
+    ->constraints->named('minAmount')->bound;   // '7.00'
+```
+
+Without that, a field allowing more than one currency could say a value was too small but not what
+it should have reached.
 
 ---
 

@@ -173,7 +173,7 @@ abstract readonly class AtomicField implements Field
 		}
 
 		// The parsed value goes straight to the constraints, which is what makes their parameter
-		// types honest: `meetsMinValue(BigDecimal $value)` is given a BigDecimal by construction
+		// types honest: `checkMinValue(Number\Value $value)` is given one by construction
 		// rather than hoping a gate ran first.
 		//
 		// It is also what enforces parse()'s totality. Every accepted value in every test passes
