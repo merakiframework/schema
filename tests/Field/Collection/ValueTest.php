@@ -112,9 +112,9 @@ final class ValueTest extends TestCase
 	public function two_lists_are_equal_when_every_leaf_is(): void
 	{
 		$written = $this->rowsFor([(object) ['sku' => 'A1', 'qty' => '2.0']]);
-		$otherwise = $this->rowsFor([(object) ['sku' => 'A1', 'qty' => '2']]);
+		$otherWay = $this->rowsFor([(object) ['sku' => 'A1', 'qty' => '2']]);
 
-		$this->assertTrue($written->equals($otherwise));
+		$this->assertTrue($written->equals($otherWay));
 	}
 
 	#[Test]

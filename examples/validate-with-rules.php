@@ -70,7 +70,7 @@ $schema->add(
 $schema->addRule(
 	$schema->when($hasLogBook)->equals(true)
 		->thenRequire($timeCompleted)
-		->otherwiseIgnore($timeCompleted)
+		->elseIgnore($timeCompleted)
 );
 
 // An object, because a payload is a record of named fields — and `pickup_location` is a record

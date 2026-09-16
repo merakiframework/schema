@@ -24,8 +24,8 @@ $schema->addRule(
 	$schema->when('who_for')->equals('someone_else')
 		->thenRequire('participant_name')
 		->thenRequire('participant_email')
-		->otherwiseMakeOptional('participant_name')
-		->otherwiseMakeOptional('participant_email'),
+		->elseMakeOptional('participant_name')
+		->elseMakeOptional('participant_email'),
 );
 
 /** @param array<string, mixed> $submitted */

@@ -37,8 +37,9 @@ class ResolvedField extends AggregatedValidationResult implements FieldResult
 	 * @param mixed $given exactly what was submitted, unchanged. Re-rendering a rejected
 	 *        form must echo this back rather than anything coerced, or the user is shown
 	 *        something they did not type.
-	 * @param mixed $value what was actually validated: `$given`, or the field's default
-	 *        when nothing was submitted.
+	 * @param Field\ParsedValue|null $value what the field made of the input — the parsed form of
+	 *        whichever source won, or `null` when nothing valid could be read. Never the raw
+	 *        input: that is `$given`, and having both mean it made the type unusable.
 	 * @param list<AppliedOutcome> $appliedOutcomes which rules changed this field, and how.
 	 * @param ValueSource $source where `$value` came from — submitted, prefilled for this one
 	 *        user, the schema's own default, or nowhere.
@@ -94,6 +95,58 @@ class ResolvedField extends AggregatedValidationResult implements FieldResult
 
 			return Field\ShapeValidationResult::pending();
 		}
+	}
+
+	/**
+	 * Just this field's constraint verdicts, as an aggregate of their own.
+	 *
+	 * The richer half of the pair. `$shape` answers one question and this answers the rest, so
+	 * everything {@see AggregatedValidationResult} offers — `getFailed()`, `allPassed()`,
+	 * `filter()`, iteration — works on the constraints alone rather than on constraints mixed with
+	 * the shape and, for a collection, with a verdict per row:
+	 *
+	 *     $field->constraints->getFailed()->getFirst();   // the first constraint that failed
+	 *     $field->constraints->allPassed();               // every check the field makes
+	 *
+	 * The common readings have shorthand on this object — {@see self::getFailedConstraints()},
+	 * {@see self::forConstraint()} — so a caller reaches for this only when they want more.
+	 */
+	public Field\ConstraintResults $constraints {
+		get => new Field\ConstraintResults(...array_values(array_filter(
+			iterator_to_array($this->results),
+			static fn(object $result): bool => $result instanceof ConstraintValidationResult,
+		)));
+	}
+
+	/**
+	 * Whether the value could not be read as this field's kind of thing.
+	 *
+	 * Shorthand for `$field->shape->wasUnreadable()`. The nesting is still there when you want the
+	 * shape's own API; this is here because asking "was that readable" is the common case and
+	 * should not cost two hops.
+	 */
+	public function wasUnreadable(): bool
+	{
+		return $this->shape->wasUnreadable();
+	}
+
+	/**
+	 * Whether nothing was submitted for a field that required something.
+	 *
+	 * Shorthand for `$field->shape->wasMissing()`. Distinct from {@see self::wasUnreadable()}
+	 * because "this is required" and "this is not a valid duration" are different sentences.
+	 */
+	public function wasMissing(): bool
+	{
+		return $this->shape->wasMissing();
+	}
+
+	/**
+	 * The constraints that failed. Shorthand for `$field->constraints->getFailed()`.
+	 */
+	public function getFailedConstraints(): Field\ConstraintResults
+	{
+		return $this->constraints->getFailed();
 	}
 
 	/**

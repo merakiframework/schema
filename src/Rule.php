@@ -25,7 +25,7 @@ class Rule
 		 *
 		 * @var array<Outcome>
 		 */
-		public readonly array $otherwise = [],
+		public readonly array $else = [],
 	) {
 	}
 
@@ -48,7 +48,7 @@ class Rule
 
 		return array_map(
 			fn(Outcome $outcome): AppliedOutcome => new AppliedOutcome($this, $outcome, $matched),
-			array_values($matched ? $this->outcomes : $this->otherwise),
+			array_values($matched ? $this->outcomes : $this->else),
 		);
 	}
 }

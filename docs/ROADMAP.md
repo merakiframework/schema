@@ -201,7 +201,7 @@ attaching outcomes completes a rule; `allOf()`/`anyOf()` compose conditions.
 $schema->addRule(
     $schema->when($hasLogBook)->equals(true)
         ->thenRequire($logBookTime)
-        ->otherwiseMakeOptional($logBookTime)
+        ->elseMakeOptional($logBookTime)
 );
 
 // several conditions combined into one rule
@@ -209,7 +209,7 @@ $schema->addRule(
     $schema->allOf(
         $schema->when($whoFor)->equals('someone_else'),
         $schema->when($whoManages)->equals('participant'),
-    )->thenRequire($email)->otherwiseIgnore($email)
+    )->thenRequire($email)->elseIgnore($email)
 );
 
 // several independent rules at once

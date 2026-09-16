@@ -165,7 +165,7 @@ on one rule:
 ```php
 $schema->when('who_for')->equals('someone_else')
     ->thenRequire('participant_name')
-    ->otherwiseMakeOptional('participant_name');
+    ->elseMakeOptional('participant_name');
 ```
 
 Writing the else-branch as a second rule with a hand-inverted condition means two conditions

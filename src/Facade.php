@@ -353,7 +353,7 @@ final class Facade
 	 *     $schema->addRule(
 	 *         $schema->when($hasLogBook)->equals(true)
 	 *             ->thenRequire($logBookTime)
-	 *             ->otherwiseMakeOptional($logBookTime)
+	 *             ->elseMakeOptional($logBookTime)
 	 *     );
 	 */
 	public function when(Field|FieldName|Scope|string $subject): Rule\Matcher
@@ -538,7 +538,7 @@ final class Facade
 		$scopes = [
 			...$rule->condition->getScopes(),
 			...array_map(static fn(Rule\Outcome $o): Scope => $o->getScope(), $rule->outcomes),
-			...array_map(static fn(Rule\Outcome $o): Scope => $o->getScope(), $rule->otherwise),
+			...array_map(static fn(Rule\Outcome $o): Scope => $o->getScope(), $rule->else),
 		];
 
 		foreach ($scopes as $scope) {

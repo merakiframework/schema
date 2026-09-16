@@ -107,13 +107,16 @@ interface Field
 	): AggregatedValidationResult;
 
 	/**
-	 * What this field would actually validate, given what was submitted: the submitted value,
-	 * or the authored default when nothing usable was.
+	 * What this field would actually validate: the parsed value, or `null` when there is none.
+	 *
+	 * Always valid, or nothing. It never hands back input it could not read — that is on
+	 * {@see ResolvedField::$given}, unchanged, which is the thing to echo into a form being
+	 * redrawn. Keeping it here as well made `$value` a union of "the domain type" and "whatever
+	 * arrived", so nothing downstream could rely on its type.
 	 *
 	 * @param AcceptedType|null $given
-	 * @return AcceptedType|null
 	 */
-	public function resolvedValueFor(mixed $given): mixed;
+	public function resolvedValueFor(mixed $given): ?Field\ParsedValue;
 
 	/**
 	 * The checks this field makes, each carrying the name it reports under, the part of a

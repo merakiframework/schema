@@ -35,4 +35,22 @@ interface FieldResult extends ValidationResult
 	 * testing for each concrete class in turn, which is the thing this interface exists to stop.
 	 */
 	public Field\ShapeValidationResult $shape { get; }
+
+	/**
+	 * This field's constraint verdicts, without the shape mixed in.
+	 *
+	 * The pair is deliberate: `$shape` and `$constraints` each hold one kind of answer and each
+	 * offer the full aggregate API, while the shorthands below cover the readings almost everyone
+	 * wants. Simple where it is simple; the richer object is one property away when it is not.
+	 */
+	public Field\ConstraintResults $constraints { get; }
+
+	/** Shorthand for `$shape->wasUnreadable()`. */
+	public function wasUnreadable(): bool;
+
+	/** Shorthand for `$shape->wasMissing()`. */
+	public function wasMissing(): bool;
+
+	/** Shorthand for `$constraints->getFailed()`. */
+	public function getFailedConstraints(): Field\ConstraintResults;
 }

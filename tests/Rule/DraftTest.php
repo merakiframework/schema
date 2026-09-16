@@ -69,12 +69,12 @@ final class DraftTest extends TestCase
 	{
 		$base = $this->schema()->when('plan')->equals('pro');
 
-		$one = $base->otherwiseMakeOptional('first');
-		$two = $base->otherwiseMakeOptional('second');
+		$one = $base->elseMakeOptional('first');
+		$two = $base->elseMakeOptional('second');
 
 		$this->assertNotSame($one, $two);
-		$this->assertCount(1, $one->build()->otherwise);
-		$this->assertCount(1, $two->build()->otherwise);
+		$this->assertCount(1, $one->build()->else);
+		$this->assertCount(1, $two->build()->else);
 	}
 
 	/**
@@ -87,11 +87,11 @@ final class DraftTest extends TestCase
 			->when('plan')->equals('pro')
 			->thenRequire('first')
 			->thenRequire('second')
-			->otherwiseMakeOptional('first')
+			->elseMakeOptional('first')
 			->build();
 
 		$this->assertCount(2, $rule->outcomes);
-		$this->assertCount(1, $rule->otherwise);
+		$this->assertCount(1, $rule->else);
 	}
 
 	/**

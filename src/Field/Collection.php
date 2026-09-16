@@ -434,10 +434,8 @@ final readonly class Collection implements Field
 	{
 		$raw = $given ?? $this->defaultValue ?? [];
 
-		// A {@see Value} when the input was a usable list, and the raw input when it was not —
-		// the same two-outcome shape every other field's `$value` has, so a form can echo back
-		// what was actually submitted.
-		return $this->parse($raw) ?? $raw;
+		// A {@see Value}, or nothing. What was actually submitted is on the result's `$given`.
+		return $this->parse($raw);
 	}
 
 	/**

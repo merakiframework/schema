@@ -120,7 +120,9 @@ abstract readonly class AtomicField implements Field
 		[$raw, $parsed] = $this->read($given);
 		$source = $this->sourceOf($given, $givenAs);
 
-		return (new ResolvedField($this, $given, $parsed ?? $raw, $appliedOutcomes, $source, $this->evaluatedAt()))
+		// `$parsed`, not `$parsed ?? $raw`: a value is what the field made of the input, and `null`
+		// when it could make nothing of it. What was sent is on `$given`.
+		return (new ResolvedField($this, $given, $parsed, $appliedOutcomes, $source, $this->evaluatedAt()))
 			->withResults(...$this->check($raw, $parsed, $source, $policy));
 	}
 

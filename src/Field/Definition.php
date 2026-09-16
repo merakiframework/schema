@@ -198,21 +198,27 @@ trait Definition
 	}
 
 	/**
-	 * What this field would actually validate, given what was submitted: the parsed value, or what
-	 * was submitted when it could not be parsed.
+	 * What this field would actually validate: the parsed value, or `null`.
 	 *
-	 * Keeping the unreadable input rather than discarding it is deliberate — a form redrawing a
-	 * rejected field still has something meaningful to show, and the verdict says which of the two
-	 * you are holding.
+	 * **Always valid, or nothing.** It used to hand back the submitted input when that could not be
+	 * parsed, on the grounds that a form redrawing a rejected field needs something to show — but
+	 * {@see \Meraki\Schema\ResolvedField::$given} already holds exactly that, unchanged, and is the
+	 * right thing to echo. Keeping it here as well made `$value` a union of "the domain type" and
+	 * "whatever arrived", so nothing downstream could rely on its type: a rule comparing
+	 * `equals(18)` would have been handed the string `'abc'` to compare against.
+	 *
+	 * So the two now mean one thing each. `$given` is what was sent; this is what the field made of
+	 * it, and `null` means it could make nothing of it.
 	 *
 	 * The authored default goes through `parse()` too, so `defaultsTo('2026-01-01')` on a date
-	 * yields the same `LocalDate` that submitting that string would.
+	 * yields the same `LocalDate` that submitting that string would. It cannot fail here — a
+	 * default is checked against the field's own shape where it is declared.
 	 */
-	final public function resolvedValueFor(mixed $given): mixed
+	final public function resolvedValueFor(mixed $given): ?ParsedValue
 	{
 		$raw = $given ?? $this->defaultValue;
 
-		return $raw === null ? null : ($this->parse($raw) ?? $raw);
+		return $raw === null ? null : $this->parse($raw);
 	}
 
 	/**

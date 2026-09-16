@@ -208,7 +208,7 @@ final class ConditionalFieldsTest extends TestCase
 		$schema->addRule(
 			$schema->when($hasLogBook)->equals(true)
 				->thenRequire($completed)
-				->otherwiseMakeOptional($completed),
+				->elseMakeOptional($completed),
 		);
 
 		$this->assertTrue($schema->validate((object)['has_log_book' => true])->anyFailed());
@@ -229,7 +229,7 @@ final class ConditionalFieldsTest extends TestCase
 		$schema->addRule(
 			$schema->when($hasLogBook)->equals(true)
 				->thenRequire($completed)
-				->otherwiseMakeOptional($completed),
+				->elseMakeOptional($completed),
 		);
 
 		$applied = $schema->validate((object)['has_log_book' => false])
@@ -288,7 +288,7 @@ final class ConditionalFieldsTest extends TestCase
 		$this->expectExceptionMessageMatches('/nickname/');
 
 		$schema->addRule(
-			$schema->when('username')->equals('admin')->otherwiseRequire('nickname'),
+			$schema->when('username')->equals('admin')->elseRequire('nickname'),
 		);
 	}
 }

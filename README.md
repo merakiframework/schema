@@ -192,7 +192,7 @@ cannot drift apart:
 $schema->addRule(
     $schema->when('who_for')->equals('someone_else')
         ->thenRequire('participant_name')
-        ->otherwiseMakeOptional('participant_name'),
+        ->elseMakeOptional('participant_name'),
 );
 ```
 

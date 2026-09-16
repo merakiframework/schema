@@ -18,7 +18,7 @@ use LogicException;
  *
  * ### Why the else-branch lives on the same object
  *
- * `otherwiseMakeOptional()` is not sugar for a second rule. Writing the inverse by hand means
+ * `elseMakeOptional()` is not sugar for a second rule. Writing the inverse by hand means
  * two conditions that are supposed to be opposites, with nothing checking that they stay so: a
  * change to one is silently a change in meaning. Here there is one condition, read once, and
  * the branches cannot disagree.
@@ -35,7 +35,7 @@ final class Draft
 	private array $outcomes = [];
 
 	/** @var list<Outcome> */
-	private array $otherwise = [];
+	private array $else = [];
 
 	public function __construct(public readonly Condition $condition)
 	{
@@ -65,19 +65,19 @@ final class Draft
 		return $this->then(new Outcome\Ignore(self::pathTo($field)));
 	}
 
-	public function otherwiseRequire(Field|FieldName|string $field): self
+	public function elseRequire(Field|FieldName|string $field): self
 	{
-		return $this->otherwise(new Outcome\MakeRequired(self::pathTo($field)));
+		return $this->else(new Outcome\MakeRequired(self::pathTo($field)));
 	}
 
-	public function otherwiseMakeOptional(Field|FieldName|string $field): self
+	public function elseMakeOptional(Field|FieldName|string $field): self
 	{
-		return $this->otherwise(new Outcome\MakeOptional(self::pathTo($field)));
+		return $this->else(new Outcome\MakeOptional(self::pathTo($field)));
 	}
 
-	public function otherwiseIgnore(Field|FieldName|string $field): self
+	public function elseIgnore(Field|FieldName|string $field): self
 	{
-		return $this->otherwise(new Outcome\Ignore(self::pathTo($field)));
+		return $this->else(new Outcome\Ignore(self::pathTo($field)));
 	}
 
 	/**
@@ -102,10 +102,10 @@ final class Draft
 	/**
 	 * As {@see self::then()}, for when the condition does not hold. Also hands back a copy.
 	 */
-	public function otherwise(Outcome ...$outcomes): self
+	public function else(Outcome ...$outcomes): self
 	{
 		$forked = clone $this;
-		$forked->otherwise = [...$this->otherwise, ...$outcomes];
+		$forked->else = [...$this->else, ...$outcomes];
 
 		return $forked;
 	}
@@ -115,7 +115,7 @@ final class Draft
 	 */
 	public function hasOutcomes(): bool
 	{
-		return $this->outcomes !== [] || $this->otherwise !== [];
+		return $this->outcomes !== [] || $this->else !== [];
 	}
 
 	/**
@@ -138,7 +138,7 @@ final class Draft
 				? $this->condition
 				: new Condition\AllOf($this->condition),
 			$this->outcomes,
-			$this->otherwise,
+			$this->else,
 		);
 	}
 
