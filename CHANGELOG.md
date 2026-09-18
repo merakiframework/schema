@@ -12,7 +12,7 @@ is a commit subject, with the body kept because the body is where the reasoning 
 
 ### Messages as installable language packs, with MF2 as the first format
 
-`16dba813` · 2026-09-19
+`a29347a5` · 2026-09-19
 
 Wording becomes part of the core, but as *data you install* rather than strings
 this library writes. One integration point — `$fieldResult->messages` — a
