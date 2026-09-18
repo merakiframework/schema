@@ -50,10 +50,10 @@ $result->anyFailed();   // false
 | A validator welded to one framework | A core that knows nothing about HTTP, HTML or JSON |
 | Registering a custom type with a factory | A class. Nothing to register — see [EXTENDING.md](docs/EXTENDING.md) |
 
-**The honest counterweight.** Every mature alternative ships error messages and translations, and
-this deliberately does not — see [below](#where-error-messages-come-from). It is also far less
-proven than any of them. [docs/COMPARISON.md](docs/COMPARISON.md) works through the alternatives
-in detail, including where each is the better choice.
+**The honest counterweight.** It is far less proven than any mature alternative, and its messages
+arrive differently from theirs — as a pack you install rather than strings bundled with the
+validator, which is a real trade and not only an upside. [docs/COMPARISON.md](docs/COMPARISON.md)
+works through the alternatives in detail, including where each is the better choice.
 
 ## Requirements
 
@@ -142,19 +142,50 @@ address" are different sentences.
 
 ## Where error messages come from
 
-Not from here. The core says *what* failed and *what the limit was*:
+A verdict says *what* failed and *what the limit was*, with no wording attached:
 
 ```php
-$failed = $field->getFailed()->getFirst();
+$failed = $field->getFailedConstraints()->getFirst();
 
 $failed->name;    // 'minLength'
 $failed->bound;   // 3
 $failed->part;    // 'postal_code', or null for the whole value
 ```
 
-Turning that into a sentence needs a locale and a context the library does not have — "must be at
-least 3 characters" is wrong for a field labelled "PIN". `meraki/schema-html` ships a default set;
-`examples/interactive-input.php` shows a twenty-line one.
+That is enough to write your own sentence, and plenty of applications should. For the rest, wording
+is an **installable language pack** — data, not code:
+
+```
+composer require meraki/schema-language-english
+```
+
+```php
+use Meraki\Schema\Message\Mf2\Mf2Provider;
+
+$schema = new Facade('signup', messages: Mf2Provider::fromPackage('meraki/schema-language-english'));
+
+$result = $schema->validate($data, locale: 'en-AU');
+
+$result->forField('billing')->messages->forPart('postal_code')->first;
+// "That is not a valid postcode for the country you chose."
+```
+
+The pack is `.mfr` files in [ICU MessageFormat 2](https://unicode.org/reports/tr35/tr35-messageFormat.html)
+and nothing else — no PHP — so a Rust or JavaScript implementation of this library renders the same
+sentences. Which is the point: **the wording travels with the schema, not with the language you
+happen to be writing in.**
+
+Three things hold whether or not you use it:
+
+- **The provider is registered on the schema; the language arrives with the request.** One schema
+  serves every reader.
+- **A missing language cannot change a verdict.** Ask for one nobody has and you get the same
+  failures with nothing to say about them.
+- **It is entirely optional.** With no provider, every result carries an empty message set and the
+  library behaves as it did before messages existed.
+
+[docs/MESSAGES.md](docs/MESSAGES.md) covers writing a pack, the specificity ladder, and using a
+format other than MF2.
 
 ## Field types
 

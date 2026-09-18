@@ -16,9 +16,9 @@ Two consequences follow, and they are the axes on which every comparison below t
 - **The schema is data.** It serializes (`meraki/schema-json`), so one definition can
   drive an HTML form, a JSON API, and a native client without any of them re-declaring
   the rules.
-- **Messages are not in the core.** Turning `min` into "must be at least 3 characters"
-  is presentation, and lives in the presentation package. See
-  [Where error messages come from](../README.md#where-error-messages-come-from).
+- **Messages are data too.** Turning `minLength` into "use at least 3 characters" comes from
+  an installable language pack of MessageFormat 2 files with no code in them, so the wording
+  travels with the definition rather than with PHP. See [MESSAGES.md](MESSAGES.md).
 
 ## Summary
 
@@ -170,19 +170,33 @@ is `final readonly` — so "I need `Text` to also reject reserved words" means r
 
 ## On messages, where this comparison usually gets lost
 
-Every library above bundles error messages and translations into the validator. This one
-splits them out on purpose: the core emits constraint *names*, and the presentation
-package owns the prose.
+Every library above bundles error messages and translations *into the validator*, as strings in
+PHP. This one puts them in an installable pack of MessageFormat 2 data with no code in it:
 
-Frame that as a **trade**, not a deficit. You give up "install one package, get English
-error strings"; you get a core that can drive an HTML form, a JSON API and a native
-client from one definition, without any of them inheriting another medium's wording — and
-without the core needing to know that "This is required" is the right phrasing for an
-empty required field in a browser but not necessarily in an API response.
+```
+composer require meraki/schema-language-english
+```
 
-The cost is real and worth stating plainly: adopting the core alone means writing a
-message provider. Today only `meraki/schema-html` ships one.
+The difference is not whether you get English out of the box — you do, from one package rather
+than none. It is **who else can read it**. A pack is data, so a JavaScript or Rust implementation
+of this library renders the same sentence from the same file; a Symfony translation catalogue is
+PHP's, and a port would have to re-translate everything. The same argument as the schema itself,
+applied one level up.
 
+Three things follow, and two of them are costs:
+
+- **Nothing about messages is serialised, and nothing needs to be.** Message keys are constraint
+  names, which the document already carries, so a reader holding any pack for any language can
+  render a schema it has never seen.
+- **Only English exists today.** Symfony ships dozens of languages; this ships one, and the rest
+  are somebody's afternoon with a text editor rather than a pull request against a validator.
+- **MessageFormat 2 has no PHP implementation yet**, so the packs are written against a subset —
+  variable expansion — and anything richer is refused until a real library lands. A pack that
+  wants plurals cannot have them.
+
+And the design constraint that pays for all of it: **wording can never change a verdict.** The
+locale is passed to `validate()`, applied after the judging, and a language nobody has leaves
+every failure exactly as it was.
 ## The honest argument against
 
 **Maturity, not design.** Every library in the table above has years of production use behind
@@ -193,7 +207,8 @@ to have learned.
 
 Three specific costs, none of which are bugs:
 
-- **You will write a message provider** unless you also take `meraki/schema-html`.
+- **One language ships.** English, as `meraki/schema-language-english`. Anything else is a file
+  you write, and the tooling to check it is a linter rather than a community.
 - **You cannot add a constraint to a built-in field**, only a whole new field type.
 - **The comparison matchers are not built yet** — rules can ask `equals` and `notEquals`, not
   `isAtLeast`. The interface they will be written against exists; the verbs do not.

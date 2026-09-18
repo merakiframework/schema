@@ -154,15 +154,20 @@ final class ConstraintNameTest extends TestCase
 	#[Test]
 	public function a_constraint_with_nothing_to_interpolate_reports_a_null_bound(): void
 	{
-		$address = new Field\Address(new FieldName('billing'), ['AU']);
+		// An object and `country`, not an array and `country_code`. Both mistakes were in here and
+		// both made the address unreadable, so every constraint came back *skipped* — and a skipped
+		// one reports the declared bound, which for this constraint is null. The assertions passed
+		// without the constraint ever having run.
+		$address = (new Field\Address(new FieldName('billing'), ['AU']))->allowOnlyPhysical();
 
-		$failed = $address->validate([
+		$failed = $address->validate((object) [
 			'line1' => 'PO Box 42',
 			'locality' => 'Rockhampton',
 			'postal_code' => '4700',
-			'country_code' => 'AU',
+			'country' => 'AU',
 		])->forConstraint('line1Visitable');
 
+		$this->assertTrue($failed->failed());
 		$this->assertNull($failed->bound);
 		$this->assertSame('line1', $failed->part);
 	}

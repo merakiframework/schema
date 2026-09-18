@@ -68,6 +68,7 @@ Breaking by construction, so a major version regardless.
 | **Scopes** | *Done.* Typed and immutable; resolution moved out of the field classes into `ScopeResolver`. `ScopeTarget` and `traverse()` are gone, and `Field::NOT_ADDRESSABLE` went with the back-reference it guarded — every public property of a field is addressable, with no exceptions list. `Wizard\RuleScopes` is `schema-html`'s and goes with the ports. |
 | **Rules** | *Done.* [Matcher vocabulary](#rule-authoring), `otherwise()`, and rules built as values: `$schema->when($f)->equals(…)->thenRequire($g)`, composed with `allOf()`/`anyOf()` and added with `addRule()`/`addRules()`. `whenAllMatch()`/`whenAnyMatch()` and both rule builders are gone. An outcome is now an *operation* — `applyTo(Field): Field` — which is what makes it work against an immutable field at all; every one of them was calling a wither and discarding the result, so rules had silently stopped doing anything. Only `equals`/`notEquals` exist so far; the ten comparison matchers in the table below are still to come. |
 | **API surface** | `addXField()` becomes `createXField()` plus an explicit add; `pairWith()` and `Field::$schema` are removed; `type` stops being reported as a constraint; every row in [API.md](API.md) confirmed and the public API frozen. |
+| **Messages** | Wording becomes part of the core, as *installable language packs* rather than strings in the library. One integration point — `$fieldResult->messages` — a `Message\Provider` the schema is given, and a locale passed to `validate()`. Packs are MessageFormat 2 data with no code in them, so every implementation of this library renders the same sentence. Entirely optional: with no provider the library behaves exactly as it did. See [MESSAGES.md](MESSAGES.md). |
 | **Retire the rewrite-era tests** | *Done.* A rewrite needs tests asserting the *old* behaviour is gone; they earn their keep while both shapes exist in living memory and become noise the moment `2.0` ships, since nobody writing against a 2.x API needs telling that a 1.x one is absent. Each was run one last time to confirm the removal, then deleted — four standalone tests plus `NamingTest`'s 31-row removal matrix. Tests asserting a *live* design boundary were kept, and the distinction is recorded in TODO.md. `AtomicField::getConstraints()` has gone too, with `constraints()` becoming the `$constraints` property. |
 
 ### `2.1`, `2.2`, … — feature releases
@@ -84,6 +85,8 @@ Additive, after the redesign has settled. Each is a minor version.
 | **Cross-field constraints** | `confirm_password === password`, `end_date > start_date`. |
 | **Baselines across languages** | **The most important unsolved problem here**, and it grows with adoption. A baseline does not serialise — a password's 8-character floor follows from the field type, so a document does not carry it. That is right for one language and becomes a real problem across several: this library says 8 because NIST SP 800-63B does, and a JavaScript port that reads the same document could say 7, through disagreement or a bug. The same definition would then accept different input depending on who validated it, silently, with nothing in the document to compare. Options worth weighing: publish the baselines as versioned data next to the schema format; write a `baselines` block into the document as a *declaration* rather than as configuration, so a reader can refuse a document whose baselines it does not implement; or version the field types themselves. Needs solving before more than one language implements this. |
 | **`File` takes a handle, not a description** | Today a `File` is validated from what the *client* said about it — a name, a claimed MIME type, a size. The library trusts that because it is all `$_FILES` gives, and because opening a path in the core would tie it to one runtime's idea of where an upload lives. The better shape is for the port to hand over a stream or an SPL file object, so the field can check the real size and sniff the real type rather than believing a string an attacker chose. Until then `File\Value::$type` is an *assertion*, not a fact, and the docblock says so. |
+| **A real MF2 implementation** | There is none for PHP: `intl` binds MessageFormat 1, and MF2 lives in `icu::message2`, which the extension does not expose. `Message\Mf2\Formatter` renders the subset the packs use — variable expansion and quoted literals — and refuses everything else loudly so that packs cannot come to depend on leniency. When a real library lands it becomes a thin adapter or disappears, and nothing around it changes. |
+| **Fallback wording in a document** | Nothing about messages is serialised today, and nothing needs to be: message keys are constraint names, which are already in the document, so any reader with any pack can render a schema it has never seen. The gap is a *custom* field or constraint, whose key no published pack knows — that falls back to no message. Optional inline fallbacks in the document would close it, at the cost of putting one language inside a definition that is otherwise language-free. |
 | **The rest** | Custom constraints on built-in fields, validation groups, normalisation, external validation hooks, field metadata for the UI, JSON Schema interoperability, a dictionary/map field. |
 
 Because these gate on newer PHP versions, they are minors rather than patches: `2.0`
@@ -412,10 +415,12 @@ Everything planned is in [the release table above](#the-release-ladder): defects
 records only what is deliberately *not* planned, and the one item that belongs to a
 sibling package.
 
-> **Not on the list: error messages and translations.** Those are a UI concern and are
-> deliberately outside the core — see
-> [Where error messages come from](../README.md#where-error-messages-come-from). The core
-> emits constraint names; presentation packages turn them into prose.
+> **This used to say error messages were deliberately outside the core.** They are in it now,
+> as of 2.0, but not in the way that line was refusing: the core gained an *integration point*
+> and a data format, not a table of English strings. Wording lives in installable packs of
+> MessageFormat 2 files with no code in them, so it is still true that this library does not
+> decide what a failure sounds like — and now also true that a JavaScript port reads the same
+> sentence. See [MESSAGES.md](MESSAGES.md).
 
 ### Sibling packages
 

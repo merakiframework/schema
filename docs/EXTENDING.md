@@ -104,6 +104,7 @@ $schema->add((new Isbn(new FieldName('isbn')))->thirteenDigitsOnly());
 | **Prefill** | submitted beats prefilled beats default, and the result says which won |
 | **Rules and scopes** | your field can be a rule's subject, and every public property is addressable |
 | **The result shape** | `given`, `value`, `source`, `shape`, one verdict per constraint |
+| **Messages** | `$result->messages` works for your field the moment a pack has wording for it — see below |
 
 The default check is the one worth dwelling on, because it catches a mistake you did not write
 the guard for:
@@ -116,6 +117,28 @@ the guard for:
 Configuration arrives in any order, so a default set *before* the constraint that rejects it has
 to fail on the later call. Every wither funnels through `with()`, which is what makes that work
 for a field its author never anticipated.
+
+### Your field's messages
+
+Nothing to register. A language pack looks up your constraint under your class's short name and
+falls through to the generic rung:
+
+```
+Isbn.isbn13      # wording for your field in particular
+isbn13           # wording for that constraint wherever it appears
+```
+
+So a field of yours reusing `minLength` gets the published sentence for free, and a constraint only
+you have needs a line somewhere before it says anything. That line can go in your own directory laid
+over the published pack, which is what `Mf2Provider::withPack()` is for — a later pack overrides an
+earlier one entry by entry, so you are not forking anybody's English to add one sentence.
+
+There is deliberately no walk up the parent classes. A field extending `Text` does not thereby mean
+what `Text` means, and inheriting its wording would be a confident guess rather than a translation.
+
+If your value implements `HasParts`, your messages group by part with no further work —
+`Message\Set` reads the parts off the class, so `$messages->forPart('checksum')` works for a field
+this library has never heard of. See [MESSAGES.md](MESSAGES.md).
 
 ## The four things you must get right
 

@@ -53,4 +53,28 @@ interface FieldResult extends ValidationResult
 
 	/** Shorthand for `$constraints->getFailed()`. */
 	public function getFailedConstraints(): Field\ConstraintResults;
+
+	/**
+	 * What to tell somebody about this field, in the language the request asked for.
+	 *
+	 * The whole of the messaging surface. Everything a language pack produces arrives here and
+	 * nowhere else, which is what lets messages be optional without any of the rest of the library
+	 * knowing they exist: with no provider registered the set is empty, and every other property on
+	 * this interface answers exactly as it did before.
+	 *
+	 * @see Message\Set for the two shapes it takes, and why a field with named parts always gets
+	 *      the parted one even when only the whole value failed
+	 */
+	public Message\Set $messages { get; }
+
+	/**
+	 * The same outcome with its messages rendered in one language.
+	 *
+	 * Plumbing rather than something a consumer calls: {@see Facade::validate()} resolves the
+	 * request's language once and hands the translator to each result. It is on the interface
+	 * because a result shape somebody else wrote has to be reachable the same way — a
+	 * {@see Field\Collection\Result} passes it down to every row, and one that quietly did not
+	 * would produce a form where the outer errors were translated and the inner ones were blank.
+	 */
+	public function withMessagesFrom(?Message\Translator $translator): static;
 }

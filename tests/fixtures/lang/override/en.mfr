@@ -1,0 +1,3 @@
+@locale = en
+
+minLength = Too short. We need {$bound}.

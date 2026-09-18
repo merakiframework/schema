@@ -72,6 +72,38 @@ class ResolvedField extends AggregatedValidationResult implements FieldResult
 		parent::__construct(...$results);
 
 		$this->assertResultsAreUnique();
+
+		$this->messages = Message\Set::for($this, null);
+	}
+
+	/**
+	 * What to tell somebody about this field, in the language the request asked for.
+	 *
+	 * Empty unless a {@see Message\Provider} was registered on the schema *and* the request named
+	 * a language it has, which is why a field validated on its own always has nothing here: there
+	 * is no schema to have carried a provider. That is the trade, and it is deliberate — a field
+	 * is a definition, and a definition that knew about languages would be a definition that could
+	 * not be serialised the same way twice.
+	 *
+	 * Always a set, never null, so reading it needs no guard. {@see Message\Set} explains which of
+	 * the two shapes it takes and why the field rather than the failures decides.
+	 */
+	public protected(set) Message\Set $messages;
+
+	/**
+	 * The same field with its messages rendered in one language.
+	 *
+	 * Called by {@see Facade::validate()} once per field, after the verdicts are in, because
+	 * nothing about a language may change a verdict. A result that never goes through here keeps
+	 * the empty set it was built with.
+	 *
+	 * Rendering eagerly rather than holding the translator keeps the result a plain value: what it
+	 * says is fixed at the moment it was judged, and cannot come out differently on a second read
+	 * because somebody changed a pack in between.
+	 */
+	public function withMessagesFrom(?Message\Translator $translator): static
+	{
+		return clone($this, ['messages' => Message\Set::for($this, $translator)]);
 	}
 
 	/**

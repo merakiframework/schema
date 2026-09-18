@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace Meraki\Schema\Field\Collection;
 
 use Meraki\Schema\AggregatedValidationResult;
+use Meraki\Schema\Message;
 use Meraki\Schema\ResolvedField;
 
 /**
@@ -33,6 +34,27 @@ final class Item extends AggregatedValidationResult
 		ResolvedField ...$fields,
 	) {
 		parent::__construct(...$fields);
+	}
+
+	/**
+	 * The same row with every field's messages rendered in one language.
+	 *
+	 * An item carries no messages of its own — it is not a field and has no verdicts that are its
+	 * own — so this exists only to pass the translator on. Without it a form with a collection would
+	 * translate the collection's errors and leave every error inside a row blank, which is the worse
+	 * half of the two.
+	 */
+	public function withMessagesFrom(?Message\Translator $translator): self
+	{
+		$fields = [];
+
+		foreach ($this->results as $result) {
+			assert($result instanceof ResolvedField);
+
+			$fields[] = $result->withMessagesFrom($translator);
+		}
+
+		return new self($this->key, ...$fields);
 	}
 
 	/**

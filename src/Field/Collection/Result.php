@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace Meraki\Schema\Field\Collection;
 
 use Meraki\Schema\Field\Collection;
+use Meraki\Schema\Message;
 use Meraki\Schema\ResolvedField;
 use Meraki\Schema\ValidationResult;
 use Meraki\Schema\ValueSource;
@@ -98,6 +99,48 @@ final class Result extends ResolvedField
 			$this->items,
 			...$results,
 		);
+	}
+
+	/**
+	 * The collection's own messages, and every row's.
+	 *
+	 * A collection fails on two axes — the list is too short, *and* the third row's date is in the
+	 * past — and they need different sentences in different places. So this translates the
+	 * collection's own verdicts through the inherited path and then rebuilds every item so each
+	 * field inside a row carries its own messages.
+	 *
+	 * Rebuilt through the constructor rather than cloned piecemeal because the items are also spread
+	 * into `$results`, where they are what makes a failing row fail the collection. Replacing one
+	 * copy and not the other would leave a caller reading the same row twice and getting messages
+	 * only once.
+	 */
+	public function withMessagesFrom(?Message\Translator $translator): static
+	{
+		$items = array_map(
+			static fn(Item $item): Item => $item->withMessagesFrom($translator),
+			$this->items,
+		);
+
+		$own = [];
+
+		foreach ($this->results as $result) {
+			if (!$result instanceof Item) {
+				$own[] = $result;
+			}
+		}
+
+		$copy = new self(
+			$this->collection,
+			$this->given,
+			$this->value,
+			$this->appliedOutcomes,
+			$this->source,
+			$this->evaluatedAt,
+			$items,
+			...$own,
+		);
+
+		return clone($copy, ['messages' => Message\Set::for($copy, $translator)]);
 	}
 
 	/**

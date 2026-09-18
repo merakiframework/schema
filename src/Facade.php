@@ -33,12 +33,22 @@ final class Facade
 	 *        source of the instant, never an instant: {@see SystemClock} is stateless and safe to
 	 *        share, whereas reading the time once into a property would start giving one request's
 	 *        answer to the next.
+	 * @param Message\Provider|null $messages where wording comes from, in whatever language a
+	 *        request asks for. Optional, and the schema works exactly as it did without one — every
+	 *        result simply carries an empty {@see Message\Set}.
+	 *
+	 *        Registered here rather than per request because a provider is a *source*, like the
+	 *        clock: it is built once, holds every language it can serve, and is safe to share. The
+	 *        *language* is the part that changes per request, and it arrives at
+	 *        {@see self::validate()} — which is also why one schema can serve a German reader and an
+	 *        English one without being defined twice.
 	 */
 	public function __construct(
 		string $name,
 		public private(set) Field\Set $fields = new Field\Set(),
 		public private(set) Rule\Set $rules = new Rule\Set(),
 		?Clock $clock = null,
+		public private(set) ?Message\Provider $messages = null,
 	) {
 		$this->name = new FieldName($name);
 		$this->clock = $clock ?? new SystemClock();
@@ -120,19 +130,35 @@ final class Facade
 	 * {@see ResolvedField::$source}, so a form can mark a prefilled field differently from one
 	 * the user typed into.
 	 *
+	 * ### The language is part of the request, not part of the schema
+	 *
+	 * A definition is the same in every language — the same data passes or fails identically — so
+	 * the locale arrives here rather than being fixed when the schema is built:
+	 *
+	 *     $result = $schema->validate($data, locale: 'en-AU');
+	 *     $result->forField('billing')->messages->forPart('postal_code')->first;
+	 *
+	 * Which means one schema serves every reader. It also means a missing language can never change
+	 * an outcome: an unsupported tag, or none at all, leaves every result carrying an empty
+	 * {@see Message\Set} and every verdict exactly as it was.
+	 *
 	 * @param object|null $prefilledWith values looked up for this one user
 	 * @param PrefillPolicy $policy whether a surviving prefill still has to satisfy its field
+	 * @param string|null $locale what language to report failures in, as a BCP 47 tag. Ignored when
+	 *        the schema was built without a {@see Message\Provider}.
 	 */
 	public function validate(
 		?object $data = null,
 		?object $prefilledWith = null,
 		PrefillPolicy $policy = PrefillPolicy::Checked,
+		?string $locale = null,
 	): SchemaValidationResult {
 		return $this->against(
 			$data,
 			$prefilledWith,
 			static fn(Field $f, mixed $v, array $o, ValueSource $s): AggregatedValidationResult
 				=> $f->validate($v, $o, $s, $policy),
+			$locale,
 		);
 	}
 
@@ -145,9 +171,14 @@ final class Facade
 	 * holds for the common case, and differs only where something really did change it.
 	 *
 	 * @param callable(Field, mixed, list<AppliedOutcome>, ValueSource): AggregatedValidationResult $each
+	 * @param string|null $locale the language to report failures in, or null for none
 	 */
-	private function against(?object $data, ?object $prefilledWith, callable $each): SchemaValidationResult
-	{
+	private function against(
+		?object $data,
+		?object $prefilledWith,
+		callable $each,
+		?string $locale = null,
+	): SchemaValidationResult {
 		$this->assertThereIsSomethingToValidate();
 
 		$given = $this->extractData($data);
@@ -164,6 +195,13 @@ final class Facade
 		foreach ($applied as $outcome) {
 			$byField[self::fieldNameIn($outcome->outcome->getScope())][] = $outcome;
 		}
+
+		// Resolved once, then handed to every field. A hundred-field form does one lookup, and —
+		// more importantly — every field on the page is answered by the same wording, which a
+		// per-field lookup could not promise if a pack were swapped underneath it.
+		$translator = $locale === null || $this->messages === null
+			? null
+			: $this->messages->forLocale($locale);
 
 		$results = [];
 
@@ -194,7 +232,14 @@ final class Facade
 			};
 
 			// The field settles Default from here: only it knows whether it has one.
-			$results[] = $each($field, $value, $outcomes, $source);
+			$result = $each($field, $value, $outcomes, $source);
+
+			// After the verdict, never before. Nothing about a language may change what was
+			// decided, and doing it here rather than inside the field is what keeps that true —
+			// a field has no provider and cannot acquire one.
+			$results[] = $translator !== null && $result instanceof FieldResult
+				? $result->withMessagesFrom($translator)
+				: $result;
 		}
 
 		return new SchemaValidationResult($this->clock->getTime(), ...$results);
@@ -282,13 +327,14 @@ final class Facade
 	 */
 	private function copyForRequest(): self
 	{
-		// The clock and the country defaults come too. Dropping them was harmless while nothing
-		// built a field on the copy — the request's instant is read from this schema, and the
-		// fields are shared instances that already hold their own clock — but it is the kind of
-		// harmless that stops being harmless silently: the copy constructed a SystemClock, so a
-		// test pinned to a FixedClock would have started failing for a reason nobody would
-		// connect to this line.
-		$copy = new self((string) $this->name, $this->fields, $this->rules, $this->clock);
+		// The clock, the message provider and the country defaults come too. Dropping them was
+		// harmless while nothing built a field on the copy — the request's instant is read from
+		// this schema, and the fields are shared instances that already hold their own clock — but
+		// it is the kind of harmless that stops being harmless silently: the copy constructed a
+		// SystemClock, so a test pinned to a FixedClock would have started failing for a reason
+		// nobody would connect to this line. The provider is here for exactly that reason and not
+		// because anything reads it off the copy yet.
+		$copy = new self((string) $this->name, $this->fields, $this->rules, $this->clock, $this->messages);
 		$copy->defaultCountries = $this->defaultCountries;
 
 		return $copy;

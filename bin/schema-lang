@@ -1,0 +1,131 @@
+#!/usr/bin/env php
+<?php
+declare(strict_types=1);
+
+/**
+ * Checks a language pack, and says what one may contain.
+ *
+ * A pack is data with no PHP in it, so this is what stands in for a compiler. It is meant to run in
+ * the pack's own CI:
+ *
+ *     composer require --dev meraki/schema
+ *     vendor/bin/schema-lang validate .
+ *
+ * which is why it looks for an autoloader in the places a dev dependency finds itself in, rather
+ * than assuming it is being run from this repository.
+ */
+
+use Meraki\Schema\Message\Mf2\PackValidator;
+use Meraki\Schema\Message\Vocabulary;
+
+$loaded = false;
+
+foreach ([__DIR__ . '/../vendor/autoload.php', __DIR__ . '/../../../autoload.php', getcwd() . '/vendor/autoload.php'] as $autoload) {
+	if (is_file($autoload)) {
+		require $autoload;
+		$loaded = true;
+		break;
+	}
+}
+
+if (!$loaded) {
+	fwrite(STDERR, "Could not find a Composer autoloader. Run \"composer install\" first.\n");
+	exit(1);
+}
+
+$argv = $_SERVER['argv'];
+$command = $argv[1] ?? 'help';
+$strict = in_array('--strict', $argv, true);
+$arguments = array_values(array_filter(array_slice($argv, 2), static fn(string $a): bool => !str_starts_with($a, '--')));
+$directory = $arguments[0] ?? '.';
+
+exit(match ($command) {
+	'validate' => commandValidate($directory, $strict),
+	'missing' => commandMissing($directory),
+	'keys' => commandKeys(),
+	default => commandHelp(),
+});
+
+function commandValidate(string $directory, bool $strict): int
+{
+	$validator = new PackValidator();
+	$problems = $validator->check($directory);
+
+	foreach ($problems as $problem) {
+		fwrite(STDERR, '  ' . $problem . "\n");
+	}
+
+	if ($problems !== []) {
+		fwrite(STDERR, sprintf("\n%d problem(s) in \"%s\".\n", count($problems), $directory));
+
+		return 1;
+	}
+
+	$missing = $validator->missing($directory);
+	$total = array_sum(array_map(count(...), $missing));
+
+	printf("%s is a valid language pack.\n", $directory);
+
+	if ($total === 0) {
+		echo "Every locale covers everything the library reports.\n";
+
+		return 0;
+	}
+
+	foreach ($missing as $locale => $keys) {
+		printf("  %s says nothing for %d of them: %s\n", $locale, count($keys), implode(', ', $keys));
+	}
+
+	echo "\nA pack does not have to be complete — a key with no wording simply produces no message.\n";
+
+	if ($strict) {
+		fwrite(STDERR, "Refusing because --strict was given.\n");
+
+		return 1;
+	}
+
+	return 0;
+}
+
+function commandMissing(string $directory): int
+{
+	foreach ((new PackValidator())->missing($directory) as $locale => $keys) {
+		printf("%s (%d)\n", $locale, count($keys));
+
+		foreach ($keys as $key) {
+			echo '  ', $key, "\n";
+		}
+	}
+
+	return 0;
+}
+
+function commandKeys(): int
+{
+	foreach (Vocabulary::keys() as $key) {
+		$variables = Vocabulary::variablesFor($key) ?? [];
+
+		printf("%-48s %s\n", $key, $variables === [] ? '' : '$' . implode(' $', $variables));
+	}
+
+	return 0;
+}
+
+function commandHelp(): int
+{
+	echo <<<TXT
+	schema-lang — check a meraki/schema language pack
+
+	  schema-lang validate <dir> [--strict]   everything wrong with a pack; --strict also
+	                                          refuses an incomplete one
+	  schema-lang missing <dir>               what each locale has no wording for
+	  schema-lang keys                        every key a pack may define, and the variables
+	                                          each one may name
+
+	A pack is a directory of .mfr files named for the locale they hold — en.mfr, en_AU.mfr — with
+	no PHP in it. See docs/MESSAGES.md in meraki/schema.
+
+	TXT;
+
+	return 0;
+}

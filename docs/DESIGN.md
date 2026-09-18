@@ -162,7 +162,7 @@ gives arrays. The port converts.
 
 ---
 
-## No error messages
+## Messages are data, and the language is part of the request
 
 The core says *what* failed and *what the limit was*. It does not say it in English.
 
@@ -172,10 +172,26 @@ $failed->bound;   // 3
 $failed->part;    // 'postal_code', or null
 ```
 
-A message needs a locale, a tone, and a context the library does not have — "must be at least 3
-characters" is wrong for a field labelled "PIN". Every mature alternative ships messages and
-translations; this deliberately does not, and that is the biggest thing you give up by choosing
-it. `meraki/schema-html` provides a default set.
+Wording arrives separately, from an installable pack of MessageFormat 2 files with no code in
+them. Two decisions hold it together, and both are refusals.
+
+**The wording does not belong to PHP.** A pack is data, so a JavaScript or Rust implementation of
+this library renders the same sentence from the same file. Bundling translations into the
+validator — which every mature alternative does — makes the wording a property of the
+implementation rather than of the definition, and a port has to re-translate everything.
+
+**The language cannot reach the judging.** A definition is the same in every language: the same
+data passes or fails identically whoever is reading. So a provider is registered on the schema and
+the *locale* is passed to `validate()`, applied to the verdicts afterwards. The consequence is the
+point — ask for a language nobody has and you get every failure you would otherwise have got, with
+nothing to say about them. Nothing about wording can move an outcome.
+
+It is optional throughout, and a field validated on its own has no messages at all, because there
+is no schema to have carried a provider. See [MESSAGES.md](MESSAGES.md).
+
+**What it costs.** One language ships. And MessageFormat 2 has no PHP implementation yet, so the
+packs are written against a subset — variable expansion — with anything richer refused until a
+real library lands.
 
 ---
 
@@ -265,5 +281,6 @@ you want the list of countries to change without editing this library.
 
 - [FIELD-API.md](FIELD-API.md) — the contract a field implements
 - [API.md](API.md) — every field's surface, and why each name was chosen
+- [MESSAGES.md](MESSAGES.md) — language packs, and why a locale is part of a request
 - [CODING-STYLE.md](CODING-STYLE.md) — the conventions these decisions produce
 - [LIMITATIONS.md](LIMITATIONS.md) — what is still wrong, with reproducers

@@ -10,6 +10,113 @@ is a commit subject, with the body kept because the body is where the reasoning 
 
 ## Unreleased
 
+### Messages as installable language packs, with MF2 as the first format
+
+`16dba813` · 2026-09-19
+
+Wording becomes part of the core, but as *data you install* rather than strings
+this library writes. One integration point — `$fieldResult->messages` — a
+`Message\Provider` handed to the schema, and a locale passed to `validate()`.
+
+The split between those last two is the design. A provider is a *source*: built
+once, holding every language it can serve, safe to share, registered alongside
+the clock. The locale is part of the request, because that is what varies. So
+one schema serves a German reader and an English one without being defined
+twice, and — the property everything else rests on — a language nobody has can
+never change a verdict. Ask for `de-AT` from an English-only pack and you get
+every failure you would otherwise have got, with nothing to say about them.
+
+A pack is `.mfr` files and no PHP at all, so a Rust or JavaScript implementation
+of this library renders the same sentences. That is what makes "the wording
+travels with the schema" true rather than aspirational. Getting one onto disk is
+Composer's job: the provider takes directories, because fetching inside
+`validate()` would mean a network call in the request path and a supply chain
+where a moved repository silently changes what users read.
+
+Nothing about messages is serialised, and nothing needs to be. Message keys are
+constraint names, which are already in the document, so a reader holding any
+pack for any language can render a schema it has never seen at a cost of zero
+bytes. A locale in the document would be worse than redundant — it would pin a
+definition to an audience.
+
+MessageFormat 2 has no PHP implementation: `intl` binds MF1, and MF2 lives in
+`icu::message2`, which the extension does not expose. `Mf2\Formatter` renders
+the subset the packs use — variable expansion, plus quoted literals, because
+`list.separator` is ", " including the space and a `key = value` file cannot
+carry a trailing one. Everything else is refused loudly at load time. That is
+the discipline that makes the class disposable: the swap to a real
+implementation is only safe if the subset behaves identically, and leniency is
+what would break it. A formatter quietly ignoring `.match` would let packs
+accumulate that work today and fail months later, on somebody's form, in a
+language nobody on the team reads.
+
+`bin/schema-lang` is what stands in for a compiler when a package is nothing but
+data. It reads the vocabulary off this library's own classes — so it cannot go
+stale — and catches unimplemented features, keys the library never asks for, and
+a message naming `{$minimum}` where the library supplies `{$bound}`. That last
+one is what a translator is most likely to write and least likely to notice,
+because the sentence reads perfectly until it runs.
+
+Also here:
+
+- `Field\ValueClass`, extracted from `ScopeResolver`. Both it and `Message\Set`
+  need to know a field's value class before any request exists, and "does this
+  field have parts" is not a question about scopes.
+- A fix to `ConstraintNameTest`, which passed an array where an object was
+  required and `country_code` where the key is `country`. The address was
+  unreadable, so every constraint came back *skipped* — and a skipped constraint
+  reports the declared bound, which for that one is null. Both assertions passed
+  without the constraint ever having run.
+- The docs that said messages were deliberately absent: README, DESIGN,
+  COMPARISON and ROADMAP each argued for their absence, and each now has to
+  argue for the shape they arrived in instead.
+
+### Rewrite the API doc around the API, and add examples to the design doc
+
+`d6c4de97` · 2026-09-16
+
+API.md was 1099 lines and most of it was the argument that produced the API
+rather than the API. The "Proposed API" section, the surface-by-surface
+review tables, the open questions -- all of it was transitional and went
+stale the moment the transition ended. Now 528 lines, organised as: three
+surfaces, defining a schema, the field table, naming, baselines, the field
+decisions worth knowing, reading a result, constraints, scopes, and what was
+removed.
+
+The reasoning is kept, because that is the expensive part to reconstruct.
+What is new is the set of decisions that look wrong until you know why, each
+also showing how to use the field:
+
+  Boolean::mustBeAccepted() is field API, not a rule -- it depends on no
+  other field, so it is a constraint. The general test is stated.
+  Enum is closed and allow() is gone -- it was a mutator and nothing needed
+  it; dynamic cases arrive at construction.
+  Money scale defaults from ISO 4217 and is overridable for rates. Reaching
+  for Number when you mean a rate is the common mistake, and it costs the
+  currency pairing and numeric comparison.
+  Password counts characters, not bytes. maxBytes is gone: bcrypt's 72-byte
+  truncation is real and is the hashing layer's question.
+  File believes what it is told, and why the port should hand over a handle.
+  Everything stays singular, and the port converts <input multiple>.
+
+Two errors corrected. `meetsMinValue(BigDecimal $value)` was wrong -- parse()
+returns a ParsedValue, so a constraint is typed Number\Value and unwrapping
+happens inside it. And `$value = parse($given) ?? $given` was wrong both as
+documentation and, until the previous commit, as code.
+
+Added: default versus prefill as a table, with the nickname/username example
+that makes it concrete, and the trust levels -- an authored default is
+trusted by construction, submitted input never is, a prefill only if you say
+so.
+
+Baselines not serialising now says why it matters across languages: this
+library says a password floor is 8 because NIST does, and a JavaScript port
+could say 7. The same document would accept different input depending on who
+validated it. On the roadmap, with the File handle item.
+
+DESIGN.md's "repairs nothing" and constraint sections have runnable examples,
+all verified.
+
 ### A simpler result surface, a valid-or-nothing $value, and else* for rules
 
 `56e9987c` · 2026-09-16

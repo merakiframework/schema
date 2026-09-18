@@ -42,6 +42,9 @@
         "meraki/schema-json": "Serialize a schema to JSON and back, so one definition can drive non-PHP consumers",
         "meraki/schema-html": "Render a schema as an HTML form, normalize request input, and produce validation messages"
     },
+    "bin": [
+        "bin/schema-lang"
+    ],
     "autoload": {
         "psr-4": {
             "Meraki\\Schema\\": "src/"

@@ -355,6 +355,7 @@ $field = $schema->validate($data)->forField('email');
 | `$field->shape` | could this be read at all? |
 | `$field->constraints` | the constraint verdicts, on their own |
 | `$field->status` | `Passed` \| `Failed` \| `Skipped` \| `Pending` |
+| `$field->messages` | what to tell somebody, in the language the request asked for — empty unless a provider was registered |
 
 ### `given` and `value` mean one thing each
 
@@ -385,6 +386,26 @@ $field->constraints->allPassed();
 $field->constraints->named('minLength');
 foreach ($field->constraints as $verdict) { ... }
 ```
+
+### Messages are applied to the verdicts, never fed into them
+
+```php
+$schema = new Facade('signup', messages: $provider);
+$result = $schema->validate($data, locale: 'en-AU');
+```
+
+The provider is a *source* registered on the schema, like the clock. The **locale** is part of the
+request, because that is the part that varies — so one schema serves every reader rather than being
+defined once per language.
+
+It also means a missing language cannot change an outcome: an unsupported tag, or none at all,
+leaves every verdict as it was and every message set empty. A field validated on its own therefore
+has no messages, because there is no schema to have carried a provider.
+
+`$messages` is a [`FlatSet`](../src/Message/FlatSet.php) for a field holding one value and a
+[`PartedSet`](../src/Message/PartedSet.php) for one whose value has named parts — decided by the
+*field*, not by what happened to fail, so a consumer that checks the type once does not break on a
+request that failed differently. See [MESSAGES.md](MESSAGES.md).
 
 ### Default versus prefill
 

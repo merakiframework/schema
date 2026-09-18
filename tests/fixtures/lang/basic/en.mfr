@@ -1,0 +1,27 @@
+@locale = en
+
+shape.missing = This {$kind} is required.
+shape.unreadable = That is not a valid {$kind}.
+
+kind.Text = text
+kind.Address = address
+kind.Money = amount
+
+part.postal_code = postal code
+part.country = country
+part.amount = amount
+part.currency = currency
+
+list.separator = {|, |}
+list.lastSeparator = {| or |}
+bound.true = yes
+bound.false = no
+
+minLength = Use at least {$bound} characters.
+maxLength = Use no more than {$bound} characters.
+postalCodeFormat = That is not a valid {$part} for the country you chose.
+allowedCurrencies = Choose one of these currencies: {$bound}.
+allowedCountries = Choose one of these countries: {$bound}.
+accepted = You have to accept this to continue.
+
+Password.minLength = Choose a passphrase of at least {$bound} characters.

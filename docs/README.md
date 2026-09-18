@@ -19,6 +19,7 @@ schema, and reading a result.
 | [API.md](API.md) | Every field's configuration and the constraint names it reports, with the reasoning behind each name |
 | [FIELD-API.md](FIELD-API.md) | The contract a field implements — `parse()`, shape versus constraint, order of operations |
 | [EXTENDING.md](EXTENDING.md) | Writing your own field type. About forty lines, and nothing to register |
+| [MESSAGES.md](MESSAGES.md) | Telling somebody what went wrong, in their language, from a pack you install rather than strings you write |
 | [../examples/](../examples/) | Small runnable examples, one aspect each. Every one runs in CI |
 
 ## If you are working on it
@@ -42,6 +43,7 @@ Each is about one thing, and each runs — `composer test:examples` fails the bu
 | [comparing-fields.php](../examples/comparing-fields.php) | Comparing two fields, whole or part by part |
 | [validate-with-rules.php](../examples/validate-with-rules.php) | Rules end to end, with the result's provenance |
 | [interactive-input.php](../examples/interactive-input.php) | Asking one field at a time and re-asking until it is acceptable |
+| [messages.php](../examples/messages.php) | Language packs: one schema, several languages, and verdicts that do not move |
 | [custom-field.php](../examples/custom-field.php) | A field type defined entirely outside this package |
 | [workshop-booking.php](../examples/workshop-booking.php) | A realistic form, putting the rest together |
 
