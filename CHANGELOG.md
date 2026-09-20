@@ -10,6 +10,15 @@ is a commit subject, with the body kept because the body is where the reasoning 
 
 ## Unreleased
 
+### Regenerate the changelog
+
+`6d5df13e` · 2026-09-19
+
+Generated from the commit history, so it can only be written after the commit it
+describes exists. Amending the content commit to carry it does not work: the
+changelog embeds each commit's hash, and amending changes the hash it just
+recorded.
+
 ### Messages as installable language packs, with MF2 as the first format
 
 `a29347a5` · 2026-09-19

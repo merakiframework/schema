@@ -19,6 +19,14 @@ declare(strict_types=1);
  *     php tools/changelog.php            # write CHANGELOG.md
  *     php tools/changelog.php --check    # fail if it is out of date (for CI)
  *     php tools/changelog.php -          # write to stdout
+ *
+ * `--check` passes when the file matches the history through HEAD, and also when it matches the
+ * history through HEAD's parent — because a changelog cannot list the commit it is committed in.
+ * See the check itself for why that is unfixable rather than merely unfixed.
+ *
+ * Which makes the order matter: regenerate, stage, commit. The file then lands exactly one commit
+ * behind, which is the closest it can get. Regenerating afterwards instead leaves it two behind,
+ * and the check says so.
  */
 
 const REPO = __DIR__ . '/..';
@@ -165,7 +173,8 @@ MD;
     return $out;
 }
 
-$rendered = render(releases(commits()));
+$commits = commits();
+$rendered = render(releases($commits));
 $target = REPO . '/CHANGELOG.md';
 
 if (in_array('-', $argv, true)) {
@@ -183,6 +192,27 @@ if (in_array('--check', $argv, true)) {
         exit(0);
     }
 
+    // One missing entry is allowed, and only one: the commit that carries the file.
+    //
+    // A changelog cannot list the commit it is committed in. The file has to be written before
+    // that commit exists, and every entry carries a hash — so amending the commit to include a
+    // freshly generated changelog invalidates the hash it has just recorded, and the loop never
+    // converges. "Up to date" therefore has to mean *up to date as of the parent*, which is the
+    // most this can truthfully assert.
+    //
+    // The tolerance is exactly one commit wide, so a changelog nobody has regenerated for a week
+    // is still caught, and so is one regenerated against a different history.
+    $withoutHead = array_slice($commits, 0, -1);
+
+    if ($withoutHead !== [] && $current === render(releases($withoutHead))) {
+        printf(
+            "  CHANGELOG.md is up to date as of %s — HEAD is not listed, and cannot be\n",
+            $withoutHead[count($withoutHead) - 1]['hash'],
+        );
+
+        exit(0);
+    }
+
     fwrite(STDERR, "CHANGELOG.md is out of date. Run: php tools/changelog.php\n");
 
     exit(1);
@@ -190,4 +220,4 @@ if (in_array('--check', $argv, true)) {
 
 file_put_contents($target, $rendered);
 
-printf("  wrote CHANGELOG.md (%d releases, %d commits)\n", count(releases(commits())), count(commits()));
+printf("  wrote CHANGELOG.md (%d releases, %d commits)\n", count(releases($commits)), count($commits));
