@@ -10,6 +10,24 @@ is a commit subject, with the body kept because the body is where the reasoning 
 
 ## Unreleased
 
+### Let the changelog check tolerate exactly one missing entry
+
+`559642a9` · 2026-09-20
+
+A changelog cannot list the commit it is committed in. The file has to be
+written before that commit exists, and every entry carries a hash — so amending
+the commit to carry a freshly generated changelog invalidates the hash it has
+just recorded. The loop does not converge, which is why the check has been
+failing rather than nobody having run it.
+
+So "up to date" now means *up to date as of the parent*, which is the most it
+can truthfully assert. The tolerance is exactly one commit wide: a file two
+behind still fails, and so does one generated against a different history.
+
+Which makes the order matter — regenerate, stage, commit — and the usage block
+now says so, because doing it the other way round lands the file two behind and
+the check is right to complain.
+
 ### Regenerate the changelog
 
 `6d5df13e` · 2026-09-19

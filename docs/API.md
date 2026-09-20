@@ -514,6 +514,41 @@ Only a value that says it has parts can be read into — [`Field\HasParts`](../s
 Part names are the keys submitted input uses, which are also what a constraint reports as
 `$constraint->part`, so there is one vocabulary rather than three.
 
+### The matchers
+
+| Matcher | Holds when | Subject |
+| --- | --- | --- |
+| `equals` | it is that value | any |
+| `notEquals` | it is anything else | any |
+| `isAtLeast` | it is that or after — **inclusive** | ordered |
+| `isGreaterThan` | it is strictly after | ordered |
+| `isAtMost` | it is that or before — **inclusive** | ordered |
+| `isLessThan` | it is strictly before | ordered |
+| `isBetween` | it is within both — **inclusive at both ends** | ordered |
+| `isIn` | it is any one of those | any |
+| `contains` | its text holds that text | text |
+| `matches` | its text matches that pattern | text |
+| `isEmpty` | nothing was submitted for it | any |
+| `isNotEmpty` | something was | any |
+
+**Ordered** means a value with an order: number, date, date-time, time, duration and money.
+That is [`Comparison\Comparable`](../src/Comparison/Comparable.php), and the five ordered
+matchers are that interface's `compareTo()` and one question put to the `Order` it returns —
+so a new orderable value type gets all five without touching them.
+
+`isBetween` is inclusive because it *holds* an `isAtLeast` and an `isAtMost` and asks both.
+The inclusivity is inherited rather than chosen, so it cannot drift from theirs.
+
+**`contains` is text only.** A collection's rows are records, and `contains('SKU-1')` has no
+honest reading over a record — the needle would have to name a field as well as a value.
+
+**`isEmpty` is not `equals(null)`.** A null expectation means the field's *authored default*,
+deliberately, so on a field with one they ask different questions.
+
+Ten of the nineteen value types have a string form, which is what `contains` and `matches`
+need. `Password` and `CreditCard` have none **on purpose**, so neither can be pattern-matched
+by a rule — a rule reading the text of a secret should be hard to write by accident.
+
 **An expectation can be another scope**, which is what lets a rule compare two fields:
 
 ```php

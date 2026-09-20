@@ -27,8 +27,9 @@ use InvalidArgumentException;
  * | `isAtMost` | `compareTo($x)->isAtMost()` |
  * | `isBetween` | both bounds, in one condition |
  *
- * The matchers themselves are still to come — see docs/ROADMAP.md. This is the part of them that
- * belongs to the value.
+ * All five exist — see {@see \Meraki\Schema\Rule\Condition\Ordered}, which is where they are
+ * written once against this interface. This is the part of them that belongs to the value, and
+ * implementing it on a new type is the whole of what that type needs to become orderable.
  *
  * ### Ordering is within a kind
  *

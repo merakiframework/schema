@@ -227,6 +227,20 @@ $schema->addRule(
 );
 ```
 
+Twelve matchers, and the inclusive ones say so in their names:
+
+```php
+$schema->when('age')->isAtLeast(18);            // 18 passes
+$schema->when('age')->isGreaterThan(18);        // 18 does not
+$schema->when('age')->isBetween(18, 65);        // both ends included
+$schema->when('country')->isIn(['AU', 'NZ']);
+$schema->when('notes')->matches('/^INV-/');
+$schema->when('company')->isEmpty();
+```
+
+The ordered ones work on numbers, dates, times, durations and money. Asking where a *text*
+field sits raises at `addRule()` rather than never firing.
+
 A rule can compare two *fields*, whole or part by part:
 
 ```php

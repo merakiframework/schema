@@ -242,7 +242,7 @@ client-side JavaScript:
 | `isLessThan` | `less_than` | number, date, time, duration |
 | `isBetween` | `between` | number, date, time, duration |
 | `isIn` | `in` | any |
-| `contains` | `contains` | text, collection |
+| `contains` | `contains` | text |
 | `matches` | `matches` | text |
 | `isEmpty` | `is_empty` | any |
 | `isNotEmpty` | `is_not_empty` | any |
@@ -252,9 +252,23 @@ shorthand alongside `when($f)->isAtLeast(18)`; it is dropped, because two names 
 constraint is precisely what [API.md](API.md) exists to remove (see `until()`
 vs `to()` on `Date`).
 
-Only `equals` and `not_equals` exist today, so everything from the third row down is new
-capability rather than a rename. The set is open: adding a matcher means adding a
-condition class and a serializer case, with no change to the rule engine.
+*Done.* All twelve exist. The set stays open: adding a matcher means adding a condition
+class and a serializer case, with no change to the rule engine.
+
+Two notes on what was built, because neither was obvious from the table:
+
+**`contains` is text only**, where this table once said "text, collection". A collection's
+rows are *records*, and `contains('SKU-1')` has no honest reading over a record — the needle
+would have to name a field as well as a value, which is a different matcher with a different
+signature. Folding both behind one verb would have meant `contains` meaning membership or
+substring depending on what the request happened to submit, decided at runtime and silently.
+What collection membership actually needs is a scope that can address a column across every
+row, at which point `isIn` already says it.
+
+**The five ordered matchers are `Comparison\Comparable` and nothing else.** Each is
+`compareTo()` and one question put to the `Order` it returns, written once against the
+interface rather than once per field type — which is what that interface was split out for.
+A seventh orderable value type gets all five for free.
 ### `otherwise()`
 
 An else-branch of outcomes, which today requires a second rule with a hand-inverted

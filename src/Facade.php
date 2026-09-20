@@ -502,32 +502,16 @@ final class Facade
 	private function assertExpectationsAreReadable(Rule $rule): void
 	{
 		foreach (self::comparisonsIn($rule->condition) as $comparison) {
-			if ($comparison->expectationIsReadable($this)) {
-				continue;
+			// The condition writes its own sentence, because the reasons differ and this cannot
+			// tell which applied. An unreadable expectation and a field with no order are
+			// different mistakes needing different corrections, and one message describing both
+			// would be wrong about at least one of them.
+			$why = $comparison->whyItCouldNeverHold($this);
+
+			if ($why !== null) {
+				throw new InvalidArgumentException($why);
 			}
-
-			throw new InvalidArgumentException(sprintf(
-				'The rule compares "%s" against %s, which that field cannot hold — so the '
-				. 'comparison could never be true and the rule would never fire.',
-				(string) $comparison->scope,
-				self::describe($comparison->expected),
-			));
 		}
-	}
-
-	/**
-	 * A value as it should read in a message: what was written, not just its type.
-	 *
-	 * "cannot hold string" leaves the author hunting for which string. `cannot hold 'eighteen'`
-	 * points straight at it.
-	 */
-	private static function describe(mixed $value): string
-	{
-		return match (true) {
-			is_string($value) => "'" . $value . "'",
-			is_scalar($value) => var_export($value, true),
-			default => get_debug_type($value),
-		};
 	}
 
 	/**

@@ -58,6 +58,13 @@ use Meraki\Schema\ValueScope;
  * value is compared against a parsed value. Nothing is parsed *into* a field in that case — there
  * is no literal to read — and the two sides need not be the same kind of field: comparing a
  * `postal_code` to a `line1` is allowed, and answers false.
+ *
+ * ### More than one expectation
+ *
+ * `equals` compares against one value, `isBetween` against two and `isIn` against a list. They are
+ * the same question asked of a different number of operands, so {@see self::expectations()} is what
+ * a subclass widens — and the readability check, the scope collection and the parsing all follow
+ * from it rather than being restated three times.
  */
 abstract class Comparison implements Condition
 {
@@ -87,88 +94,140 @@ abstract class Comparison implements Condition
 
 		return Values::same(
 			$resolver->resolve($this->scope),
-			$this->expectedAsTheFieldWouldReadIt($schema, $resolver),
+			$this->readExpectation($this->expected, $schema, $resolver),
 		);
 	}
 
 	/**
-	 * Whether the field this compares against can read the expectation at all.
+	 * Why this comparison could not hold for any input there will ever be, or null if it could.
 	 *
-	 * Checked where the rule is added rather than where it fires. An expectation the field cannot
-	 * read compares unequal against every input, so the rule is dead — and a dead rule that throws
-	 * no error is indistinguishable from one whose condition simply never held.
+	 * Checked where the rule is added rather than where it fires. A dead rule raises nothing, which
+	 * makes it indistinguishable from one whose condition simply never held —
+	 * `when('age')->equals('eighteen')` on a number field is the shape of it.
 	 *
-	 * Returns true for anything this does not parse, which is exactly the set it has no opinion
-	 * about: a definition property, and `null`.
+	 * Returns a sentence rather than a boolean because the *reasons* differ and a caller cannot
+	 * infer which applied: an unreadable expectation and a field with no order are different
+	 * mistakes needing different corrections, and "the expectation is unreadable" is simply wrong
+	 * about the second. {@see Ordered} adds its own.
+	 *
+	 * Silent about anything this does not parse, which is exactly the set it has no opinion about:
+	 * a definition property, `null`, and the other half of a cross-field comparison — where "can
+	 * this field hold that value" is the wrong question, because the answer is whatever the request
+	 * supplies.
 	 */
-	final public function expectationIsReadable(Facade $schema): bool
+	public function whyItCouldNeverHold(Facade $schema): ?string
 	{
-		// A scope is checked by {@see self::getScopes()} instead: "can this field hold that value"
-		// is the wrong question about the other half of a cross-field comparison, where the answer
-		// is whatever the request supplies.
-		if (!$this->parsesItsExpectation()) {
-			return true;
-		}
-
+		// Not this check's business. Facade::addRule() reports an unaddressable scope itself, and
+		// with a better message than anything here would be.
 		$field = $schema->fields->findByName($this->scope->field);
 
-		// Not this check's business. Facade::addRule() reports an unaddressable scope itself, and
-		// with a better message than "the expectation is unreadable" would be.
 		if ($field === null) {
-			return true;
+			return null;
 		}
 
-		$result = $field->validate($this->expected);
+		foreach ($this->expectations() as $expectation) {
+			if (!$this->wouldBeParsed($expectation)) {
+				continue;
+			}
 
-		// The field is asked rather than inferred from. `resolvedValueFor()` hands back what it
-		// was given when it cannot parse it, so "came back unchanged" cannot tell an unreadable
-		// value from one a field parses to itself — which every text-shaped field does.
-		//
-		// Only the *shape* is consulted. Whether the expectation satisfies the field's constraints
-		// is not this check's question: `equals('ab')` against a field with a three-character
-		// minimum is a perfectly sensible rule, because the point of the rule may well be to react
-		// to input that is going to fail.
-		return !$result instanceof FieldResult || !$result->shape->wasUnreadable();
+			// The field is asked rather than inferred from. `resolvedValueFor()` hands back what it
+			// was given when it cannot parse it, so "came back unchanged" cannot tell an unreadable
+			// value from one a field parses to itself — which every text-shaped field does.
+			//
+			// Only the *shape* is consulted. Whether the expectation satisfies the field's
+			// constraints is not this check's question: `equals('ab')` against a field with a
+			// three-character minimum is a perfectly sensible rule, because the point of the rule
+			// may well be to react to input that is going to fail.
+			$result = $field->validate($expectation);
+
+			if ($result instanceof FieldResult && $result->shape->wasUnreadable()) {
+				return sprintf(
+					'The rule compares "%s" against %s, which that field cannot hold — so the '
+					. 'comparison could never be true and the rule would never fire.',
+					(string) $this->scope,
+					self::describe($expectation),
+				);
+			}
+		}
+
+		return null;
 	}
 
 	/**
-	 * Both sides, when both are scopes.
+	 * Every scope this mentions, on either side.
 	 *
-	 * {@see \Meraki\Schema\Facade::addRule()} checks every scope a rule mentions, so an expectation
-	 * naming a field that does not exist is refused where the rule is written rather than resolving
-	 * to `null` on every request afterwards.
+	 * {@see \Meraki\Schema\Facade::addRule()} checks every one, so an expectation naming a field
+	 * that does not exist is refused where the rule is written rather than resolving to `null` on
+	 * every request afterwards.
 	 *
 	 * @return array<Scope>
 	 */
 	public function getScopes(): array
 	{
-		return $this->expected instanceof Scope
-			? [$this->scope, $this->expected]
-			: [$this->scope];
+		$scopes = [$this->scope];
+
+		foreach ($this->expectations() as $expectation) {
+			if ($expectation instanceof Scope) {
+				$scopes[] = $expectation;
+			}
+		}
+
+		return $scopes;
 	}
 
-	private function parsesItsExpectation(): bool
+	/**
+	 * Everything this compares the scope against.
+	 *
+	 * One for `equals`, two for `isBetween`, a list for `isIn`. Widened by a subclass so that
+	 * parsing, the readability check and scope collection all follow from one declaration.
+	 *
+	 * @return list<mixed>
+	 */
+	protected function expectations(): array
 	{
-		return $this->scope instanceof ValueScope
-			&& $this->expected !== null
-			&& !$this->expected instanceof Scope;
+		return [$this->expected];
 	}
 
-	private function expectedAsTheFieldWouldReadIt(Facade $schema, ScopeResolver $resolver): mixed
+	/**
+	 * One expectation, read the way the field would have read it.
+	 */
+	final protected function readExpectation(mixed $expectation, Facade $schema, ScopeResolver $resolver): mixed
 	{
 		// The other side is somewhere else in the same request. Resolved through the same resolver,
 		// so both sides are read the same way and a parsed value is compared against a parsed
 		// value — which is what makes `when($shipping)->equals($billing)` mean what it reads as.
-		if ($this->expected instanceof Scope) {
-			return $resolver->resolve($this->expected);
+		if ($expectation instanceof Scope) {
+			return $resolver->resolve($expectation);
 		}
 
-		if (!$this->parsesItsExpectation()) {
-			return $this->expected;
+		if (!$this->wouldBeParsed($expectation)) {
+			return $expectation;
 		}
 
 		$field = $schema->fields->findByName($this->scope->field);
 
-		return $field === null ? $this->expected : $field->resolvedValueFor($this->expected);
+		return $field === null ? $expectation : $field->resolvedValueFor($expectation);
+	}
+
+	/**
+	 * A value as it should read in a message: what was written, not just its type.
+	 *
+	 * "cannot hold string" leaves the author hunting for which string. `cannot hold 'eighteen'`
+	 * points straight at it.
+	 */
+	final protected static function describe(mixed $value): string
+	{
+		return match (true) {
+			is_string($value) => "'" . $value . "'",
+			is_scalar($value) => var_export($value, true),
+			default => get_debug_type($value),
+		};
+	}
+
+	final protected function wouldBeParsed(mixed $expectation): bool
+	{
+		return $this->scope instanceof ValueScope
+			&& $expectation !== null
+			&& !$expectation instanceof Scope;
 	}
 }
