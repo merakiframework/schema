@@ -14,7 +14,7 @@ use Meraki\Schema\Scope;
  * chosen, and cannot drift from theirs — which prose alone could not promise. The parameters are
  * named to match: `isBetween(18, 65)` accepts both 18 and 65.
  *
- *     $schema->when($age)->isBetween(18, 65)->thenMakeOptional($guardianConsent);
+ *     $age->when()->isBetween(18, 65)->then($guardianConsent->makeOptional());
  *
  * Worth saying why it is not simply `allOf(isAtLeast, isAtMost)` even though it means the same
  * thing. A range is one idea: an author writing two conditions has two places to edit and two

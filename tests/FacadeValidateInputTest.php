@@ -103,7 +103,7 @@ final class FacadeValidateInputTest extends TestCase
 		$schema = new Facade('contact');
 		$schema->add($schema->createBooleanField('has_phone'));
 		$schema->add($schema->createTextField('phone')->makeOptional());
-		$schema->addRule($schema->when('has_phone')->equals(true)->thenRequire('phone'));
+		$schema->addRule($schema->when('has_phone')->equals(true)->then($schema->fields->getByName('phone')->makeRequired()));
 
 		// condition holds -> phone becomes required -> missing phone fails
 		$first = $schema->validate((object)['has_phone' => true, 'phone' => null]);
@@ -124,7 +124,7 @@ final class FacadeValidateInputTest extends TestCase
 		// its input, so a stale/invalid value never fails.
 		$schema->addRule(
 			$schema->when('vehicle')->notEquals('school')
-				->thenMakeOptional('transmission')
+				->then($schema->fields->getByName('transmission')->makeOptional())
 				->thenIgnore('transmission')
 		);
 

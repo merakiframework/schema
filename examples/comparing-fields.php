@@ -28,14 +28,14 @@ $schema->add(
 // The strong question: is the shipping address the billing address, in every part?
 $schema->addRule(
 	$schema->when(ValueScope::of('shipping'))->equals(ValueScope::of('billing'))
-		->thenRequire('same_address'),
+		->then($schema->fields->getByName('same_address')->makeRequired()),
 );
 
 // The weaker and more useful one: shipping somewhere else is fine, another country is paperwork.
 $schema->addRule(
 	$schema->when(PartScope::of('shipping', 'country'))
 		->notEquals(PartScope::of('billing', 'country'))
-		->thenRequire('customs_declaration'),
+		->then($schema->fields->getByName('customs_declaration')->makeRequired()),
 );
 
 $rockhampton = [
@@ -81,7 +81,7 @@ echo PHP_EOL . 'A part is checked when the rule is written, not when it fires:' 
 
 try {
 	$schema->addRule(
-		$schema->when(PartScope::of('billing', 'ctry'))->equals('AU')->thenRequire('same_address'),
+		$schema->when(PartScope::of('billing', 'ctry'))->equals('AU')->then($schema->fields->getByName('same_address')->makeRequired()),
 	);
 } catch (InvalidArgumentException $e) {
 	echo '  ' . $e->getMessage() . PHP_EOL;
@@ -91,7 +91,7 @@ try {
 // for part of it is a mistake rather than an empty answer.
 try {
 	$schema->addRule(
-		$schema->when(PartScope::of('same_address', 'country'))->equals('AU')->thenRequire('billing'),
+		$schema->when(PartScope::of('same_address', 'country'))->equals('AU')->then($schema->fields->getByName('billing')->makeRequired()),
 	);
 } catch (InvalidArgumentException $e) {
 	echo '  ' . $e->getMessage() . PHP_EOL;

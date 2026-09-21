@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace Meraki\Schema;
 
 use Meraki\Schema\FieldName;
+use Meraki\Schema\Rule;
 use Meraki\Schema\AggregatedValidationResult;
 use Meraki\Schema\Field\Constraint;
 
@@ -68,6 +69,36 @@ interface Field
 	public function makeRequired(): static;
 
 	public function equals(self $other): bool;
+
+	/**
+	 * The same field with properties a rule outcome recorded put back.
+	 *
+	 * Not a general setter. The values come from {@see Rule\Outcome\Reconfigure}, which read them
+	 * off a field the author configured through this field\u0027s own withers — so each has already
+	 * been past whatever that wither checks. See {@see Field\Definition::reconfiguredWith()}.
+	 *
+	 * @param array<string, mixed> $changes
+	 */
+	public function reconfiguredWith(array $changes): static;
+
+	/**
+	 * The questions a rule may ask about this field.
+	 *
+	 *     $age->when()->isAtLeast(18)->then($contract->makeRequired())
+	 *
+	 * Declared here as {@see Rule\Matcher} — the marker — and narrowed by each field to the one
+	 * its value has earned, which is ordinary return covariance. So `$text->when()` has no
+	 * `isAtLeast` **to offer**: it is absent from completion and does not compile, rather than
+	 * being a call that looks sensible and is refused later.
+	 *
+	 * Nothing should hold the return of this method as a bare `Rule\Matcher`. Doing so throws away
+	 * the narrowing, which is the entire point — hold the field instead, and the type follows.
+	 *
+	 * {@see \Meraki\Schema\Facade::when()} is the other way in, for a field named by string or a
+	 * scope pointing at a part. It cannot know the type, so it answers with every verb and leans
+	 * on the check that runs when the rule is added.
+	 */
+	public function when(): Rule\Matcher;
 
 	/**
 	 * Resolves a submitted value against this field, without checking it.

@@ -66,7 +66,7 @@ Breaking by construction, so a major version regardless.
 | **Real PHP types** | The core takes arrays, lists, objects and scalars; the UI layer converts. `EmailAddress` takes one address; `Field\AtomicMultiValue` and the comma-splitting in `EmailAddress::parseValue()` go — both are `<input type="email" multiple>` leaking into the domain. |
 | **Structured types** | `Composite` is removed. `Address`, `Money` and `CreditCard` become distinct types with their own public API, each taking an object shape and validating it. Dotted constraint names (`addr.postal_code.format`) go with it, so the replacements have to be chosen deliberately — downstream message providers match on them. **`Variant` is removed** — this line said it stayed, on the grounds that a union is a type rather than conditional logic, which is a good argument for a capability nothing was asking for: its only use anywhere was making `Password` and `Passphrase` appear as one field, and those merged into one type. It can come back if a real union turns up; see [API.md](API.md). |
 | **Scopes** | *Done.* Typed and immutable; resolution moved out of the field classes into `ScopeResolver`. `ScopeTarget` and `traverse()` are gone, and `Field::NOT_ADDRESSABLE` went with the back-reference it guarded — every public property of a field is addressable, with no exceptions list. `Wizard\RuleScopes` is `schema-html`'s and goes with the ports. |
-| **Rules** | *Done.* [Matcher vocabulary](#rule-authoring), `otherwise()`, and rules built as values: `$schema->when($f)->equals(…)->thenRequire($g)`, composed with `allOf()`/`anyOf()` and added with `addRule()`/`addRules()`. `whenAllMatch()`/`whenAnyMatch()` and both rule builders are gone. An outcome is now an *operation* — `applyTo(Field): Field` — which is what makes it work against an immutable field at all; every one of them was calling a wither and discarding the result, so rules had silently stopped doing anything. Only `equals`/`notEquals` exist so far; the ten comparison matchers in the table below are still to come. |
+| **Rules** | *Done.* [Matcher vocabulary](#rule-authoring), an else-branch, and rules built as values: `$f->when()->equals(…)->then($g->makeRequired())`, composed with `allOf()`/`anyOf()` and added with `addRule()`/`addRules()`. `whenAllMatch()`/`whenAnyMatch()` and both rule builders are gone. An outcome is now an *operation* — `applyTo(Field): Field` — which is what makes it work against an immutable field at all; every one of them was calling a wither and discarding the result, so rules had silently stopped doing anything. All twelve matchers exist, and a field offers only the ones its value can answer — `$text->when()` has no `isAtLeast` to call. An outcome is the field put through its own withers: `then($insurance->makeRequired()->mustBeAccepted())`, with the rule storing the difference. |
 | **API surface** | `addXField()` becomes `createXField()` plus an explicit add; `pairWith()` and `Field::$schema` are removed; `type` stops being reported as a constraint; every row in [API.md](API.md) confirmed and the public API frozen. |
 | **Messages** | Wording becomes part of the core, as *installable language packs* rather than strings in the library. One integration point — `$fieldResult->messages` — a `Message\Provider` the schema is given, and a locale passed to `validate()`. Packs are MessageFormat 2 data with no code in them, so every implementation of this library renders the same sentence. Entirely optional: with no provider the library behaves exactly as it did. See [MESSAGES.md](MESSAGES.md). |
 | **Retire the rewrite-era tests** | *Done.* A rewrite needs tests asserting the *old* behaviour is gone; they earn their keep while both shapes exist in living memory and become noise the moment `2.0` ships, since nobody writing against a 2.x API needs telling that a 1.x one is absent. Each was run one last time to confirm the removal, then deleted — four standalone tests plus `NamingTest`'s 31-row removal matrix. Tests asserting a *live* design boundary were kept, and the distinction is recorded in TODO.md. `AtomicField::getConstraints()` has gone too, with `constraints()` becoming the `$constraints` property. |
@@ -198,23 +198,23 @@ Jasmine-*like* rather than Jasmine: the point is that a rule reads as a sentence
 that it copies `expect().toBe()`. Conditions become a named matcher vocabulary instead of
 a handful of `whenEquals` variants.
 
-Rules are built as **values**, then added. `$schema->when($field)` starts a condition;
+Rules are built as **values**, then added. `$field->when()` starts a condition;
 attaching outcomes completes a rule; `allOf()`/`anyOf()` compose conditions.
 
 ```php
 // one condition
 $schema->addRule(
-    $schema->when($hasLogBook)->equals(true)
-        ->thenRequire($logBookTime)
-        ->elseMakeOptional($logBookTime)
+    $hasLogBook->when()->equals(true)
+        ->then($logBookTime->makeRequired())
+        ->else($logBookTime->makeOptional())
 );
 
 // several conditions combined into one rule
 $schema->addRule(
     $schema->allOf(
-        $schema->when($whoFor)->equals('someone_else'),
-        $schema->when($whoManages)->equals('participant'),
-    )->thenRequire($email)->elseIgnore($email)
+        $whoFor->when()->equals('someone_else'),
+        $whoManages->when()->equals('participant'),
+    )->then($email->makeRequired())->elseIgnore($email)
 );
 
 // several independent rules at once
@@ -275,20 +275,34 @@ An else-branch of outcomes, which today requires a second rule with a hand-inver
 condition that drifts out of step with the first. It is as declarative as `then`, so it
 serializes the same way.
 
-### Outcomes name operations, not states
+### Outcomes are the field, configured — and this page used to say they could not be
 
-`->thenRequire($field)` records an operation. The tempting alternative —
-`->then($field->require())`, handing over an already-modified field — does not work, for
-two reasons worth writing down so the idea is not revisited:
+This section argued that `->then($field->makeRequired())` could not work, and that
+`->thenRequire($field)` naming an operation was the only shape available. Both of its objections
+were real, and both are answered by storing the **difference** rather than the modified field:
 
-- **Snapshots do not compose.** If one rule stores a copy that is required and another
-  stores a copy with a new minimum, both derived from the authored field, whichever
-  applies last wins the whole field and the other change is silently lost. Operations
-  compose; whole-object replacement clobbers.
-- **Snapshots lose intent.** `FormRenderer::deriveRuleEffects()` asks
-  `$outcome instanceof MakeOptional` to decide what a matched rule did. A replaced field
-  has no operation to match on, so `HideOptionalFieldsResolvedByRules` would stop working.
+- **Snapshots do not compose.** True, and still true. If a rule stored a copy that is required and
+  another stored a copy with a new minimum, whichever applied last would win the whole field. So
+  `Outcome\Reconfigure` compares the copy against the authored field when the rule is added and
+  keeps only the properties that changed. Those merge.
+- **Snapshots lose intent.** Also true of a stored field, and not of a difference:
+  `$applied->outcome->changes` is `['optional' => false, 'requiresAcceptance' => true]` — more
+  specific than `instanceof MakeOptional` was, because it says what the rule did rather than which
+  of three verbs it used.
 
+What the old shape cost was the thing this library exists for. A named verb per operation means a
+fixed list — `thenRequire`, `thenMakeOptional` — and every capability a field has that is not on
+that list is unreachable from a rule. There was no way to say "and it must be accepted", and no
+way at all to reach a method on a field type this library has never heard of.
+
+Configuring the field directly inverts that: **every wither is a rule outcome**, including yours.
+It is also type-safe for free, because the field is on the left — `$terms` is a `Boolean`, so
+`mustBeAccepted()` is on it and `minLengthOf()` is not. A `then($field)` handing back a builder
+could not have managed that; PHP cannot vary a return type by argument.
+
+`Outcome\MakeRequired` and `Outcome\MakeOptional` are gone with the verbs that produced them.
+`Outcome\Ignore` stays, because ignoring is about a request rather than a definition and no wither
+expresses it.
 The same reasoning rules out closure-backed conditions, which were considered and
 rejected: a retained closure cannot be serialized to JSON for another runtime, cannot be
 introspected via `Condition::getScopes()` (which the renderer needs in order to know
@@ -322,7 +336,7 @@ or `#/fields/x/optional` are legitimate targets. What changes:
 
 - **`Property\Name` identifies the field**, not a `Field` instance.
 - **Distinct scope types for distinct targets**, so passing a value scope to
-  `thenRequire()` is a type error rather than a runtime "Require can only be applied to
+  an outcome is a type error rather than a runtime "Require can only be applied to
   fields".
 - **The property segment is validated at definition time** against the field's real
   public properties.
@@ -383,8 +397,8 @@ $method = $schema->createEnumField('contact_method', ['email', 'phone']);
 $email  = $schema->createEmailAddressField('email_address');
 
 $schema->addRule(
-    $schema->when($method)->notEquals('email')
-        ->thenMakeOptional($email)
+    $method->when()->notEquals('email')
+        ->then($email->makeOptional())
         ->thenIgnore($email)
 );
 ```

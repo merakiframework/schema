@@ -3,6 +3,8 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Field;
 
+use Meraki\Schema\ValueScope;
+use Meraki\Schema\Rule\Matcher;
 use Meraki\Schema\Field\CreditCard\Value;
 use Meraki\Schema\AtomicField;
 use Meraki\Schema\FieldName;
@@ -104,6 +106,16 @@ final readonly class CreditCard extends AtomicField
 	public function mustExpireInFuture(): static
 	{
 		return $this->with(['mustExpireInFuture' => true]);
+	}
+
+	/**
+	 * What a rule may ask about this field: no string form, deliberately — see Field\CreditCard\Value.
+	 *
+	 * @see \Meraki\Schema\Rule\Matcher for the four sets and why a field declares one
+	 */
+	public function when(): Matcher\Basic
+	{
+		return new Matcher\Basic(ValueScope::of($this->name));
 	}
 
 	/**

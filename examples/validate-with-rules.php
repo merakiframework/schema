@@ -69,7 +69,7 @@ $schema->add(
 // conditions they could drift apart, and nothing would notice.
 $schema->addRule(
 	$schema->when($hasLogBook)->equals(true)
-		->thenRequire($timeCompleted)
+		->then($timeCompleted->makeRequired())
 		->elseIgnore($timeCompleted)
 );
 

@@ -12,7 +12,7 @@ use Meraki\Schema\Comparison\Order;
  * accepts 18. {@see IsGreaterThan} is its exclusive twin, and they are named so that neither can
  * be read as the other.
  *
- *     $schema->when($age)->isAtLeast(18)->thenRequire($contract);
+ *     $age->when()->isAtLeast(18)->then($contract->makeRequired());
  *
  * See {@see Ordered} for what happens when the value has no order, and {@see Comparison} for how
  * the bound is read — it goes through the same field the submitted value did, so `isAtLeast(18)`

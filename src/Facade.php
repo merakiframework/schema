@@ -402,9 +402,13 @@ final class Facade
 	 *             ->elseMakeOptional($logBookTime)
 	 *     );
 	 */
-	public function when(Field|FieldName|Scope|string $subject): Rule\Matcher
+	public function when(Field|FieldName|Scope|string $subject): Rule\Matcher\OrderedText
 	{
-		return new Rule\Matcher(self::scopeFor($subject));
+		// Every verb, because a string or a part scope cannot be resolved to a type here. A field
+		// handed in by value could be asked for its own matcher, but the return type could not
+		// narrow to match — PHP has no way to vary a return by argument — so it would read as
+		// typed and not be. One honest answer beats two that look alike.
+		return new Rule\Matcher\OrderedText(self::scopeFor($subject));
 	}
 
 	/**
@@ -476,7 +480,9 @@ final class Facade
 	public function addRule(Rule|Rule\Draft $rule): self
 	{
 		if ($rule instanceof Rule\Draft) {
-			$rule = $rule->build();
+			// Against this schema, because an outcome is the *difference* between the field an
+			// author configured and the one registered here — and only this side has the latter.
+			$rule = $rule->buildAgainst($this->fields);
 		}
 
 		$this->assertScopesAreAddressable($rule);

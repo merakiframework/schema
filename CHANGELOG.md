@@ -10,6 +10,70 @@ is a commit subject, with the body kept because the body is where the reasoning 
 
 ## Unreleased
 
+### The ten missing rule matchers
+
+`78cc347a` · 2026-09-20
+
+`equals` and `notEquals` were the only questions a rule could ask. The other ten
+from the vocabulary in docs/ROADMAP.md now exist: isAtLeast, isGreaterThan,
+isAtMost, isLessThan, isBetween, isIn, contains, matches, isEmpty, isNotEmpty.
+
+The five ordered ones are `Comparison\Comparable` and nothing else — each is
+`compareTo()` and one question put to the `Order` it returns. That interface was
+split out for exactly this and had no caller in the rule engine until now: six
+value types implemented `compareTo()` and no rule could ask. A seventh orderable
+type gets all five for free.
+
+Inclusivity is in the names, because getting it wrong is the defect nobody
+notices for a year — the rule fires most of the time and the one input it has
+wrong is the one nobody tries. `isAtLeast` and `isAtMost` include their bound;
+`isGreaterThan` and `isLessThan` do not; `isLessThan` is what `Date::until()`
+corresponds to, so the rule surface and the field surface agree about where a
+range ends.
+
+`isBetween` is inclusive at both ends, and not by choice: it holds an `isAtLeast`
+and an `isAtMost` and asks both, so its inclusivity is inherited rather than
+picked and cannot drift from theirs. Prose alone could not have promised that.
+
+### Refused where they are written, not left to never fire
+
+A rule that can never hold raises nothing while looking like a working rule,
+which is the defect `Condition\Comparison` exists to have fixed. So each new way
+of writing a dead rule is caught at `addRule()`:
+
+- an ordered matcher on a field with no order — `when($username)->isAtLeast(3)`
+  reads plausibly and is dead, and a field's value class says so without a
+  request;
+- a bound the field cannot hold, including one buried in an `isIn` list, since
+  the check now sees through the list rather than at it;
+- `isIn([])`, `contains('')` and a pattern that does not compile — each holds for
+  every request or for none.
+
+That needed `expectationIsReadable(): bool` to become
+`whyItCouldNeverHold(): ?string`. The reasons differ and the caller cannot infer
+which applied: "that field cannot hold 'eighteen'" and "what that field holds has
+no order" are different mistakes needing different corrections, and one message
+covering both would be wrong about at least one of them.
+
+### Two narrowings, both deliberate
+
+**`contains` is text only**, where the vocabulary said "text, collection". A
+collection's rows are *records*, and `contains('SKU-1')` has no honest reading
+over a record — the needle would have to name a field as well as a value, which
+is a different matcher with a different signature. One verb meaning membership or
+substring depending on what the request happened to submit, decided at runtime,
+is worse than not having it.
+
+**`isEmpty` is not `equals(null)`.** A null expectation means the field's authored
+default, deliberately, so on a field with one they ask different questions. It
+also does not use PHP's `empty()`: a boolean `false` is a submitted answer and a
+number `0` is a quantity.
+
+One consequence worth knowing rather than fixing: `Password\Value` and
+`CreditCard\Value` have no string form on purpose, so `contains` and `matches`
+never hold for them. A rule reading the text of a secret should be hard to write
+by accident.
+
 ### Let the changelog check tolerate exactly one missing entry
 
 `559642a9` · 2026-09-20

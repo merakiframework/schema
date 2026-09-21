@@ -15,17 +15,15 @@ use Meraki\Schema\Facade;
 $schema = new Facade('booking');
 
 $schema->add(
-	$schema->createEnumField('who_for', ['myself', 'someone_else']),
-	$schema->createNameField('participant_name'),
-	$schema->createEmailAddressField('participant_email'),
+	$whoFor = $schema->createEnumField('who_for', ['myself', 'someone_else']),
+	$name = $schema->createNameField('participant_name'),
+	$email = $schema->createEmailAddressField('participant_email'),
 );
 
 $schema->addRule(
-	$schema->when('who_for')->equals('someone_else')
-		->thenRequire('participant_name')
-		->thenRequire('participant_email')
-		->elseMakeOptional('participant_name')
-		->elseMakeOptional('participant_email'),
+	$whoFor->when()->equals('someone_else')
+		->then($name->makeRequired(), $email->makeRequired())
+		->else($name->makeOptional(), $email->makeOptional()),
 );
 
 /** @param array<string, mixed> $submitted */
@@ -70,10 +68,10 @@ $report($schema, 'Booking for someone else, filled in:', [
 // hands back a *copy*, so the two rules stay separate.
 echo 'One condition, two independent rules:' . PHP_EOL;
 
-$forSomeoneElse = $schema->when('who_for')->equals('someone_else');
+$forSomeoneElse = $whoFor->when()->equals('someone_else');
 
-echo '  outcomes on the first : ' . count($forSomeoneElse->thenRequire('participant_name')->build()->outcomes) . PHP_EOL;
-echo '  outcomes on the second: ' . count($forSomeoneElse->thenRequire('participant_email')->build()->outcomes) . PHP_EOL;
+echo '  outcomes on the first : ' . count($forSomeoneElse->then($name->makeRequired())->buildAgainst($schema->fields)->outcomes) . PHP_EOL;
+echo '  outcomes on the second: ' . count($forSomeoneElse->then($email->makeRequired())->buildAgainst($schema->fields)->outcomes) . PHP_EOL;
 
 // Several conditions can be combined. allOf() takes *conditions*, never finished rules: the
 // outcomes attach to the combined result, so there is exactly one set of them.
@@ -84,16 +82,16 @@ $combined->add(
 	$combined->createEnumField('who_for', ['myself', 'someone_else']),
 	$combined->createEnumField('who_manages', ['organiser', 'participant']),
 	// Optional as authored, so the rule requiring it is something you can actually see. A field
-	// is required unless it says otherwise, so `thenRequire` on an already-required field is a
+	// is required unless it says otherwise, so requiring an already-required field is a
 	// no-op — which is a fine way to write an example that proves nothing.
-	$combined->createEmailAddressField('participant_email')->makeOptional(),
+	$combinedEmail = $combined->createEmailAddressField('participant_email')->makeOptional(),
 );
 
 $combined->addRule(
 	$combined->allOf(
 		$combined->when('who_for')->equals('someone_else'),
 		$combined->when('who_manages')->equals('participant'),
-	)->thenRequire('participant_email'),
+	)->then($combinedEmail->makeRequired()),
 );
 
 foreach ([['someone_else', 'participant'], ['someone_else', 'organiser'], ['myself', 'participant']] as [$for, $manages]) {

@@ -8,7 +8,7 @@ use Meraki\Schema\Facade;
 /**
  * Holds when the scope points at something.
  *
- *     $schema->when($companyName)->isNotEmpty()->thenRequire($abn);
+ *     $companyName->when()->isNotEmpty()->then($abn->makeRequired());
  *
  * Exactly the negation of {@see IsEmpty}, sharing its reading of what "nothing" means rather than
  * restating it — the same arrangement as {@see Equals} and {@see NotEquals}, and for the same

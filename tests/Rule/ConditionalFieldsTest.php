@@ -9,8 +9,7 @@ use Meraki\Schema\Rule\Condition;
 use Meraki\Schema\Rule\Draft;
 use Meraki\Schema\Rule\Matcher;
 use Meraki\Schema\Rule\Outcome\Ignore;
-use Meraki\Schema\Rule\Outcome\MakeOptional;
-use Meraki\Schema\Rule\Outcome\MakeRequired;
+use Meraki\Schema\Rule\Outcome\Reconfigure;
 use InvalidArgumentException;
 use LogicException;
 use PHPUnit\Framework\TestCase;
@@ -36,13 +35,15 @@ use PHPUnit\Framework\Attributes\CoversClass;
 #[Group('rule')]
 #[CoversClass(Facade::class)]
 #[CoversClass(Draft::class)]
-#[CoversClass(Matcher::class)]
+#[CoversClass(Matcher\Basic::class)]
+#[CoversClass(Matcher\Ordered::class)]
+#[CoversClass(Matcher\Text::class)]
+#[CoversClass(Matcher\OrderedText::class)]
 #[CoversClass(Rule::class)]
 #[CoversClass(Condition\Equals::class)]
 #[CoversClass(Condition\NotEquals::class)]
 #[CoversClass(Ignore::class)]
-#[CoversClass(MakeOptional::class)]
-#[CoversClass(MakeRequired::class)]
+#[CoversClass(Reconfigure::class)]
 final class ConditionalFieldsTest extends TestCase
 {
 
@@ -66,8 +67,8 @@ final class ConditionalFieldsTest extends TestCase
 		$schema->add($method, $email, $phone);
 
 		$schema->addRules(
-			$schema->when($method)->notEquals('email')->thenMakeOptional($email)->thenIgnore($email),
-			$schema->when($method)->notEquals('phone')->thenMakeOptional($phone)->thenIgnore($phone),
+			$schema->when($method)->notEquals('email')->then($email->makeOptional())->thenIgnore($email),
+			$schema->when($method)->notEquals('phone')->then($phone->makeOptional())->thenIgnore($phone),
 		);
 
 		return $schema;
@@ -115,7 +116,7 @@ final class ConditionalFieldsTest extends TestCase
 
 		$schema->add($method, $email);
 		$schema->addRule(
-			$schema->when($method)->notEquals('email')->thenMakeOptional($email)->thenIgnore($email),
+			$schema->when($method)->notEquals('email')->then($email->makeOptional())->thenIgnore($email),
 		);
 
 		$this->assertFalse($schema->validate((object)['contactMethod' => 'phone', 'emailAddress' => 'bad'])->anyFailed());
@@ -141,7 +142,7 @@ final class ConditionalFieldsTest extends TestCase
 			$schema->allOf(
 				$schema->when($whoFor)->equals('someone_else'),
 				$schema->when($whoManages)->equals('participant'),
-			)->thenRequire($email),
+			)->then($email->makeRequired()),
 		);
 
 		$this->assertTrue($schema->validate((object)['who_for' => 'someone_else', 'who_manages' => 'participant'])->anyFailed());
@@ -164,7 +165,7 @@ final class ConditionalFieldsTest extends TestCase
 			$schema->anyOf(
 				$schema->when($staff)->equals(true),
 				$schema->when($member)->equals(true),
-			)->thenRequire($number),
+			)->then($number->makeRequired()),
 		);
 
 		$this->assertTrue($schema->validate((object)['is_staff' => true])->anyFailed());
@@ -187,7 +188,7 @@ final class ConditionalFieldsTest extends TestCase
 		$this->expectExceptionMessageMatches('/combine conditions, not finished rules/');
 
 		$schema->allOf(
-			$schema->when($a)->equals(true)->thenRequire($b),
+			$schema->when($a)->equals(true)->then($b->makeRequired()),
 			$schema->when($b)->equals(true),
 		);
 	}
@@ -207,8 +208,8 @@ final class ConditionalFieldsTest extends TestCase
 		$schema->add($hasLogBook, $completed);
 		$schema->addRule(
 			$schema->when($hasLogBook)->equals(true)
-				->thenRequire($completed)
-				->elseMakeOptional($completed),
+				->then($completed->makeRequired())
+				->else($completed->makeOptional()),
 		);
 
 		$this->assertTrue($schema->validate((object)['has_log_book' => true])->anyFailed());
@@ -228,8 +229,8 @@ final class ConditionalFieldsTest extends TestCase
 		$schema->add($hasLogBook, $completed);
 		$schema->addRule(
 			$schema->when($hasLogBook)->equals(true)
-				->thenRequire($completed)
-				->elseMakeOptional($completed),
+				->then($completed->makeRequired())
+				->else($completed->makeOptional()),
 		);
 
 		$applied = $schema->validate((object)['has_log_book' => false])
@@ -237,7 +238,8 @@ final class ConditionalFieldsTest extends TestCase
 			->appliedOutcomes;
 
 		$this->assertCount(1, $applied);
-		$this->assertTrue($applied[0]->is(MakeOptional::class));
+		$this->assertTrue($applied[0]->is(Reconfigure::class));
+		$this->assertSame(['optional' => true], $applied[0]->outcome->changes);
 		$this->assertFalse($applied[0]->conditionMatched, 'It came from the else-branch.');
 	}
 
@@ -254,7 +256,7 @@ final class ConditionalFieldsTest extends TestCase
 
 		$schema->add($username, $nickname);
 
-		$rule = $schema->when($username)->equals('admin')->thenRequire($nickname);
+		$rule = $schema->when($username)->equals('admin')->then($nickname->makeRequired());
 
 		$this->assertInstanceOf(Draft::class, $rule);
 		$this->assertCount(0, $schema->rules, 'Building it must not add it.');
@@ -288,7 +290,7 @@ final class ConditionalFieldsTest extends TestCase
 		$this->expectExceptionMessageMatches('/nickname/');
 
 		$schema->addRule(
-			$schema->when('username')->equals('admin')->elseRequire('nickname'),
+			$schema->when('username')->equals('admin')->else($schema->fields->getByName('nickname')->makeRequired()),
 		);
 	}
 }

@@ -3,6 +3,8 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Field;
 
+use Meraki\Schema\ValueScope;
+use Meraki\Schema\Rule\Matcher;
 use Meraki\Schema\Field\File\Value;
 use Meraki\Schema\AtomicField;
 use Meraki\Schema\FieldName;
@@ -196,6 +198,16 @@ final readonly class File extends AtomicField
 	 *
 	 * @param UploadedFile|Value|null $value
 	 */
+	/**
+	 * What a rule may ask about this field: a file is described, not ranked or read as text.
+	 *
+	 * @see \Meraki\Schema\Rule\Matcher for the four sets and why a field declares one
+	 */
+	public function when(): Matcher\Basic
+	{
+		return new Matcher\Basic(ValueScope::of($this->name));
+	}
+
 	/**
 	 * @param array<string, mixed>|Value $value
 	 */

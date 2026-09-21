@@ -12,7 +12,7 @@ use Meraki\Schema\Comparison\Order;
  * inclusive twin, and reaching for the wrong one is the commonest mistake in this pair — which is
  * why they are spelled as differently as they are.
  *
- *     $schema->when($balance)->isGreaterThan(0)->thenRequire($payoutMethod);
+ *     $balance->when()->isGreaterThan(0)->then($payoutMethod->makeRequired());
  *
  * See {@see Ordered} for what happens when the value has no order, and {@see Comparison} for how
  * the bound is read.

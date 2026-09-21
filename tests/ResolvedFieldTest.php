@@ -99,12 +99,12 @@ final class ResolvedFieldTest extends TestCase
 	public function it_records_which_rules_altered_the_field(): void
 	{
 		$rule = new Rule(new Rule\Condition\AllOf(), []);
-		$outcome = new Outcome\MakeOptional('#/fields/username');
+		$outcome = new Outcome\Ignore('#/fields/username');
 		$field = new ResolvedField($this->field(), null, null, [new AppliedOutcome($rule, $outcome)]);
 
 		$this->assertTrue($field->wasAlteredByRule());
-		$this->assertTrue($field->appliedOutcomes[0]->is(Outcome\MakeOptional::class));
-		$this->assertFalse($field->appliedOutcomes[0]->is(Outcome\MakeRequired::class));
+		$this->assertTrue($field->appliedOutcomes[0]->is(Outcome\Ignore::class));
+		$this->assertFalse($field->appliedOutcomes[0]->is(Outcome\Reconfigure::class));
 	}
 
 	#[Test]

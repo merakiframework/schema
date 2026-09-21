@@ -3,6 +3,8 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Field;
 
+use Meraki\Schema\ValueScope;
+use Meraki\Schema\Rule\Matcher;
 use Meraki\Schema\Field\Time\Precision;
 use Meraki\Schema\Field\Time\PrecisionPolicy;
 use Meraki\Schema\AtomicField;
@@ -71,6 +73,16 @@ final readonly class Time extends AtomicField
 	public function until(string $value): static
 	{
 		return $this->with(['until' => $this->mustParse($value)]);
+	}
+
+	/**
+	 * What a rule may ask about this field: a time can be ranked, and reads back as text.
+	 *
+	 * @see \Meraki\Schema\Rule\Matcher for the four sets and why a field declares one
+	 */
+	public function when(): Matcher\OrderedText
+	{
+		return new Matcher\OrderedText(ValueScope::of($this->name));
 	}
 
 	/**

@@ -3,6 +3,8 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Field;
 
+use Meraki\Schema\ValueScope;
+use Meraki\Schema\Rule\Matcher;
 use Meraki\Schema\Field\Uuid\Value;
 use Meraki\Schema\AtomicField;
 use Meraki\Schema\FieldName;
@@ -68,6 +70,16 @@ final readonly class Uuid extends AtomicField
 		}
 
 		return $this->with(['allowedVersions' => $allowed]);
+	}
+
+	/**
+	 * What a rule may ask about this field: an identifier is matched, never ranked — two UUIDs have no meaningful order.
+	 *
+	 * @see \Meraki\Schema\Rule\Matcher for the four sets and why a field declares one
+	 */
+	public function when(): Matcher\Text
+	{
+		return new Matcher\Text(ValueScope::of($this->name));
 	}
 
 	/**

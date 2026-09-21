@@ -76,12 +76,17 @@ final readonly class Boolean extends AtomicField
         return $this->with(['requiresAcceptance' => true, 'optional' => false]);
     }
 
-    protected function parse(mixed $value): ?Value         // 3. the one conversion hook
+    public function when(): Matcher\Basic                  // 3. what a rule may ask it
+    {
+        return new Matcher\Basic(ValueScope::of($this->name));
+    }
+
+    protected function parse(mixed $value): ?Value         // 4. the one conversion hook
     {
         return is_bool($value) ? new Value($value) : null;
     }
 
-    protected function defineConstraints(): Constraint\Set // 4. what it checks
+    protected function defineConstraints(): Constraint\Set // 5. what it checks
     {
         return new Constraint\Set(
             new Constraint('accepted', $this->wasAccepted(...), $this->requiresAcceptance),
@@ -94,6 +99,12 @@ final readonly class Boolean extends AtomicField
     }
 }
 ```
+
+**`when()` is the one member nothing can derive for you.** Yes or no has no order and no text,
+so a boolean offers `equals`, `isIn` and the presence pair and withholds the rest — which means
+`$terms->when()->isAtLeast(1)` does not compile. Pick by what your *value* answers:
+`Comparable` earns the ordered questions, `Stringable` earns the text ones, and
+[EXTENDING.md](EXTENDING.md) has the table.
 
 **The constructor order matters and is not optional.** `parent::__construct()` first, then the
 field's own properties, then `$this->constraints = $this->defineConstraints()` last — because

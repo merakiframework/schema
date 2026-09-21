@@ -10,7 +10,7 @@ use Meraki\Schema\Scope;
 /**
  * Holds when the value's text contains the given text.
  *
- *     $schema->when($notes)->contains('urgent')->thenRequire($escalationContact);
+ *     $notes->when()->contains('urgent')->then($escalationContact->makeRequired());
  *
  * A plain substring test, case-sensitive. Case-insensitivity is {@see Matches} with an `i` flag,
  * rather than a second matcher or an option nobody would find.

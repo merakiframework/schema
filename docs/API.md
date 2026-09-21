@@ -514,30 +514,69 @@ Only a value that says it has parts can be read into — [`Field\HasParts`](../s
 Part names are the keys submitted input uses, which are also what a constraint reports as
 `$constraint->part`, so there is one vocabulary rather than three.
 
+### Writing a rule
+
+```php
+$schema->addRule(
+    $parcelWeight->when()->isAtLeast(Weight::of('5.00', 'kg'))
+        ->then($insurance->makeRequired()->mustBeAccepted())
+        ->else($insurance->makeOptional()),
+);
+```
+
+Both halves put the **field on the left**, and that is the whole of why either is type-safe. PHP
+cannot vary a return type by argument, so `when($field)` and `then($field)` could never hand back
+anything that knew what kind of field it had been given. `$field->when()` and
+`$field->makeRequired()` both can, because the type flows from the receiver.
+
 ### The matchers
 
-| Matcher | Holds when | Subject |
+| Matcher | Holds when | Offered by |
 | --- | --- | --- |
-| `equals` | it is that value | any |
-| `notEquals` | it is anything else | any |
+| `equals` | it is that value | every field |
+| `notEquals` | it is anything else | every field |
+| `isIn` | it is any one of those | every field |
+| `isEmpty` | nothing was submitted for it | every field |
+| `isNotEmpty` | something was | every field |
 | `isAtLeast` | it is that or after — **inclusive** | ordered |
 | `isGreaterThan` | it is strictly after | ordered |
 | `isAtMost` | it is that or before — **inclusive** | ordered |
 | `isLessThan` | it is strictly before | ordered |
 | `isBetween` | it is within both — **inclusive at both ends** | ordered |
-| `isIn` | it is any one of those | any |
 | `contains` | its text holds that text | text |
 | `matches` | its text matches that pattern | text |
-| `isEmpty` | nothing was submitted for it | any |
-| `isNotEmpty` | something was | any |
 
-**Ordered** means a value with an order: number, date, date-time, time, duration and money.
-That is [`Comparison\Comparable`](../src/Comparison/Comparable.php), and the five ordered
-matchers are that interface's `compareTo()` and one question put to the `Order` it returns —
-so a new orderable value type gets all five without touching them.
+**A field offers only what its value can answer**, and `Field::when()` is what says so. There are
+four matchers, one per capability set, and a field's declaration picks one:
 
-`isBetween` is inclusive because it *holds* an `isAtLeast` and an `isAtMost` and asks both.
-The inclusivity is inherited rather than chosen, so it cannot drift from theirs.
+| Matcher | Fields |
+| --- | --- |
+| [`Matcher\Basic`](../src/Rule/Matcher/Basic.php) | Address, Boolean, Collection, CreditCard, EmailAddress, Enum, File, Password |
+| [`Matcher\Ordered`](../src/Rule/Matcher/Ordered.php) | Money |
+| [`Matcher\Text`](../src/Rule/Matcher/Text.php) | Name, PhoneNumber, Text, Uri, Uuid |
+| [`Matcher\OrderedText`](../src/Rule/Matcher/OrderedText.php) | Number, Date, DateTime, Time, Duration |
+
+So `$notes->when()->isAtLeast(3)` is a **call to a method that is not there** — absent from
+completion, refused by PHPStan, fatal at runtime. That is the difference between this and one
+matcher with a `mixed` bound, which can only refuse the same mistake once the rule is being added.
+
+Which set a field gets follows from its value: *ordered* means the value implements
+[`Comparison\Comparable`](../src/Comparison/Comparable.php), *text* means it is `Stringable`. A
+test asserts every field's declaration against its value's actual capabilities, so the nineteen
+one-line declarations cannot drift.
+
+`Password` and `CreditCard` have no string form **on purpose**, so neither can be pattern-matched
+by a rule — a rule reading the text of a secret should be hard to write by accident.
+`EmailAddress` has none either, which is less obviously deliberate; see [ROADMAP.md](ROADMAP.md).
+
+`$schema->when('age')` still works, for a field named by string or a scope pointing at a part. It
+cannot resolve a type, so it answers with all twelve and leans on the check that runs when the
+rule is added.
+
+The five ordered matchers are `Comparable::compareTo()` and one question put to the `Order` it
+returns, so a new orderable value type gets all five without touching them. `isBetween` is
+inclusive because it *holds* an `isAtLeast` and an `isAtMost` and asks both — inherited rather
+than chosen, so it cannot drift from theirs.
 
 **`contains` is text only.** A collection's rows are records, and `contains('SKU-1')` has no
 honest reading over a record — the needle would have to name a field as well as a value.
@@ -545,11 +584,25 @@ honest reading over a record — the needle would have to name a field as well a
 **`isEmpty` is not `equals(null)`.** A null expectation means the field's *authored default*,
 deliberately, so on a field with one they ask different questions.
 
-Ten of the nineteen value types have a string form, which is what `contains` and `matches`
-need. `Password` and `CreditCard` have none **on purpose**, so neither can be pattern-matched
-by a rule — a rule reading the text of a secret should be hard to write by accident.
+### The outcomes
 
-**An expectation can be another scope**, which is what lets a rule compare two fields:
+There is one: the field, configured. `then()` and `else()` take a field you have put through its
+own withers, and the rule records the **difference** between it and the one on the schema.
+
+```php
+->then($terms->makeRequired()->mustBeAccepted())
+->then($discount->maxValueOf(50))
+```
+
+So every configuration method a field has is already a rule outcome, including on a field type
+this library has never heard of — there is no `thenRequire()` and no list of outcome classes to
+extend. Storing the difference rather than the field is what makes two rules touching one field
+merge instead of clobbering, and what makes an outcome serialisable.
+
+`thenIgnore()` is the one named verb left, because ignoring is about a *request* — the input never
+reaches the field — rather than about the definition, so no wither expresses it.
+
+**An expectation can be another scope**, which is what lets a rule compare two fields:**An expectation can be another scope**, which is what lets a rule compare two fields:
 
 ```php
 $schema->when(ValueScope::of('shipping'))->equals(ValueScope::of('billing'));

@@ -3,6 +3,8 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Field;
 
+use Meraki\Schema\ValueScope;
+use Meraki\Schema\Rule\Matcher;
 use Meraki\Schema\Field\Collection\Item;
 use Meraki\Schema\Field\Collection\Value;
 use Meraki\Schema\Field\Collection\Result;
@@ -341,6 +343,16 @@ final readonly class Collection implements Field
 		);
 	}
 
+
+	/**
+	 * What a rule may ask about this field: a list is compared and counted, not ranked; isEmpty already reads its length.
+	 *
+	 * @see \Meraki\Schema\Rule\Matcher for the four sets and why a field declares one
+	 */
+	public function when(): Matcher\Basic
+	{
+		return new Matcher\Basic(ValueScope::of($this->name));
+	}
 
 	/**
 	 * Reads the incoming value as items, each keyed by the template's field names.

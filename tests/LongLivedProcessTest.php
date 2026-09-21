@@ -38,7 +38,7 @@ final class LongLivedProcessTest extends TestCase
 		$schema = new Facade('signup');
 		$schema->add($schema->createTextField('username')->minLengthOf(3));
 		$schema->add($schema->createTextField('nickname')->makeOptional());
-		$schema->addRule($schema->when('username')->equals('admin')->thenRequire('nickname'));
+		$schema->addRule($schema->when('username')->equals('admin')->then($schema->fields->getByName('nickname')->makeRequired()));
 
 		return $schema;
 	}

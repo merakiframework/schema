@@ -3,6 +3,8 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Field;
 
+use Meraki\Schema\ValueScope;
+use Meraki\Schema\Rule\Matcher;
 use Meraki\Schema\AtomicField;
 use Meraki\Schema\FieldName;
 use Brick\DateTime\DateTimeException;
@@ -52,6 +54,16 @@ final readonly class Date extends AtomicField
 	public function from(string $date): static
 	{
 		return $this->with(['from' => LocalDate::parse($date)]);
+	}
+
+	/**
+	 * What a rule may ask about this field: a date can be ranked, and reads back as text.
+	 *
+	 * @see \Meraki\Schema\Rule\Matcher for the four sets and why a field declares one
+	 */
+	public function when(): Matcher\OrderedText
+	{
+		return new Matcher\OrderedText(ValueScope::of($this->name));
 	}
 
 	/**

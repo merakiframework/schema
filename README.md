@@ -221,25 +221,45 @@ cannot drift apart:
 
 ```php
 $schema->addRule(
-    $schema->when('who_for')->equals('someone_else')
-        ->thenRequire('participant_name')
-        ->elseMakeOptional('participant_name'),
+    $whoFor->when()->equals('someone_else')
+        ->then($participantName->makeRequired())
+        ->else($participantName->makeOptional()),
 );
 ```
+
+**An outcome is the field, configured.** There is no `thenRequire()` and there never needs to
+be one: you call the field's own withers and the rule records what changed. So every
+configuration method a field has is already a rule outcome — including on a field type you
+wrote yourself:
+
+```php
+->then($terms->makeRequired()->mustBeAccepted())
+->then($discount->maxValueOf(50))
+```
+
+It is type-safe because the field is on the *left*: `$terms` is a `Boolean`, so
+`mustBeAccepted()` is on it and `minLengthOf()` is not, and your editor knows both. Fields
+are immutable, so the wither hands back a copy and the schema's own field is untouched.
 
 Twelve matchers, and the inclusive ones say so in their names:
 
 ```php
-$schema->when('age')->isAtLeast(18);            // 18 passes
-$schema->when('age')->isGreaterThan(18);        // 18 does not
-$schema->when('age')->isBetween(18, 65);        // both ends included
-$schema->when('country')->isIn(['AU', 'NZ']);
-$schema->when('notes')->matches('/^INV-/');
-$schema->when('company')->isEmpty();
+$age->when()->isAtLeast(18);            // 18 passes
+$age->when()->isGreaterThan(18);        // 18 does not
+$age->when()->isBetween(18, 65);        // both ends included
+$country->when()->isIn(['AU', 'NZ']);
+$notes->when()->matches('/^INV-/');
+$company->when()->isEmpty();
 ```
 
-The ordered ones work on numbers, dates, times, durations and money. Asking where a *text*
-field sits raises at `addRule()` rather than never firing.
+**A field offers only the questions its value can answer.** `$notes` is text, so its matcher
+carries `contains` and `matches` and no ordering at all — `$notes->when()->isAtLeast(3)` is a
+call to a method that is not there, greyed out in your editor before you run anything. The
+ordered questions belong to numbers, dates, times, durations and money.
+
+`$schema->when('age')` still works for a field named by string or a scope pointing at a part.
+It cannot know the type, so it offers all twelve and leans on the check that runs when the
+rule is added.
 
 A rule can compare two *fields*, whole or part by part:
 

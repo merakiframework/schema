@@ -3,6 +3,8 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Field;
 
+use Meraki\Schema\ValueScope;
+use Meraki\Schema\Rule\Matcher;
 use Meraki\Schema\Field\EmailAddress\Value;
 use Meraki\Schema\AtomicField;
 use Meraki\Schema\FieldName;
@@ -168,6 +170,16 @@ final readonly class EmailAddress extends AtomicField
 	public function clearDisallowedDomains(): static
 	{
 		return $this->with(['disallowedDomains' => []]);
+	}
+
+	/**
+	 * What a rule may ask about this field: no string form on the value today, so no text questions; its parts still answer them.
+	 *
+	 * @see \Meraki\Schema\Rule\Matcher for the four sets and why a field declares one
+	 */
+	public function when(): Matcher\Basic
+	{
+		return new Matcher\Basic(ValueScope::of($this->name));
 	}
 
 	/**

@@ -14,7 +14,7 @@ use Meraki\Schema\ScopeResolver;
  *
  * `equals` widened from one operand to several, and nothing more:
  *
- *     $schema->when($country)->isIn(['AU', 'NZ'])->thenRequire($gstNumber);
+ *     $country->when()->isIn(['AU', 'NZ'])->then($gstNumber->makeRequired());
  *
  * Every candidate is read the way {@see Comparison} describes — through the field the value came
  * from — so a list of date strings is compared as dates, and any one of them may be a

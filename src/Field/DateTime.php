@@ -3,6 +3,8 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Field;
 
+use Meraki\Schema\ValueScope;
+use Meraki\Schema\Rule\Matcher;
 use Meraki\Schema\Field\DateTime\TimePrecision;
 use Meraki\Schema\Field\DateTime\PrecisionPolicy;
 use Meraki\Schema\AtomicField;
@@ -69,6 +71,16 @@ final readonly class DateTime extends AtomicField
 	public function until(string $dateTime): static
 	{
 		return $this->with(['until' => $this->mustParse($dateTime)]);
+	}
+
+	/**
+	 * What a rule may ask about this field: an instant can be ranked, and reads back as text.
+	 *
+	 * @see \Meraki\Schema\Rule\Matcher for the four sets and why a field declares one
+	 */
+	public function when(): Matcher\OrderedText
+	{
+		return new Matcher\OrderedText(ValueScope::of($this->name));
 	}
 
 	/**

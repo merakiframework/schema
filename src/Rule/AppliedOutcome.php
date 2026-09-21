@@ -33,7 +33,8 @@ final class AppliedOutcome
 
 	/**
 	 * Whether this was applied by the given kind of outcome, e.g.
-	 * `$applied->is(Outcome\MakeOptional::class)`.
+	 * `$applied->is(Outcome\Ignore::class)`, and `$applied->outcome->changes` for what a
+	 * {@see Outcome\Reconfigure} actually set.
 	 *
 	 * @param class-string<Outcome> $outcome
 	 */

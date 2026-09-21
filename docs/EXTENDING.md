@@ -105,6 +105,7 @@ $schema->add((new Isbn(new FieldName('isbn')))->thirteenDigitsOnly());
 | **Rules and scopes** | your field can be a rule's subject, and every public property is addressable |
 | **The result shape** | `given`, `value`, `source`, `shape`, one verdict per constraint |
 | **Messages** | `$result->messages` works for your field the moment a pack has wording for it — see below |
+| **Rule outcomes** | every wither you write is one: `then($yours->thirteenDigitsOnly())` needs nothing registered |
 
 The default check is the one worth dwelling on, because it catches a mistake you did not write
 the guard for:
@@ -140,7 +141,7 @@ If your value implements `HasParts`, your messages group by part with no further
 `Message\Set` reads the parts off the class, so `$messages->forPart('checksum')` works for a field
 this library has never heard of. See [MESSAGES.md](MESSAGES.md).
 
-## The four things you must get right
+## The five things you must get right
 
 **1. Constructor order.** `parent::__construct()` first, then your own properties, then
 `$this->constraints = $this->defineConstraints()` last — because the constraints are built *from*
@@ -155,7 +156,34 @@ so it never receives `null`.
 reported, not thrown; throwing belongs to definition time, where the author can act on it.
 
 **4. Configure with withers, never setters.** `return $this->with([...])`, and the caller keeps
-the copy. Writing to a field is a fatal.
+the copy. Writing to a field is a fatal. This is also what makes your field usable as a rule
+outcome for free — see below.
+
+**5. `when()` says which questions a rule may ask.** The one member you have to declare that
+cannot be derived for you:
+
+```php
+public function when(): Matcher\Text
+{
+	return new Matcher\Text(ValueScope::of($this->name));
+}
+```
+
+Pick by what your *value* can answer — ordered if it implements `Comparable`, text if it is
+`Stringable`:
+
+| Return | When your value is | Adds |
+| --- | --- | --- |
+| `Matcher\Basic` | neither | — |
+| `Matcher\Ordered` | `Comparable` | `isAtLeast` and the other four |
+| `Matcher\Text` | `Stringable` | `contains`, `matches` |
+| `Matcher\OrderedText` | both | all twelve |
+
+Declaring less than your value can do is the mistake to avoid, and it is quiet: the field
+works, it just silently offers fewer questions than it could. Declaring *more* is loud, since
+the matcher will hand a value with no order to a comparison. A test in this repository checks
+every shipped field against its value's capabilities, and adding yours to that sweep is the
+cheapest way to keep the two in step.
 
 ## Values, and what they must answer
 
@@ -171,6 +199,11 @@ Two optional interfaces:
 
 - [`Comparison\Comparable`](../src/Comparison/Comparable.php) — `compareTo(): Order`, if your
   value has an order. Numbers, dates and durations do; addresses and phone numbers do not.
+  Implementing it is the whole of what `isAtLeast` and its four siblings need — they are
+  written once against the interface, so your field gets them by saying `Matcher\Ordered`.
+- `Stringable` — if your value has one canonical text form, which is what `contains` and
+  `matches` read. Leave it off where there should not be one: `Password\Value` and
+  `CreditCard\Value` have no `__toString()` precisely so that no rule can read a secret.
 - [`Field\HasParts`](../src/Field/HasParts.php) — if your value is made of named parts, so a rule
   can address one: `#/fields/isbn/value/registrant`.
 

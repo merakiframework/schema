@@ -3,6 +3,8 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Field;
 
+use Meraki\Schema\ValueScope;
+use Meraki\Schema\Rule\Matcher;
 use Meraki\Schema\AtomicField;
 use Meraki\Schema\FieldName;
 use Meraki\Schema\Field\Number\Value;
@@ -82,6 +84,16 @@ final readonly class Number extends AtomicField
 		}
 
 		return $this->with(['scale' => $scale]);
+	}
+
+	/**
+	 * What a rule may ask about this field: a number can be ranked, and reads back as text.
+	 *
+	 * @see \Meraki\Schema\Rule\Matcher for the four sets and why a field declares one
+	 */
+	public function when(): Matcher\OrderedText
+	{
+		return new Matcher\OrderedText(ValueScope::of($this->name));
 	}
 
 	/**

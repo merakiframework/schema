@@ -3,6 +3,8 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Field;
 
+use Meraki\Schema\ValueScope;
+use Meraki\Schema\Rule\Matcher;
 use Meraki\Schema\Field\Money\Value;
 use Meraki\Schema\AtomicField;
 use Meraki\Schema\FieldName;
@@ -151,6 +153,16 @@ final readonly class Money extends AtomicField
 		}
 
 		return $this->with(['maxAmounts' => [$currency => $decimal] + $this->maxAmounts]);
+	}
+
+	/**
+	 * What a rule may ask about this field: amounts can be ranked within a currency, but an amount has no single string form — the currency is half of it.
+	 *
+	 * @see \Meraki\Schema\Rule\Matcher for the four sets and why a field declares one
+	 */
+	public function when(): Matcher\Ordered
+	{
+		return new Matcher\Ordered(ValueScope::of($this->name));
 	}
 
 	/**

@@ -252,9 +252,9 @@ A rule is built, held in a variable if that is useful, and added explicitly. Bot
 on one rule:
 
 ```php
-$schema->when('who_for')->equals('someone_else')
-    ->thenRequire('participant_name')
-    ->elseMakeOptional('participant_name');
+$whoFor->when()->equals('someone_else')
+    ->then($participantName->makeRequired())
+    ->else($participantName->makeOptional());
 ```
 
 Writing the else-branch as a second rule with a hand-inverted condition means two conditions

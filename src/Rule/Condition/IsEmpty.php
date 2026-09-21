@@ -10,7 +10,7 @@ use Meraki\Schema\Facade;
  *
  * The rule half of "this was left blank", and the one a branching form is usually built on:
  *
- *     $schema->when($companyName)->isEmpty()->thenMakeOptional($abn);
+ *     $companyName->when()->isEmpty()->then($abn->makeOptional());
  *
  * See {@see Emptiness} for what counts — and in particular for why `false` and `0` do not.
  */

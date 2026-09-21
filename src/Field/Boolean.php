@@ -3,6 +3,8 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Field;
 
+use Meraki\Schema\ValueScope;
+use Meraki\Schema\Rule\Matcher;
 use Meraki\Schema\Field\Boolean\Value;
 use Meraki\Schema\AtomicField;
 use Meraki\Schema\FieldName;
@@ -28,6 +30,16 @@ final readonly class Boolean extends AtomicField
 
 		$this->requiresAcceptance = false;
 		$this->constraints = $this->defineConstraints();
+	}
+
+	/**
+	 * What a rule may ask about this field: yes and no are the whole vocabulary — equals says everything there is to say.
+	 *
+	 * @see \Meraki\Schema\Rule\Matcher for the four sets and why a field declares one
+	 */
+	public function when(): Matcher\Basic
+	{
+		return new Matcher\Basic(ValueScope::of($this->name));
 	}
 
 	/**

@@ -233,6 +233,27 @@ trait Definition
 	 * @param array<string, mixed> $changes
 	 * @throws InvalidArgumentException if the change leaves the authored default invalid
 	 */
+	/**
+	 * The same, for a rule outcome to apply.
+	 *
+	 * Public where {@see self::with()} is protected, and the difference is where the values came
+	 * from. These are not raw properties an author typed: {@see \Meraki\Schema\Rule\Outcome\Reconfigure}
+	 * reads them off a field the author configured *through its own withers*, so each one has
+	 * already been past whatever that wither checks. What arrives here is a replay of work already
+	 * validated, which is why it does not need validating again — and why this is not a general
+	 * way to set properties on a field.
+	 *
+	 * It still goes through `with()`, so the constraints are rebuilt and the authored default is
+	 * re-checked exactly as a wither would.
+	 *
+	 * @param array<string, mixed> $changes
+	 * @throws InvalidArgumentException if the change leaves the authored default invalid
+	 */
+	final public function reconfiguredWith(array $changes): static
+	{
+		return $this->with($changes);
+	}
+
 	final protected function with(array $changes): static
 	{
 		$field = clone($this, $changes);

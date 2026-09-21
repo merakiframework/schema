@@ -3,6 +3,8 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Field;
 
+use Meraki\Schema\ValueScope;
+use Meraki\Schema\Rule\Matcher;
 use Meraki\Schema\AtomicField;
 use Meraki\Schema\FieldName;
 use Meraki\Schema\Field\Duration\Value;
@@ -20,6 +22,16 @@ use Brick\DateTime\DateTimeException;
  */
 final readonly class Duration extends AtomicField
 {
+	/**
+	 * What a rule may ask about this field: a length of time can be ranked, and reads back as text.
+	 *
+	 * @see \Meraki\Schema\Rule\Matcher for the four sets and why a field declares one
+	 */
+	public function when(): Matcher\OrderedText
+	{
+		return new Matcher\OrderedText(ValueScope::of($this->name));
+	}
+
 	/**
 	 * The authored baseline: a duration is a length of time within a day, counted in whole
 	 * minutes. Narrow it, or widen the ceiling with {@see self::maxValueOf()}.

@@ -78,10 +78,10 @@ final class RepeatedApplicationTest extends TestCase
 	{
 		$schema = new Facade('test');
 		$schema->add($schema->createEnumField('method', ['email', 'phone'])->defaultsTo('phone'));
-		$schema->add($schema->createTextField('phone_number')->makeOptional());
+		$schema->add($phoneNumber = $schema->createTextField('phone_number')->makeOptional());
 		$schema->addRule(new Rule(
 			new Condition\AllOf(new Condition\Equals('#/fields/method/value', 'phone')),
-			[new Outcome\MakeRequired('#/fields/phone_number')],
+			[Outcome\Reconfigure::from($phoneNumber, $phoneNumber->makeRequired())],
 		));
 
 		return $schema;

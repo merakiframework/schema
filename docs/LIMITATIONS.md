@@ -117,7 +117,7 @@ $schema->addTextField('username')->minLengthOf(3);
 $schema->addTextField('nickname')->makeOptional();
 $schema->whenAllMatch(fn($r) => $r
     ->whenEquals('#/fields/username/value', 'admin')
-    ->thenRequire('#/fields/nickname'));
+    ->then($nickname->makeRequired()));
 
 $schema->validate(['username' => 'admin'])->anyFailed();                        // true
 $schema->validate(['username' => 'bob', 'nickname' => 'bobby'])->anyFailed();   // false
@@ -397,22 +397,19 @@ entry. Addressing a field's other public properties — `#/fields/x/min`,
 `#/fields/x/optional` — is unaffected, because a field's public properties are its API.
 ## Rough edges
 
-Smaller warts, listed so they are not surprises. All are slated for the `1.14.0` line.
+Smaller warts, listed so they are not surprises.
 
 | Issue | Detail |
 | --- | --- |
-| A rule targeting a missing field throws at validation time | A typo in a scope path surfaces as an exception on a user request rather than an error when the rule is defined. |
-| `Field\Set::getByName()` never returns `null` | Its return type says `?Field` but it throws when not found. `findByName()` is the nullable one. |
-| Filtering a result detaches the field | `Field\ValidationResult::__clone()` deep-clones the field, so `$fieldResult->getFailed()->field` is a *copy*, not the field in your schema. Do not compare it by identity. |
-| Constraint config is publicly mutable | `$field->min = -5` bypasses the validation in `minLengthOf()`. Use the fluent setters. |
-| `Rule\Outcome\MakeRequired` has a leading underscore | Working around the `require` keyword. It will be renamed before the API freezes. |
 | No `remove()` on `Field\Set` | Fields can be added to a schema but not removed. |
-| Rules cannot target composite sub-fields | Neither `#/fields/addr/line1` nor `#/fields/addr.line1` resolves — `Facade::traverse()` only searches the top-level field set. Collection items (`#/fields/items/0/sku`) are likewise unreachable. |
-| `Scope` carries a mutable cursor | Resolving advances an internal position, so a scope held by a rule outcome is shared mutable state. `meraki/schema-html` works around this in two places. Unsafe under concurrency. |
-| The root scope `#/` cannot be constructed | The constructor trims the trailing slash, leaving `#`, which fails its own format check — so `Scope::isRoot()` and both root branches that call it are unreachable. |
+| `EmailAddress\Value` has no string form | So an email field's matcher offers no `contains` or `matches`, where a domain check is a reasonable thing to want. Its *parts* do — `PartScope::of('email', 'domain')` reaches them — so this is a gap rather than a refusal. Unlike `Password` and `CreditCard`, where the absence is deliberate. |
+
+**Everything else that was here is fixed**, and the list is kept in the changelog rather than
+above: rules are checked when written, `getByName()` returns what it says, a field is `readonly`
+so its configuration cannot be written to, scopes are immutable and reach parts, and the outcome
+that needed a leading underscore no longer exists.
 
 ---
-
 ## Reporting something not listed here
 
 Open an issue at <https://github.com/merakiframework/schema/issues>. If it is a

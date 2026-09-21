@@ -41,7 +41,7 @@ final class ScopeValidationTest extends TestCase
 		$this->expectException(InvalidArgumentException::class);
 		$this->expectExceptionMessageMatches('/usernmae/');
 
-		$schema->addRule($schema->when('usernmae')->equals('admin')->thenRequire('nickname'));
+		$schema->addRule($schema->when('usernmae')->equals('admin')->then($schema->fields->getByName('nickname')->makeRequired()));
 	}
 
 	#[Test]
@@ -53,7 +53,7 @@ final class ScopeValidationTest extends TestCase
 		$this->expectExceptionMessageMatches('/nope/');
 
 		$schema->addRule(
-			$schema->when(PropertyScope::of('username', 'nope'))->equals(3)->thenRequire('nickname'),
+			$schema->when(PropertyScope::of('username', 'nope'))->equals(3)->then($schema->fields->getByName('nickname')->makeRequired()),
 		);
 	}
 
@@ -63,7 +63,7 @@ final class ScopeValidationTest extends TestCase
 		// This is the type error replacing the old runtime "can only be applied to fields".
 		$this->expectException(InvalidArgumentException::class);
 
-		new Outcome\MakeRequired('#/fields/username/value');
+		new Outcome\Ignore('#/fields/username/value');
 	}
 
 	#[Test]
@@ -74,7 +74,7 @@ final class ScopeValidationTest extends TestCase
 
 		$this->expectException(InvalidArgumentException::class);
 
-		$schema->addRule($schema->when('username')->equals('admin')->thenRequire('username'));
+		$schema->addRule($schema->when('username')->equals('admin')->then($schema->fields->getByName('username')->makeRequired()));
 	}
 
 	#[Test]
@@ -82,7 +82,7 @@ final class ScopeValidationTest extends TestCase
 	{
 		$schema = $this->schema();
 
-		$schema->addRule($schema->when('username')->equals('admin')->thenRequire('nickname'));
+		$schema->addRule($schema->when('username')->equals('admin')->then($schema->fields->getByName('nickname')->makeRequired()));
 
 		$this->assertTrue($schema->validate((object)['username' => 'admin'])->anyFailed());
 		$this->assertFalse($schema->validate((object)['username' => 'bob'])->anyFailed());

@@ -13,7 +13,7 @@ use PHPUnit\Framework\TestCase;
 /**
  * A rule under construction forks, like every other fluent call in this library.
  *
- * `then()` and `otherwise()` used to write to `$this` and return it, which made two fluent idioms
+ * `then()` and `else()` used to write to `$this` and return it, which made two fluent idioms
  * with opposite meanings sit side by side: a field wither hands back a copy and leaves the original
  * alone, and a draft did not. Nothing in the signatures told them apart.
  *
@@ -43,20 +43,21 @@ final class DraftTest extends TestCase
 		$schema = $this->schema();
 		$base = $schema->when('plan')->equals('pro');
 
-		$requiresFirst = $base->thenRequire('first');
-		$requiresSecond = $base->thenRequire('second');
+		$requiresFirst = $base->then($schema->fields->getByName('first')->makeRequired());
+		$requiresSecond = $base->then($schema->fields->getByName('second')->makeRequired());
 
 		$this->assertNotSame($requiresFirst, $requiresSecond);
-		$this->assertCount(1, $requiresFirst->build()->outcomes);
-		$this->assertCount(1, $requiresSecond->build()->outcomes);
+		$this->assertCount(1, $requiresFirst->buildAgainst($schema->fields)->outcomes);
+		$this->assertCount(1, $requiresSecond->buildAgainst($schema->fields)->outcomes);
 	}
 
 	#[Test]
 	public function attaching_an_outcome_leaves_the_draft_it_came_from_bare(): void
 	{
-		$base = $this->schema()->when('plan')->equals('pro');
+		$schema = $this->schema();
+		$base = $schema->when('plan')->equals('pro');
 
-		$base->thenRequire('first');
+		$base->then($schema->fields->getByName('first')->makeRequired());
 
 		$this->assertFalse(
 			$base->hasOutcomes(),
@@ -67,14 +68,15 @@ final class DraftTest extends TestCase
 	#[Test]
 	public function the_else_branch_forks_too(): void
 	{
-		$base = $this->schema()->when('plan')->equals('pro');
+		$schema = $this->schema();
+		$base = $schema->when('plan')->equals('pro');
 
-		$one = $base->elseMakeOptional('first');
-		$two = $base->elseMakeOptional('second');
+		$one = $base->else($schema->fields->getByName('first')->makeOptional());
+		$two = $base->else($schema->fields->getByName('second')->makeOptional());
 
 		$this->assertNotSame($one, $two);
-		$this->assertCount(1, $one->build()->else);
-		$this->assertCount(1, $two->build()->else);
+		$this->assertCount(1, $one->buildAgainst($schema->fields)->else);
+		$this->assertCount(1, $two->buildAgainst($schema->fields)->else);
 	}
 
 	/**
@@ -83,12 +85,13 @@ final class DraftTest extends TestCase
 	#[Test]
 	public function chaining_on_one_draft_still_collects_every_outcome(): void
 	{
-		$rule = $this->schema()
+		$schema = $this->schema();
+		$rule = $schema
 			->when('plan')->equals('pro')
-			->thenRequire('first')
-			->thenRequire('second')
-			->elseMakeOptional('first')
-			->build();
+			->then($schema->fields->getByName('first')->makeRequired())
+			->then($schema->fields->getByName('second')->makeRequired())
+			->else($schema->fields->getByName('first')->makeOptional())
+			->buildAgainst($schema->fields);
 
 		$this->assertCount(2, $rule->outcomes);
 		$this->assertCount(1, $rule->else);
@@ -103,7 +106,7 @@ final class DraftTest extends TestCase
 		$schema = $this->schema();
 		$base = $schema->when('plan')->equals('pro');
 
-		$schema->addRule($base->thenRequire('first'));
+		$schema->addRule($base->then($schema->fields->getByName('first')->makeRequired()));
 
 		$result = $schema->validate((object) ['plan' => 'pro']);
 

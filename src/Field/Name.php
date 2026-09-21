@@ -3,6 +3,8 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Field;
 
+use Meraki\Schema\ValueScope;
+use Meraki\Schema\Rule\Matcher;
 use Meraki\Schema\Field\Name\Value;
 use Meraki\Schema\AtomicField;
 use Meraki\Schema\FieldName;
@@ -28,6 +30,16 @@ final readonly class Name extends AtomicField
 
 	/** @var non-negative-int $minLength */
 	public int $minLength;
+
+	/**
+	 * What a rule may ask about this field: as with any text, there is no order worth asking about.
+	 *
+	 * @see \Meraki\Schema\Rule\Matcher for the four sets and why a field declares one
+	 */
+	public function when(): Matcher\Text
+	{
+		return new Matcher\Text(ValueScope::of($this->name));
+	}
 
 	/** @var non-negative-int|null $maxLength */
 	public ?int $maxLength;

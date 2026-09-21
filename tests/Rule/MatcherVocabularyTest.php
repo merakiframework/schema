@@ -4,7 +4,10 @@ declare(strict_types=1);
 namespace Meraki\Schema\Rule;
 
 use InvalidArgumentException;
+use Meraki\Schema\Comparison\Comparable;
 use Meraki\Schema\Facade;
+use Meraki\Schema\Field;
+use Meraki\Schema\Message\Vocabulary;
 use Meraki\Schema\Rule\Condition\Contains;
 use Meraki\Schema\Rule\Condition\Emptiness;
 use Meraki\Schema\Rule\Condition\IsAtLeast;
@@ -23,6 +26,9 @@ use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
+use ReflectionMethod;
+use ReflectionNamedType;
+use Stringable;
 
 /**
  * The ten matchers beyond `equals` and `notEquals`.
@@ -50,7 +56,10 @@ use PHPUnit\Framework\TestCase;
 #[CoversClass(Textual::class)]
 #[CoversClass(Contains::class)]
 #[CoversClass(Matches::class)]
-#[CoversClass(Matcher::class)]
+#[CoversClass(Matcher\Basic::class)]
+#[CoversClass(Matcher\Ordered::class)]
+#[CoversClass(Matcher\Text::class)]
+#[CoversClass(Matcher\OrderedText::class)]
 final class MatcherVocabularyTest extends TestCase
 {
 	/**
@@ -111,7 +120,7 @@ final class MatcherVocabularyTest extends TestCase
 		bool $expected,
 	): void {
 		$schema = $this->schema();
-		$schema->addRule($schema->when('age')->{$matcher}($bound)->thenRequire('flag'));
+		$schema->addRule($schema->when('age')->{$matcher}($bound)->then($schema->fields->getByName('flag')->makeRequired()));
 
 		$this->assertSame($expected, $this->fired($schema, ['age' => $submitted]));
 	}
@@ -122,7 +131,7 @@ final class MatcherVocabularyTest extends TestCase
 		// The whole reason Ordered goes through Comparison's reading: a date field resolves to a
 		// LocalDate, and `'2030-06-01'` is a string until the field has read it.
 		$schema = $this->schema();
-		$schema->addRule($schema->when('starts')->isLessThan('2030-06-01')->thenRequire('flag'));
+		$schema->addRule($schema->when('starts')->isLessThan('2030-06-01')->then($schema->fields->getByName('flag')->makeRequired()));
 
 		$this->assertTrue($this->fired($schema, ['starts' => '2030-05-31']));
 		$this->assertFalse($this->fired($schema, ['starts' => '2030-06-01']));
@@ -134,7 +143,7 @@ final class MatcherVocabularyTest extends TestCase
 		// Answerable, and the answer is no. "Is age at least 18" on a request with no age is not
 		// an error.
 		$schema = $this->schema();
-		$schema->addRule($schema->when('age')->isAtLeast(18)->thenRequire('flag'));
+		$schema->addRule($schema->when('age')->isAtLeast(18)->then($schema->fields->getByName('flag')->makeRequired()));
 
 		$this->assertFalse($this->fired($schema, []));
 	}
@@ -156,7 +165,7 @@ final class MatcherVocabularyTest extends TestCase
 	public function is_between_is_inclusive_at_both_ends(string $submitted, bool $expected): void
 	{
 		$schema = $this->schema();
-		$schema->addRule($schema->when('age')->isBetween(18, 65)->thenRequire('flag'));
+		$schema->addRule($schema->when('age')->isBetween(18, 65)->then($schema->fields->getByName('flag')->makeRequired()));
 
 		$this->assertSame($expected, $this->fired($schema, ['age' => $submitted]));
 	}
@@ -177,7 +186,7 @@ final class MatcherVocabularyTest extends TestCase
 	public function is_in_holds_for_any_of_its_candidates(): void
 	{
 		$schema = $this->schema();
-		$schema->addRule($schema->when('country')->isIn(['AU', 'NZ'])->thenRequire('flag'));
+		$schema->addRule($schema->when('country')->isIn(['AU', 'NZ'])->then($schema->fields->getByName('flag')->makeRequired()));
 
 		$this->assertTrue($this->fired($schema, ['country' => 'AU']));
 		$this->assertTrue($this->fired($schema, ['country' => 'NZ']));
@@ -190,7 +199,7 @@ final class MatcherVocabularyTest extends TestCase
 		// Each candidate separately, never the list as a whole — so a number field is asked about
 		// `18`, not about an array.
 		$schema = $this->schema();
-		$schema->addRule($schema->when('age')->isIn([18, 21])->thenRequire('flag'));
+		$schema->addRule($schema->when('age')->isIn([18, 21])->then($schema->fields->getByName('flag')->makeRequired()));
 
 		$this->assertTrue($this->fired($schema, ['age' => '21']));
 		$this->assertFalse($this->fired($schema, ['age' => '20']));
@@ -200,7 +209,7 @@ final class MatcherVocabularyTest extends TestCase
 	public function contains_is_a_substring_test(): void
 	{
 		$schema = $this->schema();
-		$schema->addRule($schema->when('notes')->contains('urgent')->thenRequire('flag'));
+		$schema->addRule($schema->when('notes')->contains('urgent')->then($schema->fields->getByName('flag')->makeRequired()));
 
 		$this->assertTrue($this->fired($schema, ['notes' => 'nothing urgent here']));
 		$this->assertFalse($this->fired($schema, ['notes' => 'all calm']));
@@ -212,7 +221,7 @@ final class MatcherVocabularyTest extends TestCase
 		// Documented rather than incidental: case-insensitivity is `matches` with an `i` flag,
 		// not a second matcher or an option nobody would find.
 		$schema = $this->schema();
-		$schema->addRule($schema->when('notes')->contains('urgent')->thenRequire('flag'));
+		$schema->addRule($schema->when('notes')->contains('urgent')->then($schema->fields->getByName('flag')->makeRequired()));
 
 		$this->assertFalse($this->fired($schema, ['notes' => 'URGENT']));
 	}
@@ -221,7 +230,7 @@ final class MatcherVocabularyTest extends TestCase
 	public function matches_takes_a_pattern_with_its_delimiters(): void
 	{
 		$schema = $this->schema();
-		$schema->addRule($schema->when('notes')->matches('/^INV-/')->thenRequire('flag'));
+		$schema->addRule($schema->when('notes')->matches('/^INV-/')->then($schema->fields->getByName('flag')->makeRequired()));
 
 		$this->assertTrue($this->fired($schema, ['notes' => 'INV-42']));
 		$this->assertFalse($this->fired($schema, ['notes' => 'CR-42']));
@@ -237,7 +246,7 @@ final class MatcherVocabularyTest extends TestCase
 			$schema->createPasswordField('secret')->makeOptional(),
 			$schema->createTextField('flag')->makeOptional(),
 		);
-		$schema->addRule($schema->when('secret')->contains('a')->thenRequire('flag'));
+		$schema->addRule($schema->when('secret')->contains('a')->then($schema->fields->getByName('flag')->makeRequired()));
 
 		$result = $schema->validate((object) ['secret' => 'correct horse battery staple']);
 
@@ -248,7 +257,7 @@ final class MatcherVocabularyTest extends TestCase
 	public function is_empty_holds_when_nothing_was_submitted(): void
 	{
 		$schema = $this->schema();
-		$schema->addRule($schema->when('notes')->isEmpty()->thenRequire('flag'));
+		$schema->addRule($schema->when('notes')->isEmpty()->then($schema->fields->getByName('flag')->makeRequired()));
 
 		$this->assertTrue($this->fired($schema, []));
 		$this->assertFalse($this->fired($schema, ['notes' => 'something']));
@@ -258,7 +267,7 @@ final class MatcherVocabularyTest extends TestCase
 	public function is_not_empty_is_exactly_its_negation(): void
 	{
 		$schema = $this->schema();
-		$schema->addRule($schema->when('notes')->isNotEmpty()->thenRequire('flag'));
+		$schema->addRule($schema->when('notes')->isNotEmpty()->then($schema->fields->getByName('flag')->makeRequired()));
 
 		$this->assertFalse($this->fired($schema, []));
 		$this->assertTrue($this->fired($schema, ['notes' => 'something']));
@@ -274,7 +283,7 @@ final class MatcherVocabularyTest extends TestCase
 		$this->expectException(InvalidArgumentException::class);
 		$this->expectExceptionMessageMatches('/has no order/');
 
-		$schema->addRule($schema->when('notes')->isAtLeast(3)->thenRequire('flag'));
+		$schema->addRule($schema->when('notes')->isAtLeast(3)->then($schema->fields->getByName('flag')->makeRequired()));
 	}
 
 	#[Test]
@@ -285,7 +294,7 @@ final class MatcherVocabularyTest extends TestCase
 		$this->expectException(InvalidArgumentException::class);
 		$this->expectExceptionMessageMatches("/'eighteen'/");
 
-		$schema->addRule($schema->when('age')->isAtLeast('eighteen')->thenRequire('flag'));
+		$schema->addRule($schema->when('age')->isAtLeast('eighteen')->then($schema->fields->getByName('flag')->makeRequired()));
 	}
 
 	#[Test]
@@ -298,7 +307,7 @@ final class MatcherVocabularyTest extends TestCase
 		$this->expectException(InvalidArgumentException::class);
 		$this->expectExceptionMessageMatches("/'twenty'/");
 
-		$schema->addRule($schema->when('age')->isIn([18, 'twenty'])->thenRequire('flag'));
+		$schema->addRule($schema->when('age')->isIn([18, 'twenty'])->then($schema->fields->getByName('flag')->makeRequired()));
 	}
 
 	#[Test]
@@ -348,7 +357,7 @@ final class MatcherVocabularyTest extends TestCase
 		$schema->addRule(
 			$schema->when('price')
 				->isAtLeast((object) ['currency' => 'AUD', 'amount' => '10.00'])
-				->thenRequire('flag'),
+				->then($schema->fields->getByName('flag')->makeRequired()),
 		);
 
 		$this->assertTrue($this->fired($schema, ['price' => (object) ['currency' => 'AUD', 'amount' => '20.00']]));
@@ -359,18 +368,79 @@ final class MatcherVocabularyTest extends TestCase
 		$schema->validate((object) ['price' => (object) ['currency' => 'USD', 'amount' => '20.00']]);
 	}
 
-	#[Test]
-	public function every_matcher_in_the_documented_vocabulary_exists(): void
+	/** @return array<string, array{class-string, list<string>}> */
+	public static function vocabularies(): array
 	{
-		// The table in Matcher's docblock and docs/API.md is the promise; this is the check that
-		// it is not describing something that was planned and never written, which is what the
-		// previous version of that table had become.
-		foreach ([
-			'equals', 'notEquals',
-			'isAtLeast', 'isGreaterThan', 'isAtMost', 'isLessThan', 'isBetween',
-			'isIn', 'contains', 'matches', 'isEmpty', 'isNotEmpty',
-		] as $matcher) {
-			$this->assertTrue(method_exists(Matcher::class, $matcher), $matcher);
+		$anything = ['equals', 'notEquals', 'isIn', 'isEmpty', 'isNotEmpty'];
+		$order = ['isAtLeast', 'isGreaterThan', 'isAtMost', 'isLessThan', 'isBetween'];
+		$text = ['contains', 'matches'];
+
+		return [
+			'Basic' => [Matcher\Basic::class, $anything],
+			'Ordered' => [Matcher\Ordered::class, [...$anything, ...$order]],
+			'Text' => [Matcher\Text::class, [...$anything, ...$text]],
+			'OrderedText' => [Matcher\OrderedText::class, [...$anything, ...$order, ...$text]],
+		];
+	}
+
+	#[Test]
+	#[DataProvider('vocabularies')]
+	public function a_matcher_offers_exactly_the_questions_it_is_for(string $matcher, array $expected): void
+	{
+		// Both directions. Missing a verb is the obvious failure; carrying one it should not have is
+		// the quiet one, and it is the whole reason there are four of these rather than one.
+		$offered = array_values(array_filter(
+			get_class_methods($matcher),
+			static fn(string $m): bool => $m !== '__construct',
+		));
+
+		sort($offered);
+		sort($expected);
+
+		$this->assertSame($expected, $offered, $matcher);
+	}
+
+	#[Test]
+	public function each_field_offers_exactly_the_questions_its_value_can_answer(): void
+	{
+		// The guard that keeps nineteen one-line declarations honest. A field whose value gains
+		// Comparable but whose when() still says Basic would silently offer less than it could,
+		// and nothing else in the suite would notice.
+		foreach (Vocabulary::fields() as $kind => $field) {
+			$valueClass = Field\ValueClass::of($field);
+
+			$ordered = $valueClass !== null && is_a($valueClass, Comparable::class, true);
+			$worded = $valueClass !== null && is_a($valueClass, Stringable::class, true);
+
+			$expected = match (true) {
+				$ordered && $worded => Matcher\OrderedText::class,
+				$ordered => Matcher\Ordered::class,
+				$worded => Matcher\Text::class,
+				default => Matcher\Basic::class,
+			};
+
+			$declared = (new ReflectionMethod($field, 'when'))->getReturnType();
+
+			$this->assertInstanceOf(ReflectionNamedType::class, $declared, $kind);
+			$this->assertSame($expected, $declared->getName(), sprintf(
+				'%s parses to a value that is %s and %s, so when() should return %s.',
+				$kind,
+				$ordered ? 'ordered' : 'not ordered',
+				$worded ? 'text' : 'not text',
+				$expected,
+			));
+			$this->assertInstanceOf($expected, $field->when(), $kind);
 		}
+	}
+
+	#[Test]
+	public function a_field_named_by_string_gets_every_question(): void
+	{
+		// Facade::when() cannot resolve a type, so it answers with all twelve and leans on the
+		// check that runs when the rule is added. That is the trade for by-name authoring.
+		$schema = $this->schema();
+
+		$this->assertInstanceOf(Matcher\OrderedText::class, $schema->when('notes'));
+		$this->assertInstanceOf(Matcher\Text::class, $schema->fields->getByName('notes')->when());
 	}
 }

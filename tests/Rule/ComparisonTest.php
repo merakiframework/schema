@@ -124,7 +124,7 @@ final class ComparisonTest extends TestCase
 		$schema = new Facade('properties');
 		$schema->add($schema->createTextField('nick')->minLengthOf(3), $schema->createTextField('target'));
 		$schema->addRule(
-			$schema->when(PropertyScope::of('nick', 'minLength'))->equals(3)->thenRequire('target'),
+			$schema->when(PropertyScope::of('nick', 'minLength'))->equals(3)->then($schema->fields->getByName('target')->makeRequired()),
 		);
 
 		$this->assertTrue(
@@ -147,7 +147,7 @@ final class ComparisonTest extends TestCase
 			$schema->createNumberField('qty')->defaultsTo(5),
 			$schema->createTextField('target'),
 		);
-		$schema->addRule($schema->when('qty')->equals(null)->thenRequire('target'));
+		$schema->addRule($schema->when('qty')->equals(null)->then($schema->fields->getByName('target')->makeRequired()));
 
 		// Nothing submitted, so the default stands in — and the rule must still not match,
 		// because null is the absence and not the 5 that replaced it.
@@ -165,7 +165,7 @@ final class ComparisonTest extends TestCase
 		$this->expectException(InvalidArgumentException::class);
 		$this->expectExceptionMessage("compares \"#/fields/age/value\" against 'eighteen'");
 
-		$schema->addRule($schema->when('age')->equals('eighteen')->thenRequire('licence'));
+		$schema->addRule($schema->when('age')->equals('eighteen')->then($schema->fields->getByName('licence')->makeRequired()));
 	}
 
 	#[Test]
@@ -184,7 +184,7 @@ final class ComparisonTest extends TestCase
 			$schema->allOf(
 				$schema->when('plan')->equals('pro'),
 				$schema->when('age')->equals('eighteen'),
-			)->thenRequire('licence'),
+			)->then($schema->fields->getByName('licence')->makeRequired()),
 		);
 	}
 
@@ -199,7 +199,7 @@ final class ComparisonTest extends TestCase
 		$schema = new Facade('short');
 		$schema->add($schema->createTextField('nick')->minLengthOf(3), $schema->createTextField('target'));
 
-		$schema->addRule($schema->when('nick')->equals('xy')->thenRequire('target'));
+		$schema->addRule($schema->when('nick')->equals('xy')->then($schema->fields->getByName('target')->makeRequired()));
 
 		$this->assertTrue(
 			$schema->validate((object) ['nick' => 'xy'])->forField('target')->wasAlteredByRule(),
@@ -217,7 +217,7 @@ final class ComparisonTest extends TestCase
 		$matcher = $schema->when('subject');
 
 		$schema->addRule(
-			($equals ? $matcher->equals($expected) : $matcher->notEquals($expected))->thenRequire('target'),
+			($equals ? $matcher->equals($expected) : $matcher->notEquals($expected))->then($schema->fields->getByName('target')->makeRequired()),
 		);
 
 		return $schema;

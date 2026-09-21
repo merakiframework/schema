@@ -93,7 +93,7 @@ final class SealedSchemaTest extends TestCase
 
 		// @phpstan-ignore method.notFound
 		$schema->rules->mutableAdd(
-			$schema->when('username')->equals('admin')->thenMakeOptional('username')->build(),
+			$schema->when('username')->equals('admin')->then($schema->fields->getByName('username')->makeOptional())->build(),
 		);
 	}
 

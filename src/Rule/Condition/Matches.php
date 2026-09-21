@@ -10,7 +10,7 @@ use Meraki\Schema\Scope;
 /**
  * Holds when the value's text matches the given pattern.
  *
- *     $schema->when($reference)->matches('/^INV-/')->thenRequire($invoiceDate);
+ *     $reference->when()->matches('/^INV-/')->then($invoiceDate->makeRequired());
  *
  * A PCRE pattern, delimiters and all, which is the same thing `Text::matching()` takes — one
  * spelling of "a pattern" across the field surface and the rule surface.

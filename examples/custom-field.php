@@ -47,6 +47,8 @@ namespace Acme {
 	use Meraki\Schema\AtomicField;
 	use Meraki\Schema\Field\Constraint;
 	use Meraki\Schema\FieldName;
+	use Meraki\Schema\Rule\Matcher;
+	use Meraki\Schema\ValueScope;
 
 	final readonly class Isbn extends AtomicField
 	{
@@ -74,6 +76,20 @@ namespace Acme {
 		 * and it never raises, because it runs on untrusted input. `null` out means one thing
 		 * only: this could not be read as an ISBN.
 		 */
+		/**
+		 * The one thing a field of your own has to declare that it could not be given: which
+		 * questions a rule may ask about it.
+		 *
+		 * An ISBN has text and no order — 978… is not *before* 979… in any sense a form means —
+		 * so it offers `contains` and `matches` and withholds `isAtLeast`. Which means
+		 * `$isbn->when()->isAtLeast(3)` does not compile, rather than being a rule that reads
+		 * sensibly and can never fire.
+		 */
+		public function when(): Matcher\Text
+		{
+			return new Matcher\Text(ValueScope::of($this->name));
+		}
+
 		protected function parse(mixed $value): ?Value
 		{
 			if (!is_string($value)) {
@@ -108,7 +124,7 @@ namespace Main {
 	use Meraki\Schema\FieldName;
 
 	$schema = new Facade('library');
-	$schema->add((new Isbn(new FieldName('isbn')))->thirteenDigitsOnly());
+	$schema->add($isbn = (new Isbn(new FieldName('isbn')))->thirteenDigitsOnly());
 
 	echo 'It behaves like any other field:' . PHP_EOL;
 
@@ -137,10 +153,8 @@ namespace Main {
 
 	echo PHP_EOL . 'A rule can use it, with nothing registered anywhere:' . PHP_EOL;
 
-	$schema->add($schema->createTextField('shelf')->makeOptional());
-	$schema->addRule(
-		$schema->when('isbn')->equals('9780306406157')->thenRequire('shelf'),
-	);
+	$schema->add($shelf = $schema->createTextField('shelf')->makeOptional());
+	$schema->addRule($isbn->when()->equals('9780306406157')->then($shelf->makeRequired()));
 
 	foreach (['978-0-306-40615-7', '9780306406158'] as $submitted) {
 		$result = $schema->validate((object) ['isbn' => $submitted]);
