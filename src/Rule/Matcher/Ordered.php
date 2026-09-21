@@ -17,6 +17,7 @@ final readonly class Ordered implements Matcher
 {
 	use AsksAnything;
 	use AsksOrder;
+
 	public function __construct(public Scope $scope)
 	{
 	}

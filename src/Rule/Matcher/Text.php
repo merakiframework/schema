@@ -17,6 +17,7 @@ final readonly class Text implements Matcher
 {
 	use AsksAnything;
 	use AsksText;
+
 	public function __construct(public Scope $scope)
 	{
 	}

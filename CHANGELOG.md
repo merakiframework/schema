@@ -10,6 +10,89 @@ is a commit subject, with the body kept because the body is where the reasoning 
 
 ## Unreleased
 
+### Put the field on the left, on both halves of a rule
+
+`0d464e08` · 2026-09-21
+
+$schema->addRule(
+        $parcelWeight->when()->isAtLeast(Weight::of('5.00', 'kg'))
+            ->then($insurance->makeRequired()->mustBeAccepted()),
+    );
+
+One principle behind both changes: **the type flows from the receiver, never from
+the argument**. PHP cannot vary a return type by argument, so `when($field)` and
+`then($field)` could never hand back anything that knew what kind of field it had
+been given. Moving the field to the left is what makes either half type-safe, and
+it is the only thing that could have.
+
+### when(): only the questions the value can answer
+
+`Field::when()` returns one of four matchers, picked by what the field parses to:
+Comparable earns the five ordered questions, Stringable earns the two textual
+ones, and everything gets identity and presence. So `$text->when()->isAtLeast(3)`
+is a call to a method that is not there — absent from completion, refused by
+PHPStan, fatal at runtime — rather than a rule that reads sensibly and is refused
+later.
+
+The verbs live in traits rather than on a base class because PHP forbids
+*narrowing* a parameter through inheritance or an interface. A shared parent
+declaring `isAtLeast(mixed)` would permanently prevent a field from saying it
+wants `Money\Value`. Composed from traits, each matcher owns its signatures and a
+field can go further when its bound is hard to guess.
+
+Four classes and nineteen one-line declarations, not nineteen classes. A test
+checks every declaration against its value's actual capabilities, so a field that
+gains Comparable and forgets to widen its matcher fails CI rather than silently
+offering less than it could.
+
+`$schema->when('age')` still works for a field named by string or a scope pointing
+at a part. It cannot resolve a type, so it answers with all twelve and leans on
+the check that runs when the rule is added.
+
+### then(): the field, configured
+
+`thenRequire()`, `thenMakeOptional()` and their else-halves are gone, along with
+`Outcome\MakeRequired` and `Outcome\MakeOptional`. You call the field's own
+withers and the rule records the difference:
+
+    ->then($terms->makeRequired()->mustBeAccepted())
+    ->then($discount->maxValueOf(50))
+
+Which means **every configuration method a field has is already a rule outcome**,
+including on a field type this library has never heard of. The old shape had a
+fixed list of verbs, so anything not on it — "and it must be accepted" — was
+simply unreachable from a rule.
+
+docs/ROADMAP.md argued this could not work, and its two objections were real:
+snapshots do not compose, and snapshots lose intent. Both are answered by storing
+the *difference* rather than the field. Outcome\Reconfigure diffs the copy
+against the authored field when the rule is added and keeps the properties that
+changed, so two rules touching one field merge instead of clobbering, and
+`$applied->outcome->changes` says what a rule did more precisely than
+`instanceof MakeOptional` ever did. That section now records the correction
+rather than the refusal.
+
+Identity is what distinguishes `then($field)` from `then($field->makeOptional())`
+when the field was already optional. A wither always clones, so the same instance
+means no wither was called — refused. An empty *difference* is allowed, because
+restoring a state explicitly is how an else-branch stays readable beside its
+then-branch, and it stops being a no-op the moment another rule touches the field.
+
+`thenIgnore()` is the one named verb left. Ignoring is about a request — the input
+never reaches the field — rather than about the definition, so no wither expresses
+it.
+
+### Elsewhere
+
+- `Field::when()` and `Field::reconfiguredWith()` are new interface members. A
+  field of your own must declare the first; docs/EXTENDING.md and FIELD-API.md
+  now say so, and examples/custom-field.php shows it.
+- docs/LIMITATIONS.md's rough-edges table listed nine warts, eight of them fixed
+  since it was written for the 1.14 line. It now lists the two that are real, one
+  of which this change surfaced: EmailAddress\Value has no string form, so an
+  email field offers no `matches` — a gap rather than a refusal, unlike Password
+  and CreditCard where the absence is the point.
+
 ### The ten missing rule matchers
 
 `78cc347a` · 2026-09-20

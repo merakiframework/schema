@@ -16,6 +16,7 @@ use Meraki\Schema\Scope;
 final readonly class Basic implements Matcher
 {
 	use AsksAnything;
+
 	public function __construct(public Scope $scope)
 	{
 	}
