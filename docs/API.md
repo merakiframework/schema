@@ -551,9 +551,9 @@ four matchers, one per capability set, and a field's declaration picks one:
 
 | Matcher | Fields |
 | --- | --- |
-| [`Matcher\Basic`](../src/Rule/Matcher/Basic.php) | Address, Boolean, Collection, CreditCard, EmailAddress, Enum, File, Password |
+| [`Matcher\Basic`](../src/Rule/Matcher/Basic.php) | Address, Boolean, Collection, CreditCard, Enum, File, Password |
 | [`Matcher\Ordered`](../src/Rule/Matcher/Ordered.php) | Money |
-| [`Matcher\Text`](../src/Rule/Matcher/Text.php) | Name, PhoneNumber, Text, Uri, Uuid |
+| [`Matcher\Text`](../src/Rule/Matcher/Text.php) | EmailAddress, Name, PhoneNumber, Text, Uri, Uuid |
 | [`Matcher\OrderedText`](../src/Rule/Matcher/OrderedText.php) | Number, Date, DateTime, Time, Duration |
 
 So `$notes->when()->isAtLeast(3)` is a **call to a method that is not there** — absent from
@@ -566,8 +566,8 @@ test asserts every field's declaration against its value's actual capabilities, 
 one-line declarations cannot drift.
 
 `Password` and `CreditCard` have no string form **on purpose**, so neither can be pattern-matched
-by a rule — a rule reading the text of a secret should be hard to write by accident.
-`EmailAddress` has none either, which is less obviously deliberate; see [ROADMAP.md](ROADMAP.md).
+by a rule — a rule reading the text of a secret should be hard to write by accident. They are
+the only two, and the reason is that specific one rather than "the value is internal".
 
 `$schema->when('age')` still works, for a field named by string or a scope pointing at a part. It
 cannot resolve a type, so it answers with all twelve and leans on the check that runs when the

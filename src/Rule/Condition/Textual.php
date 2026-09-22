@@ -17,9 +17,10 @@ use Stringable;
  *
  * ### Not every value has text, and two of them refuse to
  *
- * Ten of the nineteen value types are {@see \Stringable} — number, date, date-time, time, duration,
- * name, phone number, text, URI and UUID — and a {@see \Meraki\Schema\PartScope} resolves to a
- * plain string, so `PartScope::of('email', 'domain')` works here too.
+ * Eleven of the nineteen value types are {@see \Stringable} — number, date, date-time, time,
+ * duration, email address, name, phone number, text, URI and UUID — and a
+ * {@see \Meraki\Schema\PartScope} resolves to a plain string, so `PartScope::of('email', 'domain')`
+ * reaches one half of an address where the whole one reaches all of it.
  *
  * The absences are the interesting part. {@see \Meraki\Schema\Field\Password\Value} and
  * {@see \Meraki\Schema\Field\CreditCard\Value} have no `__toString()` **on purpose**, so neither

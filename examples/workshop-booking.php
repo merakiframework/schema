@@ -148,7 +148,7 @@ if (!$result->anyFailed()) {
 	printf("  Attendees    %d\n", count($attendees->items));
 
 	foreach ($attendees->items as $key => $item) {
-		printf("    %-8s %-14s %s\n", $key, $item->forField('name')->value, $item->forField('email')->value->address());
+		printf("    %-8s %-14s %s\n", $key, $item->forField('name')->value, $item->forField('email')->value);
 	}
 
 	echo "\n";

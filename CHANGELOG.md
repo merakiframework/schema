@@ -10,6 +10,14 @@ is a commit subject, with the body kept because the body is where the reasoning 
 
 ## Unreleased
 
+### Separate the trait imports from the constructor
+
+`2bfabf49` · 2026-09-21
+
+Whitespace only, in the four matcher classes. They were written by a script that
+did not leave a blank line after the last `use`, which every other class here
+does.
+
 ### Put the field on the left, on both halves of a rule
 
 `0d464e08` · 2026-09-21

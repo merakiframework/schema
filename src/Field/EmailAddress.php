@@ -173,13 +173,15 @@ final readonly class EmailAddress extends AtomicField
 	}
 
 	/**
-	 * What a rule may ask about this field: no string form on the value today, so no text questions; its parts still answer them.
+	 * What a rule may ask about this field: an address reads back as one string, so it can be
+	 * searched and pattern-matched — a domain check is among the likelier rules to want. There is
+	 * no order: one address is not *before* another in any sense a form means.
 	 *
 	 * @see \Meraki\Schema\Rule\Matcher for the four sets and why a field declares one
 	 */
-	public function when(): Matcher\Basic
+	public function when(): Matcher\Text
 	{
-		return new Matcher\Basic(ValueScope::of($this->name));
+		return new Matcher\Text(ValueScope::of($this->name));
 	}
 
 	/**
@@ -235,12 +237,12 @@ final readonly class EmailAddress extends AtomicField
 
 	private function meetsMinimumLength(Value $address): bool
 	{
-		return mb_strlen($address->address()) >= $this->minLength;
+		return mb_strlen((string) $address) >= $this->minLength;
 	}
 
 	private function meetsMaximumLength(Value $address): bool
 	{
-		return mb_strlen($address->address()) <= $this->maxLength;
+		return mb_strlen((string) $address) <= $this->maxLength;
 	}
 
 	private function isAnAllowedDomain(Value $address): ?bool

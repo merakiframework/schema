@@ -402,7 +402,6 @@ Smaller warts, listed so they are not surprises.
 | Issue | Detail |
 | --- | --- |
 | No `remove()` on `Field\Set` | Fields can be added to a schema but not removed. |
-| `EmailAddress\Value` has no string form | So an email field's matcher offers no `contains` or `matches`, where a domain check is a reasonable thing to want. Its *parts* do — `PartScope::of('email', 'domain')` reaches them — so this is a gap rather than a refusal. Unlike `Password` and `CreditCard`, where the absence is deliberate. |
 
 **Everything else that was here is fixed**, and the list is kept in the changelog rather than
 above: rules are checked when written, `getByName()` returns what it says, a field is `readonly`

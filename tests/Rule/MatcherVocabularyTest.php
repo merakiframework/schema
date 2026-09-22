@@ -434,6 +434,27 @@ final class MatcherVocabularyTest extends TestCase
 	}
 
 	#[Test]
+	public function an_email_address_can_be_pattern_matched(): void
+	{
+		// The reason EmailAddress\Value gained a string form. Checking a domain is among the
+		// likelier rules to want, and before it had one the field landed in Matcher\Basic and
+		// `matches` was not there to call.
+		$schema = new Facade('signup');
+		$schema->add(
+			$email = $schema->createEmailAddressField('email'),
+			$approval = $schema->createBooleanField('needs_approval')->makeOptional(),
+		);
+		$schema->addRule(
+			$email->when()->matches('/@example\.test$/')->then($approval->makeRequired()),
+		);
+
+		$inside = $schema->validate((object) ['email' => 'kim@example.test']);
+		$outside = $schema->validate((object) ['email' => 'kim@elsewhere.test']);
+
+		$this->assertFalse($inside->forField('needs_approval')->field->optional);
+		$this->assertTrue($outside->forField('needs_approval')->field->optional);
+	}
+	#[Test]
 	public function a_field_named_by_string_gets_every_question(): void
 	{
 		// Facade::when() cannot resolve a type, so it answers with all twelve and leans on the

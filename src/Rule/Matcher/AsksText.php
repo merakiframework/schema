@@ -9,19 +9,14 @@ use Meraki\Schema\Rule\Draft;
 /**
  * The two questions a value with a string form can answer.
  *
- * Offered only by a matcher whose field parses to a {@see \Stringable} — name, phone number,
- * text, URI, UUID, and the temporal and numeric types.
+ * Offered only by a matcher whose field parses to a {@see \Stringable} — email address, name,
+ * phone number, text, URI, UUID, and the temporal and numeric types.
  *
  * The absences are the interesting part. {@see \Meraki\Schema\Field\Password\Value} and
  * {@see \Meraki\Schema\Field\CreditCard\Value} have no `__toString()` **on purpose**, so their
  * matchers do not carry this trait and `$password->when()->contains('a')` does not compile. A
  * rule reading the text of a secret should be hard to write by accident, and this is that
  * decision arriving where an author can see it.
- *
- * {@see \Meraki\Schema\Field\EmailAddress\Value} has no string form either, which is less
- * obviously deliberate — see docs/ROADMAP.md. Its parts do, so
- * `PartScope::of('email', 'domain')` still reaches these through
- * {@see \Meraki\Schema\Facade::when()}.
  */
 trait AsksText
 {

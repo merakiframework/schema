@@ -21,8 +21,24 @@ use Meraki\Schema\Field\ParsedValue;
  * library leaves to its ports — see docs/CODING-STYLE.md.
  *
  * Nothing is trimmed, because `" a@b.test "` is not an address under the grammar and repairing it
- * would be guessing too. There is deliberately no `__toString()` either: this is the field's
- * internal representation, and {@see self::address()} is how you ask for the text.
+ * would be guessing too.
+ *
+ * ### It reads back as one string
+ *
+ * This used to say there was deliberately no `__toString()`, on the grounds that the split form
+ * is the field's internal representation and a method was how you asked for the text. That
+ * argument does not survive contact with the rest of the library: {@see \Meraki\Schema\Field\Uri\Value}
+ * and {@see \Meraki\Schema\Field\Uuid\Value} are equally internal representations and both read
+ * back, and the *existence* of a single canonical spelling is the whole test — which the old
+ * `address()` method proved by being able to produce one.
+ *
+ * It also cost something real. A value with no string form gets
+ * {@see \Meraki\Schema\Rule\Matcher\Basic}, so an email field offered no `matches` and a rule
+ * could not check a domain — which is among the likelier things to want from an email address.
+ *
+ * The absences that *are* deliberate are {@see \Meraki\Schema\Field\Password\Value} and
+ * {@see \Meraki\Schema\Field\CreditCard\Value}, and the reason there is not "it is internal" —
+ * it is that a rule must not be able to read a secret by accident.
  */
 final readonly class Value implements ParsedValue, HasParts
 {
@@ -72,10 +88,11 @@ final readonly class Value implements ParsedValue, HasParts
 	/**
 	 * The address as one string, with the domain in its canonical form.
 	 *
-	 * A method rather than a property because a `readonly` class cannot compute one on read — PHP
-	 * refuses property hooks there, virtual ones included.
+	 * Replaces an `address()` method that returned exactly this. Two spellings of one string is
+	 * what every other value here avoids, and this is the one the language already knows about —
+	 * it is what makes the value `Stringable`, and so what earns the field its text matchers.
 	 */
-	public function address(): string
+	public function __toString(): string
 	{
 		return $this->localPart . '@' . $this->domain;
 	}
