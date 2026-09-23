@@ -6,10 +6,7 @@ namespace Meraki\Schema;
 /**
  * Names a field itself — `#/fields/nickname`.
  *
- * This is what a rule outcome acts on: making a field optional, requiring it, discarding
- * its input. Those outcomes used to accept any scope and throw at request time if it
- * turned out to point at a value or a property ("Require can only be applied to fields").
- * Taking this type instead moves that to the signature, so the mistake cannot be written.
+ * This is what a rule outcome can act on: i.e. making a field optional, requiring it, discarding its input, etc...
  */
 final readonly class FieldScope extends Scope
 {
