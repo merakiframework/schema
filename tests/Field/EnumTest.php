@@ -76,27 +76,49 @@ final class EnumTest extends FieldTestCase
 	}
 
 	#[Test]
-	public function the_typed_case_is_still_there_to_compare_against(): void
+	public function the_case_is_on_a_property_as_well_as_in_the_string_form(): void
 	{
-		// `__toString()` renders; `$case` holds the case at its declared type. An enum of integers
-		// compares as integers and displays as digits, and neither reading is the other's job.
-		$field = new Enum(new FieldName('priority'), [1, 2, 3]);
-		$value = $field->validate(2)->value;
+		// The same string either way. Both are kept for the reason Text\Value keeps `$text` beside
+		// its own: a consumer compares the property and a template interpolates the object.
+		$field = new Enum(new FieldName('theme'), ['light', 'dark']);
+		$value = $field->validate('dark')->value;
 
-		$this->assertSame(2, $value->case);
-		$this->assertSame('2', (string) $value);
+		$this->assertSame('dark', $value->case);
+		$this->assertSame('dark', (string) $value);
+	}
+
+	/** @return array<string, array{list<mixed>}> */
+	public static function casesThatAreNotStrings(): array
+	{
+		return [
+			'integers' => [[1, 2, 3]],
+			'floats' => [[2.71, 3.14]],
+			'booleans' => [[true, false]],
+			'one bad apple' => [['light', 'dark', 3]],
+		];
 	}
 
 	#[Test]
-	public function a_boolean_case_renders_as_a_word_rather_than_vanishing(): void
+	#[DataProvider('casesThatAreNotStrings')]
+	public function cases_that_are_not_strings_are_refused_where_they_are_written(array $cases): void
 	{
-		// PHP casts false to the empty string, so a template would render nothing at all and the
-		// chosen case would appear to have gone missing. The one scalar whose rendering is spelled
-		// out rather than delegated.
-		$field = new Enum(new FieldName('answer'), [true, false]);
+		// A form submits "2" rather than 2, and membership is decided strictly — so an enum of
+		// integers was unreadable for every form submission there has ever been. It worked only
+		// for a JSON client that had sent a real integer, which made it a surprise rather than a
+		// feature. Boolean covers yes-or-no; Number with a step covers a regular sequence.
+		$this->expectException(\InvalidArgumentException::class);
 
-		$this->assertSame('false', (string) $field->validate(false)->value);
-		$this->assertSame('true', (string) $field->validate(true)->value);
+		new Enum(new FieldName('choice'), $cases);
+	}
+
+	#[Test]
+	public function the_empty_string_cannot_be_a_case(): void
+	{
+		// It is what a select's placeholder option submits when nothing was chosen, so a case
+		// spelled that way would be chosen by everybody who chose nothing.
+		$this->expectException(\InvalidArgumentException::class);
+
+		new Enum(new FieldName('choice'), ['', 'light']);
 	}
 
 }

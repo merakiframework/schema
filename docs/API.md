@@ -216,6 +216,20 @@ real case for widening one turns up it comes back as a wither returning a copy �
 re-check the authored default for free — but inventing the capability first is how you end up with
 an API nobody can explain.
 
+**And the cases are strings.** They used to be any scalar, provided all of them were the same
+one — which looked more general and was a trap: an HTML form submits `"2"`, never `2`, and
+membership is decided strictly, so an enum of integers was unreadable for *every form
+submission there has ever been*. It worked only for a JSON client that had sent a real integer.
+
+Nothing was lost by closing it. Booleans are a `Boolean` field — a two-case enum with a name,
+and with `mustBeAccepted()`. A regular numeric sequence is a `Number` with `inIncrementsOf()`,
+which says "every multiple of five from ten to fifty" in a way a list of cases cannot. An
+irregular one is a list of labels that happen to look numeric, and `'3.14'` round-trips through
+a form, JSON and a database column where `3.14` does not.
+
+The empty string is refused too: it is what a select's placeholder option submits when nothing
+was chosen, so a case spelled that way would be chosen by everybody who chose nothing.
+
 ### `Money` scale: usually don't, sometimes do
 
 A currency's scale comes from ISO 4217, so you rarely say it:

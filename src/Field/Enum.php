@@ -11,14 +11,37 @@ use Meraki\Schema\AtomicField;
 use Meraki\Schema\FieldName;
 
 /**
- * @template T of scalar
+ * A closed set of options, one of which was chosen.
+ *
+ * ### The cases are strings, and only strings
+ *
+ * They used to be any scalar, provided all of them were the same one. That looked more
+ * general and was a trap: **an HTML form submits `"2"`, never `2`**, and membership is
+ * decided strictly, so an enum of integers was unreadable for every form submission there
+ * has ever been. It worked only for a JSON client that had sent a real integer, which is a
+ * narrow enough audience to be a surprise rather than a feature.
+ *
+ * Nothing was lost by closing it:
+ *
+ * - **Booleans** are a {@see Boolean} field, which is a two-case enum with a name — and it
+ *   has `mustBeAccepted()` and a matcher that suits yes-or-no.
+ * - **Regular numeric sequences** are a {@see Number} field with `minValueOf()`,
+ *   `maxValueOf()` and `inIncrementsOf()`, which says "every multiple of five from ten to
+ *   fifty" in a way a list of cases cannot.
+ * - **Irregular ones** — 2.71, 3.14 — are a list of *labels* that happen to look numeric,
+ *   and are better carried as strings anyway: `'3.14'` round-trips through a form, JSON and
+ *   a database column unchanged, where `3.14` does not.
+ *
+ * It also makes the value cleanly {@see \Stringable}: `(string) $result->value` is the
+ * chosen case, with no rendering decision to make about how a `false` should look.
+ *
  * @extends AtomicField<string|null>
  */
 final readonly class Enum extends AtomicField
 {
 	public function __construct(
 		public FieldName $name,
-		/** @param list<T> $cases*/
+		/** @var list<non-empty-string> the options, in the order a renderer should offer them */
 		public array $cases,
 	) {
 		parent::__construct();
@@ -27,23 +50,32 @@ final readonly class Enum extends AtomicField
 		$this->constraints = $this->defineConstraints();
 	}
 
+	/**
+	 * @param array<mixed> $cases
+	 * @throws \InvalidArgumentException if the list is empty, or holds anything but non-empty strings
+	 */
 	private function validateCases(array $cases): void
 	{
-		if (empty($cases)) {
-			throw new \InvalidArgumentException('Enum cases cannot be empty.');
+		if ($cases === []) {
+			throw new \InvalidArgumentException('An enum with no cases accepts nothing, so there is nothing it could be for.');
 		}
 
-		$type = null;
-
 		foreach ($cases as $case) {
-			if (!is_scalar($case)) {
-				throw new \InvalidArgumentException('Enum cases must be scalar values.');
+			if (!is_string($case)) {
+				throw new \InvalidArgumentException(sprintf(
+					'An enum case must be a string, and %s is not. A form submits "2" rather than 2, '
+					. 'so a non-string case could never match one. Use Boolean for yes-or-no, Number '
+					. 'with a step for a regular sequence, or strings for anything else.',
+					get_debug_type($case),
+				));
 			}
 
-			if ($type === null) {
-				$type = gettype($case);
-			} elseif (gettype($case) !== $type) {
-				throw new \InvalidArgumentException('Enum cases must be of the same type.');
+			// A select's placeholder option submits the empty string, so a case spelled that way
+			// would be chosen by everybody who chose nothing.
+			if ($case === '') {
+				throw new \InvalidArgumentException(
+					'An empty string cannot be a case: it is what a form submits when nothing was chosen.',
+				);
 			}
 		}
 	}
@@ -96,7 +128,7 @@ final readonly class Enum extends AtomicField
 			));
 		}
 
-		assert(is_string($value) || is_int($value) || is_float($value) || is_bool($value));
+		assert(is_string($value));
 
 		return new Value($value);
 	}

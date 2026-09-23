@@ -9,14 +9,13 @@ use Meraki\Schema\Field\ParsedValue;
 /**
  * One chosen case, as this library compares it.
  *
- * Identically, including type: the cases a field declares are all of one type — {@see \Meraki\Schema\Field\Enum}
- * refuses a mixed list — so `1` and `'1'` never both appear as cases, and treating them as the same
- * would only ever hide a mistake.
+ * Exactly, because a case is a string and nothing else — see {@see \Meraki\Schema\Field\Enum}
+ * for why the other scalars are refused rather than merely unused.
  *
  * A wrapper around something `===` already compared correctly, which is the trade made for a
  * uniform interface: every {@see \Meraki\Schema\Field\Definition::parse()} hands back one of these,
  * so nothing downstream ever branches on whether a value happens to be an object. The plain
- * string|int|float|bool is right there on {@see self::$case}.
+ * string is right there on {@see self::$case}, and `(string) $value` is the same string.
  */
 final readonly class Value implements ParsedValue
 {
@@ -31,7 +30,7 @@ final readonly class Value implements ParsedValue
 	 * than a constraint — an enum renderer reads `$cases` to draw the options anyway, so a
 	 * bound carrying them would say nothing new.
 	 */
-	public function __construct(public string|int|float|bool $case)
+	public function __construct(public string $case)
 	{
 	}
 
@@ -41,29 +40,18 @@ final readonly class Value implements ParsedValue
 	}
 
 	/**
-	 * The chosen case, as text.
+	 * The chosen case.
 	 *
-	 * `{@see self::$case}` stays, and is not redundant: it holds the case at its *declared type*,
-	 * so `$value->case === 3` is true for an enum of integers where `(string) $value === '3'`. The
-	 * same arrangement {@see \Meraki\Schema\Field\Number\Value} has — a `BigDecimal` on the
-	 * property, a rendering here. Reach for the property to compare, this to display.
+	 * The same string {@see self::$case} holds, and both are kept for the same reason
+	 * {@see \Meraki\Schema\Field\Text\Value} keeps `$text` beside its own: the property is
+	 * what a consumer compares, and this is what a template interpolates.
 	 *
-	 * ### A boolean case is `true` or `false`, not `1` and nothing
-	 *
-	 * PHP casts `false` to the empty string, which a template renders as nothing at all — an enum
-	 * whose chosen case simply vanished. Every other scalar casts sensibly, so this is the one
-	 * place the rendering is spelled out rather than delegated.
-	 *
-	 * Worth saying that a two-case boolean enum is a {@see \Meraki\Schema\Field\Boolean} written
-	 * the long way round, and `Boolean` has `mustBeAccepted()` and a matcher that suits it. This
-	 * makes the unusual case render correctly; it is not encouragement.
+	 * There is no rendering decision left to make. While a case could be any scalar this had to
+	 * say what a `false` looked like, because PHP casts it to the empty string and a template
+	 * would have shown nothing at all.
 	 */
 	public function __toString(): string
 	{
-		if (is_bool($this->case)) {
-			return $this->case ? 'true' : 'false';
-		}
-
-		return (string) $this->case;
+		return $this->case;
 	}
 }

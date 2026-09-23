@@ -60,8 +60,8 @@ $schema->add(
 $theme = $schema->validate((object) [])->forField('theme');
 
 (string) $theme->value;   // 'light'
-$theme->value->case;     // 'light', at the type the cases were declared with
-$theme->source->name;    // 'Default'
+$theme->value->case;      // 'light', the same string on a property
+$theme->source->name;     // 'Default'
 ```
 
 Every value reads back as text where it sensibly can; the typed form is a property beside it —

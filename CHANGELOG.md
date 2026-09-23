@@ -10,6 +10,44 @@ is a commit subject, with the body kept because the body is where the reasoning 
 
 ## Unreleased
 
+### Give an enum's chosen case a string form
+
+`1bf618a4` · 2026-09-23
+
+You could not write `(string) $result->forField('theme')->value` — it was a fatal,
+and the cookbook had to reach past it to `->case`. Now you can.
+
+`$case` stays, and is not redundant. It holds the case at its *declared* type, so
+an enum of integers compares as integers and displays as digits:
+
+    $value->case === 2      // true
+    (string) $value         // '2'
+
+That is the arrangement every other value already has — `Number\Value` keeps a
+BigDecimal on a property and renders through __toString, and so do the temporal
+types. Reach for the property to compare, the string to display.
+
+### The one scalar that needed spelling out
+
+`Enum` allows any scalar case, provided they are all the same type — so booleans
+are legal, and PHP casts false to the empty string. A template would render
+nothing at all and the chosen case would appear to have gone missing. So a
+boolean case renders as "true" or "false" rather than "1" and nothing.
+
+Worth saying that a two-case boolean enum is a Boolean field written the long way
+round, and Boolean has mustBeAccepted() and a matcher that suits it. This makes
+the unusual case render correctly; it is not encouragement.
+
+### The matcher followed on its own
+
+Being Stringable moves Enum from Matcher\Basic to Matcher\Text, so an enum field
+now offers `contains` and `matches` — useful for a prefixed code, redundant
+beside `isIn` for most enums. Still no order: a list of options is not a ranking.
+
+I did not have to notice that. `each_field_offers_exactly_the_questions_its_value_can_answer`
+went red the moment the value gained a string form and `when()` still said Basic,
+which is exactly what it is for.
+
 ### Simplify docs
 
 `0ef9d957` · 2026-09-23
