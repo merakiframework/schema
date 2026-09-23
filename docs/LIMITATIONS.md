@@ -395,13 +395,6 @@ The back-reference is now rejected as a scope target, the recursion branch that 
 solely to enable it is gone, and `Facade::traverse()` no longer rewinds the cursor on
 entry. Addressing a field's other public properties — `#/fields/x/min`,
 `#/fields/x/optional` — is unaffected, because a field's public properties are its API.
-## Rough edges
-
-Smaller warts, listed so they are not surprises.
-
-| Issue | Detail |
-| --- | --- |
-| No `remove()` on `Field\Set` | Fields can be added to a schema but not removed. |
 
 **Everything else that was here is fixed**, and the list is kept in the changelog rather than
 above: rules are checked when written, `getByName()` returns what it says, a field is `readonly`

@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Field;
 
+use Meraki\Schema\Exception\UnknownField;
 use Meraki\Schema\FieldName;
 use Meraki\Schema\Field;
 use Meraki\Schema\Field\Set;
@@ -183,5 +184,79 @@ final class SetTest extends TestCase
 		}
 
 		$this->assertSame(['one', 'two'], $names);
+	}
+
+	#[Test]
+	public function a_field_can_be_removed_by_the_field_itself(): void
+	{
+		$field = new Text(new FieldName('one'));
+		$set = new Set($field, new Text(new FieldName('two')));
+
+		$this->assertSame(['two'], $set->remove($field)->listFieldNames());
+	}
+
+	#[Test]
+	public function a_field_can_be_removed_by_name(): void
+	{
+		$set = new Set(new Text(new FieldName('one')), new Text(new FieldName('two')));
+
+		$this->assertSame(['two'], $set->remove('one')->listFieldNames());
+		$this->assertSame(['two'], $set->remove(new FieldName('one'))->listFieldNames());
+	}
+
+	/**
+	 * Same reason `add()` and `replace()` copy: a schema hands every concurrent request the very
+	 * same set, on the grounds that nothing changes one in place.
+	 */
+	#[Test]
+	public function remove_returns_a_new_instance(): void
+	{
+		$set = new Set(new Text(new FieldName('one')), new Text(new FieldName('two')));
+
+		$smaller = $set->remove('one');
+
+		$this->assertNotSame($set, $smaller);
+		$this->assertSame(['one', 'two'], $set->listFieldNames());
+		$this->assertSame(['two'], $smaller->listFieldNames());
+	}
+
+	/**
+	 * Rules are applied in order and a later one may read a field an earlier one changed, so what
+	 * is left keeps the order it was added in rather than being rebuilt.
+	 */
+	#[Test]
+	public function removing_from_the_middle_keeps_the_order_of_the_rest(): void
+	{
+		$set = new Set(
+			new Text(new FieldName('one')),
+			new Text(new FieldName('two')),
+			new Text(new FieldName('three')),
+		);
+
+		$this->assertSame(['one', 'three'], $set->remove('two')->listFieldNames());
+	}
+
+	/**
+	 * Refusing rather than no-oping, for the same reason `getByName()` and `replace()` do: a
+	 * mistyped name that quietly removed nothing would leave the field on the schema with nothing
+	 * to say so.
+	 */
+	#[Test]
+	public function removing_a_field_that_was_never_added_is_refused(): void
+	{
+		$set = new Set(new Text(new FieldName('one')));
+
+		$this->expectException(UnknownField::class);
+		$this->expectExceptionMessage('No field named "nope" to remove.');
+
+		$set->remove('nope');
+	}
+
+	#[Test]
+	public function removing_the_only_field_empties_the_set(): void
+	{
+		$set = new Set(new Text(new FieldName('one')));
+
+		$this->assertTrue($set->remove('one')->isEmpty());
 	}
 }

@@ -23,6 +23,15 @@ final class UnknownField extends InvalidArgumentException implements Exception
 		return new self(sprintf('Field with name "%s" does not exist.', $name));
 	}
 
+	public static function cannotBeRemoved(string $name): self
+	{
+		return new self(sprintf(
+			'No field named "%s" to remove. Removing one that was never added is a mistake in '
+			. 'the code rather than a no-op, so it says so instead of doing nothing.',
+			$name,
+		));
+	}
+
 	public static function cannotBeReplaced(string $name): self
 	{
 		return new self(sprintf(

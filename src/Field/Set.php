@@ -147,6 +147,44 @@ class Set implements IteratorAggregate, Countable
 	}
 
 	/**
+	 * Drops the field of that name, closing the gap behind it.
+	 *
+	 * The counterpart to {@see self::add()}, and the symmetry is the reason it exists rather than
+	 * any one caller needing it: {@see \Meraki\Schema\Rule\Set} has had `remove()` all along, so a
+	 * rule could come off a schema and a field could not.
+	 *
+	 * Takes a name rather than a field, because that is what identifying one costs: you rarely
+	 * hold the object you want gone, and `getByName()` first would be friction with no check
+	 * behind it — this does the lookup itself and refuses a name it cannot find.
+	 *
+	 * **Nothing here knows about rules.** A rule naming a field that is no longer present fails
+	 * when that rule fires, which is on a request — the one place this library works to keep
+	 * failures out of. A schema with rules should not have fields taken off it without checking
+	 * them; `Facade` is where such a check could live, and there is not one yet.
+	 *
+	 * @throws UnknownField if no field of that name is present
+	 */
+	public function remove(Field|FieldName|string $field): self
+	{
+		$name = match (true) {
+			$field instanceof Field => $field->name,
+			$field instanceof FieldName => $field,
+			default => new FieldName($field),
+		};
+
+		if ($this->findByName($name) === null) {
+			throw UnknownField::cannotBeRemoved((string) $name);
+		}
+
+		$clone = clone $this;
+		$clone->fields = array_values(
+			array_filter($this->fields, static fn(Field $stored): bool => !$stored->name->equals($name)),
+		);
+
+		return $clone;
+	}
+
+	/**
 	 * @return \ArrayIterator<Field>
 	 */
 	public function getIterator(): \ArrayIterator
