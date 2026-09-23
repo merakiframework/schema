@@ -10,6 +10,89 @@ is a commit subject, with the body kept because the body is where the reasoning 
 
 ## Unreleased
 
+### Reach PHPStan level 5 without suppressing anything
+
+`683c5ccd` · 2026-09-23
+
+src was stuck at level 3. Levels 4 and 5 cost 101 errors, and 95 of them were
+one analyser blind spot: a field is a readonly class, so PHPStan types every
+property as the value the constructor assigned it, and it cannot see
+Definition::with(), which changes them by cloning with a string-keyed array. A
+`public ?int $maxLength` initialised to null was inferred as null and nothing
+else, so the `!== null` guard in front of every use of it narrowed to *NEVER* —
+guard always-false, body unreachable, method "never returns bool".
+
+Measured rather than assumed, against the real classes:
+
+- a @var or @phpstan-var on the property does not help; the narrowing is of the
+  assigned value, not the declared type
+- PHPStan 2.2.8 is current and does not model PHP 8.5 clone-with at all, so no
+  upgrade fixes this today
+- dropping `readonly` fixes it, and would trade a real guarantee for an
+  inference detail
+- an optional constructor parameter per property fixes it, and would let a
+  caller set a bound without the cross-property check its wither does
+
+What works is Field\Definition::initially(), a mixed-returning seam every
+configuration property is initialised through. `mixed` means PHPStan keeps the
+property at its *declared* type, so a real type error is still caught. 48
+initialisers across 18 field types now go through it.
+
+Result: 101 errors to 0 at level 5, and the two blanket ignoreErrors patterns
+are deleted. Those were the ones worth being rid of — they matched across
+src/Field/*.php, so a genuine inverted guard written the same way would have
+been suppressed with them. Three narrow entries remain, each naming one class
+and one message, all three removed by PHP 8.6's readonly property defaults.
+
+It costs one thing, and the docblock on initially() says so: a property nothing
+ever configures no longer has its dead guard reported. The wither is what makes
+a property configuration, so the check that matters is that one exists.
+
+Deleting the two patterns also uncovered what the noise had been hiding — four
+genuinely dead members, all left over from the composite-to-value-object
+rewrite:
+
+- Date::mustParse(), unreferenced since from()/until() started calling
+  LocalDate::parse() directly
+- PhoneNumber::numberIn(), ::countryIn() and ::parseForRegion(), whose work
+  moved into PhoneNumber\Value
+
+Two more real findings fixed: Collection\Value::valueOf() had a nullsafe on the
+left of ??, where ?? already answers null; and Enum::parse() asserted
+is_string() on a value that in_array() against a non-empty-string case list has
+already proved — a crutch from before cases were restricted to strings.
+
+1846 tests pass.
+
+### A field can come off a schema again
+
+`9b45ab0a` · 2026-09-23
+
+Field\Set gains remove(), which Rule\Set has had all along — so a rule could be
+taken off a schema and a field could not. That asymmetry was the whole reason;
+nothing was blocked on it.
+
+It takes a name rather than a field, because that is what identifying one costs:
+you rarely hold the object you want gone, and making the caller getByName() first
+would be friction with no check behind it. It refuses a name it cannot find,
+matching getByName() and replace() rather than Rule\Set::remove(), which
+silently no-ops — a mistyped name that removed nothing would leave the field on
+the schema with nothing to say so. Order is preserved for what remains, for the
+same reason replace() preserves it.
+
+**It is not reachable from outside a Facade yet**, and that is worth saying
+plainly: Facade::$fields is private(set), so $schema->fields->remove($f) builds a
+set that goes nowhere. A Facade::remove() is the other half, and it is not here
+because it has a decision in it that this does not — a rule naming a field that
+is no longer present fails when that rule fires, which is on a request, the one
+place this library works to keep failures out of. Refusing to remove a field a
+rule depends on is probably right and should be decided deliberately rather than
+inherited from this commit.
+
+### Update changelog
+
+`227228ce` · 2026-09-23
+
 ### Hold the exception promise with a test, and document it
 
 `a8c83361` · 2026-09-23
