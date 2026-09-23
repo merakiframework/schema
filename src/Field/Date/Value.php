@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Field\Date;
 
+use Meraki\Schema\Exception\IncomparableValues;
 use Brick\DateTime\DateTimeException;
 use Meraki\Schema\Field\MalformedValue;
 use Meraki\Schema\Comparison\Equality;
@@ -10,7 +11,6 @@ use Meraki\Schema\Comparison\Order;
 use Meraki\Schema\Comparison\Comparable;
 use Meraki\Schema\Field\ParsedValue;
 use Brick\DateTime\LocalDate;
-use InvalidArgumentException;
 
 /**
  * One calendar date, as this library compares it.
@@ -49,12 +49,12 @@ final readonly class Value implements ParsedValue, Comparable
 	}
 
 	/**
-	 * @throws InvalidArgumentException if the other value is not a calendar date
+	 * @throws IncomparableValues if the other value is not a calendar date
 	 */
 	public function compareTo(Comparable $other): Order
 	{
 		if (!$other instanceof self) {
-			throw new InvalidArgumentException('A calendar date can only be ordered against another calendar date.');
+			throw IncomparableValues::calendarDates();
 		}
 
 		return Order::of($this->date->compareTo($other->date));

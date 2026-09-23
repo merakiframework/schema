@@ -3,8 +3,8 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Field;
 
+use Meraki\Schema\Exception\InvalidConstraint;
 use Closure;
-use InvalidArgumentException;
 
 /**
  * One check a field makes, and everything a consumer needs to report it.
@@ -55,11 +55,11 @@ final readonly class Constraint
 		public bool $timeRelative = false,
 	) {
 		if ($name === '') {
-			throw new InvalidArgumentException('A constraint must be named.');
+			throw InvalidConstraint::mustBeNamed();
 		}
 
 		if ($part === '') {
-			throw new InvalidArgumentException('A constraint\'s part cannot be empty; use null for the whole value.');
+			throw InvalidConstraint::partCannotBeEmpty();
 		}
 	}
 

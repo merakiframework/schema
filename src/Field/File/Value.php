@@ -7,7 +7,6 @@ use Meraki\Schema\Field\MalformedValue;
 use Meraki\Schema\Comparison\Equality;
 use Meraki\Schema\Field\HasParts;
 use Meraki\Schema\Field\ParsedValue;
-use InvalidArgumentException;
 
 /**
  * One uploaded file, as the client described it.

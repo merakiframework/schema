@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Field\Time;
 
+use Meraki\Schema\Exception\IncomparableValues;
 use Brick\DateTime\DateTimeException;
 use Meraki\Schema\Field\MalformedValue;
 use Meraki\Schema\Comparison\Equality;
@@ -10,7 +11,6 @@ use Meraki\Schema\Comparison\Order;
 use Meraki\Schema\Comparison\Comparable;
 use Meraki\Schema\Field\ParsedValue;
 use Brick\DateTime\LocalTime;
-use InvalidArgumentException;
 
 /**
  * One time of day, as this library compares it.
@@ -61,12 +61,12 @@ final readonly class Value implements ParsedValue, Comparable
 	}
 
 	/**
-	 * @throws InvalidArgumentException if the other value is not a time of day
+	 * @throws IncomparableValues if the other value is not a time of day
 	 */
 	public function compareTo(Comparable $other): Order
 	{
 		if (!$other instanceof self) {
-			throw new InvalidArgumentException('A time of day can only be ordered against another time of day.');
+			throw IncomparableValues::timesOfDay();
 		}
 
 		return Order::of($this->time->compareTo($other->time));

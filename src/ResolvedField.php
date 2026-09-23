@@ -3,11 +3,11 @@ declare(strict_types=1);
 
 namespace Meraki\Schema;
 
+use Meraki\Schema\Exception\InvalidConstraint;
 use Meraki\Schema\Field\ConstraintValidationResult;
 use Meraki\Schema\Rule\AppliedOutcome;
 use Brick\DateTime\Instant;
 use Meraki\Schema\ValueSource;
-use InvalidArgumentException;
 
 /**
  * One field, resolved against one request.
@@ -209,7 +209,7 @@ class ResolvedField extends AggregatedValidationResult implements FieldResult
 	public function forConstraint(string $constraintName): ?ConstraintValidationResult
 	{
 		if ($constraintName === '') {
-			throw new InvalidArgumentException('Constraint name cannot be empty.');
+			throw InvalidConstraint::lookedUpWithNoName();
 		}
 
 		foreach ($this->results as $result) {
@@ -250,11 +250,7 @@ class ResolvedField extends AggregatedValidationResult implements FieldResult
 			}
 
 			if (isset($seen[$result->name])) {
-				throw new InvalidArgumentException(sprintf(
-					'Duplicate constraint name "%s" on field "%s".',
-					$result->name,
-					(string) $this->field->name,
-				));
+				throw InvalidConstraint::nameIsUsedTwiceOnAField($result->name, (string) $this->field->name);
 			}
 
 			$seen[$result->name] = true;

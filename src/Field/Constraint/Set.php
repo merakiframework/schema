@@ -7,7 +7,7 @@ use Meraki\Schema\Field\Constraint;
 use Meraki\Schema\Field\ConstraintValidationResult;
 use Closure;
 use Countable;
-use InvalidArgumentException;
+use Meraki\Schema\Exception\InvalidConstraint;
 use IteratorAggregate;
 use Traversable;
 
@@ -33,10 +33,7 @@ final class Set implements IteratorAggregate, Countable
 
 		foreach ($constraints as $constraint) {
 			if (isset($seen[$constraint->name])) {
-				throw new InvalidArgumentException(sprintf(
-					'Duplicate constraint "%s": a field reports each name once, so a result can be looked up by it.',
-					$constraint->name,
-				));
+				throw InvalidConstraint::nameIsUsedTwice($constraint->name);
 			}
 
 			$seen[$constraint->name] = true;

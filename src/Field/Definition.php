@@ -3,10 +3,10 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Field;
 
+use Meraki\Schema\Exception\InvalidDefault;
 use Meraki\Schema\AtomicField;
 use Meraki\Schema\Field;
 use Brick\DateTime\Instant;
-use InvalidArgumentException;
 
 /**
  * What a field *is*, and the only way to change it — everything except how it validates.
@@ -199,7 +199,7 @@ trait Definition
 	}
 
 	/**
-	 * @throws InvalidArgumentException if the value could not satisfy this field
+	 * @throws InvalidDefault if the value could not satisfy this field
 	 */
 	public function defaultsTo(mixed $value): static
 	{
@@ -279,7 +279,7 @@ trait Definition
 	 * directly skips that and leaves a stale default behind.
 	 *
 	 * @param array<string, mixed> $changes
-	 * @throws InvalidArgumentException if the change leaves the authored default invalid
+	 * @throws InvalidDefault if the change leaves the authored default invalid
 	 */
 	/**
 	 * The same, for a rule outcome to apply.
@@ -295,7 +295,7 @@ trait Definition
 	 * re-checked exactly as a wither would.
 	 *
 	 * @param array<string, mixed> $changes
-	 * @throws InvalidArgumentException if the change leaves the authored default invalid
+	 * @throws InvalidDefault if the change leaves the authored default invalid
 	 */
 	final public function reconfiguredWith(array $changes): static
 	{
@@ -323,7 +323,7 @@ trait Definition
 	 * An authored default is trusted by construction rather than by assumption: it is checked
 	 * where it is written, so a request never has to re-check it.
 	 *
-	 * @throws InvalidArgumentException
+	 * @throws InvalidDefault
 	 */
 	private function assertDefaultCanSatisfyIt(): void
 	{
@@ -338,11 +338,7 @@ trait Definition
 		try {
 			$parsed = $this->parse($this->defaultValue);
 		} catch (MalformedValue $malformed) {
-			throw new InvalidArgumentException(sprintf(
-				'The default for "%s" is not a value it can hold. %s',
-				(string) $this->name,
-				$malformed->getMessage(),
-			), previous: $malformed);
+			throw InvalidDefault::isNotAValueTheFieldCanHold((string) $this->name, $malformed);
 		}
 
 		foreach ($this->constraints as $constraint) {
@@ -354,11 +350,7 @@ trait Definition
 			}
 
 			if ($constraint->against($parsed)->failed()) {
-				throw new InvalidArgumentException(sprintf(
-					'The default for "%s" does not satisfy its own "%s" constraint.',
-					(string) $this->name,
-					$constraint->name,
-				));
+				throw InvalidDefault::failsItsOwnConstraint((string) $this->name, $constraint->name);
 			}
 		}
 	}

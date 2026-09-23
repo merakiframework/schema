@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Field\Money;
 
+use Meraki\Schema\Exception\IncomparableValues;
 use Meraki\Schema\Field\MalformedValue;
 use Meraki\Schema\Comparison\Comparable;
 use Meraki\Schema\Comparison\Equality;
@@ -11,7 +12,6 @@ use Meraki\Schema\Field\HasParts;
 use Meraki\Schema\Field\ParsedValue;
 use Brick\Math\BigDecimal;
 use Brick\Math\Exception\MathException;
-use InvalidArgumentException;
 use TypeError;
 
 /**
@@ -144,22 +144,17 @@ final readonly class Value implements ParsedValue, HasParts, Comparable
 	 * {@see Comparable} at all: an `isAtLeast` on a money field is an obviously wanted rule, and
 	 * excluding the whole type to avoid one raising case would have cost more than it saved.
 	 *
-	 * @throws InvalidArgumentException if the other value is not money, or is money in another
+	 * @throws IncomparableValues if the other value is not money, or is money in another
 	 *         currency
 	 */
 	public function compareTo(Comparable $other): Order
 	{
 		if (!$other instanceof self) {
-			throw new InvalidArgumentException('An amount of money can only be ordered against money.');
+			throw IncomparableValues::money();
 		}
 
 		if ($this->currency !== $other->currency) {
-			throw new InvalidArgumentException(sprintf(
-				'%s and %s cannot be ordered: ranking them needs an exchange rate, which is not a '
-				. 'property of either amount.',
-				$this->currency,
-				$other->currency,
-			));
+			throw IncomparableValues::moneyInDifferentCurrencies($this->currency, $other->currency);
 		}
 
 		return Order::of($this->amount->compareTo($other->amount));

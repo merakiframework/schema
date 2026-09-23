@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Field\Duration;
 
+use Meraki\Schema\Exception\IncomparableValues;
 use Brick\DateTime\DateTimeException;
 use Meraki\Schema\Field\MalformedValue;
 use Meraki\Schema\Comparison\Equality;
@@ -10,7 +11,6 @@ use Meraki\Schema\Comparison\Order;
 use Meraki\Schema\Comparison\Comparable;
 use Meraki\Schema\Field\ParsedValue;
 use Brick\DateTime\Duration as BrickDuration;
-use InvalidArgumentException;
 
 /**
  * One length of time, as this library compares it.
@@ -51,12 +51,12 @@ final readonly class Value implements ParsedValue, Comparable
 	}
 
 	/**
-	 * @throws InvalidArgumentException if the other value is not a length of time
+	 * @throws IncomparableValues if the other value is not a length of time
 	 */
 	public function compareTo(Comparable $other): Order
 	{
 		if (!$other instanceof self) {
-			throw new InvalidArgumentException('A length of time can only be ordered against another length of time.');
+			throw IncomparableValues::lengthsOfTime();
 		}
 
 		return Order::of($this->duration->compareTo($other->duration));

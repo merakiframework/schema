@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Field\Number;
 
+use Meraki\Schema\Exception\IncomparableValues;
 use Brick\Math\Exception\MathException;
 use Meraki\Schema\Field\MalformedValue;
 use Meraki\Schema\Comparison\Equality;
@@ -10,7 +11,6 @@ use Meraki\Schema\Comparison\Order;
 use Meraki\Schema\Comparison\Comparable;
 use Meraki\Schema\Field\ParsedValue;
 use Brick\Math\BigDecimal;
-use InvalidArgumentException;
 
 /**
  * One number, as this library compares it.
@@ -55,12 +55,12 @@ final readonly class Value implements ParsedValue, Comparable
 	}
 
 	/**
-	 * @throws InvalidArgumentException if the other value is not a number
+	 * @throws IncomparableValues if the other value is not a number
 	 */
 	public function compareTo(Comparable $other): Order
 	{
 		if (!$other instanceof self) {
-			throw new InvalidArgumentException('A number can only be ordered against another number.');
+			throw IncomparableValues::numbers();
 		}
 
 		return Order::of($this->number->compareTo($other->number));
