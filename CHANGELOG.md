@@ -10,6 +10,100 @@ is a commit subject, with the body kept because the body is where the reasoning 
 
 ## Unreleased
 
+### Name the last four, and stop pointing docblocks at generics
+
+`671e5f2e` · 2026-09-23
+
+Finishes the sweep: no src/ file throws InvalidArgumentException or
+LogicException any more, and no @throws names one.
+
+- Message\Mf2\NoSuchPack — a pack that is not where the provider was told to
+  look. It sits with BadResource and BadMessage rather than in
+  Meraki\Schema\Exception because packs are an MF2 idea: a provider reading
+  messages from a database has nothing this could describe. Raised where the
+  pack is registered, because a provider that shrugged would fall through to
+  Silence on every request, and a form with no messages looks like a form whose
+  fields all passed.
+- Exception\IncompleteVocabulary — a field the vocabulary cannot build from a
+  name alone, so it cannot list the keys a pack must supply for it. Refusing
+  beats skipping: a skipped field leaves its keys off the list, schema-lang
+  missing reports a complete pack, and the field renders with no message.
+
+Three docblocks that described a generic now name what is really thrown —
+Scope::parse() (InvalidScope), Comparable::compareTo() (IncomparableValues) —
+and PhoneNumber's LogicException import had nothing left to import.
+
+### Name the field-configuration failures
+
+`b3a41f9a` · 2026-09-23
+
+Fifty-four hand-written throws across thirteen field types become one class,
+InvalidConfiguration, with a factory per mistake. Grouping them this way makes
+three things visible that were not:
+
+The same mistake was being written six different ways. "A minimum length cannot
+exceed the maximum" was in Text, Password and EmailAddress verbatim; File and
+Collection said the same about sizes and counts; Uri said it as "Minimum length
+cannot be greater than maximum length". Four shared factories now take the noun
+the field measures in — length, file size, count — so every field refuses the
+same mistake in the same words.
+
+Most of these are coherence failures rather than type failures: a minimum past
+its own maximum, a step finer than the precision it steps through, a bound in a
+currency the field does not take. PHP's types cannot state any of that, which is
+why there is a wither check at all, and the class docblock now says so once
+instead of thirteen docblocks saying nothing.
+
+Money's ten are all per currency, and the class says why: a field taking AUD and
+JPY holds two minimums, two maximums and two scales, so a message that did not
+name one would send the author to the wrong line.
+
+Three messages changed on the way, none of them asserted on except the first:
+
+- Text::mustMatch() said 'Invalid regular expression provided.' It now says what
+  was given and what the argument takes, matching what InvalidRule already says
+  for the matches() condition. TextTest asserts the new wording.
+- Uri's four length messages are now the shared ones. Its "must be a positive
+  integer" was wrong as well as inconsistent: the check is < 0, and zero is
+  allowed.
+- Number::scaleTo() said 'Scale must be a non-negative integer' with no full
+  stop; Uuid::allowVersions() said 'Version must be -1, 0, or 1 to 8' without
+  saying that 0 is the nil UUID and -1 the max. Both now do.
+
+1837 tests pass. Coverage falls to 71.5% from 74.6%: the factories are lines,
+and the ones for mistakes nothing tests yet are uncovered ones.
+
+### Name the constraint, default and comparison failures
+
+`f774348e` · 2026-09-23
+
+Three more concepts out of hand-written strings and into classes, each grouping
+throws that were saying the same thing in several places:
+
+- InvalidConstraint — a constraint that cannot be reported. Both members guard
+  one promise: a field reports each constraint under a name and a consumer looks
+  the result up by it, so a nameless or repeated name breaks the lookup rather
+  than the check. Covers Constraint, Constraint\Set and ResolvedField, which were
+  each writing their own sentence for the duplicate case.
+- InvalidDefault — a default the field that declares it could never hold. Raised
+  where the default is written, because that is the point of it: an authored
+  default is trusted by construction so a request never re-checks it.
+- IncomparableValues — two values with no honest ordering. Six Value classes had
+  a one-line throw apiece; the sentences now live together, where it is visible
+  that they are the same sentence. Money keeps its second case, which is the
+  interesting one: same type, different currency, and no exchange rate to be had
+  from either amount.
+
+IncomparableValues also carries becauseTheyAreNotAlike(), so a Comparable this
+library has never heard of raises what the built-in ones do rather than falling
+back to InvalidArgumentException.
+
+Messages are verbatim and every class extends what it replaced. 1837 tests pass.
+
+### Update changelog
+
+`630f6d04` · 2026-09-23
+
 ### Give the rule failures real exception classes
 
 `5b662524` · 2026-09-23
