@@ -10,6 +10,42 @@ is a commit subject, with the body kept because the body is where the reasoning 
 
 ## Unreleased
 
+### Hold the exception promise with a test, and document it
+
+`a8c83361` · 2026-09-23
+
+Adds tests/Api/ExceptionTest.php, which makes three claims about src/ rather
+than about behaviour:
+
+- every Throwable defined here implements Meraki\Schema\Exception
+- nothing throws a generic SPL exception
+- no docblock promises one
+
+The source scan is the point. Nothing about writing `throw new
+InvalidArgumentException(...)` fails loudly — the code runs, the message is
+fine, and the only symptom is a caller's catch quietly not firing for one case
+out of ninety. Behaviour cannot see a throw nobody wrote a test for, and those
+are exactly the throws this is about.
+
+It immediately found seven I had missed, all of them written `throw new
+\InvalidArgumentException` with a leading backslash: three in Enum and four in
+Name, plus a @throws on Field::defaultsTo(). Those are migrated, with five new
+factories on InvalidConfiguration. Name's four length messages are now the
+shared ones.
+
+docs/API.md gains "What raises, and what does not" — the split (a validation
+failure is a fact about a request and arrives on the result; these are mistakes
+in your code and are found at boot), the one catch that covers the library, and
+a table of all eighteen classes. The two examples in API.md and EXTENDING.md
+that printed "InvalidArgumentException:" now print the real class name, and five
+example catches name the class rather than the SPL base.
+
+1840 tests pass.
+
+### Update changelog
+
+`15228831` · 2026-09-23
+
 ### Name the last four, and stop pointing docblocks at generics
 
 `671e5f2e` · 2026-09-23
