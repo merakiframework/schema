@@ -10,6 +10,65 @@ is a commit subject, with the body kept because the body is where the reasoning 
 
 ## Unreleased
 
+### Reach PHPStan level 6, and check what it cannot
+
+`a58077bd` · 2026-09-23
+
+Level 6 is missing generic and iterable types in docblocks rather than unsound
+code, and 91 errors turned out to be four things.
+
+67 of them were one: `Field` is `@template AcceptedType`, so every mention of a
+bare `Field` — meaning "a field of any kind", which is nearly all of them — was
+reported. Annotating 67 sites with `Field<mixed>` would have said it 67 times;
+`@template AcceptedType of mixed = mixed` says it once, on the declaration, and
+is what a bare `Field` has always meant. `AtomicField` and
+`AggregatedValidationResult` get the same.
+
+12 were arrays whose value type was never written down: the request payload
+(`array<string, mixed>`), File's two media-type lists, and Rule/Condition's
+`$data`. Written out, so `matches()` now says what it takes.
+
+Three were docblocks that were *wrong* rather than missing, which is the part
+worth having found: `@return \ArrayIterator<T>` twice and `@implements
+IteratorAggregate<Field>` once, all three on classes taking two type parameters.
+They had been accepted for as long as nothing looked.
+
+The rest were iterators with no annotation at all — Rule\Set, Message\Set,
+Collection\Value.
+
+Level 7 is 39 errors of a different kind again — 29 argument.type, 5
+return.type, 5 assign.propertyType, most of them list-versus-array artifacts of
+the spread operator — and is tracked rather than done here.
+
+## tools/check-conventions.php
+
+PHPStan does not report unused imports or `string[]`-style array types at any
+level, and that is not an oversight: an unused import is not unsound, and
+`string[]` is a type it understands. They are house style, so they get a check
+of the shape tools/ already holds three of, rather than ~15 transitive
+dependencies for a coding-standard package.
+
+It found 26 unused imports — 15 in src, 11 in tests — almost all left behind
+when a method was deleted or a responsibility moved into a value object. Three
+in PhoneNumber and one in Date were from the dead code removed two commits ago.
+
+It also found five `Type[]` where the rest of the library writes `list<Type>`.
+Those are not the same claim: `Type[]` says nothing about the keys, and every
+one of these really is a list.
+
+Fixed by hand, since no tool should guess at them: seven `@var Type $name` where
+the name repeats the declaration under it, and Text.php's method docblocks,
+which were the last of the old style — tags with no blank line before them,
+descriptions restating the signature, and the same `@throws
+InvalidConfiguration` written twice in one block, twice.
+
+One real bug on the way past: tools/check-references.php printed dead `{@see}`
+references and then exited 0, so it could not fail CI. It exits 1 now.
+
+### Update changelog
+
+`647135d0` · 2026-09-23
+
 ### Reach PHPStan level 5 without suppressing anything
 
 `683c5ccd` · 2026-09-23
