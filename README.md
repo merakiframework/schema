@@ -196,6 +196,7 @@ Nineteen, each parsing to its own value object:
 `Text` · `Time` · `Uri` · `Uuid`
 
 [docs/API.md](docs/API.md) lists every field's configuration and the constraint names it reports.
+[docs/COOKBOOK.md](docs/COOKBOOK.md) has the common form patterns as one snippet each.
 The domain types are the point: an `Address` validates against Google's libaddressinput, a
 `PhoneNumber` against libphonenumber, a `Password` against zxcvbn.
 

@@ -10,6 +10,64 @@ is a commit subject, with the body kept because the body is where the reasoning 
 
 ## Unreleased
 
+### Finish the nineteen, and make parse() raise rather than return null
+
+`db4dd8a6` · 2026-09-23
+
+The remaining ten values enforce their own invariants, and the contract is
+tightened now that every field satisfies it: `parse()` returns a `ParsedValue`,
+never null.
+
+### A value takes what the field takes
+
+`Money\Value` was `(string $currency, BigDecimal $amount)` while the field
+accepted `{currency, amount}` — so a field read input and a value trusted
+whatever it was handed. Now the constructor takes the record, with `Value::of()`
+as the readable way to write one by hand:
+
+    $price->when()->isAtLeast(Money\Value::of('AUD', '10.00'))
+
+`of()` builds the record and hands it to the constructor rather than bypassing
+it, so the invariant is enforced in one place. Same for `File`, `CreditCard` and
+`Address`.
+
+### What moved, and what could not
+
+Most shape checks are facts about the value and moved wholesale: the email
+grammar, the URI parse, the ISBN canonicalising in the example that prompted
+this, and Address's country pairing — `4700` is Rockhampton in Australia and
+something else elsewhere, so an address naming no country never described a
+place under any configuration.
+
+Three kept something on the field, all for the same reason — the check is a fact
+about the *field*:
+
+- `Enum` owns membership of a case list a value cannot see.
+- `Time` and `DateTime` apply a precision policy that is configuration, so their
+  values take either a string to parse or an already-adjusted Brick object.
+- `Collection` reads each row against its template.
+
+`Uri\Value` now keeps the scheme it had to parse anyway, so `allowedSchemes`
+stops re-parsing a string already proved to be a URI. `Uuid\Value` folds case at
+construction instead of in `strcasecmp()` on every comparison, so two equal UUIDs
+finally read back as the same string.
+
+### parse() no longer returns null
+
+There was one caller left that wanted the reason — `defaultsTo()` — and it was
+the only audience that could act on it. `Definition` decides who absorbs the
+exception: caught on the request path, raised at definition time. A field author
+writes `parse(): Value` and no try/catch, which is less to know than remembering
+which failures returned null.
+
+`Password::validate()` overrides the lifecycle to report entropy and was calling
+`parse()` directly; it goes through `Definition::readable()` like everything
+else, which is the hazard of having two paths and the argument for having one.
+
+Docs updated where they taught the old contract: FIELD-API, EXTENDING, DESIGN
+and examples/custom-field.php — where the hyphen-stripping now sits in the value,
+which is where this started.
+
 ### Let a value refuse to be built out of something it is not
 
 `ffa5115e` · 2026-09-23

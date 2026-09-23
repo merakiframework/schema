@@ -16,6 +16,7 @@ schema, and reading a result.
 
 | | |
 | --- | --- |
+| [COOKBOOK.md](COOKBOOK.md) | The things a form actually needs, one snippet each — branching on a choice, echoing input back, which row failed |
 | [API.md](API.md) | Every field's configuration and the constraint names it reports, with the reasoning behind each name |
 | [FIELD-API.md](FIELD-API.md) | The contract a field implements — `parse()`, shape versus constraint, order of operations |
 | [EXTENDING.md](EXTENDING.md) | Writing your own field type. About forty lines, and nothing to register |
