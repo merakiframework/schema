@@ -15,7 +15,6 @@ use libphonenumber\PhoneNumber as LibPhoneNumber;
 use libphonenumber\PhoneNumberFormat;
 use libphonenumber\PhoneNumberUtil;
 use libphonenumber\NumberParseException;
-use LogicException;
 
 /**
  * A telephone number, validated with libphonenumber.

@@ -4,7 +4,6 @@ declare(strict_types=1);
 namespace Meraki\Schema\Message\Mf2;
 
 use Composer\InstalledVersions;
-use InvalidArgumentException;
 use Meraki\Schema\Message\Provider;
 use Meraki\Schema\Message\Silence;
 use Meraki\Schema\Message\Translator;
@@ -60,7 +59,7 @@ final class Mf2Provider implements Provider
 	/**
 	 * A pack in a directory: every `*.mfr` at its top level, named for the locale it holds.
 	 *
-	 * @throws InvalidArgumentException if the directory does not exist
+	 * @throws NoSuchPack if the directory does not exist
 	 */
 	public static function fromDirectory(string $path): self
 	{
@@ -70,7 +69,7 @@ final class Mf2Provider implements Provider
 	/**
 	 * A pack installed by Composer, found without hardcoding a path into `vendor/`.
 	 *
-	 * @throws InvalidArgumentException if the package is not installed
+	 * @throws NoSuchPack if the package is not installed
 	 */
 	public static function fromPackage(string $package): self
 	{
@@ -89,14 +88,14 @@ final class Mf2Provider implements Provider
 	 * Later wins, so an application's own folder laid over a published pack replaces the entries it
 	 * defines and inherits the rest. That is the same rule variants follow, one level up.
 	 *
-	 * @throws InvalidArgumentException if the directory does not exist
+	 * @throws NoSuchPack if the directory does not exist
 	 */
 	public function withPack(string $path): self
 	{
 		$real = is_dir($path) ? realpath($path) : false;
 
 		if ($real === false) {
-			throw new InvalidArgumentException(sprintf('There is no language pack directory at "%s".', $path));
+			throw NoSuchPack::atPath($path);
 		}
 
 		$copy = clone $this;
@@ -109,22 +108,18 @@ final class Mf2Provider implements Provider
 	/**
 	 * Adds a Composer package's install directory.
 	 *
-	 * @throws InvalidArgumentException if the package is not installed
+	 * @throws NoSuchPack if the package is not installed
 	 */
 	public function withPackage(string $package): self
 	{
 		if (!class_exists(InstalledVersions::class) || !InstalledVersions::isInstalled($package)) {
-			throw new InvalidArgumentException(sprintf(
-				'The language pack "%s" is not installed. Run: composer require %s',
-				$package,
-				$package,
-			));
+			throw NoSuchPack::packageIsNotInstalled($package);
 		}
 
 		$path = InstalledVersions::getInstallPath($package);
 
 		if ($path === null) {
-			throw new InvalidArgumentException(sprintf('"%s" is installed but has no directory on disk.', $package));
+			throw NoSuchPack::packageHasNoDirectory($package);
 		}
 
 		return $this->withPack($path);

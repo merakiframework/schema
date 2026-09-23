@@ -3,7 +3,6 @@ declare(strict_types=1);
 
 namespace Meraki\Schema;
 
-use InvalidArgumentException;
 use Meraki\Schema\Exception\InvalidScope;
 use Stringable;
 
@@ -33,7 +32,7 @@ abstract readonly class Scope implements Stringable
 	/**
 	 * Reads a scope from its string form, returning whichever kind the path describes.
 	 *
-	 * @throws InvalidArgumentException if the path is not a scope this schema can address
+	 * @throws InvalidScope if the path is not a scope this schema can address
 	 */
 	public static function parse(string $path): self
 	{

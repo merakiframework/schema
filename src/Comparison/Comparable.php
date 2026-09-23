@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Comparison;
 
-use InvalidArgumentException;
+use Meraki\Schema\Exception\IncomparableValues;
 
 /**
  * A value with an order, not merely an identity.
@@ -51,7 +51,7 @@ interface Comparable extends Equality
 	 * from `equals()` must always agree, because a value that sorts equal to another and is not
 	 * equal to it has no coherent reading.
 	 *
-	 * @throws InvalidArgumentException if the two are not comparable
+	 * @throws IncomparableValues if the two are not comparable
 	 */
 	public function compareTo(self $other): Order;
 }

@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Message;
 
-use LogicException;
+use Meraki\Schema\Exception\IncompleteVocabulary;
 use Meraki\Schema\Field;
 use Meraki\Schema\FieldName;
 use ReflectionClass;
@@ -269,19 +269,14 @@ final class Vocabulary
 
 	/**
 	 * @param class-string<Field> $class
-	 * @throws LogicException if the field needs more than a name and nobody has said what
+	 * @throws IncompleteVocabulary if the field needs more than a name and nobody has said what
 	 */
 	private static function buildPlain(string $class, string $kind): Field
 	{
 		$constructor = (new ReflectionClass($class))->getConstructor();
 
 		if ($constructor !== null && $constructor->getNumberOfRequiredParameters() > 1) {
-			throw new LogicException(sprintf(
-				'Field\\%s needs more than a name to build, so %s cannot report what it says. Add it '
-				. 'to build() with the smallest arguments that satisfy it.',
-				$kind,
-				self::class,
-			));
+			throw IncompleteVocabulary::fieldNeedsMoreThanAName($kind, self::class);
 		}
 
 		return new $class(new FieldName('f'));
