@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace Meraki\Schema\Message\Mf2;
 
 use InvalidArgumentException;
+use Meraki\Schema\Exception;
 
 /**
  * A `.mfr` file that could not be read as one.
@@ -16,7 +17,7 @@ use InvalidArgumentException;
  * Both carry enough to fix the problem without opening a debugger: this one names the file and the
  * line.
  */
-final class BadResource extends InvalidArgumentException
+final class BadResource extends InvalidArgumentException implements Exception
 {
 	private function __construct(
 		string $message,

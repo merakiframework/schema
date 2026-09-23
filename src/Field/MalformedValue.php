@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace Meraki\Schema\Field;
 
 use InvalidArgumentException;
+use Meraki\Schema\Exception;
 
 /**
  * Input that is not the kind of thing a value holds.
@@ -52,7 +53,7 @@ use InvalidArgumentException;
  * got far enough to be checked. Moving a constraint behind this exception turns a precise answer
  * into a blank one.
  */
-final class MalformedValue extends InvalidArgumentException
+final class MalformedValue extends InvalidArgumentException implements Exception
 {
 	private function __construct(
 		string $message,

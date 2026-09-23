@@ -3,11 +3,12 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Field;
 
+use Meraki\Schema\Exception\UnknownField;
+use Meraki\Schema\Exception\DuplicateFieldName;
 use Meraki\Schema\Field;
 use Meraki\Schema\FieldName;
 use IteratorAggregate;
 use Countable;
-use InvalidArgumentException;
 
 /**
  * @implements IteratorAggregate<Field>
@@ -51,12 +52,12 @@ class Set implements IteratorAggregate, Countable
 	 * is the nullable one, and the pair reads as the difference — *get* it, or go *find* whether it
 	 * is there.
 	 *
-	 * @throws InvalidArgumentException if no field of that name is present
+	 * @throws UnknownField if no field of that name is present
 	 */
 	public function getByName(string|FieldName $name): Field
 	{
 		return $this->findByName($name)
-			?? throw new InvalidArgumentException(sprintf('Field with name "%s" does not exist.', (string) $name));
+			?? throw UnknownField::named((string) $name);
 	}
 
 	public function findByName(string|FieldName $name): ?Field
@@ -92,7 +93,7 @@ class Set implements IteratorAggregate, Countable
 	 * of {@see self::add()} and {@see self::replace()} and was not true of this, so one caller
 	 * reaching in here changed a definition every concurrent request was reading.
 	 *
-	 * @throws InvalidArgumentException if a field with the same name is already present
+	 * @throws DuplicateFieldName if a field with the same name is already present
 	 */
 	private function mutableAdd(Field ...$fields): void
 	{
@@ -101,10 +102,7 @@ class Set implements IteratorAggregate, Countable
 			// in the schema definition. Silently discarding it loses the definition and
 			// gives no clue where it went.
 			if ($this->exists($field)) {
-				throw new InvalidArgumentException(sprintf(
-					'A field named "%s" already exists.',
-					(string) $field->name,
-				));
+				throw DuplicateFieldName::named((string) $field->name);
 			}
 
 			$this->fields[] = $field;
@@ -132,17 +130,14 @@ class Set implements IteratorAggregate, Countable
 	 * side effect of changing one field would make that depend on which rules happened to
 	 * fire.
 	 *
-	 * @throws InvalidArgumentException if no field of that name is present
+	 * @throws UnknownField if no field of that name is present
 	 */
 	public function replace(Field $field): self
 	{
 		$index = $this->indexOf($field);
 
 		if ($index === null) {
-			throw new InvalidArgumentException(sprintf(
-				'No field named "%s" to replace.',
-				(string) $field->name,
-			));
+			throw UnknownField::cannotBeReplaced((string) $field->name);
 		}
 
 		$clone = clone $this;

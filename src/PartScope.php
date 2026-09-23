@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 namespace Meraki\Schema;
 
-use InvalidArgumentException;
+use Meraki\Schema\Exception\InvalidScope;
 
 /**
  * Names one part of what a field was given — `#/fields/billing_address/value/country`.
@@ -35,7 +35,7 @@ final readonly class PartScope extends Scope
 	public function __construct(FieldName $field, public string $part)
 	{
 		if ($part === '') {
-			throw new InvalidArgumentException('A part scope must name a part.');
+			throw InvalidScope::partIsMissing();
 		}
 
 		parent::__construct($field);

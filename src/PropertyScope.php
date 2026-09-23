@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 namespace Meraki\Schema;
 
-use InvalidArgumentException;
+use Meraki\Schema\Exception\InvalidScope;
 
 /**
  * Names part of a field's definition — `#/fields/age/min`, `#/fields/nickname/optional`.
@@ -17,15 +17,11 @@ final readonly class PropertyScope extends Scope
 	public function __construct(FieldName $field, public string $property)
 	{
 		if ($property === '') {
-			throw new InvalidArgumentException('A property scope must name a property.');
+			throw InvalidScope::propertyIsMissing();
 		}
 
 		if ($property === ValueScope::SEGMENT) {
-			throw new InvalidArgumentException(sprintf(
-				'"%s" addresses a submitted value, not a definition property. Use %s.',
-				$property,
-				ValueScope::class,
-			));
+			throw InvalidScope::valueIsNotAProperty($property, ValueScope::class);
 		}
 
 		parent::__construct($field);

@@ -10,6 +10,47 @@ is a commit subject, with the body kept because the body is where the reasoning 
 
 ## Unreleased
 
+### One way in to a value and its parts
+
+`b27684d8` · 2026-09-23
+
+ValueScope::of('billing')              // #/fields/billing/value
+    ValueScope::of('billing', 'country')   // #/fields/billing/value/country
+
+A part is always inside a value and has nowhere else to hang from, so nobody
+should have to know PartScope exists before they can address one. PartScope::of()
+stays for building one directly; this is the spelling the docs, tests and
+examples now use.
+
+### The classes stay distinct, and that is the point
+
+They are siblings, not a subtype pair, and the factory hands back whichever the
+arguments describe rather than collapsing them. Three places dispatch on the
+difference, and two exclude parts for the same reason — a part resolves to
+whatever the value put in it, not to a ParsedValue:
+
+- Comparison::wouldBeParsed() reads a literal expectation through the field for a
+  whole value. For a part it must not: putting 'AU' through Address::parse() gives
+  null, so equals('AU') on a country would compare against nothing and never hold.
+- Ordered::whyItCouldNeverHold() checks the field's value class for Comparable,
+  which says nothing about the type of one part.
+
+Which is why PartScope extends Scope rather than ValueScope. Path nesting is not
+type nesting: a country is *located* inside an address, not *a kind of* address,
+and asserting the second would silently break both checks above.
+
+### The narrowing is checked, not hoped for
+
+    /** @return ($part is null ? ValueScope : PartScope) */
+
+Verified against the real classes at level 6. `ValueScope::of('billing')->part` is
+an undefined property before it is a runtime error, and passing a part where a
+whole value is wanted is caught too. PHPStan and Psalm both implement conditional
+return types, and the union never reaches a call site.
+
+At runtime the type really is the union, which changes nothing: every dispatch on
+a scope's kind is an instanceof and always was.
+
 ### Restrict enum cases to strings
 
 `2a5462fd` · 2026-09-23

@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace Meraki\Schema\Message\Mf2;
 
 use InvalidArgumentException;
+use Meraki\Schema\Exception;
 
 /**
  * A message this formatter will not render, and why.
@@ -24,7 +25,7 @@ use InvalidArgumentException;
  * the whole point of a data-only language pack is that the thing checking it is a program, and the
  * thing checking it should run before anybody installs it.
  */
-final class BadMessage extends InvalidArgumentException
+final class BadMessage extends InvalidArgumentException implements Exception
 {
 	private function __construct(string $message, public readonly string $source)
 	{

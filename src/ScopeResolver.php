@@ -3,7 +3,8 @@ declare(strict_types=1);
 
 namespace Meraki\Schema;
 
-use InvalidArgumentException;
+use Meraki\Schema\Exception\InvalidScope;
+use Meraki\Schema\Exception\UnknownField;
 
 /**
  * Answers what a scope points at, for one request.
@@ -23,7 +24,8 @@ final class ScopeResolver
 	}
 
 	/**
-	 * @throws InvalidArgumentException if the scope names a field or property that does not exist
+	 * @throws InvalidScope if the scope names a property the field does not have
+	 * @throws UnknownField if it names a field the schema does not hold
 	 */
 	public function resolve(Scope $scope): mixed
 	{
@@ -54,25 +56,18 @@ final class ScopeResolver
 	 * and which is invisible precisely because `null` is a legitimate answer for a part nobody
 	 * filled in.
 	 *
-	 * @throws InvalidArgumentException if the field's value has no parts, or not that one
+	 * @throws InvalidScope if the field's value has no parts, or not that one
 	 */
 	private function partOf(Field $field, string $part): mixed
 	{
 		$parts = Field\ValueClass::partNamesOf($field);
 
 		if ($parts === []) {
-			throw new InvalidArgumentException(
-				sprintf('"%s" holds one value rather than named parts, so it has no "%s" to address.', (string) $field->name, $part)
-			);
+			throw InvalidScope::fieldHoldsNoParts((string) $field->name, $part);
 		}
 
 		if (!in_array($part, $parts, true)) {
-			throw new InvalidArgumentException(sprintf(
-				'"%s" has no part "%s". It has: %s.',
-				(string) $field->name,
-				$part,
-				implode(', ', $parts),
-			));
+			throw InvalidScope::fieldHasNoSuchPart((string) $field->name, $part, $parts);
 		}
 
 		$value = $this->valueOf($field);
@@ -94,7 +89,7 @@ final class ScopeResolver
 	private function propertyOf(Field $field, string $property): mixed
 	{
 		if (!property_exists($field, $property)) {
-			throw new InvalidArgumentException(sprintf('No property "%s" on field "%s".', $property, (string) $field->name));
+			throw InvalidScope::fieldHasNoSuchProperty((string) $field->name, $property);
 		}
 
 		return $field->{$property};

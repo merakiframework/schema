@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Message;
 
-use InvalidArgumentException;
+use Meraki\Schema\Exception\InvalidScope;
 
 /**
  * What to say about a field whose value is made of named parts.
@@ -95,16 +95,12 @@ final class PartedSet extends Set
 	 * legitimate answer for a part that is fine, so a typo that returned it would be invisible
 	 * forever.
 	 *
-	 * @throws InvalidArgumentException naming the parts there are
+	 * @throws InvalidScope naming the parts there are
 	 */
 	public function forPart(string $part): FlatSet
 	{
 		if (!in_array($part, $this->partNames, true)) {
-			throw new InvalidArgumentException(sprintf(
-				'There is no part "%s" to have messages for. There is: %s.',
-				$part,
-				implode(', ', $this->partNames),
-			));
+			throw InvalidScope::noSuchPartToReport($part, $this->partNames);
 		}
 
 		return $this->byPart[$part] ?? new FlatSet();
