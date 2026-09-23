@@ -34,31 +34,6 @@ final class FacadeValidateInputTest extends TestCase
 	}
 
 	#[Test]
-	public function it_reads_input_from_objects_exposing_values_via_magic_get(): void
-	{
-		$schema = $this->createPersonSchema();
-
-		// A value object that exposes its data through __get() but, crucially,
-		// does NOT define __isset(). get_object_vars() and isset()/?? based
-		// reads both fail to see this data; only direct property access works.
-		$input = new class(['name' => 'John Smith']) {
-			public function __construct(private array $data)
-			{
-			}
-
-			public function __get(string $name): mixed
-			{
-				return $this->data[$name] ?? null;
-			}
-		};
-
-		$result = $schema->validate($input);
-
-		$this->assertFalse($result->anyFailed(), 'Magic-accessor input must not produce failures');
-		$this->assertTrue($result->allPassed());
-	}
-
-	#[Test]
 	public function it_falls_back_to_null_for_absent_object_properties(): void
 	{
 		$schema = $this->createPersonSchema();
@@ -80,14 +55,9 @@ final class FacadeValidateInputTest extends TestCase
 		$schema->add($schema->createNameField('name')->minLengthOf(1)->maxLengthOf(255));
 		$schema->add($schema->createDateField('dateOfBirth')->from('1900-01-01')->until('2010-01-01')->makeOptional());
 
-		$input = new class(['name' => 'John Smith']) {
-			public function __construct(private array $data)
+		$input = new class('John Smith') {
+			public function __construct(public readonly string $name)
 			{
-			}
-
-			public function __get(string $name): mixed
-			{
-				return $this->data[$name] ?? null;
 			}
 		};
 

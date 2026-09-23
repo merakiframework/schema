@@ -297,15 +297,6 @@ final class Facade
 	/**
 	 * Reads a submitted payload as values by field name.
 	 *
-	 * **An object, not an array** — the same rule every structured field applies, for the same
-	 * reason: a payload is a record of named fields, and an array means a list. Accepting both
-	 * here while refusing arrays one level down would have been the inconsistency the rule exists
-	 * to remove, and the top level is where a port is most likely to hand over `$_POST` unchanged.
-	 *
-	 * Converting is the port's job. `json_decode($body)` already gives objects — it is the
-	 * `true` second argument that does not.
-	 *
-	 * @throws \TypeError if handed an array
 	 * @return array<string, mixed> one entry per field on the schema, under its name
 	 */
 	private function extractData(object|null $data): array
@@ -314,27 +305,17 @@ final class Facade
 			return self::extractDefaultValues($this);
 		}
 
-		// get_object_vars() only exposes plain public properties: objects that
-		// expose their values through __get()/accessors would have every field
-		// silently fed null. isset()/?? cannot be used either, as they invoke
-		// __isset() (which value objects often omit), so read each declared
-		// public property directly and fall back to __get() when present.
 		$publicVars = get_object_vars($data);
-		$hasMagicGetter = method_exists($data, '__get');
 		$extracted = [];
 
 		foreach ($this->fields as $field) {
 			$name = (string) $field->name;
-
-			$extracted[$name] = match (true) {
-				array_key_exists($name, $publicVars) => $publicVars[$name],
-				$hasMagicGetter => $data->{$name},
-				default => null,
-			};
+			$extracted[$name] = array_key_exists($name, $publicVars) ? $publicVars[$name] : null;
 		}
 
 		return $extracted;
 	}
+
 	/**
 	 * Starts a rule by naming what it asks about.
 	 *
