@@ -72,11 +72,6 @@ namespace Acme {
 		}
 
 		/**
-		 * The one conversion hook. It never receives null — absence is settled before it runs —
-		 * and it never raises, because it runs on untrusted input. `null` out means one thing
-		 * only: this could not be read as an ISBN.
-		 */
-		/**
 		 * The one thing a field of your own has to declare that it could not be given: which
 		 * questions a rule may ask about it.
 		 *
@@ -90,6 +85,11 @@ namespace Acme {
 			return new Matcher\Text(ValueScope::of($this->name));
 		}
 
+		/**
+		 * The one conversion hook. It never receives null — absence is settled before it runs —
+		 * and it never raises, because it runs on untrusted input. `null` out means one thing
+		 * only: this could not be read as an ISBN.
+		 */
 		protected function parse(mixed $value): ?Value
 		{
 			if (!is_string($value)) {
