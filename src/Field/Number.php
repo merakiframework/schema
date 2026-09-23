@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Field;
 
+use Meraki\Schema\Exception\InvalidConfiguration;
 use Meraki\Schema\Field\MalformedValue;
 use Meraki\Schema\ValueScope;
 use Meraki\Schema\Rule\Matcher;
@@ -12,7 +13,6 @@ use Meraki\Schema\Field\Number\Value;
 use Brick\Math\BigDecimal;
 use Brick\Math\RoundingMode;
 use Brick\Math\Exception\MathException;
-use InvalidArgumentException;
 use TypeError;
 
 /**
@@ -76,12 +76,12 @@ final readonly class Number extends AtomicField
 	}
 
 	/**
-	 * @throws InvalidArgumentException if negative
+	 * @throws InvalidConfiguration if negative
 	 */
 	public function scaleTo(?int $scale): static
 	{
 		if ($scale !== null && $scale < 0) {
-			throw new InvalidArgumentException('Scale must be a non-negative integer');
+			throw InvalidConfiguration::scaleIsNegative();
 		}
 
 		return $this->with(['scale' => $scale]);
@@ -99,12 +99,12 @@ final readonly class Number extends AtomicField
 
 	/**
 	 * @param positive-int|null $digits `null` removes the ceiling
-	 * @throws InvalidArgumentException if not positive
+	 * @throws InvalidConfiguration if not positive
 	 */
 	public function maxPrecisionOf(?int $digits): static
 	{
 		if ($digits !== null && $digits < 1) {
-			throw new InvalidArgumentException('Precision must be at least one significant digit.');
+			throw InvalidConfiguration::precisionIsBelowOneDigit();
 		}
 
 		return $this->with(['maxPrecision' => $digits]);

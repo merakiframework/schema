@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Field;
 
+use Meraki\Schema\Exception\InvalidConfiguration;
 use Meraki\Schema\Field\MalformedValue;
 use Meraki\Schema\ValueScope;
 use Meraki\Schema\Rule\Matcher;
@@ -13,7 +14,6 @@ use Meraki\Schema\FieldName;
 use CommerceGuys\Addressing\AddressFormat\AddressFormat;
 use CommerceGuys\Addressing\AddressFormat\AddressFormatRepository;
 use CommerceGuys\Addressing\Subdivision\SubdivisionRepository;
-use InvalidArgumentException;
 
 /**
  * A postal or street address, held as one {@see Value} — the way {@see File} holds a
@@ -83,7 +83,7 @@ final readonly class Address extends AtomicField
 
 	/**
 	 * @param array<string> $allowedCountries
-	 * @throws InvalidArgumentException if a country is not one libaddressinput knows
+	 * @throws InvalidConfiguration if a country is not one libaddressinput knows
 	 */
 	public function __construct(
 		public FieldName $name,
@@ -107,7 +107,7 @@ final readonly class Address extends AtomicField
 	 * particular. With several, a postcode rule only applies once the submitted country says which
 	 * of them it is.
 	 *
-	 * @throws InvalidArgumentException if a country is not one libaddressinput knows
+	 * @throws InvalidConfiguration if a country is not one libaddressinput knows
 	 */
 	public function allowCountries(string $country, string ...$countries): static
 	{
@@ -126,7 +126,7 @@ final readonly class Address extends AtomicField
 	 * Requires somewhere the post can reach. Narrows rather than replaces, so asking for this and
 	 * for {@see self::allowOnlyPhysical()} leaves an address that must manage both.
 	 *
-	 * @throws InvalidArgumentException if the field has been told to accept an address without a
+	 * @throws InvalidConfiguration if the field has been told to accept an address without a
 	 *         street, since you cannot post to a suburb
 	 */
 	public function allowOnlyMailable(): static
@@ -151,7 +151,7 @@ final readonly class Address extends AtomicField
 	 * For a service area or a catchment, where the region *is* the answer rather than an incomplete
 	 * version of one.
 	 *
-	 * @throws InvalidArgumentException if the address must be mailable, since you cannot post to a
+	 * @throws InvalidConfiguration if the address must be mailable, since you cannot post to a
 	 *         suburb
 	 */
 	public function allowWithoutStreet(): static
@@ -174,10 +174,7 @@ final readonly class Address extends AtomicField
 	private function assertStreetAndPostAgree(Type $type, bool $mustBeSpecific): void
 	{
 		if ($type->requiresDeliverability() && !$mustBeSpecific) {
-			throw new InvalidArgumentException(sprintf(
-				'A %s address must name a street, so it cannot also be allowed without one.',
-				$type->value,
-			));
+			throw InvalidConfiguration::addressTypeMustNameAStreet($type->value);
 		}
 	}
 
@@ -367,7 +364,7 @@ final readonly class Address extends AtomicField
 	 * @param list<string> $existing
 	 * @param array<string> $additional
 	 * @return list<string>
-	 * @throws InvalidArgumentException
+	 * @throws InvalidConfiguration
 	 */
 	private static function supported(array $existing, array $additional): array
 	{
@@ -377,7 +374,7 @@ final readonly class Address extends AtomicField
 			$code = Value::codeFor(trim($country));
 
 			if ($code === null) {
-				throw new InvalidArgumentException("Country '{$country}' is not a supported region.");
+				throw InvalidConfiguration::regionIsNotSupported($country);
 			}
 
 			if (!in_array($code, $existing, true)) {

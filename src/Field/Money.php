@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Field;
 
+use Meraki\Schema\Exception\InvalidConfiguration;
 use Meraki\Schema\Field\MalformedValue;
 use Meraki\Schema\ValueScope;
 use Meraki\Schema\Rule\Matcher;
@@ -13,7 +14,6 @@ use Brick\Math\BigDecimal;
 use Brick\Math\Exception\MathException;
 use Brick\Money\ISOCurrencyProvider;
 use Brick\Money\Exception\UnknownCurrencyException;
-use InvalidArgumentException;
 
 /**
  * An amount of money, held as one {@see Value} carrying both the currency and the amount.
@@ -74,7 +74,7 @@ final readonly class Money extends AtomicField
 	/**
 	 * @param array<int|string, string|int> $allowedCurrencies see {@see self::allowCurrencies()}
 	 *        for the two shapes this takes
-	 * @throws InvalidArgumentException if a code is not a known ISO 4217 currency, or a scale
+	 * @throws InvalidConfiguration if a code is not a known ISO 4217 currency, or a scale
 	 *         override is not a whole number of zero or more
 	 */
 	public function __construct(
@@ -105,7 +105,7 @@ final readonly class Money extends AtomicField
 	 * mention.
 	 *
 	 * @param array<int|string, string|int> $currencies
-	 * @throws InvalidArgumentException if a code is not a known ISO 4217 currency, or a scale
+	 * @throws InvalidConfiguration if a code is not a known ISO 4217 currency, or a scale
 	 *         override is not a whole number of zero or more
 	 */
 	public function allowCurrencies(array $currencies): static
@@ -125,7 +125,7 @@ final readonly class Money extends AtomicField
 	/**
 	 * The least this field accepts *in the given currency*.
 	 *
-	 * @throws InvalidArgumentException if the currency is not allowed, the amount is not a number,
+	 * @throws InvalidConfiguration if the currency is not allowed, the amount is not a number,
 	 *         or it cannot be held at that currency's scale
 	 */
 	public function minAmountOf(string $currency, string $amount): static
@@ -133,7 +133,7 @@ final readonly class Money extends AtomicField
 		[$currency, $decimal] = $this->bound($currency, $amount);
 
 		if (isset($this->maxAmounts[$currency]) && $decimal->isGreaterThan($this->maxAmounts[$currency])) {
-			throw new InvalidArgumentException("A minimum of {$amount} {$currency} cannot exceed its maximum.");
+			throw InvalidConfiguration::minimumAmountExceedsMaximum($amount, $currency);
 		}
 
 		return $this->with(['minAmounts' => [$currency => $decimal] + $this->minAmounts]);
@@ -142,7 +142,7 @@ final readonly class Money extends AtomicField
 	/**
 	 * The most this field accepts *in the given currency*.
 	 *
-	 * @throws InvalidArgumentException if the currency is not allowed, the amount is not a number,
+	 * @throws InvalidConfiguration if the currency is not allowed, the amount is not a number,
 	 *         or it cannot be held at that currency's scale
 	 */
 	public function maxAmountOf(string $currency, string $amount): static
@@ -150,7 +150,7 @@ final readonly class Money extends AtomicField
 		[$currency, $decimal] = $this->bound($currency, $amount);
 
 		if (isset($this->minAmounts[$currency]) && $decimal->isLessThan($this->minAmounts[$currency])) {
-			throw new InvalidArgumentException("A maximum of {$amount} {$currency} cannot be less than its minimum.");
+			throw InvalidConfiguration::maximumAmountIsBelowMinimum($amount, $currency);
 		}
 
 		return $this->with(['maxAmounts' => [$currency => $decimal] + $this->maxAmounts]);
@@ -289,30 +289,26 @@ final readonly class Money extends AtomicField
 
 	/**
 	 * @return array{string, BigDecimal}
-	 * @throws InvalidArgumentException
+	 * @throws InvalidConfiguration
 	 */
 	private function bound(string $currency, string $amount): array
 	{
 		$currency = strtoupper(trim($currency));
 
 		if (!isset($this->allowedCurrencies[$currency])) {
-			throw new InvalidArgumentException(
-				"'{$currency}' is not one of this field's currencies; allow it before giving it a bound.",
-			);
+			throw InvalidConfiguration::currencyIsNotAllowed($currency);
 		}
 
 		try {
 			$decimal = BigDecimal::of($amount);
 		} catch (MathException) {
-			throw new InvalidArgumentException("'{$amount}' is not a number.");
+			throw InvalidConfiguration::amountIsNotANumber($amount);
 		}
 
 		$scale = $this->allowedCurrencies[$currency];
 
 		if ($decimal->stripTrailingZeros()->getScale() > $scale) {
-			throw new InvalidArgumentException(
-				"{$amount} cannot be held in {$currency}, which this field takes to {$scale} decimal place(s).",
-			);
+			throw InvalidConfiguration::amountHasMoreDecimalsThanTheCurrencyTakes($amount, $currency, $scale);
 		}
 
 		return [$currency, $decimal];
@@ -327,17 +323,14 @@ final readonly class Money extends AtomicField
 	 * @param array<string, int<0, max>> $existing
 	 * @param array<int|string, string|int> $additional
 	 * @return array<string, int<0, max>>
-	 * @throws InvalidArgumentException
+	 * @throws InvalidConfiguration
 	 */
 	private static function checked(array $existing, array $additional): array
 	{
 		foreach ($additional as $key => $value) {
 			if (is_int($key)) {
 				if (!is_string($value)) {
-					throw new InvalidArgumentException(sprintf(
-						'A currency code must be a string, %s given.',
-						get_debug_type($value),
-					));
+					throw InvalidConfiguration::currencyCodeIsNotAString(get_debug_type($value));
 				}
 
 				$currency = self::knownCurrency($value);
@@ -349,15 +342,11 @@ final readonly class Money extends AtomicField
 			$currency = self::knownCurrency($key);
 
 			if (!is_int($value)) {
-				throw new InvalidArgumentException(sprintf(
-					"%s's scale must be a whole number of decimal places, %s given.",
-					$currency,
-					get_debug_type($value),
-				));
+				throw InvalidConfiguration::currencyScaleIsNotAWholeNumber($currency, get_debug_type($value));
 			}
 
 			if ($value < 0) {
-				throw new InvalidArgumentException("{$currency} cannot have {$value} decimal places.");
+				throw InvalidConfiguration::currencyScaleIsNegative($currency, $value);
 			}
 
 			$existing[$currency] = $value;
@@ -378,22 +367,20 @@ final readonly class Money extends AtomicField
 	 * codes — `36` is AUD — and this field's whole surface is alpha-3. Accepting the numeric form
 	 * here would collide with the integer keys that mean "a bare code" in the input array.
 	 *
-	 * @throws InvalidArgumentException
+	 * @throws InvalidConfiguration
 	 */
 	private static function knownCurrency(string $currency): string
 	{
 		$currency = strtoupper(trim($currency));
 
 		if (preg_match('/^[A-Z]{3}$/', $currency) !== 1) {
-			throw new InvalidArgumentException(
-				"'{$currency}' is not an ISO 4217 currency code; three letters were expected.",
-			);
+			throw InvalidConfiguration::currencyCodeIsNotThreeLetters($currency);
 		}
 
 		try {
 			ISOCurrencyProvider::getInstance()->getCurrency($currency);
 		} catch (UnknownCurrencyException) {
-			throw new InvalidArgumentException("'{$currency}' is not a known ISO 4217 currency.");
+			throw InvalidConfiguration::currencyIsNotKnown($currency);
 		}
 
 		return $currency;

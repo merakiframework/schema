@@ -3,13 +3,13 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Field;
 
+use Meraki\Schema\Exception\InvalidConfiguration;
 use Meraki\Schema\Field\MalformedValue;
 use Meraki\Schema\ValueScope;
 use Meraki\Schema\Rule\Matcher;
 use Meraki\Schema\Field\Text\Value;
 use Meraki\Schema\AtomicField;
 use Meraki\Schema\FieldName;
-use InvalidArgumentException;
 
 /**
  * @extends AtomicField<string|null>
@@ -54,17 +54,17 @@ final readonly class Text extends AtomicField
 	 * Sets the minimum length of the string. A value of 0 means that an empty string is allowed.
 	 * A value of 1 means that an empty string is not allowed.
 	 * @param non-negative-int $characters The minimum number of characters allowed in the string.
-	 * @throws InvalidArgumentException If the minimum length is negative or exceeds the maximum length.
-	 * @throws InvalidArgumentException If the maximum length is set and the minimum length exceeds it.
+	 * @throws InvalidConfiguration If the minimum length is negative or exceeds the maximum length.
+	 * @throws InvalidConfiguration If the maximum length is set and the minimum length exceeds it.
 	 */
 	public function minLengthOf(int $characters): static
 	{
 		if ($characters < 0) {
-			throw new InvalidArgumentException('A minimum length cannot be negative.');
+			throw InvalidConfiguration::minimumIsNegative('length');
 		}
 
 		if ($this->maxLength !== null && $characters > $this->maxLength) {
-			throw new InvalidArgumentException('A minimum length cannot exceed the maximum.');
+			throw InvalidConfiguration::minimumExceedsMaximum('length');
 		}
 
 		return $this->with(['minLength' => $characters]);
@@ -73,8 +73,8 @@ final readonly class Text extends AtomicField
 	/**
 	 * Sets the maximum length of the string. A value of `null` means no limit.
 	 * @param non-negative-int|null $characters The maximum number of characters allowed in the string, or `null` for no limit.
-	 * @throws InvalidArgumentException If the maximum length is negative or less than the minimum length.
-	 * @throws InvalidArgumentException If the minimum length is set and the maximum length is less than it.
+	 * @throws InvalidConfiguration If the maximum length is negative or less than the minimum length.
+	 * @throws InvalidConfiguration If the minimum length is set and the maximum length is less than it.
 	 */
 	public function maxLengthOf(?int $characters): static
 	{
@@ -83,11 +83,11 @@ final readonly class Text extends AtomicField
 		}
 
 		if ($characters < 0) {
-			throw new InvalidArgumentException('A maximum length cannot be negative.');
+			throw InvalidConfiguration::maximumIsNegative('length');
 		}
 
 		if ($characters < $this->minLength) {
-			throw new InvalidArgumentException('A maximum length cannot be less than the minimum.');
+			throw InvalidConfiguration::maximumIsBelowMinimum('length');
 		}
 
 		return $this->with(['maxLength' => $characters]);
@@ -106,7 +106,7 @@ final readonly class Text extends AtomicField
 	/**
 	 * Sets a regular expression pattern that the string must match. A value of `null` means no pattern is required.
 	 * @param string|null $regex The regular expression pattern that the string must match, or `null` for no pattern.
-	 * @throws InvalidArgumentException If the provided regular expression is invalid.
+	 * @throws InvalidConfiguration If the provided regular expression is invalid.
 	 */
 	public function mustMatch(?string $regex): static
 	{
@@ -115,7 +115,7 @@ final readonly class Text extends AtomicField
 		}
 
 		if (@preg_match($regex, '') === false) {
-			throw new InvalidArgumentException('Invalid regular expression provided.');
+			throw InvalidConfiguration::patternIsNotAValidRegex($regex);
 		}
 
 		return $this->with(['pattern' => $regex]);

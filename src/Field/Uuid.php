@@ -3,13 +3,13 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Field;
 
+use Meraki\Schema\Exception\InvalidConfiguration;
 use Meraki\Schema\Field\MalformedValue;
 use Meraki\Schema\ValueScope;
 use Meraki\Schema\Rule\Matcher;
 use Meraki\Schema\Field\Uuid\Value;
 use Meraki\Schema\AtomicField;
 use Meraki\Schema\FieldName;
-use InvalidArgumentException;
 
 /**
  * A UUID, in the canonical 8-4-4-4-12 hyphenated form.
@@ -52,7 +52,7 @@ final readonly class Uuid extends AtomicField
 	 * Accumulates, so repeated calls compose. Lifting the restriction is
 	 * {@see self::clearAllowedVersions()}.
 	 *
-	 * @throws InvalidArgumentException if a version is outside -1, 0, or 1 to 8
+	 * @throws InvalidConfiguration if a version is outside -1, 0, or 1 to 8
 	 */
 	public function allowVersions(int $version, int ...$versions): static
 	{
@@ -60,7 +60,7 @@ final readonly class Uuid extends AtomicField
 
 		foreach ([$version, ...$versions] as $v) {
 			if ($v < self::MAX || $v > 8) {
-				throw new InvalidArgumentException('Version must be -1, 0, or 1 to 8.');
+				throw InvalidConfiguration::uuidVersionDoesNotExist($v);
 			}
 
 			if (!in_array($v, $allowed, true)) {

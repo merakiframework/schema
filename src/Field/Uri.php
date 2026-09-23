@@ -3,13 +3,13 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Field;
 
+use Meraki\Schema\Exception\InvalidConfiguration;
 use Meraki\Schema\Field\MalformedValue;
 use Meraki\Schema\ValueScope;
 use Meraki\Schema\Rule\Matcher;
 use Meraki\Schema\Field\Uri\Value;
 use Meraki\Schema\AtomicField;
 use Meraki\Schema\FieldName;
-use InvalidArgumentException;
 
 /**
  * @extends AtomicField<string|null>
@@ -48,16 +48,16 @@ final readonly class Uri extends AtomicField
 
 	/**
 	 * @param non-negative-int $minChars
-	 * @throws InvalidArgumentException if negative, or above the maximum
+	 * @throws InvalidConfiguration if negative, or above the maximum
 	 */
 	public function minLengthOf(int $minChars): static
 	{
 		if ($minChars < 0) {
-			throw new InvalidArgumentException('Minimum length must be a positive integer.');
+			throw InvalidConfiguration::minimumIsNegative('length');
 		}
 
 		if ($this->maxLength !== null && $minChars > $this->maxLength) {
-			throw new InvalidArgumentException('Minimum length cannot be greater than maximum length.');
+			throw InvalidConfiguration::minimumExceedsMaximum('length');
 		}
 
 		return $this->with(['minLength' => $minChars]);
@@ -65,7 +65,7 @@ final readonly class Uri extends AtomicField
 
 	/**
 	 * @param non-negative-int|null $maxChars `null` removes the limit
-	 * @throws InvalidArgumentException if negative, or below the minimum
+	 * @throws InvalidConfiguration if negative, or below the minimum
 	 */
 	public function maxLengthOf(?int $maxChars): static
 	{
@@ -74,11 +74,11 @@ final readonly class Uri extends AtomicField
 		}
 
 		if ($maxChars < 0) {
-			throw new InvalidArgumentException('Maximum length must be a positive integer.');
+			throw InvalidConfiguration::maximumIsNegative('length');
 		}
 
 		if ($maxChars < $this->minLength) {
-			throw new InvalidArgumentException('Maximum length cannot be less than minimum length.');
+			throw InvalidConfiguration::maximumIsBelowMinimum('length');
 		}
 
 		return $this->with(['maxLength' => $maxChars]);
@@ -94,7 +94,7 @@ final readonly class Uri extends AtomicField
 	 *
 	 * @param non-empty-string $scheme
 	 * @param non-empty-string ...$schemes
-	 * @throws InvalidArgumentException if a scheme is empty
+	 * @throws InvalidConfiguration if a scheme is empty
 	 */
 	public function allowSchemes(string $scheme, string ...$schemes): static
 	{
@@ -102,7 +102,7 @@ final readonly class Uri extends AtomicField
 
 		foreach ([$scheme, ...$schemes] as $candidate) {
 			if ($candidate === '') {
-				throw new InvalidArgumentException('A scheme cannot be empty.');
+				throw InvalidConfiguration::listMemberIsEmpty('scheme');
 			}
 
 			$candidate = strtolower($candidate);

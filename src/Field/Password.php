@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Field;
 
+use Meraki\Schema\Exception\InvalidConfiguration;
 use Meraki\Schema\Field\MalformedValue;
 use Meraki\Schema\ValueScope;
 use Meraki\Schema\Rule\Matcher;
@@ -13,7 +14,6 @@ use Meraki\Schema\AtomicField;
 use Meraki\Schema\FieldName;
 use Meraki\Schema\PrefillPolicy;
 use Meraki\Schema\ValueSource;
-use InvalidArgumentException;
 use SensitiveParameter;
 
 /**
@@ -121,21 +121,16 @@ final readonly class Password extends AtomicField
 	 * ask for a third as much from anyone not typing ASCII.
 	 *
 	 * @param int<self::SHORTEST, max> $characters
-	 * @throws InvalidArgumentException if below the baseline, or above the maximum
+	 * @throws InvalidConfiguration if below the baseline, or above the maximum
 	 */
 	public function minLengthOf(int $characters): static
 	{
 		if ($characters < self::SHORTEST) {
-			throw new InvalidArgumentException(sprintf(
-				'A minimum length of %d is below the baseline of %d characters, which is the floor '
-				. 'in NIST SP 800-63B. Configuration narrows what a field accepts; it cannot widen it.',
-				$characters,
-				self::SHORTEST,
-			));
+			throw InvalidConfiguration::minimumLengthIsBelowTheBaseline($characters, self::SHORTEST);
 		}
 
 		if ($this->maxLength !== null && $characters > $this->maxLength) {
-			throw new InvalidArgumentException('A minimum length cannot exceed the maximum.');
+			throw InvalidConfiguration::minimumExceedsMaximum('length');
 		}
 
 		$this->assertCompositionFits($this->minimumsTotal(), $this->maxLength);
@@ -145,7 +140,7 @@ final readonly class Password extends AtomicField
 
 	/**
 	 * @param positive-int|null $characters `null` removes the limit
-	 * @throws InvalidArgumentException if below one, or below the minimum
+	 * @throws InvalidConfiguration if below one, or below the minimum
 	 */
 	public function maxLengthOf(?int $characters): static
 	{
@@ -154,11 +149,11 @@ final readonly class Password extends AtomicField
 		}
 
 		if ($characters < 1) {
-			throw new InvalidArgumentException('A maximum length must be at least one character.');
+			throw InvalidConfiguration::maximumLengthWouldAcceptNothing();
 		}
 
 		if ($characters < $this->minLength) {
-			throw new InvalidArgumentException('A maximum length cannot be less than the minimum.');
+			throw InvalidConfiguration::maximumIsBelowMinimum('length');
 		}
 
 		$this->assertCompositionFits($this->minimumsTotal(), $characters);
@@ -328,12 +323,12 @@ final readonly class Password extends AtomicField
 	 * the author wrote it beats reporting it against somebody's request.
 	 *
 	 * @param non-negative-int|null $count
-	 * @throws InvalidArgumentException
+	 * @throws InvalidConfiguration
 	 */
 	private function withCount(string $property, ?int $count): static
 	{
 		if ($count !== null && $count < 0) {
-			throw new InvalidArgumentException("A character count cannot be negative ({$property}).");
+			throw InvalidConfiguration::characterCountIsNegative($property);
 		}
 
 		$total = $this->minimumsTotal() - ($this->{$property} ?? 0) + ($count ?? 0);
@@ -372,16 +367,12 @@ final readonly class Password extends AtomicField
 	 * other letter categories. A twelve-character CJK secret counts zero in every class while
 	 * being twelve characters long.
 	 *
-	 * @throws InvalidArgumentException
+	 * @throws InvalidConfiguration
 	 */
 	private function assertCompositionFits(int $total, ?int $maxLength): void
 	{
 		if ($maxLength !== null && $total > $maxLength) {
-			throw new InvalidArgumentException(sprintf(
-				'Composition rules demand at least %d characters, which a maximum length of %d cannot hold.',
-				$total,
-				$maxLength,
-			));
+			throw InvalidConfiguration::compositionDemandsMoreThanTheMaximumLength($total, $maxLength);
 		}
 	}
 

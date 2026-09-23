@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Field;
 
+use Meraki\Schema\Exception\InvalidConfiguration;
 use Meraki\Schema\Field\MalformedValue;
 use Meraki\Schema\ValueScope;
 use Meraki\Schema\Rule\Matcher;
@@ -15,7 +16,6 @@ use Meraki\Schema\FieldName;
 use Meraki\Schema\PrefillPolicy;
 use Meraki\Schema\ResolvedField;
 use Meraki\Schema\ValueSource;
-use InvalidArgumentException;
 
 /**
  * A repeatable list of items, each item a group of fields — the *template*.
@@ -99,7 +99,7 @@ final readonly class Collection implements Field
 	public array $template;
 
 	/**
-	 * @throws InvalidArgumentException if the template is empty or names a field twice
+	 * @throws InvalidConfiguration if the template is empty or names a field twice
 	 */
 	public function __construct(
 		public FieldName $name,
@@ -108,7 +108,7 @@ final readonly class Collection implements Field
 		$this->initialiseDefinition();
 
 		if ($template === []) {
-			throw new InvalidArgumentException('A collection needs at least one field in its template.');
+			throw InvalidConfiguration::templateIsEmpty();
 		}
 
 		$seen = [];
@@ -117,7 +117,7 @@ final readonly class Collection implements Field
 			$local = (string) $field->name;
 
 			if (isset($seen[$local])) {
-				throw new InvalidArgumentException("The template already has a field named '{$local}'.");
+				throw InvalidConfiguration::templateAlreadyHasAField($local);
 			}
 
 			$seen[$local] = true;
@@ -134,18 +134,16 @@ final readonly class Collection implements Field
 
 	/**
 	 * @param positive-int $count
-	 * @throws InvalidArgumentException if below one, or above the maximum
+	 * @throws InvalidConfiguration if below one, or above the maximum
 	 */
 	public function minCountOf(int $count): static
 	{
 		if ($count < 1) {
-			throw new InvalidArgumentException(
-				'A minimum count below one cannot reject anything; use makeOptional() to allow an empty collection.',
-			);
+			throw InvalidConfiguration::minimumCountWouldRejectNothing();
 		}
 
 		if ($this->maxCount !== null && $count > $this->maxCount) {
-			throw new InvalidArgumentException('A minimum count cannot exceed the maximum.');
+			throw InvalidConfiguration::minimumExceedsMaximum('count');
 		}
 
 		return $this->with(['minCount' => $count]);
@@ -153,7 +151,7 @@ final readonly class Collection implements Field
 
 	/**
 	 * @param positive-int|null $count `null` removes the ceiling
-	 * @throws InvalidArgumentException if below one, or below the minimum
+	 * @throws InvalidConfiguration if below one, or below the minimum
 	 */
 	public function maxCountOf(?int $count): static
 	{
@@ -162,11 +160,11 @@ final readonly class Collection implements Field
 		}
 
 		if ($count < 1) {
-			throw new InvalidArgumentException('A maximum count of zero would accept nothing; make the field optional instead.');
+			throw InvalidConfiguration::maximumCountWouldAcceptNothing();
 		}
 
 		if ($count < $this->minCount) {
-			throw new InvalidArgumentException('A maximum count cannot be less than the minimum.');
+			throw InvalidConfiguration::maximumIsBelowMinimum('count');
 		}
 
 		return $this->with(['maxCount' => $count]);
@@ -554,11 +552,7 @@ final readonly class Collection implements Field
 
 		return $result instanceof ResolvedField
 			? $result
-			: throw new InvalidArgumentException(sprintf(
-				'"%s" cannot be a collection template field: it resolves to %s rather than one value.',
-				(string) $field->name,
-				$result::class,
-			));
+			: throw InvalidConfiguration::templateFieldResolvesToMoreThanOneValue((string) $field->name, $result::class);
 	}
 
 	private static function validatedLeaf(Field $field, mixed $value): ResolvedField
@@ -567,10 +561,6 @@ final readonly class Collection implements Field
 
 		return $result instanceof ResolvedField
 			? $result
-			: throw new InvalidArgumentException(sprintf(
-				'"%s" cannot be a collection template field: it validates to %s rather than one value.',
-				(string) $field->name,
-				$result::class,
-			));
+			: throw InvalidConfiguration::templateFieldValidatesToMoreThanOneValue((string) $field->name, $result::class);
 	}
 }

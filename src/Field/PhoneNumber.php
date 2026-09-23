@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Field;
 
+use Meraki\Schema\Exception\InvalidConfiguration;
 use Meraki\Schema\Field\MalformedValue;
 use Meraki\Schema\ValueScope;
 use Meraki\Schema\Rule\Matcher;
@@ -14,7 +15,6 @@ use libphonenumber\PhoneNumber as LibPhoneNumber;
 use libphonenumber\PhoneNumberFormat;
 use libphonenumber\PhoneNumberUtil;
 use libphonenumber\NumberParseException;
-use InvalidArgumentException;
 use LogicException;
 
 /**
@@ -60,7 +60,7 @@ final readonly class PhoneNumber extends AtomicField
 
 	/**
 	 * @param array<string> $allowedCountries
-	 * @throws InvalidArgumentException if a country is not a region libphonenumber knows
+	 * @throws InvalidConfiguration if a country is not a region libphonenumber knows
 	 */
 	public function __construct(
 		public FieldName $name,
@@ -81,7 +81,7 @@ final readonly class PhoneNumber extends AtomicField
 	 * Note what this does *not* do: adding a second country stops national-format input from
 	 * resolving on its own, because there is no longer one obvious answer. See the class note.
 	 *
-	 * @throws InvalidArgumentException if a country is not a region libphonenumber knows
+	 * @throws InvalidConfiguration if a country is not a region libphonenumber knows
 	 */
 	public function allowCountries(string $country, string ...$countries): static
 	{
@@ -179,7 +179,7 @@ final readonly class PhoneNumber extends AtomicField
 	 * @param list<string> $existing
 	 * @param array<string> $additional
 	 * @return list<string>
-	 * @throws InvalidArgumentException
+	 * @throws InvalidConfiguration
 	 */
 	private static function supported(array $existing, array $additional): array
 	{
@@ -189,7 +189,7 @@ final readonly class PhoneNumber extends AtomicField
 			$country = strtoupper($country);
 
 			if (!in_array($country, $known, true)) {
-				throw new InvalidArgumentException("Country '{$country}' is not a supported region.");
+				throw InvalidConfiguration::regionIsNotSupported($country);
 			}
 
 			if (!in_array($country, $existing, true)) {

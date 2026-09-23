@@ -3,13 +3,13 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Field;
 
+use Meraki\Schema\Exception\InvalidConfiguration;
 use Meraki\Schema\Field\MalformedValue;
 use Meraki\Schema\ValueScope;
 use Meraki\Schema\Rule\Matcher;
 use Meraki\Schema\Field\File\Value;
 use Meraki\Schema\AtomicField;
 use Meraki\Schema\FieldName;
-use InvalidArgumentException;
 
 /**
  * One uploaded file.
@@ -53,16 +53,16 @@ final readonly class File extends AtomicField
 
 	/**
 	 * @param non-negative-int $bytes
-	 * @throws InvalidArgumentException if negative, or above the maximum
+	 * @throws InvalidConfiguration if negative, or above the maximum
 	 */
 	public function minSizeOf(int $bytes): static
 	{
 		if ($bytes < 0) {
-			throw new InvalidArgumentException('A minimum file size cannot be negative.');
+			throw InvalidConfiguration::minimumIsNegative('file size');
 		}
 
 		if ($this->maxSize !== null && $bytes > $this->maxSize) {
-			throw new InvalidArgumentException('A minimum file size cannot exceed the maximum.');
+			throw InvalidConfiguration::minimumExceedsMaximum('file size');
 		}
 
 		return $this->with(['minSize' => $bytes]);
@@ -70,7 +70,7 @@ final readonly class File extends AtomicField
 
 	/**
 	 * @param non-negative-int|null $bytes `null` removes the ceiling
-	 * @throws InvalidArgumentException if negative, or below the minimum
+	 * @throws InvalidConfiguration if negative, or below the minimum
 	 */
 	public function maxSizeOf(?int $bytes): static
 	{
@@ -79,11 +79,11 @@ final readonly class File extends AtomicField
 		}
 
 		if ($bytes < 0) {
-			throw new InvalidArgumentException('A maximum file size cannot be negative.');
+			throw InvalidConfiguration::maximumIsNegative('file size');
 		}
 
 		if ($bytes < $this->minSize) {
-			throw new InvalidArgumentException('A maximum file size cannot be less than the minimum.');
+			throw InvalidConfiguration::maximumIsBelowMinimum('file size');
 		}
 
 		return $this->with(['maxSize' => $bytes]);
@@ -95,7 +95,7 @@ final readonly class File extends AtomicField
 	 *
 	 * @param non-empty-string $type
 	 * @param non-empty-string ...$types
-	 * @throws InvalidArgumentException if any type is empty
+	 * @throws InvalidConfiguration if any type is empty
 	 */
 	public function allowTypes(string $type, string ...$types): static
 	{
@@ -119,7 +119,7 @@ final readonly class File extends AtomicField
 	 *
 	 * @param non-empty-string $type
 	 * @param non-empty-string ...$types
-	 * @throws InvalidArgumentException if any type is empty
+	 * @throws InvalidConfiguration if any type is empty
 	 */
 	public function disallowTypes(string $type, string ...$types): static
 	{
@@ -250,7 +250,7 @@ final readonly class File extends AtomicField
 	{
 		foreach ($additional as $type) {
 			if ($type === '') {
-				throw new InvalidArgumentException('A media type cannot be empty.');
+				throw InvalidConfiguration::listMemberIsEmpty('media type');
 			}
 		}
 

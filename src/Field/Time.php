@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Field;
 
+use Meraki\Schema\Exception\InvalidConfiguration;
 use Meraki\Schema\Field\MalformedValue;
 use Meraki\Schema\ValueScope;
 use Meraki\Schema\Rule\Matcher;
@@ -17,7 +18,6 @@ use Brick\DateTime\LocalTime;
 use Brick\DateTime\TimeZone;
 use Brick\DateTime\DateTimeException;
 use Brick\Math\BigInteger;
-use InvalidArgumentException;
 
 /**
  * A time of day, as close to ISO 8601, RFC 3339/9557 and the HTML standards as they allow.
@@ -90,7 +90,7 @@ final readonly class Time extends AtomicField
 	 * Accepts only times falling on the given interval from {@see self::$from}, written as an
 	 * ISO 8601 duration.
 	 *
-	 * @throws InvalidArgumentException when the interval is finer than the precision, which
+	 * @throws InvalidConfiguration when the interval is finer than the precision, which
 	 *         would accept times the field cannot represent
 	 */
 	public function atIntervalsOf(string $value): static
@@ -100,11 +100,11 @@ final readonly class Time extends AtomicField
 		$hasNanos = $interval->toNanosPart() !== 0;
 
 		if ($this->precision === Precision::Minutes && ($hasSeconds || $hasNanos)) {
-			throw new InvalidArgumentException('Cannot step in seconds or nanoseconds when precision is in minutes.');
+			throw InvalidConfiguration::stepIsFinerThanMinutePrecision();
 		}
 
 		if ($this->precision === Precision::Seconds && $hasNanos) {
-			throw new InvalidArgumentException('Cannot step in nanoseconds when precision is in seconds.');
+			throw InvalidConfiguration::stepIsFinerThanSecondPrecision();
 		}
 
 		return $this->with(['interval' => $interval]);

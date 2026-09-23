@@ -3,13 +3,13 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Field;
 
+use Meraki\Schema\Exception\InvalidConfiguration;
 use Meraki\Schema\ValueScope;
 use Meraki\Schema\Rule\Matcher;
 use Meraki\Schema\Field\EmailAddress\Value;
 use Meraki\Schema\Field\MalformedValue;
 use Meraki\Schema\AtomicField;
 use Meraki\Schema\FieldName;
-use InvalidArgumentException;
 
 /**
  * An email address, as the WHATWG HTML specification defines one.
@@ -83,19 +83,16 @@ final readonly class EmailAddress extends AtomicField
 
 	/**
 	 * @param int<self::SHORTEST, self::LONGEST> $minChars
-	 * @throws InvalidArgumentException if shorter than `a@b`, or above the maximum
+	 * @throws InvalidConfiguration if shorter than `a@b`, or above the maximum
 	 */
 	public function minLengthOf(int $minChars): static
 	{
 		if ($minChars < self::SHORTEST) {
-			throw new InvalidArgumentException(sprintf(
-				'A minimum length below %d cannot reject anything: no shorter address is well-formed.',
-				self::SHORTEST,
-			));
+			throw InvalidConfiguration::minimumLengthIsBelowWhatIsWellFormed(self::SHORTEST);
 		}
 
 		if ($minChars > $this->maxLength) {
-			throw new InvalidArgumentException('A minimum length cannot exceed the maximum.');
+			throw InvalidConfiguration::minimumExceedsMaximum('length');
 		}
 
 		return $this->with(['minLength' => $minChars]);
@@ -103,19 +100,16 @@ final readonly class EmailAddress extends AtomicField
 
 	/**
 	 * @param int<self::SHORTEST, self::LONGEST> $maxChars
-	 * @throws InvalidArgumentException if above what can be delivered, or below the minimum
+	 * @throws InvalidConfiguration if above what can be delivered, or below the minimum
 	 */
 	public function maxLengthOf(int $maxChars): static
 	{
 		if ($maxChars > self::LONGEST) {
-			throw new InvalidArgumentException(sprintf(
-				'A maximum length above %d would accept addresses that cannot be delivered.',
-				self::LONGEST,
-			));
+			throw InvalidConfiguration::maximumLengthIsAboveWhatCanBeDelivered(self::LONGEST);
 		}
 
 		if ($maxChars < $this->minLength) {
-			throw new InvalidArgumentException('A maximum length cannot be less than the minimum.');
+			throw InvalidConfiguration::maximumIsBelowMinimum('length');
 		}
 
 		return $this->with(['maxLength' => $maxChars]);
@@ -127,7 +121,7 @@ final readonly class EmailAddress extends AtomicField
 	 *
 	 * @param non-empty-string $domain
 	 * @param non-empty-string ...$domains
-	 * @throws InvalidArgumentException if a domain is empty
+	 * @throws InvalidConfiguration if a domain is empty
 	 */
 	public function allowDomains(string $domain, string ...$domains): static
 	{
@@ -147,7 +141,7 @@ final readonly class EmailAddress extends AtomicField
 	 *
 	 * @param non-empty-string $domain
 	 * @param non-empty-string ...$domains
-	 * @throws InvalidArgumentException if a domain is empty
+	 * @throws InvalidConfiguration if a domain is empty
 	 */
 	public function disallowDomains(string $domain, string ...$domains): static
 	{
@@ -225,7 +219,7 @@ final readonly class EmailAddress extends AtomicField
 	{
 		foreach ($additional as $domain) {
 			if ($domain === '') {
-				throw new InvalidArgumentException('A domain cannot be empty.');
+				throw InvalidConfiguration::listMemberIsEmpty('domain');
 			}
 		}
 

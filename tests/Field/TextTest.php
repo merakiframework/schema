@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Field;
 
+use Meraki\Schema\Exception\InvalidConfiguration;
 use Meraki\Schema\Field\Text;
 use Meraki\Schema\FieldName;
 use Meraki\Schema\FieldTestCase;
@@ -98,8 +99,8 @@ final class TextTest extends FieldTestCase
 	#[Test]
 	public function throws_exception_when_pattern_is_invalid(): void
 	{
-		$this->expectException(\InvalidArgumentException::class);
-		$this->expectExceptionMessage('Invalid regular expression provided.');
+		$this->expectException(InvalidConfiguration::class);
+		$this->expectExceptionMessage("mustMatch() was given '[', which is not a valid pattern.");
 
 		$this->createField()->mustMatch('[');
 	}
