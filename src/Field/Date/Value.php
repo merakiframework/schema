@@ -3,6 +3,8 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Field\Date;
 
+use Brick\DateTime\DateTimeException;
+use Meraki\Schema\Field\MalformedValue;
 use Meraki\Schema\Comparison\Equality;
 use Meraki\Schema\Comparison\Order;
 use Meraki\Schema\Comparison\Comparable;
@@ -25,8 +27,20 @@ use InvalidArgumentException;
  */
 final readonly class Value implements ParsedValue, Comparable
 {
-	public function __construct(public LocalDate $date)
+	/** The date itself, which is what every comparison and constraint reads. */
+	public LocalDate $date;
+
+	/**
+	 * @param string $date an ISO 8601 calendar date, which is what the field accepts
+	 * @throws MalformedValue if this is not one
+	 */
+	public function __construct(string $date)
 	{
+		try {
+			$this->date = LocalDate::parse($date);
+		} catch (DateTimeException) {
+			throw MalformedValue::of(self::class, sprintf('"%s" is not a date, as YYYY-MM-DD', $date));
+		}
 	}
 
 	public function equals(Equality $other): bool

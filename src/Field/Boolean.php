@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Field;
 
+use Meraki\Schema\Field\MalformedValue;
 use Meraki\Schema\ValueScope;
 use Meraki\Schema\Rule\Matcher;
 use Meraki\Schema\Field\Boolean\Value;
@@ -56,12 +57,20 @@ final readonly class Boolean extends AtomicField
 		]);
 	}
 
-	protected function parse(mixed $value): ?Value
+	protected function parse(mixed $value): Value
 	{
-		// The wrapper is what keeps `false` distinct from "unreadable" now. It used to rely on the
-		// `?? $raw` upstream, with a comment explaining the hazard; an object is never falsy, so
-		// there is no longer a hazard to explain.
-		return is_bool($value) ? new Value($value) : null;
+		if ($value instanceof Value) {
+			return $value;
+		}
+
+		// The wrapper is what keeps `false` distinct from "unreadable" now. It used to rely on
+		// the `?? $raw` upstream, with a comment explaining the hazard; an object is never falsy,
+		// so there is no longer a hazard to explain.
+		if (!is_bool($value)) {
+			throw MalformedValue::of(Value::class, 'yes or no is submitted as a boolean');
+		}
+
+		return new Value($value);
 	}
 
 	protected function defineConstraints(): Constraint\Set

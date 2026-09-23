@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Field;
 
+use Meraki\Schema\Field\MalformedValue;
 use Meraki\Schema\ValueScope;
 use Meraki\Schema\Rule\Matcher;
 use Meraki\Schema\Field\Uuid\Value;
@@ -21,8 +22,6 @@ use InvalidArgumentException;
  */
 final readonly class Uuid extends AtomicField
 {
-	private const PATTERN = '/^(?:[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$/i';
-
 	/** The nil UUID, `00000000-0000-0000-0000-000000000000`. Has no version nibble. */
 	public const NIL = 0;
 
@@ -90,9 +89,17 @@ final readonly class Uuid extends AtomicField
 		return $this->with(['allowedVersions' => []]);
 	}
 
-	protected function parse(mixed $value): ?Value
+	protected function parse(mixed $value): Value
 	{
-		return is_string($value) && preg_match(self::PATTERN, $value) === 1 ? new Value($value) : null;
+		if ($value instanceof Value) {
+			return $value;
+		}
+
+		if (!is_string($value)) {
+			throw MalformedValue::of(Value::class, 'a UUID is submitted as a string');
+		}
+
+		return new Value($value);
 	}
 
 	protected function defineConstraints(): Constraint\Set

@@ -6,6 +6,7 @@ namespace Meraki\Schema\Field;
 use Meraki\Schema\ValueScope;
 use Meraki\Schema\Rule\Matcher;
 use Meraki\Schema\Field\EmailAddress\Value;
+use Meraki\Schema\Field\MalformedValue;
 use Meraki\Schema\AtomicField;
 use Meraki\Schema\FieldName;
 use InvalidArgumentException;
@@ -23,7 +24,8 @@ use InvalidArgumentException;
  * `.jane@example.test` are **accepted** — the WHATWG grammar does not restrict dot placement in
  * the local part, and diverging there would mean disagreeing with the browser. But the
  * specification's pattern cannot express a length limit on a repeated group, so the 64-octet
- * local part from RFC 5321 is checked separately, in {@see self::parse()}.
+ * local part from RFC 5321 is checked separately — both of them in {@see Value}, which is where
+ * "is this an address" is decided.
  *
  * @extends AtomicField<string|null>
  *
@@ -32,9 +34,6 @@ use InvalidArgumentException;
  */
 final readonly class EmailAddress extends AtomicField
 {
-	/** @see https://html.spec.whatwg.org/multipage/input.html#valid-e-mail-address */
-	private const PATTERN = '/^[a-zA-Z0-9.!#$%&\'*+\/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$/';
-
 	/** `a@b` is the shortest thing the grammar accepts, so no author may ask for less. */
 	public const SHORTEST = 3;
 
@@ -44,15 +43,6 @@ final readonly class EmailAddress extends AtomicField
 	 * delivered however well-formed it looks.
 	 */
 	public const LONGEST = 254;
-
-	/**
-	 * RFC 5321 §4.5.3.1.1. Checked as *shape* rather than as a constraint: an over-long local
-	 * part is malformed, not well-formed-but-disallowed.
-	 *
-	 * Its counterpart — the 255-octet limit on the domain — needs no check, because
-	 * {@see self::LONGEST} already bounds the whole address well below it.
-	 */
-	private const LONGEST_LOCAL_PART = 64;
 
 	/** @var int<self::SHORTEST, self::LONGEST> */
 	public int $minLength;
@@ -185,28 +175,35 @@ final readonly class EmailAddress extends AtomicField
 	}
 
 	/**
-	 * The WHATWG grammar, plus the one limit it cannot express.
+	 * Hands the decision to {@see Value}, and turns its refusal into an absence.
 	 *
-	 * The local-part length belongs here rather than in a constraint because an address whose
-	 * local part exceeds 64 octets is malformed — there is no configuration under which it would
-	 * be acceptable — and reporting it as "too long" would suggest the author could allow it.
+	 * Nothing about *what an address is* lives here any more. The grammar and RFC 5321's
+	 * 64-octet local part are facts about an address rather than about this field — no
+	 * configuration makes them come out differently — and the value's own equality depends on the
+	 * canonicalising that goes with them, so it has to be the value that enforces both. See
+	 * {@see Value} for what that fixed.
+	 *
+	 * What is left is the one thing a field has to do that a value cannot: report rather than
+	 * raise. `null` means *unreadable*, which is the shape failing — distinct from the
+	 * constraints, which never ran.
 	 */
-	protected function parse(mixed $value): ?Value
+	protected function parse(mixed $value): Value
 	{
-		if (!is_string($value) || preg_match(self::PATTERN, $value) !== 1) {
-			return null;
+		// Its own value back, unchanged. A value is canonical by construction, so re-reading one
+		// could only produce itself — and saying so directly beats relying on the round-trip to
+		// prove it.
+		if ($value instanceof Value) {
+			return $value;
 		}
 
-		// The grammar guarantees an @ once the pattern has matched, so this cannot be null — but
-		// fromString() says so itself rather than being trusted to.
-		$address = Value::fromString($value);
-
-		if ($address === null) {
-			return null;
+		// The only narrowing this does. `mixed` is what a request hands over and `string` is what
+		// the value takes, so something has to bridge them — and if the constructor were handed a
+		// non-string directly it would raise a `TypeError`, which is not what a lifecycle catches.
+		if (!is_string($value)) {
+			throw MalformedValue::of(Value::class, 'an email address is submitted as a string');
 		}
 
-		// RFC 5321 caps the local part at 64 octets, which the grammar cannot express.
-		return strlen($address->localPart) > self::LONGEST_LOCAL_PART ? null : $address;
+		return new Value($value);
 	}
 
 	protected function defineConstraints(): Constraint\Set

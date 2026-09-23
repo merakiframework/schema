@@ -10,6 +10,41 @@ is a commit subject, with the body kept because the body is where the reasoning 
 
 ## Unreleased
 
+### Reunite parse()'s docblock with parse()
+
+`2d321cf7` · 2026-09-23
+
+The script that added when() to nineteen fields backed up over the preceding
+docblock so the new method landed above it. The one that did the same to the
+example did not, so parse()'s explanation ended up orphaned above when()'s.
+Only the example was affected; the shipped fields are fine.
+
+### Give an email address a string form
+
+`be08d4c5` · 2026-09-23
+
+`EmailAddress\Value` had no `__toString()`, and its docblock said so deliberately:
+the split form is the field's internal representation, and an `address()` method
+was how you asked for the text.
+
+That argument does not survive contact with the rest of the library. `Uri\Value`
+and `Uuid\Value` are equally internal representations and both read back, and the
+existence of a single canonical spelling is the whole test — which `address()`
+proved by being able to produce one.
+
+It also cost something, which only became visible once a field's matcher was
+decided by what its value can answer: no string form meant `Matcher\Basic`, so an
+email field offered no `matches` and a rule could not check a domain. That is
+among the likelier things to want from an email address.
+
+So `address()` becomes `__toString()` — one spelling, the one the language already
+knows about — and the field moves to `Matcher\Text`. The capability test picked the
+move up on its own, which is what it is for.
+
+The two absences that remain are deliberate, and the reason is specific rather than
+"the value is internal": `Password\Value` and `CreditCard\Value` have no string form
+so that no rule can read a secret by accident.
+
 ### Separate the trait imports from the constructor
 
 `2bfabf49` · 2026-09-21

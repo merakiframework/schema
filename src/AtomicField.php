@@ -103,7 +103,7 @@ abstract readonly class AtomicField implements Field
 	{
 		$raw = $given ?? $this->defaultValue;
 
-		return [$raw, $raw === null ? null : $this->parse($raw)];
+		return [$raw, $raw === null ? null : self::readable($this->parse(...), $raw)];
 	}
 
 	/**

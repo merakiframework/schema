@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Field;
 
+use Meraki\Schema\Field\MalformedValue;
 use Meraki\Schema\ValueScope;
 use Meraki\Schema\Rule\Matcher;
 use Meraki\Schema\AtomicField;
@@ -124,15 +125,20 @@ final readonly class Number extends AtomicField
 		return $this->with(['step' => $this->mustParse($step)]);
 	}
 
-	protected function parse(mixed $value): ?Value
+	protected function parse(mixed $value): Value
 	{
-		try {
-			return new Value($this->mustParse($value));
-		} catch (MathException | TypeError) {
-			// A bool or an array is not a number that happens to be out of range; it is not
-			// a number at all, which BigDecimal reports as a TypeError rather than a MathException.
-			return null;
+		if ($value instanceof Value) {
+			return $value;
 		}
+
+		// A bool or an array is not a number that happens to be out of range; it is not a number
+		// at all, and narrowing here is what stops the value's constructor raising a TypeError
+		// instead of the MalformedValue a lifecycle knows how to absorb.
+		if (!is_float($value) && !is_int($value) && !is_string($value)) {
+			throw MalformedValue::of(Value::class, 'a number is submitted as a number or a string');
+		}
+
+		return new Value($value);
 	}
 
 	protected function defineConstraints(): Constraint\Set

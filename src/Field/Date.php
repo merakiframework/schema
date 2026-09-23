@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Field;
 
+use Meraki\Schema\Field\MalformedValue;
 use Meraki\Schema\ValueScope;
 use Meraki\Schema\Rule\Matcher;
 use Meraki\Schema\AtomicField;
@@ -79,17 +80,17 @@ final readonly class Date extends AtomicField
 		return $this->with(['interval' => Period::parse($date)]);
 	}
 
-	protected function parse(mixed $value): ?Value
+	protected function parse(mixed $value): Value
 	{
-		if (!is_string($value)) {
-			return null;
+		if ($value instanceof Value) {
+			return $value;
 		}
 
-		try {
-			return new Value($this->mustParse($value));
-		} catch (DateTimeException) {
-			return null;
+		if (!is_string($value)) {
+			throw MalformedValue::of(Value::class, 'a date is submitted as a string');
 		}
+
+		return new Value($value);
 	}
 
 	/**

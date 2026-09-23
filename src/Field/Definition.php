@@ -218,7 +218,26 @@ trait Definition
 	{
 		$raw = $given ?? $this->defaultValue;
 
-		return $raw === null ? null : $this->parse($raw);
+		return $raw === null ? null : self::readable($this->parse(...), $raw);
+	}
+
+	/**
+	 * Runs a parse on the request path, where an unreadable value is an answer.
+	 *
+	 * The one place a {@see MalformedValue} becomes a `null`, and the reason a field author
+	 * never writes a try/catch: which failures are absorbed and which are raised is a
+	 * lifecycle decision, and a field getting it differently from its neighbours would make
+	 * results inconsistent across a schema — see docs/FIELD-API.md.
+	 *
+	 * @param callable(mixed): ?ParsedValue $parse
+	 */
+	final protected static function readable(callable $parse, mixed $raw): ?ParsedValue
+	{
+		try {
+			return $parse($raw);
+		} catch (MalformedValue) {
+			return null;
+		}
 	}
 
 	/**
@@ -284,7 +303,18 @@ trait Definition
 			return;
 		}
 
-		$parsed = $this->parse($this->defaultValue);
+		// Not absorbed, unlike the request path. An author can act on *why* their default is
+		// unreadable, and this used to be the one message that could not say — while the
+		// constraint branch below it named the constraint that failed.
+		try {
+			$parsed = $this->parse($this->defaultValue);
+		} catch (MalformedValue $malformed) {
+			throw new InvalidArgumentException(sprintf(
+				'The default for "%s" is not a value it can hold. %s',
+				(string) $this->name,
+				$malformed->getMessage(),
+			), previous: $malformed);
+		}
 
 		if ($parsed === null) {
 			throw new InvalidArgumentException(sprintf(

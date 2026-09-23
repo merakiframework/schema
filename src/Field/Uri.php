@@ -3,14 +3,13 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Field;
 
+use Meraki\Schema\Field\MalformedValue;
 use Meraki\Schema\ValueScope;
 use Meraki\Schema\Rule\Matcher;
 use Meraki\Schema\Field\Uri\Value;
 use Meraki\Schema\AtomicField;
 use Meraki\Schema\FieldName;
 use InvalidArgumentException;
-use Uri\Rfc3986\Uri as Rfc3986Uri;
-use Uri\InvalidUriException;
 
 /**
  * @extends AtomicField<string|null>
@@ -143,9 +142,17 @@ final readonly class Uri extends AtomicField
 	 * canonicalised form of a different length. A consumer wanting the object builds it from this
 	 * string, which is one line and is their choice of representation rather than ours.
 	 */
-	protected function parse(mixed $value): ?Value
+	protected function parse(mixed $value): Value
 	{
-		return is_string($value) && $this->readUri($value) !== null ? new Value($value) : null;
+		if ($value instanceof Value) {
+			return $value;
+		}
+
+		if (!is_string($value)) {
+			throw MalformedValue::of(Value::class, 'a URI is submitted as a string');
+		}
+
+		return new Value($value);
 	}
 
 	protected function defineConstraints(): Constraint\Set
@@ -155,24 +162,6 @@ final readonly class Uri extends AtomicField
 			new Constraint('maxLength', $this->meetsMaximumLength(...), $this->maxLength),
 			new Constraint('allowedSchemes', $this->isAnAllowedScheme(...), $this->allowedSchemes),
 		);
-	}
-
-	/**
-	 * Parses with PHP's own RFC 3986 implementation rather than a pattern of our own: the
-	 * grammar is a matter of public record, and the previous pattern had every group
-	 * optional, so it accepted any string at all.
-	 */
-	private function readUri(mixed $value): ?Rfc3986Uri
-	{
-		if (!is_string($value) || $value === '') {
-			return null;
-		}
-
-		try {
-			return new Rfc3986Uri($value);
-		} catch (InvalidUriException) {
-			return null;
-		}
 	}
 
 	private function meetsMinimumLength(Value $parsed): bool
@@ -191,16 +180,14 @@ final readonly class Uri extends AtomicField
 
 	private function isAnAllowedScheme(Value $parsed): ?bool
 	{
-		$value = $parsed->uri;
-
 		// No list means nothing was asked, so nothing was checked.
 		if ($this->allowedSchemes === []) {
 			return null;
 		}
 
-		$scheme = $this->readUri($value)?->getScheme();
-
+		// Already parsed and already lower-cased, by the value that had to parse it anyway to
+		// know it was a URI at all.
 		// A relative reference has no scheme, so it cannot satisfy an allowlist.
-		return $scheme !== null && in_array(strtolower($scheme), $this->allowedSchemes, true);
+		return $parsed->scheme !== null && in_array($parsed->scheme, $this->allowedSchemes, true);
 	}
 }

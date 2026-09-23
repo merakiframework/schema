@@ -5,9 +5,32 @@ namespace Meraki\Schema\Field\EmailAddress;
 
 use Meraki\Schema\Comparison\Equality;
 use Meraki\Schema\Field\HasParts;
+use Meraki\Schema\Field\MalformedValue;
 use Meraki\Schema\Field\ParsedValue;
+
 /**
  * One email address, split at the `@` and canonicalised.
+ *
+ * ### It cannot be built out of something that is not an address
+ *
+ * The grammar is checked here, in the constructor, so there is no way to hold one of these that a
+ * field would not have produced. That used to live in {@see \Meraki\Schema\Field\EmailAddress::parse()},
+ * and splitting it from the value cost something concrete: the domain is lower-cased on the way in
+ * and {@see self::equals()} depends on that having happened, so a value built directly compared
+ * unequal to the same address parsed by a field —
+ *
+ *     Value::fromString('kim@EXAMPLE.TEST')     // kim@example.test
+ *     new Value('kim', 'EXAMPLE.TEST')          // kim@EXAMPLE.TEST — and not equal to it
+ *
+ * An invariant the value's own equality relies on has to be the value's to enforce. Now it is, and
+ * the two spellings of the constructor are one.
+ *
+ * ### Shape, and only shape
+ *
+ * It raises {@see MalformedValue} for what is not an address at all. It says nothing about whether
+ * an address is *acceptable* — a domain allow-list, a length bound — because those are the field's
+ * constraints, and a constraint that raised here would report "unreadable" where it should report
+ * which check failed and what the limit was.
  *
  * ### The one thing it changes, and the one thing it does not
  *
@@ -22,47 +45,66 @@ use Meraki\Schema\Field\ParsedValue;
  *
  * Nothing is trimmed, because `" a@b.test "` is not an address under the grammar and repairing it
  * would be guessing too.
- *
- * ### It reads back as one string
- *
- * This used to say there was deliberately no `__toString()`, on the grounds that the split form
- * is the field's internal representation and a method was how you asked for the text. That
- * argument does not survive contact with the rest of the library: {@see \Meraki\Schema\Field\Uri\Value}
- * and {@see \Meraki\Schema\Field\Uuid\Value} are equally internal representations and both read
- * back, and the *existence* of a single canonical spelling is the whole test — which the old
- * `address()` method proved by being able to produce one.
- *
- * It also cost something real. A value with no string form gets
- * {@see \Meraki\Schema\Rule\Matcher\Basic}, so an email field offered no `matches` and a rule
- * could not check a domain — which is among the likelier things to want from an email address.
- *
- * The absences that *are* deliberate are {@see \Meraki\Schema\Field\Password\Value} and
- * {@see \Meraki\Schema\Field\CreditCard\Value}, and the reason there is not "it is internal" —
- * it is that a rule must not be able to read a secret by accident.
  */
 final readonly class Value implements ParsedValue, HasParts
 {
 	/**
-	 * @param string $localPart everything before the last `@`, exactly as submitted
-	 * @param string $domain everything after it, lower-cased
+	 * The addr-spec this accepts: a dot-atom local part, and a domain of LDH labels.
+	 *
+	 * Deliberately not the whole of RFC 5322 — no quoted strings, no comments, no address
+	 * literals. Those are legal and essentially never wanted in a form, and every one of them is
+	 * a way for something downstream to disagree with this about what the address was.
 	 */
-	public function __construct(
-		public string $localPart,
-		public string $domain,
-	) {
-	}
+	private const PATTERN = '/^[a-zA-Z0-9.!#$%&\'*+\/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$/';
+
+	/** RFC 5321 caps the local part at 64 octets, which the grammar cannot express. */
+	private const LONGEST_LOCAL_PART = 64;
+
+	/** Everything before the last `@`, exactly as given. */
+	public string $localPart;
+
+	/** Everything after it, lower-cased. */
+	public string $domain;
 
 	/**
-	 * Splits an address that has already been checked against the grammar.
-	 *
-	 * `null` when there is no `@` at all, so this stays total — the field calls it after its
-	 * pattern has matched, but nothing here depends on that having happened.
+	 * @param string $address the whole address, which is the only form the grammar can be checked
+	 *        against — a local part and a domain handed over separately have already had the
+	 *        decision made about where they split.
+	 * @throws MalformedValue if this is not an address
 	 */
+	public function __construct(string $address)
+	{
+		if (preg_match(self::PATTERN, $address) !== 1) {
+			throw MalformedValue::of(self::class, sprintf(
+				'"%s" is not "something@a.domain"',
+				$address,
+			));
+		}
+
+		// The grammar guarantees an @ by here, so the split cannot fail.
+		$at = strrpos($address, '@');
+		$localPart = substr($address, 0, $at);
+
+		if (strlen($localPart) > self::LONGEST_LOCAL_PART) {
+			throw MalformedValue::of(self::class, sprintf(
+				'the part before the @ is %d octets and RFC 5321 allows %d',
+				strlen($localPart),
+				self::LONGEST_LOCAL_PART,
+			));
+		}
+
+		$this->localPart = $localPart;
+		$this->domain = strtolower(substr($address, $at + 1));
+	}
+
 	/**
 	 * Both halves exactly, because both arrive canonicalised: the domain is already lower-cased
 	 * here — DNS says two spellings of a host are one host — and the local part deliberately is
 	 * not, since RFC 5321 leaves its case to the receiving server and folding it would merge two
 	 * mailboxes that a server is entitled to treat as different.
+	 *
+	 * Reliable now in a way it was not, because the canonicalising happens where the comparison
+	 * does. There is no longer a way to build one of these that has skipped it.
 	 */
 	public function equals(Equality $other): bool
 	{
@@ -71,26 +113,11 @@ final readonly class Value implements ParsedValue, HasParts
 			&& $this->domain === $other->domain;
 	}
 
-	public static function fromString(string $address): ?self
-	{
-		$at = strrpos($address, '@');
-
-		if ($at === false) {
-			return null;
-		}
-
-		return new self(
-			substr($address, 0, $at),
-			strtolower(substr($address, $at + 1)),
-		);
-	}
-
 	/**
 	 * The address as one string, with the domain in its canonical form.
 	 *
-	 * Replaces an `address()` method that returned exactly this. Two spellings of one string is
-	 * what every other value here avoids, and this is the one the language already knows about —
-	 * it is what makes the value `Stringable`, and so what earns the field its text matchers.
+	 * Round-trips: `new Value((string) $value)` is `$value`, which is what makes it safe for a
+	 * field to accept its own value back — see {@see \Meraki\Schema\Field\EmailAddress::parse()}.
 	 */
 	public function __toString(): string
 	{

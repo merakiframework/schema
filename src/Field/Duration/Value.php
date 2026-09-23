@@ -3,6 +3,8 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Field\Duration;
 
+use Brick\DateTime\DateTimeException;
+use Meraki\Schema\Field\MalformedValue;
 use Meraki\Schema\Comparison\Equality;
 use Meraki\Schema\Comparison\Order;
 use Meraki\Schema\Comparison\Comparable;
@@ -27,8 +29,20 @@ use InvalidArgumentException;
  */
 final readonly class Value implements ParsedValue, Comparable
 {
-	public function __construct(public BrickDuration $duration)
+	/** The length itself, normalised to seconds and nanoseconds by Brick. */
+	public BrickDuration $duration;
+
+	/**
+	 * @param string $duration an ISO 8601 duration, which is what the field accepts
+	 * @throws MalformedValue if this is not one
+	 */
+	public function __construct(string $duration)
 	{
+		try {
+			$this->duration = BrickDuration::parse($duration);
+		} catch (DateTimeException) {
+			throw MalformedValue::of(self::class, sprintf('"%s" is not a duration, as PT1H30M', $duration));
+		}
 	}
 
 	public function equals(Equality $other): bool

@@ -3,6 +3,8 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Field\Number;
 
+use Brick\Math\Exception\MathException;
+use Meraki\Schema\Field\MalformedValue;
 use Meraki\Schema\Comparison\Equality;
 use Meraki\Schema\Comparison\Order;
 use Meraki\Schema\Comparison\Comparable;
@@ -25,8 +27,22 @@ use InvalidArgumentException;
  */
 final readonly class Value implements ParsedValue, Comparable
 {
-	public function __construct(public BigDecimal $number)
+	/** The number itself, at whatever scale it was written with. */
+	public BigDecimal $number;
+
+	/**
+	 * Takes what the field takes, so there is one answer to "what is a number here" rather
+	 * than a field that reads input and a value that trusts whatever it is handed.
+	 *
+	 * @throws MalformedValue if this is not a number
+	 */
+	public function __construct(float|int|string $number)
 	{
+		try {
+			$this->number = BigDecimal::of($number);
+		} catch (MathException) {
+			throw MalformedValue::of(self::class, sprintf('"%s" is not a number', $number));
+		}
 	}
 
 	/**

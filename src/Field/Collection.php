@@ -447,7 +447,7 @@ final readonly class Collection implements Field
 		$raw = $given ?? $this->defaultValue ?? [];
 
 		// A {@see Value}, or nothing. What was actually submitted is on the result's `$given`.
-		return $this->parse($raw);
+		return self::readable($this->parse(...), $raw);
 	}
 
 	/**

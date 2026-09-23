@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Field;
 
+use Meraki\Schema\Field\MalformedValue;
 use Meraki\Schema\ValueScope;
 use Meraki\Schema\Rule\Matcher;
 use Meraki\Schema\Field\Text\Value;
@@ -120,9 +121,17 @@ final readonly class Text extends AtomicField
 		return $this->with(['pattern' => $regex]);
 	}
 
-	protected function parse(mixed $value): ?Value
+	protected function parse(mixed $value): Value
 	{
-		return is_string($value) ? new Value($value) : null;
+		if ($value instanceof Value) {
+			return $value;
+		}
+
+		if (!is_string($value)) {
+			throw MalformedValue::of(Value::class, 'text is submitted as a string');
+		}
+
+		return new Value($value);
 	}
 
 	protected function defineConstraints(): Constraint\Set

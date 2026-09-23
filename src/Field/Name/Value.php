@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace Meraki\Schema\Field\Name;
 
 use Meraki\Schema\Comparison\Equality;
+use Meraki\Schema\Field\MalformedValue;
 use Meraki\Schema\Field\ParsedValue;
 
 /**
@@ -20,8 +21,23 @@ use Meraki\Schema\Field\ParsedValue;
  */
 final readonly class Value implements ParsedValue
 {
+	/**
+	 * Letters in any script, plus the punctuation names actually contain — and not *only*
+	 * punctuation, which is what the leading assertion refuses.
+	 *
+	 * Deliberately permissive. Most rules people believe about names are false, so this asks
+	 * the one question that is safe to ask: is any of this a letter?
+	 */
+	private const PATTERN = "/^(?![\ \.\,\'\-]+$)[\p{L}\.\,\'\ \-]+$/u";
+
+	/**
+	 * @throws MalformedValue if this is not a name
+	 */
 	public function __construct(public string $name)
 	{
+		if (preg_match(self::PATTERN, $name) !== 1) {
+			throw MalformedValue::of(self::class, sprintf('"%s" has no letters in it', $name));
+		}
 	}
 
 	public function equals(Equality $other): bool
