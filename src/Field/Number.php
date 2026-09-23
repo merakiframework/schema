@@ -66,10 +66,10 @@ final readonly class Number extends AtomicField
 	) {
 		parent::__construct();
 
-		$this->minValue = null;
-		$this->maxValue = null;
-		$this->step = null;
-		$this->maxPrecision = null;
+		$this->minValue = self::initially(null);
+		$this->maxValue = self::initially(null);
+		$this->step = self::initially(null);
+		$this->maxPrecision = self::initially(null);
 
 		// Last: every property it reads must already be set.
 		$this->constraints = $this->defineConstraints();

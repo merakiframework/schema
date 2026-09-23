@@ -145,7 +145,7 @@ final readonly class Value implements ParsedValue, IteratorAggregate, Countable
 	 */
 	public function valueOf(string|int $key, string $field): mixed
 	{
-		return $this->rowAt($key)?->{$field} ?? null;
+		return $this->rowAt($key)->{$field} ?? null;
 	}
 
 	/**

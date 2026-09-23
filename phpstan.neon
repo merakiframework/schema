@@ -1,55 +1,48 @@
 # Static analysis of the shipped code. Tests are analysed separately, at a lower level,
 # by phpstan-tests.neon — see the note there.
 #
-# Level 3 is what src passes. The cost of going higher, measured rather than guessed:
+# Level 5 is what src passes, with three narrow ignore entries and no baseline. The cost of
+# going higher, measured rather than guessed:
 #
-#   level 4 — 101 errors
-#   level 5 — 101
-#   level 6 — 174
+#   level 6 — 97 errors
+#   level 7 — 136
+#   level 8 — 138
 #
-# Level 3 cost one ignore entry and no code change — see initialiseDefinition() below.
+# Level 6 is a different kind of work — missing generic and iterable types in docblocks, not
+# unsound code — and it is tracked in docs/ROADMAP.md rather than being done here.
 #
-# The jump at level 4 is the real work: it is where unreachable branches and always-true
-# conditions start being reported, and almost all of them are the clone-with limitation
-# described below rather than dead code. A cross-bound guard like
-# `$this->maxSize !== null && $bytes > $this->maxSize` is reported as always-false because
-# PHPStan cannot see that with() ever assigns $maxSize.
+# ## What used to be here, and how it went
 #
-# Which is worth stating plainly, because the level number otherwise overstates the
-# protection: **PHPStan is blind to the entire configuration surface of every field.** A
-# genuine inversion in one of those guards would look identical to the ones being ignored.
-# What covers them is the test suite, where every field's bounds are exercised directly.
+# Levels 4 and 5 cost 101 errors until 2.0, from one cause: a field is a `readonly` class, so
+# PHPStan types every property as *the value the constructor assigned it*, and it cannot see
+# `Definition::with()`, which changes them by cloning with a string-keyed array. A
+# `public ?int $maxLength` initialised to `null` was inferred as `null` and nothing else, so
+# the `!== null` guard in front of every use of it narrowed to *NEVER*.
 #
-# The jump at level 4 is the real work: it is where unreachable branches and always-true
-# conditions start being reported, and the structured types acquired a lot of defensive
-# null-checking during the rewrite that the type system now says cannot fire. Several are worth
-# fixing on merit rather than for the level. Raising this is tracked in docs/ROADMAP.md.
+# The two entries that covered that are gone, and they were the ones worth being rid of: they
+# matched by pattern across `src/Field/*.php`, so a *genuine* inverted guard written the same
+# way would have been suppressed with them. What replaced them is
+# `Field\Definition::initially()` — a `mixed`-returning seam every configuration property is
+# initialised through, which keeps the property at its declared type. The docblock there
+# explains the trade; the short version is that a property nothing ever configures no longer
+# has its dead guard reported, and the wither is what makes a property configuration.
 #
-# No baseline file by design: errors get fixed, not recorded. The one exception is below,
-# and it is a limitation of the analyser rather than a fault in the code.
+# Deleting the two entries also turned up four genuinely dead members that the noise had been
+# hiding: `Date::mustParse()` and three private statics on `PhoneNumber`, left over from the
+# composite-to-value-object rewrite.
+#
+# ## No baseline file, by design
+#
+# Errors get fixed, not recorded. The three entries below are limitations of the analyser
+# rather than faults in the code, they name one class and one message each, and PHP 8.6's
+# readonly property defaults remove all three.
 parameters:
-    level: 3
+    level: 5
     paths:
         - src
     treatPhpDocTypesAsCertain: false
 
     ignoreErrors:
-        # A sealed field is configured by AtomicField::with(), which clones with a
-        # string-keyed array. That array is opaque to PHPStan, so it sees a field's
-        # constructor as the only place a property is ever assigned and narrows the
-        # property to whatever it was initialised to — a `?int $maxLength` that starts
-        # null is inferred as `null`, and the `!== null` guard in front of it then
-        # narrows to *NEVER*.
-        #
-        # The code is correct: with() really does set these. Only the inference is wrong.
-        #
-        # Removing this needs PHPStan to model PHP 8.5's clone-with. Note that PHP 8.6's
-        # readonly property defaults do NOT fix it on their own — the analyser would still
-        # see one initialiser and narrow the same way. The other escape is to assign these
-        # properties from typed constructor parameters, which was rejected: a constructor
-        # should carry what a field needs to exist, not every constraint it might take.
-        #
-        # @see docs/ROADMAP.md — "PHPStan: clone-with narrowing"
         # $constraints is declared by Field\Definition and assigned by the *using* class's
         # constructor, as its last statement — the trait cannot assign it, because the properties
         # it is built from are set by that constructor. PHPStan models a readonly property as
@@ -70,12 +63,6 @@ parameters:
         -
             message: '#Access to an uninitialized readonly property .+::\$optional\.#'
             path: src/Field/Collection.php
-        -
-            message: '#Comparison operation ".+" between .+ and \*NEVER\* results in an error\.#'
-            path: src/Field/*.php
-        -
-            message: '#^Cannot (call method [a-zA-Z_]+\(\)|access property \$[a-zA-Z_]+) on null\.$#'
-            path: src/Field/*.php
         # Field\Definition is a *trait*, and initialiseDefinition() assigns $optional and
         # $defaultValue from it. PHPStan models a readonly property as assignable only in the
         # declaring class's own constructor, and a trait cannot satisfy that however the using

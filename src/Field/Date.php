@@ -43,9 +43,9 @@ final readonly class Date extends AtomicField
 	) {
 		parent::__construct();
 
-		$this->from = LocalDate::min();
-		$this->until = LocalDate::max();
-		$this->interval = Period::ofDays(1);
+		$this->from = self::initially(LocalDate::min());
+		$this->until = self::initially(LocalDate::max());
+		$this->interval = self::initially(Period::ofDays(1));
 		$this->constraints = $this->defineConstraints();
 	}
 
@@ -104,11 +104,6 @@ final readonly class Date extends AtomicField
 			new Constraint('until', $this->isBeforeUntil(...), (string) $this->until),
 			new Constraint('interval', $this->isOnAnInterval(...), (string) $this->interval),
 		);
-	}
-
-	private function mustParse(mixed $value): LocalDate
-	{
-		return LocalDate::parse($value);
 	}
 
 	private function isOnOrAfterFrom(Value $parsed): bool

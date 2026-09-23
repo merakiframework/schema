@@ -194,8 +194,36 @@ trait Definition
 	 */
 	private function initialiseDefinition(): void
 	{
-		$this->optional = false;
-		$this->defaultValue = null;
+		$this->optional = self::initially(false);
+		$this->defaultValue = self::initially(null);
+	}
+
+	/**
+	 * The value a configuration property starts at, handed back unchanged.
+	 *
+	 * It exists for the analyser, and the reason is worth the indirection. A field is a `readonly`
+	 * class, so PHPStan types every property as *the value the constructor assigned it* — and it
+	 * cannot see {@see self::with()}, which changes them by cloning with a string-keyed array.
+	 * `public ?int $maxLength` initialised to `null` is therefore inferred as `null` and nothing
+	 * else, so the `!== null` guard in front of every use of it narrows to *NEVER*: the guard is
+	 * reported as always-false, its body as unreachable, and the method around it as never
+	 * returning what it returns.
+	 *
+	 * That is one blind spot producing about a hundred errors, and it is worse than noise —
+	 * suppressing it by pattern would suppress a *genuine* inverted guard written the same way.
+	 * Returning `mixed` here keeps the property at its declared type, so a real type error is
+	 * still caught and `src` is clean to level 8 with no ignore entries.
+	 *
+	 * **It does cost one thing.** A property that really is never configured no longer has its
+	 * dead guard reported, because this makes the two cases identical to the analyser. The wither
+	 * is what makes a property configuration, so the check that matters is that one exists.
+	 *
+	 * Delete this when PHPStan models PHP 8.5's clone-with, or when 8.6's readonly property
+	 * defaults let these be declared rather than assigned. See docs/ROADMAP.md.
+	 */
+	protected static function initially(mixed $value): mixed
+	{
+		return $value;
 	}
 
 	/**

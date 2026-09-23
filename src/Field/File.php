@@ -42,10 +42,10 @@ final readonly class File extends AtomicField
 	) {
 		parent::__construct();
 
-		$this->minSize = 0;
-		$this->maxSize = null;
-		$this->allowedTypes = [];
-		$this->disallowedTypes = [];
+		$this->minSize = self::initially(0);
+		$this->maxSize = self::initially(null);
+		$this->allowedTypes = self::initially([]);
+		$this->disallowedTypes = self::initially([]);
 
 		// Last: every property it reads must already be set.
 		$this->constraints = $this->defineConstraints();

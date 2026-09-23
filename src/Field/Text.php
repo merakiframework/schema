@@ -42,9 +42,9 @@ final readonly class Text extends AtomicField
 	) {
 		parent::__construct();
 
-		$this->minLength = 0;
-		$this->maxLength = null;
-		$this->pattern = null;
+		$this->minLength = self::initially(0);
+		$this->maxLength = self::initially(null);
+		$this->pattern = self::initially(null);
 
 		// Last: every property it reads must already be set.
 		$this->constraints = $this->defineConstraints();

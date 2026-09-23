@@ -122,8 +122,6 @@ final readonly class Enum extends AtomicField
 			));
 		}
 
-		assert(is_string($value));
-
 		return new Value($value);
 	}
 

@@ -74,10 +74,10 @@ final readonly class EmailAddress extends AtomicField
 	) {
 		parent::__construct();
 
-		$this->minLength = self::SHORTEST;
-		$this->maxLength = self::LONGEST;
-		$this->allowedDomains = [];
-		$this->disallowedDomains = [];
+		$this->minLength = self::initially(self::SHORTEST);
+		$this->maxLength = self::initially(self::LONGEST);
+		$this->allowedDomains = self::initially([]);
+		$this->disallowedDomains = self::initially([]);
 		$this->constraints = $this->defineConstraints();
 	}
 

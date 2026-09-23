@@ -46,8 +46,8 @@ final readonly class DateTime extends AtomicField
 	) {
 		parent::__construct();
 
-		$this->from = LocalDateTime::min();
-		$this->until = LocalDateTime::max();
+		$this->from = self::initially(LocalDateTime::min());
+		$this->until = self::initially(LocalDateTime::max());
 		$this->interval = match ($precision) {
 			TimePrecision::Minutes => Duration::ofMinutes(1),
 			TimePrecision::Seconds => Duration::ofSeconds(1),

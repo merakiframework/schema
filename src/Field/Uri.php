@@ -38,9 +38,9 @@ final readonly class Uri extends AtomicField
 	) {
 		parent::__construct();
 
-		$this->minLength = 0;
-		$this->maxLength = null;
-		$this->allowedSchemes = [];
+		$this->minLength = self::initially(0);
+		$this->maxLength = self::initially(null);
+		$this->allowedSchemes = self::initially([]);
 
 		// Last: every property it reads must already be set.
 		$this->constraints = $this->defineConstraints();

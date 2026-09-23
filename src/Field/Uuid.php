@@ -39,7 +39,7 @@ final readonly class Uuid extends AtomicField
 	) {
 		parent::__construct();
 
-		$this->allowedVersions = [];
+		$this->allowedVersions = self::initially([]);
 
 		// Last: every property it reads must already be set.
 		$this->constraints = $this->defineConstraints();

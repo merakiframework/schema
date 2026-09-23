@@ -83,9 +83,9 @@ final readonly class Money extends AtomicField
 	) {
 		parent::__construct();
 
-		$this->allowedCurrencies = self::checked([], $allowedCurrencies);
-		$this->minAmounts = [];
-		$this->maxAmounts = [];
+		$this->allowedCurrencies = self::initially(self::checked([], $allowedCurrencies));
+		$this->minAmounts = self::initially([]);
+		$this->maxAmounts = self::initially([]);
 		$this->constraints = $this->defineConstraints();
 	}
 

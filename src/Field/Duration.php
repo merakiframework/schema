@@ -51,9 +51,9 @@ final readonly class Duration extends AtomicField
 	) {
 		parent::__construct();
 
-		$this->minValue = DateTime\Duration::zero();
-		$this->maxValue = DateTime\Duration::ofDays(1);
-		$this->step = DateTime\Duration::ofMinutes(1);
+		$this->minValue = self::initially(DateTime\Duration::zero());
+		$this->maxValue = self::initially(DateTime\Duration::ofDays(1));
+		$this->step = self::initially(DateTime\Duration::ofMinutes(1));
 
 		// Last: every property it reads must already be set.
 		$this->constraints = $this->defineConstraints();

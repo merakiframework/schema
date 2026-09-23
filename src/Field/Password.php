@@ -93,13 +93,13 @@ final readonly class Password extends AtomicField
 	) {
 		parent::__construct();
 
-		$this->minLength = self::SHORTEST;
-		$this->maxLength = null;
-		$this->minStrength = null;
-		$this->minUppercaseChars = null;
-		$this->minLowercaseChars = null;
-		$this->minDigits = null;
-		$this->minSymbols = null;
+		$this->minLength = self::initially(self::SHORTEST);
+		$this->maxLength = self::initially(null);
+		$this->minStrength = self::initially(null);
+		$this->minUppercaseChars = self::initially(null);
+		$this->minLowercaseChars = self::initially(null);
+		$this->minDigits = self::initially(null);
+		$this->minSymbols = self::initially(null);
 
 		// Last: every property it reads must already be set.
 		$this->constraints = $this->defineConstraints();

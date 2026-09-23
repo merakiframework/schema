@@ -124,9 +124,9 @@ final readonly class Collection implements Field
 		}
 
 		$this->template = array_values($template);
-		$this->minCount = 1;
-		$this->maxCount = null;
-		$this->allowsDuplicates = false;
+		$this->minCount = self::initially(1);
+		$this->maxCount = self::initially(null);
+		$this->allowsDuplicates = self::initially(false);
 
 		// Last: every property it reads must already be set.
 		$this->constraints = $this->defineConstraints();

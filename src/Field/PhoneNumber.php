@@ -67,8 +67,8 @@ final readonly class PhoneNumber extends AtomicField
 	) {
 		parent::__construct();
 
-		$this->numberType = Type::Any;
-		$this->allowedCountries = self::supported([], $allowedCountries);
+		$this->numberType = self::initially(Type::Any);
+		$this->allowedCountries = self::initially(self::supported([], $allowedCountries));
 
 		// Last: every property it reads must already be set.
 		$this->constraints = $this->defineConstraints();
@@ -197,57 +197,6 @@ final readonly class PhoneNumber extends AtomicField
 		}
 
 		return $existing;
-	}
-
-	/**
-	 * The number out of either accepted shape, trimmed; `null` when there is none to read.
-	 */
-	/**
-	 * Taken exactly as submitted. libphonenumber copes with the spaces and brackets people write
-	 * a number in, so there is nothing here worth repairing — and `''` is left to fail the parse
-	 * rather than being quietly read as "no number given".
-	 */
-	private static function numberIn(mixed $value): ?string
-	{
-		$parts = self::recordIn($value);
-
-		if ($parts === null || !isset($parts['number']) || !is_string($parts['number'])) {
-			return null;
-		}
-
-		return $parts['number'];
-	}
-
-	/**
-	 * The country the input named, upper-cased; `null` when it named none.
-	 */
-	private static function countryIn(mixed $value): ?string
-	{
-		$parts = self::recordIn($value);
-
-		if ($parts === null || !isset($parts['country']) || !is_string($parts['country'])) {
-			return null;
-		}
-
-		// Upper-cased because ISO 3166-1 defines the codes that way, so `au` and `AU` are one
-		// country. Not trimmed: `' AU '` is not a code, and libphonenumber agrees — it refuses it.
-		return strtoupper($parts['country']);
-	}
-
-
-	/**
-	 * Parsed against one region, and valid *for that region* — not merely valid somewhere, which
-	 * would let an Australian number through a New Zealand-only field.
-	 */
-	private static function parseForRegion(string $number, string $region): ?LibPhoneNumber
-	{
-		try {
-			$proto = self::util()->parse($number, $region);
-		} catch (NumberParseException) {
-			return null;
-		}
-
-		return self::util()->isValidNumberForRegion($proto, $region) ? $proto : null;
 	}
 
 	private static function util(): PhoneNumberUtil

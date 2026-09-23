@@ -29,7 +29,7 @@ final readonly class Boolean extends AtomicField
 	) {
 		parent::__construct();
 
-		$this->requiresAcceptance = false;
+		$this->requiresAcceptance = self::initially(false);
 		$this->constraints = $this->defineConstraints();
 	}
 

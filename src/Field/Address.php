@@ -91,9 +91,9 @@ final readonly class Address extends AtomicField
 	) {
 		parent::__construct();
 
-		$this->type = Type::Either;
-		$this->mustBeSpecific = true;
-		$this->allowedCountries = self::supported([], $allowedCountries);
+		$this->type = self::initially(Type::Either);
+		$this->mustBeSpecific = self::initially(true);
+		$this->allowedCountries = self::initially(self::supported([], $allowedCountries));
 
 		// Last: every property it reads must already be set.
 		$this->constraints = $this->defineConstraints();

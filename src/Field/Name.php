@@ -49,8 +49,8 @@ final readonly class Name extends AtomicField
 	) {
 		parent::__construct();
 
-		$this->minLength = 1;
-		$this->maxLength = 255;
+		$this->minLength = self::initially(1);
+		$this->maxLength = self::initially(255);
 		$this->constraints = $this->defineConstraints();
 	}
 

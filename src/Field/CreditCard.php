@@ -93,7 +93,7 @@ final readonly class CreditCard extends AtomicField
 	) {
 		parent::__construct();
 
-		$this->mustExpireInFuture = false;
+		$this->mustExpireInFuture = self::initially(false);
 		$this->clock = $clock ?? new SystemClock();
 		$this->constraints = $this->defineConstraints();
 	}
