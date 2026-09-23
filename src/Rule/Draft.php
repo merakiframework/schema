@@ -3,8 +3,8 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Rule;
 
-use InvalidArgumentException;
-use LogicException;
+use Meraki\Schema\Exception\InvalidRule;
+use Meraki\Schema\Exception\IncompleteRule;
 use Meraki\Schema\Field;
 use Meraki\Schema\FieldName;
 use Meraki\Schema\FieldScope;
@@ -130,8 +130,8 @@ final class Draft
 	 * difference between "the field you configured" and "the field on the schema" can only be read
 	 * where both are in hand, and that is {@see \Meraki\Schema\Facade::addRule()}.
 	 *
-	 * @throws InvalidArgumentException if a field named by an outcome is not on the schema
-	 * @throws LogicException if no outcome was ever attached
+	 * @throws InvalidRule if a field named by an outcome is not on the schema
+	 * @throws IncompleteRule if no outcome was ever attached
 	 */
 	public function buildAgainst(Field\Set $authored): Rule
 	{
@@ -149,7 +149,7 @@ final class Draft
 	/**
 	 * The finished rule, when every outcome is already an {@see Outcome}.
 	 *
-	 * @throws LogicException if a desired state is still waiting to be compared against the schema
+	 * @throws IncompleteRule if a desired state is still waiting to be compared against the schema
 	 */
 	public function build(): Rule
 	{
@@ -157,12 +157,7 @@ final class Draft
 
 		foreach ([...$this->outcomes, ...$this->else] as $outcome) {
 			if ($outcome instanceof Field) {
-				throw new LogicException(sprintf(
-					'The outcome for "%s" is a field to be compared against the one on the schema, '
-					. 'which this draft cannot see. Add the rule with $schema->addRule() instead of '
-					. 'building it here.',
-					(string) $outcome->name,
-				));
+				throw IncompleteRule::needsTheSchemaToResolveAnOutcome((string) $outcome->name);
 			}
 		}
 
@@ -186,11 +181,7 @@ final class Draft
 			$original = $authored->findByName($item->name);
 
 			if ($original === null) {
-				throw new InvalidArgumentException(sprintf(
-					'The rule says what happens to "%s", which is not a field on this schema. Add '
-					. 'the field before the rule that acts on it.',
-					(string) $item->name,
-				));
+				throw InvalidRule::targetsAFieldNotOnTheSchema((string) $item->name);
 			}
 
 			$outcomes[] = Outcome\Reconfigure::from($original, $item);
@@ -200,15 +191,12 @@ final class Draft
 	}
 
 	/**
-	 * @throws LogicException if the rule would evaluate its condition and do nothing with the answer
+	 * @throws IncompleteRule if the rule would evaluate its condition and do nothing with the answer
 	 */
 	private function assertItSaysWhatHappens(): void
 	{
 		if (!$this->hasOutcomes()) {
-			throw new LogicException(
-				'A rule must say what happens: attach an outcome with then() or else() before '
-				. 'adding it to a schema.',
-			);
+			throw IncompleteRule::saysNothingHappens();
 		}
 	}
 

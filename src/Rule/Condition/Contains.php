@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Rule\Condition;
 
-use InvalidArgumentException;
+use Meraki\Schema\Exception\InvalidRule;
 use Meraki\Schema\Facade;
 use Meraki\Schema\Scope;
 
@@ -33,7 +33,7 @@ use Meraki\Schema\Scope;
 final class Contains extends Textual
 {
 	/**
-	 * @throws InvalidArgumentException if the needle is empty
+	 * @throws InvalidRule if the needle is empty
 	 */
 	public function __construct(Scope|string $target, public readonly string $needle)
 	{
@@ -42,10 +42,7 @@ final class Contains extends Textual
 		// Every string contains the empty string, so this would hold for every request that
 		// submitted anything — a rule that looks conditional and is not.
 		if ($needle === '') {
-			throw new InvalidArgumentException(
-				'contains() was given an empty string, which every value contains. '
-				. 'Use isNotEmpty() if that is what you meant.',
-			);
+			throw InvalidRule::containsWasGivenAnEmptyString();
 		}
 	}
 

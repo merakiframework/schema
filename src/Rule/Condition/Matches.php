@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Rule\Condition;
 
-use InvalidArgumentException;
+use Meraki\Schema\Exception\InvalidRule;
 use Meraki\Schema\Facade;
 use Meraki\Schema\Scope;
 
@@ -33,7 +33,7 @@ use Meraki\Schema\Scope;
 final class Matches extends Textual
 {
 	/**
-	 * @throws InvalidArgumentException if the pattern is not a valid PCRE
+	 * @throws InvalidRule if the pattern is not a valid PCRE
 	 */
 	public function __construct(Scope|string $target, public readonly string $pattern)
 	{
@@ -42,11 +42,7 @@ final class Matches extends Textual
 		// @ rather than a warning handler: a malformed pattern is reported by the return value,
 		// and the warning would otherwise escape as output in the middle of building a schema.
 		if (@preg_match($pattern, '') === false) {
-			throw new InvalidArgumentException(sprintf(
-				'matches() was given %s, which is not a valid pattern. It takes a PCRE with its '
-				. 'delimiters, the same as Text::matching() — "/^INV-/" rather than "^INV-".',
-				var_export($pattern, true),
-			));
+			throw InvalidRule::matchesWasGivenAnInvalidPattern($pattern);
 		}
 	}
 

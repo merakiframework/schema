@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Rule\Condition;
 
-use InvalidArgumentException;
+use Meraki\Schema\Exception\InvalidRule;
 use Meraki\Schema\Comparison\Values;
 use Meraki\Schema\Facade;
 use Meraki\Schema\Scope;
@@ -37,15 +37,12 @@ final class IsIn extends Comparison
 {
 	/**
 	 * @param list<mixed> $candidates
-	 * @throws InvalidArgumentException if the list is empty
+	 * @throws InvalidRule if the list is empty
 	 */
 	public function __construct(Scope|string $target, array $candidates)
 	{
 		if ($candidates === []) {
-			throw new InvalidArgumentException(
-				'isIn() was given no values to match against, so the rule could never fire. '
-				. 'Give it at least one, or remove the rule.',
-			);
+			throw InvalidRule::isInWasGivenNothingToMatch();
 		}
 
 		parent::__construct($target, array_values($candidates));

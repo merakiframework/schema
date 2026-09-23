@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Rule\Outcome;
 
-use InvalidArgumentException;
+use Meraki\Schema\Exception\InvalidRule;
 use Meraki\Schema\Field;
 use Meraki\Schema\FieldScope;
 use Meraki\Schema\Rule\Outcome;
@@ -54,26 +54,20 @@ final readonly class Reconfigure implements Outcome
 	/**
 	 * Reads what an author did to a field by comparing the result against the original.
 	 *
-	 * @throws InvalidArgumentException if the two are not the same field, or if nothing changed
+	 * @throws InvalidRule if the two are not the same field, or if nothing changed
 	 */
 	public static function from(Field $authored, Field $modified): self
 	{
 		if ((string) $authored->name !== (string) $modified->name) {
-			throw new InvalidArgumentException(sprintf(
-				'A rule outcome must describe one field, but "%s" was compared against "%s".',
-				(string) $authored->name,
-				(string) $modified->name,
-			));
+			throw InvalidRule::outcomeDescribesTwoFields((string) $authored->name, (string) $modified->name);
 		}
 
 		if ($authored::class !== $modified::class) {
-			throw new InvalidArgumentException(sprintf(
-				'"%s" is a %s on the schema and a %s in the rule. A rule changes a field\'s '
-				. 'configuration; it cannot change what kind of field it is.',
+			throw InvalidRule::outcomeChangesTheKindOfField(
 				(string) $authored->name,
 				$authored::class,
 				$modified::class,
-			));
+			);
 		}
 
 		// Identity, not equality. A wither always clones, so the very same instance means no
@@ -85,11 +79,7 @@ final readonly class Reconfigure implements Outcome
 		// saying so explicitly is how the else-branch stays readable next to its then-branch. It
 		// also stops being a no-op the moment another rule touches the same field.
 		if ($authored === $modified) {
-			throw new InvalidArgumentException(sprintf(
-				'The rule says what happens to "%s" but was handed the field unchanged. Configure '
-				. 'it — then($field->makeRequired()) — or drop it from the rule.',
-				(string) $authored->name,
-			));
+			throw InvalidRule::outcomeWasHandedAnUnchangedField((string) $authored->name);
 		}
 
 		return new self(FieldScope::of($authored->name), self::difference($authored, $modified));

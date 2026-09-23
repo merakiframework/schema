@@ -3,11 +3,11 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Rule\Outcome;
 
+use Meraki\Schema\Exception\InvalidRule;
 use Meraki\Schema\Field;
 use Meraki\Schema\Rule\Outcome;
 use Meraki\Schema\FieldScope;
 use Meraki\Schema\Scope;
-use InvalidArgumentException;
 
 /**
  * Discards whatever was submitted for a field, so it validates as empty.
@@ -25,11 +25,7 @@ final class Ignore implements Outcome
 		$scope = Scope::parse($field);
 
 		if (!$scope instanceof FieldScope) {
-			throw new InvalidArgumentException(sprintf(
-				'%s applies to a field, but "%s" addresses something else. Drop the trailing segment.',
-				self::class,
-				$field,
-			));
+			throw InvalidRule::outcomeDoesNotAddressAField(self::class, $field);
 		}
 
 		$this->scope = $scope;

@@ -5,8 +5,10 @@ namespace Meraki\Schema;
 
 use Brick\DateTime\Clock;
 use Brick\DateTime\Clock\SystemClock;
-use InvalidArgumentException;
-use LogicException;
+use Meraki\Schema\Exception\InvalidRule;
+use Meraki\Schema\Exception\InvalidScope;
+use Meraki\Schema\Exception\NothingToValidate;
+use Meraki\Schema\Exception\UnknownField;
 use Meraki\Schema\Field;
 use Meraki\Schema\Rule;
 use Meraki\Schema\PrefillPolicy;
@@ -257,16 +259,12 @@ final class Facade
 	 * the code rather than a fact about the request, which is why it raises rather than failing:
 	 * there is no input that could make it right, so there is nothing to report to a user.
 	 *
-	 * @throws LogicException naming the schema
+	 * @throws NothingToValidate naming the schema
 	 */
 	private function assertThereIsSomethingToValidate(): void
 	{
 		if ($this->fields->isEmpty()) {
-			throw new LogicException(sprintf(
-				'The schema "%s" has no fields, so there is nothing to validate. Add at least one '
-				. 'with add() before validating.',
-				(string) $this->name,
-			));
+			throw NothingToValidate::theSchemaHasNoFields((string) $this->name);
 		}
 	}
 
@@ -360,7 +358,7 @@ final class Facade
 	 * Converting is the port's job. `json_decode($body)` already gives objects — it is the
 	 * `true` second argument that does not.
 	 *
-	 * @throws InvalidArgumentException if handed an array
+	 * @throws \TypeError if handed an array
 	 */
 	private function extractData(object|null $data): array
 	{
@@ -438,7 +436,7 @@ final class Facade
 	/**
 	 * @param list<Rule\Draft|Rule\Condition> $conditions
 	 * @return list<Rule\Condition>
-	 * @throws InvalidArgumentException if one of them is a finished rule rather than a condition
+	 * @throws InvalidRule if one of them is a finished rule rather than a condition
 	 */
 	private static function conditionsIn(array $conditions): array
 	{
@@ -452,10 +450,7 @@ final class Facade
 				// set should fire, and under which of the combined conditions? Refusing it
 				// keeps "one then/otherwise per rule" true by construction.
 				if ($condition->hasOutcomes()) {
-					throw new InvalidArgumentException(
-						'allOf()/anyOf() combine conditions, not finished rules. Attach the '
-						. 'outcomes to the combined rule instead of to the parts.',
-					);
+					throw InvalidRule::combinesFinishedRules();
 				}
 
 				return $condition->condition;
@@ -503,7 +498,7 @@ final class Facade
 	 *
 	 * Written where the rule is, like the scope check above and for the same reason.
 	 *
-	 * @throws InvalidArgumentException naming the field and the value it cannot hold
+	 * @throws InvalidRule naming the field and the value it cannot hold
 	 */
 	private function assertExpectationsAreReadable(Rule $rule): void
 	{
@@ -515,7 +510,7 @@ final class Facade
 			$why = $comparison->whyItCouldNeverHold($this);
 
 			if ($why !== null) {
-				throw new InvalidArgumentException($why);
+				throw InvalidRule::because($why);
 			}
 		}
 	}
@@ -565,7 +560,7 @@ final class Facade
 	 * that did not exist before — a rule can only be added once the fields it names are —
 	 * which is the trade the check is worth making.
 	 *
-	 * @throws InvalidArgumentException naming the rule's bad scope
+	 * @throws InvalidRule naming the rule's bad scope
 	 */
 	private function assertScopesAreAddressable(Rule $rule): void
 	{
@@ -580,12 +575,8 @@ final class Facade
 		foreach ($scopes as $scope) {
 			try {
 				$resolver->resolve($scope);
-			} catch (InvalidArgumentException $e) {
-				throw new InvalidArgumentException(sprintf(
-					'The rule targets "%s", which this schema cannot address: %s',
-					(string) $scope,
-					$e->getMessage(),
-				), previous: $e);
+			} catch (InvalidScope | UnknownField $e) {
+				throw InvalidRule::addressesSomethingTheSchemaCannot((string) $scope, $e);
 			}
 		}
 	}
