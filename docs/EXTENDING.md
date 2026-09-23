@@ -112,7 +112,7 @@ the guard for:
 
 ```php
 (new Isbn(new FieldName('isbn')))->defaultsTo('0306406152')->thirteenDigitsOnly();
-// InvalidArgumentException: The default for "isbn" does not satisfy its own "isbn13" constraint.
+// InvalidDefault: The default for "isbn" does not satisfy its own "isbn13" constraint.
 ```
 
 Configuration arrives in any order, so a default set *before* the constraint that rejects it has

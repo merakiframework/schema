@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Field;
 
+use Meraki\Schema\Exception\InvalidConfiguration;
 use Meraki\Schema\Field\MalformedValue;
 use Meraki\Schema\ValueScope;
 use Meraki\Schema\Rule\Matcher;
@@ -52,30 +53,23 @@ final readonly class Enum extends AtomicField
 
 	/**
 	 * @param array<mixed> $cases
-	 * @throws \InvalidArgumentException if the list is empty, or holds anything but non-empty strings
+	 * @throws InvalidConfiguration if the list is empty, or holds anything but non-empty strings
 	 */
 	private function validateCases(array $cases): void
 	{
 		if ($cases === []) {
-			throw new \InvalidArgumentException('An enum with no cases accepts nothing, so there is nothing it could be for.');
+			throw InvalidConfiguration::enumHasNoCases();
 		}
 
 		foreach ($cases as $case) {
 			if (!is_string($case)) {
-				throw new \InvalidArgumentException(sprintf(
-					'An enum case must be a string, and %s is not. A form submits "2" rather than 2, '
-					. 'so a non-string case could never match one. Use Boolean for yes-or-no, Number '
-					. 'with a step for a regular sequence, or strings for anything else.',
-					get_debug_type($case),
-				));
+				throw InvalidConfiguration::enumCaseIsNotAString(get_debug_type($case));
 			}
 
 			// A select's placeholder option submits the empty string, so a case spelled that way
 			// would be chosen by everybody who chose nothing.
 			if ($case === '') {
-				throw new \InvalidArgumentException(
-					'An empty string cannot be a case: it is what a form submits when nothing was chosen.',
-				);
+				throw InvalidConfiguration::enumCaseIsAnEmptyString();
 			}
 		}
 	}

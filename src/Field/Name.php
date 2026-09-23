@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Field;
 
+use Meraki\Schema\Exception\InvalidConfiguration;
 use Meraki\Schema\Field\MalformedValue;
 use Meraki\Schema\ValueScope;
 use Meraki\Schema\Rule\Matcher;
@@ -56,11 +57,11 @@ final readonly class Name extends AtomicField
 	public function minLengthOf(int $minChars): self
 	{
 		if ($minChars < 1) {
-			throw new \InvalidArgumentException('A minimum length must be at least 1.');
+			throw InvalidConfiguration::minimumLengthWouldRejectNothing();
 		}
 
 		if ($this->maxLength !== null && $minChars > $this->maxLength) {
-			throw new \InvalidArgumentException('A minimum length cannot exceed the maximum.');
+			throw InvalidConfiguration::minimumExceedsMaximum('length');
 		}
 
 		return $this->with(['minLength' => $minChars]);
@@ -73,11 +74,11 @@ final readonly class Name extends AtomicField
 		}
 
 		if ($maxChars < 1) {
-			throw new \InvalidArgumentException('A maximum length must be at least 1.');
+			throw InvalidConfiguration::maximumLengthWouldAcceptNothing();
 		}
 
 		if ($maxChars < $this->minLength) {
-			throw new \InvalidArgumentException('A maximum length cannot be less than the minimum.');
+			throw InvalidConfiguration::maximumIsBelowMinimum('length');
 		}
 
 		return $this->with(['maxLength' => $maxChars]);

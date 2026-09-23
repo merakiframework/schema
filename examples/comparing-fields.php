@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../vendor/autoload.php';
 
+use Meraki\Schema\Exception\InvalidRule;
 use Meraki\Schema\Facade;
 use Meraki\Schema\ValueScope;
 
@@ -82,7 +83,7 @@ try {
 	$schema->addRule(
 		$schema->when(ValueScope::of('billing', 'ctry'))->equals('AU')->then($schema->fields->getByName('same_address')->makeRequired()),
 	);
-} catch (InvalidArgumentException $e) {
+} catch (InvalidRule $e) {
 	echo '  ' . $e->getMessage() . PHP_EOL;
 }
 
@@ -92,6 +93,6 @@ try {
 	$schema->addRule(
 		$schema->when(ValueScope::of('same_address', 'country'))->equals('AU')->then($schema->fields->getByName('billing')->makeRequired()),
 	);
-} catch (InvalidArgumentException $e) {
+} catch (InvalidRule $e) {
 	echo '  ' . $e->getMessage() . PHP_EOL;
 }

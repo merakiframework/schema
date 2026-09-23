@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../vendor/autoload.php';
 
+use Meraki\Schema\Exception\InvalidRule;
 use Meraki\Schema\Facade;
 use Meraki\Schema\Rule\Draft;
 
@@ -114,7 +115,7 @@ foreach ($mistakes as $label => $mistake) {
 	try {
 		$build($mistake);
 		printf("  %-38s accepted — which it should not have been%s", $label, PHP_EOL);
-	} catch (InvalidArgumentException $e) {
+	} catch (InvalidRule $e) {
 		printf("  %-38s %s%s", $label, $e->getMessage(), PHP_EOL);
 	}
 }

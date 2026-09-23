@@ -98,6 +98,13 @@ final class InvalidConfiguration extends InvalidArgumentException implements Exc
 		));
 	}
 
+	public static function minimumLengthWouldRejectNothing(): self
+	{
+		return new self(
+			'A minimum length of zero cannot reject anything; use makeOptional() to allow the field to be left out.',
+		);
+	}
+
 	// ── password composition ────────────────────────────────────────────────
 
 	public static function characterCountIsNegative(string $property): self
@@ -266,6 +273,34 @@ final class InvalidConfiguration extends InvalidArgumentException implements Exc
 			$field,
 			$got,
 		));
+	}
+
+	// ── enums ───────────────────────────────────────────────────────────────
+
+	public static function enumHasNoCases(): self
+	{
+		return new self('An enum with no cases accepts nothing, so there is nothing it could be for.');
+	}
+
+	public static function enumCaseIsNotAString(string $given): self
+	{
+		return new self(sprintf(
+			'An enum case must be a string, and %s is not. A form submits "2" rather than 2, '
+			. 'so a non-string case could never match one. Use Boolean for yes-or-no, Number '
+			. 'with a step for a regular sequence, or strings for anything else.',
+			$given,
+		));
+	}
+
+	/**
+	 * A select's placeholder option submits the empty string, so a case spelled that way would be
+	 * chosen by everybody who chose nothing.
+	 */
+	public static function enumCaseIsAnEmptyString(): self
+	{
+		return new self(
+			'An empty string cannot be a case: it is what a form submits when nothing was chosen.',
+		);
 	}
 
 	// ── the rest ────────────────────────────────────────────────────────────

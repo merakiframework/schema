@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace Meraki\Schema;
 
+use Meraki\Schema\Exception\InvalidDefault;
 use Meraki\Schema\FieldName;
 use Meraki\Schema\Rule;
 use Meraki\Schema\AggregatedValidationResult;
@@ -60,7 +61,7 @@ interface Field
 	 * rather than surfacing later as a failure on somebody's request.
 	 *
 	 * @param AcceptedType|null $value
-	 * @throws \InvalidArgumentException if the value could not satisfy this field
+	 * @throws InvalidDefault if the value could not satisfy this field
 	 */
 	public function defaultsTo(mixed $value): static;
 

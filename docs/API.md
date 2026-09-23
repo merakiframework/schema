@@ -24,6 +24,7 @@ tests are right.
 - [Reading a result](#reading-a-result)
 - [Constraints](#constraints)
 - [Scopes](#scopes)
+- [What raises, and what does not](#what-raises-and-what-does-not)
 - [What was removed, and why](#what-was-removed-and-why)
 
 ---
@@ -143,7 +144,7 @@ $password = $schema->createPasswordField('secret');
 // minimum length is already 8 — NIST SP 800-63B's floor for a memorized secret
 
 $password->minLengthOf(4);
-// InvalidArgumentException: A minimum length of 4 is below the baseline of 8 characters...
+// InvalidConfiguration: A minimum length of 4 is below the baseline of 8 characters...
 ```
 
 **Configuration narrows; it never widens.** A field with no configuration is already correct, so
@@ -634,6 +635,60 @@ A property scope addresses a **public property**, and every public property is a
 exceptions list. That is a real versioning commitment: renaming `Text::$minLength` breaks any
 stored rule addressing `#/fields/x/minLength`. It is also why the three surfaces are named
 consistently — the property *is* the API.
+
+## What raises, and what does not
+
+A **validation failure is not an exception.** It is a fact about a request — someone typed
+something — and it arrives on the result, where it can be shown to them. Nothing in this library
+throws because a form was filled in wrongly.
+
+What throws is a mistake in *your code*: a field configured so that it can never accept anything,
+a rule naming a field that is not on the schema, a default the field that declares it would
+reject. All of those are found where they are written, at boot, rather than on the request where
+they would have done damage — because most of them have no symptom on a request. A rule that
+cannot fire raises nothing and looks exactly like a rule whose condition never held.
+
+Every one of them implements `Meraki\Schema\Exception`, so one `catch` covers the library:
+
+```php
+try {
+    $schema = $build();
+} catch (\Meraki\Schema\Exception $e) {
+    // a mistake in how the schema was written
+}
+```
+
+Each also extends the SPL class it would otherwise have been, so `catch (InvalidArgumentException)`
+still works and is what a framework's error handler will already be doing.
+
+| Class | Extends | Raised when |
+| --- | --- | --- |
+| `Exception\InvalidFieldName` | `InvalidArgumentException` | a name cannot be used — empty, or not a valid identifier |
+| `Exception\DuplicateFieldName` | `InvalidArgumentException` | two fields on one schema share a name |
+| `Exception\UnknownField` | `InvalidArgumentException` | something names a field the schema does not hold |
+| `Exception\InvalidScope` | `InvalidArgumentException` | a path does not address anything: a bad prefix, a part on a field that has none |
+| `Exception\InvalidConfiguration` | `InvalidArgumentException` | a wither is handed something the field could not hold — a minimum past its maximum, a bound in a currency the field does not take |
+| `Exception\InvalidDefault` | `InvalidArgumentException` | an authored default fails the very field that declares it |
+| `Exception\InvalidConstraint` | `InvalidArgumentException` | a constraint is nameless or repeats a name, so its result could not be looked up |
+| `Exception\InvalidRule` | `InvalidArgumentException` | a rule could not do what it says — see [Writing a rule](#writing-a-rule) |
+| `Exception\IncomparableValues` | `InvalidArgumentException` | two values are put in an order that does not exist: a duration against a date, money across currencies |
+| `Field\MalformedValue` | `InvalidArgumentException` | a value object is handed input it cannot represent. Caught on the request path and reported as an unreadable value; only an authored default lets it out |
+| `Exception\IncompleteRule` | `LogicException` | a draft is asked for a rule before it says what happens |
+| `Exception\NothingToValidate` | `LogicException` | a schema with no fields is validated |
+| `Exception\IncompleteVocabulary` | `LogicException` | a field type cannot be built from a name alone, so the message vocabulary cannot list its keys |
+| `Exception\InputTypeNotRegistered` | `RuntimeException` | a port hands over a type nothing knows how to read |
+| `Exception\InputTypeConversionFailed` | `RuntimeException` | it knows how and the conversion did not work |
+| `Message\Mf2\NoSuchPack` | `InvalidArgumentException` | a language pack is not where the provider was told to look |
+| `Message\Mf2\BadResource` | `InvalidArgumentException` | an `.mfr` file cannot be read as one — names the file and the line |
+| `Message\Mf2\BadMessage` | `InvalidArgumentException` | a message in a file that parsed will not render — see [MESSAGES.md](MESSAGES.md) |
+
+The `Invalid*`/`Incomplete*` split is the ordinary one. An `Invalid*` is a bad *value*: something
+was handed over that cannot be used. An `Incomplete*` is a bad *sequence*: every value involved is
+fine, and the calls were made in an order that cannot work.
+
+**Messages are for whoever wrote the code, and are not translated.** They name what was given, what
+was expected, and usually the call to make instead. Translation belongs to the request path, where
+the reader is someone filling in a form — see [MESSAGES.md](MESSAGES.md).
 
 ## What was removed, and why
 

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../vendor/autoload.php';
 
+use Meraki\Schema\Exception\IncomparableValues;
 use Meraki\Schema\Facade;
 
 // Every field parses to a value object this library defines, and that object decides what counts
@@ -77,7 +78,7 @@ echo PHP_EOL . 'Ordering across kinds is not a question with an answer:' . PHP_E
 
 try {
 	$dear->compareTo($schema->fields->getByName('length')->resolvedValueFor('PT1H'));
-} catch (InvalidArgumentException $e) {
+} catch (IncomparableValues $e) {
 	echo '  ' . $e->getMessage() . PHP_EOL;
 }
 

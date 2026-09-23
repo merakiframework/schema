@@ -147,6 +147,7 @@ namespace Acme {
 namespace Main {
 
 	use Acme\Isbn;
+	use Meraki\Schema\Exception\InvalidDefault;
 	use Meraki\Schema\Facade;
 	use Meraki\Schema\FieldName;
 
@@ -174,7 +175,7 @@ namespace Main {
 	// that work for a field this library has never heard of.
 	try {
 		(new Isbn(new FieldName('isbn')))->defaultsTo('0306406152')->thirteenDigitsOnly();
-	} catch (\InvalidArgumentException $e) {
+	} catch (InvalidDefault $e) {
 		echo '  ' . $e->getMessage() . PHP_EOL;
 	}
 
