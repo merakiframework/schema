@@ -9,7 +9,7 @@ use Meraki\Schema\Rule\ConditionGroup;
 
 final class AnyOf implements ConditionGroup
 {
-	/** @var Condition[] */
+	/** @var list<Condition> */
 	private array $conditions;
 
 	public function __construct(Condition ...$conditions)
@@ -34,7 +34,7 @@ final class AnyOf implements ConditionGroup
 	}
 
 	/**
-	 * @return Condition[]
+	 * @return list<Condition>
 	 */
 	public function conditions(): array
 	{

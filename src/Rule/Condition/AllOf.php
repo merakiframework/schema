@@ -9,7 +9,7 @@ use Meraki\Schema\Rule\ConditionGroup;
 
 final class AllOf implements ConditionGroup
 {
-	/** @var Condition[] */
+	/** @var list<Condition> */
 	private array $conditions;
 
 	public function __construct(Condition ...$conditions)
@@ -17,7 +17,8 @@ final class AllOf implements ConditionGroup
 		$this->conditions = $conditions;
 	}
 
-	public function matches(array $data, Facade $schema): bool {
+	public function matches(array $data, Facade $schema): bool
+	{
 		// An empty group should not fire a rule (matches AnyOf's behaviour),
 		// rather than being vacuously true and always matching.
 		if ($this->conditions === []) {
@@ -39,7 +40,7 @@ final class AllOf implements ConditionGroup
 	}
 
 	/**
-	 * @return Condition[]
+	 * @return list<Condition>
 	 */
 	public function conditions(): array
 	{

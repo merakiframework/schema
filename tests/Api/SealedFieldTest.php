@@ -16,7 +16,6 @@ use PHPUnit\Framework\TestCase;
 use ReflectionClass;
 use ReflectionMethod;
 use ReflectionNamedType;
-use Throwable;
 
 /**
  * The invariants that make a definition safe to share across requests.

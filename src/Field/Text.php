@@ -17,23 +17,23 @@ use Meraki\Schema\FieldName;
 final readonly class Text extends AtomicField
 {
 	/**
-	 * The minimum number of characters allowed in the string. Defaults to 0.
-	 * A value of 0 means that an empty string is allowed.
-	 * A value of 1 means that an empty string is not allowed.
-	 * @var non-negative-int $minLength
+	 * The fewest characters accepted. Zero allows the empty string; one does not.
+	 *
+	 * @var non-negative-int
 	 */
 	public int $minLength;
 
 	/**
-	 * The maximum number of characters allowed in the string. Defaults to `null`, which means no limit.
-	 * @var non-negative-int|null $maxLength `null` means no limit.
+	 * The most accepted; `null` means no limit.
+	 *
+	 * @var non-negative-int|null
 	 */
 	public ?int $maxLength;
 
 	/**
-	 * A regular expression pattern that the string must match. Defaults to `null`, which means no pattern is required.
-	 * This pattern must be a valid PCRE2 regular expression.
-	 * @var string|null $pattern `null` means no pattern was set.
+	 * A PCRE the whole string must match, delimiters and all; `null` means none is required.
+	 *
+	 * @var string|null
 	 */
 	public ?string $pattern;
 
@@ -51,11 +51,10 @@ final readonly class Text extends AtomicField
 	}
 
 	/**
-	 * Sets the minimum length of the string. A value of 0 means that an empty string is allowed.
-	 * A value of 1 means that an empty string is not allowed.
-	 * @param non-negative-int $characters The minimum number of characters allowed in the string.
-	 * @throws InvalidConfiguration If the minimum length is negative or exceeds the maximum length.
-	 * @throws InvalidConfiguration If the maximum length is set and the minimum length exceeds it.
+	 * The fewest characters this field accepts. Zero allows the empty string; one does not.
+	 *
+	 * @param non-negative-int $characters
+	 * @throws InvalidConfiguration if negative, or above the maximum
 	 */
 	public function minLengthOf(int $characters): static
 	{
@@ -71,10 +70,10 @@ final readonly class Text extends AtomicField
 	}
 
 	/**
-	 * Sets the maximum length of the string. A value of `null` means no limit.
-	 * @param non-negative-int|null $characters The maximum number of characters allowed in the string, or `null` for no limit.
-	 * @throws InvalidConfiguration If the maximum length is negative or less than the minimum length.
-	 * @throws InvalidConfiguration If the minimum length is set and the maximum length is less than it.
+	 * The most this field accepts.
+	 *
+	 * @param non-negative-int|null $characters `null` removes the limit
+	 * @throws InvalidConfiguration if negative, or below the minimum
 	 */
 	public function maxLengthOf(?int $characters): static
 	{
@@ -104,9 +103,10 @@ final readonly class Text extends AtomicField
 	}
 
 	/**
-	 * Sets a regular expression pattern that the string must match. A value of `null` means no pattern is required.
-	 * @param string|null $regex The regular expression pattern that the string must match, or `null` for no pattern.
-	 * @throws InvalidConfiguration If the provided regular expression is invalid.
+	 * A PCRE the whole string must match, given with its delimiters as `Text::matching()` takes it.
+	 *
+	 * @param string|null $regex `null` removes the pattern
+	 * @throws InvalidConfiguration if the pattern is not a valid PCRE
 	 */
 	public function mustMatch(?string $regex): static
 	{

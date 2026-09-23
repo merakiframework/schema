@@ -5,7 +5,6 @@ namespace Meraki\Schema\Field\Constraint;
 
 use Meraki\Schema\Field\Constraint;
 use Meraki\Schema\Field\ConstraintValidationResult;
-use Closure;
 use Countable;
 use Meraki\Schema\Exception\InvalidConstraint;
 use IteratorAggregate;

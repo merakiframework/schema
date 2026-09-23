@@ -12,7 +12,6 @@ use Meraki\Schema\Field\HasParts;
 use Meraki\Schema\Field\ParsedValue;
 use Brick\Math\BigDecimal;
 use Brick\Math\Exception\MathException;
-use TypeError;
 
 /**
  * An amount of one currency, held together.

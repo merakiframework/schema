@@ -10,7 +10,6 @@ use Meraki\Schema\AtomicField;
 use Meraki\Schema\FieldName;
 use Meraki\Schema\Field\Duration\Value;
 use Brick\DateTime;
-use Brick\DateTime\DateTimeException;
 
 /**
  * A length of time, written in ISO 8601 duration form — `PT30M`, `P1DT2H`.

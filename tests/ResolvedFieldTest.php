@@ -7,7 +7,6 @@ use Meraki\Schema\Field\ConstraintValidationResult;
 use Meraki\Schema\Rule\AppliedOutcome;
 use Meraki\Schema\Rule\Outcome;
 use InvalidArgumentException;
-use LogicException;
 use PHPUnit\Framework\TestCase;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\Attributes\Group;

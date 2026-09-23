@@ -13,7 +13,6 @@ use Meraki\Schema\AtomicField;
 use Meraki\Schema\FieldName;
 use Brick\Math\BigInteger;
 use Brick\DateTime\TimeZone;
-use Brick\DateTime\DateTimeException;
 use Meraki\Schema\Field\DateTime\Value;
 use Brick\DateTime\LocalDateTime;
 use Brick\DateTime\Duration;

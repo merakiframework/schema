@@ -5,7 +5,6 @@ namespace Meraki\Schema\Field;
 
 use Meraki\Schema\Field\Collection\Value as CollectionValue;
 use Meraki\Schema\Field\Number\Value as NumberValue;
-use Brick\Math\BigDecimal;
 use Meraki\Schema\Field\Collection;
 use Meraki\Schema\Field\Collection\Item;
 use Meraki\Schema\Field\Collection\Result;

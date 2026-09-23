@@ -6,6 +6,9 @@ namespace Meraki\Schema\Rule;
 use Meraki\Schema\Rule;
 use Meraki\Schema\Facade;
 
+/**
+ * @implements \IteratorAggregate<int, Rule>
+ */
 class Set implements \IteratorAggregate, \Countable
 {
 	/** @var list<Rule> */
@@ -90,6 +93,9 @@ class Set implements \IteratorAggregate, \Countable
 		return $this->indexOf($rule) !== null;
 	}
 
+	/**
+	 * @return \ArrayIterator<int, Rule>
+	 */
 	public function getIterator(): \ArrayIterator
 	{
 		return new \ArrayIterator($this->rules);

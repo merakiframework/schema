@@ -8,7 +8,6 @@ use Meraki\Schema\ValueScope;
 use Meraki\Schema\Rule\Matcher;
 use Meraki\Schema\AtomicField;
 use Meraki\Schema\FieldName;
-use Brick\DateTime\DateTimeException;
 use Brick\DateTime\Period;
 use Meraki\Schema\Field\Date\Value;
 use Brick\DateTime\LocalDate;

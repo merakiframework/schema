@@ -8,7 +8,7 @@ use IteratorAggregate;
 use Countable;
 
 /**
- * @template T of ValidationResult
+ * @template T of ValidationResult = ValidationResult
  * @implements IteratorAggregate<int, T>
  */
 abstract class AggregatedValidationResult implements IteratorAggregate, Countable, ValidationResult
@@ -25,7 +25,7 @@ abstract class AggregatedValidationResult implements IteratorAggregate, Countabl
 	 * rather than the instance: `clone $this` then writing to the clone is this class writing to
 	 * its own kind.
 	 *
-	 * @var list<T> $results
+	 * @var list<T>
 	 */
 	public private(set) array $results;
 
@@ -225,7 +225,7 @@ abstract class AggregatedValidationResult implements IteratorAggregate, Countabl
 	}
 
 	/**
-	 * @return \ArrayIterator<T>
+	 * @return \ArrayIterator<int, T>
 	 */
 	public function getIterator(): \ArrayIterator
 	{

@@ -37,6 +37,8 @@ use Traversable;
  * A {@see Translator} returns sentences. This turns them into the right shape. Putting it the
  * other way round would make every provider re-implement the grouping, and the first one to get it
  * wrong would be indistinguishable from one that simply had less to say.
+ *
+ * @implements IteratorAggregate<int, string>
  */
 abstract class Set implements IteratorAggregate, Countable
 {

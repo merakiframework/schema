@@ -24,6 +24,7 @@ class Rule
 	/**
 	 * Decide which branch fires, and report the outcomes (then or else) for it.
 	 *
+	 * @param array<string, mixed> $data what was submitted, under each field's name
 	 * @return list<AppliedOutcome>
 	 */
 	public function evaluate(Facade $schema, array $data): array

@@ -28,7 +28,7 @@ use Meraki\Schema\FieldName;
  */
 final readonly class Name extends AtomicField
 {
-	/** @var non-negative-int $minLength */
+	/** @var non-negative-int */
 	public int $minLength;
 
 	/**
@@ -41,7 +41,7 @@ final readonly class Name extends AtomicField
 		return new Matcher\Text(ValueScope::of($this->name));
 	}
 
-	/** @var non-negative-int|null $maxLength */
+	/** @var non-negative-int|null */
 	public ?int $maxLength;
 
 	public function __construct(

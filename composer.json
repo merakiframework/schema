@@ -72,12 +72,14 @@
             "@test:coverage",
             "@test:examples",
             "@test:references",
+            "@test:conventions",
             "@test:changelog"
         ],
         "test:examples": "php tools/check-examples.php",
         "changelog": "php tools/changelog.php",
         "test:changelog": "php tools/changelog.php --check",
-        "test:references": "php tools/check-references.php"
+        "test:references": "php tools/check-references.php",
+        "test:conventions": "php tools/check-conventions.php"
     },
     "extra": {
         "branch-alias": {

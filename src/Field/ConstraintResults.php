@@ -50,7 +50,7 @@ final class ConstraintResults extends AggregatedValidationResult
 	/**
 	 * The name each one reported under, in order.
 	 *
-	 * @return list<string>
+	 * @var list<string>
 	 */
 	public array $names {
 		get => array_map(static fn(ConstraintValidationResult $r): string => $r->name, $this->results);

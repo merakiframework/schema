@@ -3,8 +3,6 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Field\Password;
 
-use Meraki\Schema\Field\ConstraintValidationResult;
-use Meraki\Schema\Field\ShapeValidationResult;
 use Meraki\Schema\Field\Password;
 use Meraki\Schema\ResolvedField;
 use Meraki\Schema\ValidationResult;

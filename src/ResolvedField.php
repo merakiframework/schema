@@ -191,7 +191,7 @@ class ResolvedField extends AggregatedValidationResult implements FieldResult
 	 * The shape is not among them. It never was a constraint, and listing it here is what let
 	 * `type` be mistaken for one.
 	 *
-	 * @return list<string>
+	 * @var list<string>
 	 */
 	public array $constraintNames {
 		get => array_values(array_map(

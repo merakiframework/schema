@@ -31,6 +31,8 @@ use Traversable;
  * Each row is a `stdClass` with one property per template field, and each of *those* is an ordinary
  * parsed value. So the rule holds where it matters — at the leaves — and a row stays a plain record
  * of them rather than growing a class per collection.
+ *
+ * @implements IteratorAggregate<string|int, mixed>
  */
 final readonly class Value implements ParsedValue, IteratorAggregate, Countable
 {

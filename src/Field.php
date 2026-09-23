@@ -24,7 +24,7 @@ use Meraki\Schema\Field\Constraint;
  * implementation may *narrow* a type: `Field::$defaultValue` is `mixed` here, and a text
  * field is free to declare it `?string`.
  *
- * @template AcceptedType of mixed
+ * @template AcceptedType of mixed = mixed
  */
 interface Field
 {

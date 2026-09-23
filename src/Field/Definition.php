@@ -330,6 +330,10 @@ trait Definition
 		return $this->with($changes);
 	}
 
+	/**
+	 * @param array<string, mixed> $changes
+	 * @throws InvalidDefault if the change leaves the authored default invalid
+	 */
 	final protected function with(array $changes): static
 	{
 		$field = clone($this, $changes);

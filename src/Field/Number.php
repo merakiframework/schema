@@ -11,7 +11,6 @@ use Meraki\Schema\AtomicField;
 use Meraki\Schema\FieldName;
 use Meraki\Schema\Field\Number\Value;
 use Brick\Math\BigDecimal;
-use Brick\Math\RoundingMode;
 use Brick\Math\Exception\MathException;
 use TypeError;
 

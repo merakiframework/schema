@@ -25,25 +25,13 @@ final class Facade
 	public readonly FieldName $name;
 
 	/**
-	 * @param Field\Set $fields readable by anyone, writable only by this class. A schema is built
-	 *        once and then read by every request that follows, so "the definition cannot change
-	 *        underneath a request" has to be enforced rather than intended — and it was not: the
-	 *        property was public, the set was mutable, and {@see self::copyForRequest()} shares
-	 *        the very same instance across concurrent requests.
-	 * @param Rule\Set $rules the same, for the same reason.
 	 * @param Clock|null $clock where *now* comes from for every field this schema builds. A
 	 *        source of the instant, never an instant: {@see SystemClock} is stateless and safe to
 	 *        share, whereas reading the time once into a property would start giving one request's
 	 *        answer to the next.
 	 * @param Message\Provider|null $messages where wording comes from, in whatever language a
-	 *        request asks for. Optional, and the schema works exactly as it did without one — every
+	 *        request asks for. Optional, and the schema works exactly as it did without one, every
 	 *        result simply carries an empty {@see Message\Set}.
-	 *
-	 *        Registered here rather than per request because a provider is a *source*, like the
-	 *        clock: it is built once, holds every language it can serve, and is safe to share. The
-	 *        *language* is the part that changes per request, and it arrives at
-	 *        {@see self::validate()} — which is also why one schema can serve a German reader and an
-	 *        English one without being defined twice.
 	 */
 	public function __construct(
 		string $name,
@@ -56,6 +44,10 @@ final class Facade
 		$this->clock = $clock ?? new SystemClock();
 	}
 
+	/**
+	 * Returns the authored default values for every field on this schema, under its name.
+	 * @return array<string, mixed>
+	 */
 	private static function extractDefaultValues(self $schema): array
 	{
 		$data = [];
@@ -67,49 +59,27 @@ final class Facade
 		return $data;
 	}
 
-	/**
-	 * Registers a field. Build it with one of the `create*Field()` methods this schema carries —
-	 * see {@see Field\BuildsFields} — and finish configuring it first, because a field is sealed
-	 * and anything done to it afterwards produces a copy this schema does not hold.
-	 *
-	 *     $schema->add($schema->createTextField('username')->minLengthOf(3));
-	 */
 	public function add(Field ...$fields): self
 	{
-		foreach ($fields as $field) {
-			// No dotted-name guard any more: a structured field owns its whole value rather than
-			// registering sub-fields here, so there are no joined names to distinguish — and
-			// FieldName refuses a dot outright.
-			//
-			// And no back-pointer to this schema. A field is sealed, so it could not hold one, and
-			// the capability that needed it went with it.
-			$this->fields = $this->fields->add($field);
-		}
+		$this->fields = $this->fields->add(...$fields);
 
 		return $this;
 	}
 
-
-
 	/**
-	 * Resolves this schema against one request's data, without checking anything.
+	 * Resolve this schema against request data, without validating anything.
 	 *
-	 * Every field comes back {@see ValidationStatus::Pending}, which is what a form being
-	 * rendered for the first time actually is. Nothing is written to this schema, so the
-	 * same instance can resolve two requests at once without them meeting.
+	 * Every field will come back with {@see ValidationStatus::Pending}.
 	 *
+	 * @throws NothingToValidate If there are no fields on this schema
 	 * @param object|null $prefilledWith values looked up for this one user
 	 */
-	public function resolve(
-		?object $data = null,
-		?object $prefilledWith = null,
-		PrefillPolicy $policy = PrefillPolicy::Checked,
-	): SchemaValidationResult {
+	public function resolve(?object $data = null, ?object $prefilledWith = null, PrefillPolicy $policy = PrefillPolicy::Checked): SchemaValidationResult
+	{
 		return $this->against(
 			$data,
 			$prefilledWith,
-			static fn(Field $f, mixed $v, array $o, ValueSource $s): AggregatedValidationResult
-				=> $f->resolve($v, $o, $s),
+			static fn(Field $f, mixed $v, array $o, ValueSource $s): AggregatedValidationResult => $f->resolve($v, $o, $s),
 		);
 	}
 
@@ -144,6 +114,7 @@ final class Facade
 	 * an outcome: an unsupported tag, or none at all, leaves every result carrying an empty
 	 * {@see Message\Set} and every verdict exactly as it was.
 	 *
+	 * @throws NothingToValidate If there are no fields on this schema
 	 * @param object|null $prefilledWith values looked up for this one user
 	 * @param PrefillPolicy $policy whether a surviving prefill still has to satisfy its field
 	 * @param string|null $locale what language to report failures in, as a BCP 47 tag. Ignored when
@@ -158,20 +129,15 @@ final class Facade
 		return $this->against(
 			$data,
 			$prefilledWith,
-			static fn(Field $f, mixed $v, array $o, ValueSource $s): AggregatedValidationResult
-				=> $f->validate($v, $o, $s, $policy),
+			static fn(Field $f, mixed $v, array $o, ValueSource $s): AggregatedValidationResult => $f->validate($v, $o, $s, $policy),
 			$locale,
 		);
 	}
 
 	/**
-	 * Runs one request against a private copy of this schema.
+	 * Run a request against a private copy of this schema.
 	 *
-	 * Rules change fields by replacing them, so the copy that needs making is the *set*, not
-	 * each field in it: the authored definition is never touched, and two requests cannot
-	 * interfere. A field no rule altered is therefore still the authored instance — identity
-	 * holds for the common case, and differs only where something really did change it.
-	 *
+	 * @throws NothingToValidate If there are no fields on this schema
 	 * @param callable(Field, mixed, list<AppliedOutcome>, ValueSource): AggregatedValidationResult $each
 	 * @param string|null $locale the language to report failures in, or null for none
 	 */
@@ -181,7 +147,9 @@ final class Facade
 		callable $each,
 		?string $locale = null,
 	): SchemaValidationResult {
-		$this->assertThereIsSomethingToValidate();
+		if ($this->fields->isEmpty()) {
+			throw NothingToValidate::theSchemaHasNoFields((string) $this->name);
+		}
 
 		$given = $this->extractData($data);
 		$prefilled = $prefilledWith === null ? [] : $this->extractData($prefilledWith);
@@ -245,27 +213,6 @@ final class Facade
 		}
 
 		return new SchemaValidationResult($this->clock->getTime(), ...$results);
-	}
-
-	/**
-	 * A schema with no fields cannot be validated.
-	 *
-	 * Not an edge case answered quietly, because there is no honest answer to give. An empty
-	 * result reports `allPassed()` as true — vacuously, since nothing failed — and `status` as
-	 * `Pending`, since there is nothing to have judged. Both readings are defensible and they
-	 * contradict each other, so a caller gets whichever one they happened to ask for.
-	 *
-	 * Refusing is better than picking. Validating a schema nobody put a field in is a mistake in
-	 * the code rather than a fact about the request, which is why it raises rather than failing:
-	 * there is no input that could make it right, so there is nothing to report to a user.
-	 *
-	 * @throws NothingToValidate naming the schema
-	 */
-	private function assertThereIsSomethingToValidate(): void
-	{
-		if ($this->fields->isEmpty()) {
-			throw NothingToValidate::theSchemaHasNoFields((string) $this->name);
-		}
 	}
 
 	/**
@@ -359,6 +306,7 @@ final class Facade
 	 * `true` second argument that does not.
 	 *
 	 * @throws \TypeError if handed an array
+	 * @return array<string, mixed> one entry per field on the schema, under its name
 	 */
 	private function extractData(object|null $data): array
 	{

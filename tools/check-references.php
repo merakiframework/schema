@@ -112,3 +112,5 @@ echo "  " . count($bad) . " dead reference(s):\n";
 foreach ($bad as $line) {
     echo "    " . $line . "\n";
 }
+
+exit(1);

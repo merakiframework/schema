@@ -3,7 +3,6 @@ declare(strict_types=1);
 
 namespace Meraki\Schema;
 
-use Meraki\Schema\Field\Constraint;
 use Meraki\Schema\Field\ConstraintValidationResult;
 use Meraki\Schema\Field\ShapeValidationResult;
 use Meraki\Schema\Field\Definition;
@@ -27,7 +26,7 @@ use Meraki\Schema\ValueSource;
  * Note that `readonly` is shallow: it stops a property being reassigned, not the object it holds
  * being mutated. Anything stored on a field must be immutable itself.
  *
- * @template AcceptedType of mixed
+ * @template AcceptedType of mixed = mixed
  * @implements Field<AcceptedType>
  */
 abstract readonly class AtomicField implements Field

@@ -8,6 +8,9 @@ use Meraki\Schema\Scope;
 
 interface Condition
 {
+	/**
+	 * @param array<string, mixed> $data what was submitted, under each field's name
+	 */
 	public function matches(array $data, Facade $schema): bool;
 
 	/**

@@ -11,11 +11,11 @@ use IteratorAggregate;
 use Countable;
 
 /**
- * @implements IteratorAggregate<Field>
+ * @implements IteratorAggregate<int, Field>
  */
 class Set implements IteratorAggregate, Countable
 {
-	/** @var list<Field> $fields */
+	/** @var list<Field> */
 	private array $fields = [];
 
 	public function __construct(Field ...$fields)
@@ -26,7 +26,7 @@ class Set implements IteratorAggregate, Countable
 
 	/**
 	 * Gets the names of all fields in the set.
-	 * @return string[]
+	 * @return list<string>
 	 */
 	public function listFieldNames(): array
 	{
@@ -185,7 +185,7 @@ class Set implements IteratorAggregate, Countable
 	}
 
 	/**
-	 * @return \ArrayIterator<Field>
+	 * @return \ArrayIterator<int, Field>
 	 */
 	public function getIterator(): \ArrayIterator
 	{

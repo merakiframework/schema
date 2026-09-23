@@ -5,7 +5,6 @@ namespace Meraki\Schema\Exception;
 
 use Meraki\Schema\Exception;
 use InvalidArgumentException;
-use Throwable;
 
 final class InvalidScope extends InvalidArgumentException implements Exception
 {

@@ -1,15 +1,27 @@
 # Static analysis of the shipped code. Tests are analysed separately, at a lower level,
 # by phpstan-tests.neon — see the note there.
 #
-# Level 5 is what src passes, with three narrow ignore entries and no baseline. The cost of
+# Level 6 is what src passes, with three narrow ignore entries and no baseline. The cost of
 # going higher, measured rather than guessed:
 #
-#   level 6 — 97 errors
-#   level 7 — 136
-#   level 8 — 138
+#   level 7 — 39 errors
+#   level 8 — 41
+#   level 9 — 170
 #
-# Level 6 is a different kind of work — missing generic and iterable types in docblocks, not
-# unsound code — and it is tracked in docs/ROADMAP.md rather than being done here.
+# Level 7 is the next real step and a different kind of work again: 29 argument.type, 5
+# return.type and 5 assign.propertyType, most of them list-versus-array artifacts of the
+# spread operator. Tracked in docs/ROADMAP.md.
+#
+# ## How level 6 was reached
+#
+# Level 6 is missing generic and iterable types in docblocks rather than unsound code, and
+# 67 of its 91 errors were one thing: `Field` is `@template AcceptedType`, so every mention
+# of a bare `Field` — meaning "a field of any kind", which is most of them — was reported.
+# Giving the template a default says that in one line: `@template AcceptedType of mixed =
+# mixed`. `AtomicField` and `AggregatedValidationResult` got the same treatment. The rest
+# were annotated properly, because they carry real information — and three of those were
+# wrong rather than missing: `@return \ArrayIterator<T>` on a class that takes two type
+# parameters, twice, and `@implements IteratorAggregate<Field>` likewise.
 #
 # ## What used to be here, and how it went
 #
@@ -37,7 +49,7 @@
 # rather than faults in the code, they name one class and one message each, and PHP 8.6's
 # readonly property defaults remove all three.
 parameters:
-    level: 5
+    level: 6
     paths:
         - src
     treatPhpDocTypesAsCertain: false

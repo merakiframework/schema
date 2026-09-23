@@ -16,7 +16,6 @@ use Brick\DateTime\LocalDate;
 use Meraki\Schema\Field\Time\Value;
 use Brick\DateTime\LocalTime;
 use Brick\DateTime\TimeZone;
-use Brick\DateTime\DateTimeException;
 use Brick\Math\BigInteger;
 
 /**

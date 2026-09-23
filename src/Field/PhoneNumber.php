@@ -11,10 +11,7 @@ use Meraki\Schema\Field\PhoneNumber\Type;
 use Meraki\Schema\AtomicField;
 use Meraki\Schema\FieldName;
 use Meraki\Schema\Field\PhoneNumber\Value;
-use libphonenumber\PhoneNumber as LibPhoneNumber;
-use libphonenumber\PhoneNumberFormat;
 use libphonenumber\PhoneNumberUtil;
-use libphonenumber\NumberParseException;
 
 /**
  * A telephone number, validated with libphonenumber.

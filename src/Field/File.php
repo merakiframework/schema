@@ -34,7 +34,10 @@ final readonly class File extends AtomicField
 {
 	public int $minSize;
 	public ?int $maxSize;
+	/** @var list<string> */
 	public array $allowedTypes;
+
+	/** @var list<string> */
 	public array $disallowedTypes;
 
 	public function __construct(
