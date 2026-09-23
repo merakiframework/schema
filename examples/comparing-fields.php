@@ -5,7 +5,6 @@ declare(strict_types=1);
 require_once __DIR__ . '/../vendor/autoload.php';
 
 use Meraki\Schema\Facade;
-use Meraki\Schema\PartScope;
 use Meraki\Schema\ValueScope;
 
 // A rule can compare two *fields*, not just a field and a constant — and it can compare one
@@ -33,8 +32,8 @@ $schema->addRule(
 
 // The weaker and more useful one: shipping somewhere else is fine, another country is paperwork.
 $schema->addRule(
-	$schema->when(PartScope::of('shipping', 'country'))
-		->notEquals(PartScope::of('billing', 'country'))
+	$schema->when(ValueScope::of('shipping', 'country'))
+		->notEquals(ValueScope::of('billing', 'country'))
 		->then($schema->fields->getByName('customs_declaration')->makeRequired()),
 );
 
@@ -81,7 +80,7 @@ echo PHP_EOL . 'A part is checked when the rule is written, not when it fires:' 
 
 try {
 	$schema->addRule(
-		$schema->when(PartScope::of('billing', 'ctry'))->equals('AU')->then($schema->fields->getByName('same_address')->makeRequired()),
+		$schema->when(ValueScope::of('billing', 'ctry'))->equals('AU')->then($schema->fields->getByName('same_address')->makeRequired()),
 	);
 } catch (InvalidArgumentException $e) {
 	echo '  ' . $e->getMessage() . PHP_EOL;
@@ -91,7 +90,7 @@ try {
 // for part of it is a mistake rather than an empty answer.
 try {
 	$schema->addRule(
-		$schema->when(PartScope::of('same_address', 'country'))->equals('AU')->then($schema->fields->getByName('billing')->makeRequired()),
+		$schema->when(ValueScope::of('same_address', 'country'))->equals('AU')->then($schema->fields->getByName('billing')->makeRequired()),
 	);
 } catch (InvalidArgumentException $e) {
 	echo '  ' . $e->getMessage() . PHP_EOL;

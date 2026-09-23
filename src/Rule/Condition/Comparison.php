@@ -51,8 +51,8 @@ use Meraki\Schema\ValueScope;
  *     $schema->when(ValueScope::of('shipping'))->equals(ValueScope::of('billing'))
  *
  *     // are they at least in the same country?
- *     $schema->when(PartScope::of('shipping', 'country'))
- *         ->equals(PartScope::of('billing', 'country'))
+ *     $schema->when(ValueScope::of('shipping', 'country'))
+ *         ->equals(ValueScope::of('billing', 'country'))
  *
  * Both sides go through the same {@see ScopeResolver}, so both are read the same way and a parsed
  * value is compared against a parsed value. Nothing is parsed *into* a field in that case — there

@@ -216,7 +216,7 @@ itself.
 ## Comparing two fields
 
 ```php
-use Meraki\Schema\{PartScope, ValueScope};
+use Meraki\Schema\ValueScope;
 
 // is the shipping address the billing address?
 $schema->addRule(
@@ -226,8 +226,8 @@ $schema->addRule(
 
 // are they at least in the same country?
 $schema->addRule(
-    $schema->when(PartScope::of('shipping', 'country'))
-        ->notEquals(PartScope::of('billing', 'country'))
+    $schema->when(ValueScope::of('shipping', 'country'))
+        ->notEquals(ValueScope::of('billing', 'country'))
         ->then($customsNote->makeRequired()),
 );
 ```

@@ -10,6 +10,42 @@ is a commit subject, with the body kept because the body is where the reasoning 
 
 ## Unreleased
 
+### Restrict enum cases to strings
+
+`2a5462fd` · 2026-09-23
+
+They could be any scalar, provided all of them were the same one. That looked
+more general and was a trap, and the evidence is blunt:
+
+    int enum,  given 2       -> read as 2
+    int enum,  given '2'     -> UNREADABLE
+    bool enum, given 'true'  -> UNREADABLE
+    bool enum, given '1'     -> UNREADABLE
+
+An HTML form submits "2", never 2, and membership is decided strictly — so an
+enum of integers was unreadable for every form submission there has ever been.
+It worked only for a JSON client that had sent a real integer, which makes it a
+surprise rather than a feature. Nothing in this repository used one.
+
+Nothing is lost by closing it:
+
+- Booleans are a Boolean field — a two-case enum with a name, and with
+  mustBeAccepted() and a matcher that suits yes-or-no.
+- A regular numeric sequence is a Number with inIncrementsOf(), which says
+  "every multiple of five from ten to fifty" in a way a list of cases cannot.
+- An irregular one is a list of labels that happen to look numeric, and '3.14'
+  round-trips through a form, JSON and a database column where 3.14 does not.
+
+The empty string goes too, and that one is worth naming on its own: it is what a
+select's placeholder option submits when nothing was chosen, so a case spelled
+that way would be chosen by everybody who chose nothing.
+
+It also settles the rendering question from the commit before this. Enum\Value
+had to decide what a `false` looked like, because PHP casts it to the empty
+string and a template would have shown nothing at all. With a string case there
+is no decision left: __toString() returns it, and $case is the same string on a
+property — kept for the reason Text\Value keeps $text beside its own.
+
 ### Give an enum's chosen case a string form
 
 `1bf618a4` · 2026-09-23

@@ -19,7 +19,7 @@ use Stringable;
  *
  * Twelve of the nineteen value types are {@see \Stringable} — number, date, date-time, time,
  * duration, email address, enum, name, phone number, text, URI and UUID — and a
- * {@see \Meraki\Schema\PartScope} resolves to a plain string, so `PartScope::of('email', 'domain')`
+ * {@see \Meraki\Schema\PartScope} resolves to a plain string, so `ValueScope::of('email', 'domain')`
  * reaches one half of an address where the whole one reaches all of it.
  *
  * The absences are the interesting part. {@see \Meraki\Schema\Field\Password\Value} and
@@ -33,7 +33,7 @@ use Stringable;
  * {@see Ordered} refuses a rule against a field with no order, because a field's value class says
  * so without a request. The same check is not available here: a part resolves to whatever the
  * value put in it, and the field's own class says nothing about that — so refusing on the field
- * would reject `PartScope::of('email', 'domain')`, which works perfectly.
+ * would reject `ValueScope::of('email', 'domain')`, which works perfectly.
  *
  * What *is* checked where the rule is written is the pattern itself. See {@see Matches}.
  */

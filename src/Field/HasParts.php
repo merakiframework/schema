@@ -17,7 +17,7 @@ namespace Meraki\Schema\Field;
  *     $schema->when($shipping)->equals(ValueScope::of('billing'))
  *
  *     // are they at least in the same country?
- *     $schema->when(PartScope::of('shipping', 'country'))->equals(PartScope::of('billing', 'country'))
+ *     $schema->when(ValueScope::of('shipping', 'country'))->equals(ValueScope::of('billing', 'country'))
  *
  * ### The part names are the ones already in use
  *
@@ -31,7 +31,7 @@ namespace Meraki\Schema\Field;
  *
  * {@see self::partNames()} is static because {@see \Meraki\Schema\Facade::addRule()} validates a
  * scope when the rule is *written*, where there is no request and so no value to inspect. Without
- * it, `PartScope::of('billing', 'ctry')` would be accepted at authoring time and silently resolve
+ * it, `ValueScope::of('billing', 'ctry')` would be accepted at authoring time and silently resolve
  * to `null` on every request afterwards — which is the failure mode this library spends most of
  * its guards avoiding.
  */

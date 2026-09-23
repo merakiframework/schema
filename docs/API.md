@@ -621,8 +621,8 @@ reaches the field — rather than about the definition, so no wither expresses i
 ```php
 $schema->when(ValueScope::of('shipping'))->equals(ValueScope::of('billing'));
 
-$schema->when(PartScope::of('shipping', 'country'))
-    ->equals(PartScope::of('billing', 'country'));
+$schema->when(ValueScope::of('shipping', 'country'))
+    ->equals(ValueScope::of('billing', 'country'));
 ```
 
 **Collection items are not addressable.** Which row `0` is depends on what was submitted, so a

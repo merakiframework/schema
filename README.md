@@ -265,14 +265,14 @@ rule is added.
 A rule can compare two *fields*, whole or part by part:
 
 ```php
-use Meraki\Schema\{PartScope, ValueScope};
+use Meraki\Schema\ValueScope;
 
 // is the shipping address the billing address?
 $schema->when(ValueScope::of('shipping'))->equals(ValueScope::of('billing'));
 
 // are they at least in the same country?
-$schema->when(PartScope::of('shipping', 'country'))
-    ->equals(PartScope::of('billing', 'country'));
+$schema->when(ValueScope::of('shipping', 'country'))
+    ->equals(ValueScope::of('billing', 'country'));
 ```
 
 Rules are checked when they are **written**, not when they fire — a field that does not exist, a

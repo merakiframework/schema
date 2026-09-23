@@ -20,6 +20,7 @@ use PHPUnit\Framework\Attributes\DataProvider;
 #[CoversClass(FieldScope::class)]
 #[CoversClass(ValueScope::class)]
 #[CoversClass(PropertyScope::class)]
+#[CoversClass(PartScope::class)]
 final class ScopeTest extends TestCase
 {
 	#[Test]
@@ -109,4 +110,36 @@ final class ScopeTest extends TestCase
 	{
 		$this->assertSame('username', (string) PropertyScope::of('username', 'min')->field);
 	}
+	#[Test]
+	public function one_factory_reaches_a_value_and_one_of_its_parts(): void
+	{
+		// A part is always inside a value and has nowhere else to hang from, so there is one way in
+		// rather than two classes to know about. PartScope::of() still exists for building one
+		// directly; this is the spelling to reach for.
+		$this->assertSame('#/fields/billing/value', (string) ValueScope::of('billing'));
+		$this->assertSame('#/fields/billing/value/country', (string) ValueScope::of('billing', 'country'));
+	}
+
+	#[Test]
+	public function the_two_are_siblings_rather_than_a_subtype_pair(): void
+	{
+		// The factory hands back whichever the arguments describe, and the classes stay distinct —
+		// a part is *located* inside a value but is not *a kind of* value. Making it one would flip
+		// every `instanceof ValueScope` in the rule engine to include parts, and each is there to
+		// exclude them: a part resolves to whatever the value put in it, not to a ParsedValue.
+		$whole = ValueScope::of('billing');
+		$part = ValueScope::of('billing', 'country');
+
+		$this->assertInstanceOf(ValueScope::class, $whole);
+		$this->assertInstanceOf(PartScope::class, $part);
+		$this->assertNotInstanceOf(ValueScope::class, $part);
+		$this->assertSame('country', $part->part);
+	}
+
+	#[Test]
+	public function a_part_reached_either_way_is_the_same_scope(): void
+	{
+		$this->assertEquals(PartScope::of('billing', 'country'), ValueScope::of('billing', 'country'));
+	}
+
 }

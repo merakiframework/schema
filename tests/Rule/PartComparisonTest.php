@@ -81,8 +81,8 @@ final class PartComparisonTest extends TestCase
 	{
 		$schema = $this->schema();
 		$schema->addRule(
-			$schema->when(PartScope::of('shipping', 'country'))
-				->equals(PartScope::of('billing', 'country'))
+			$schema->when(ValueScope::of('shipping', 'country'))
+				->equals(ValueScope::of('billing', 'country'))
 				->then($schema->fields->getByName('note')->makeRequired()),
 		);
 
@@ -103,8 +103,8 @@ final class PartComparisonTest extends TestCase
 	{
 		$schema = $this->schema();
 		$schema->addRule(
-			$schema->when(PartScope::of('shipping', 'postal_code'))
-				->equals(PartScope::of('billing', 'line1'))
+			$schema->when(ValueScope::of('shipping', 'postal_code'))
+				->equals(ValueScope::of('billing', 'line1'))
 				->then($schema->fields->getByName('note')->makeRequired()),
 		);
 
@@ -121,8 +121,8 @@ final class PartComparisonTest extends TestCase
 	{
 		$schema = $this->schema();
 		$schema->addRule(
-			$schema->when(PartScope::of('shipping', 'organization'))
-				->equals(PartScope::of('billing', 'organization'))
+			$schema->when(ValueScope::of('shipping', 'organization'))
+				->equals(ValueScope::of('billing', 'organization'))
 				->then($schema->fields->getByName('note')->makeRequired()),
 		);
 
@@ -134,7 +134,7 @@ final class PartComparisonTest extends TestCase
 	{
 		$schema = $this->schema();
 		$schema->addRule(
-			$schema->when(PartScope::of('billing', 'country'))->equals('AU')->then($schema->fields->getByName('note')->makeRequired()),
+			$schema->when(ValueScope::of('billing', 'country'))->equals('AU')->then($schema->fields->getByName('note')->makeRequired()),
 		);
 
 		$this->assertTrue($this->fired($schema, self::AU, self::AU));
@@ -149,7 +149,7 @@ final class PartComparisonTest extends TestCase
 		$this->expectException(InvalidArgumentException::class);
 		$this->expectExceptionMessage('has no part "ctry"');
 
-		$schema->addRule($schema->when(PartScope::of('billing', 'ctry'))->equals('AU')->then($schema->fields->getByName('note')->makeRequired()));
+		$schema->addRule($schema->when(ValueScope::of('billing', 'ctry'))->equals('AU')->then($schema->fields->getByName('note')->makeRequired()));
 	}
 
 	#[Test]
@@ -160,7 +160,7 @@ final class PartComparisonTest extends TestCase
 		$this->expectException(InvalidArgumentException::class);
 		$this->expectExceptionMessage('holds one value rather than named parts');
 
-		$schema->addRule($schema->when(PartScope::of('note', 'country'))->equals('AU')->then($schema->fields->getByName('note')->makeRequired()));
+		$schema->addRule($schema->when(ValueScope::of('note', 'country'))->equals('AU')->then($schema->fields->getByName('note')->makeRequired()));
 	}
 
 	/**
@@ -175,8 +175,8 @@ final class PartComparisonTest extends TestCase
 		$this->expectExceptionMessage('has no part "ctry"');
 
 		$schema->addRule(
-			$schema->when(PartScope::of('billing', 'country'))
-				->equals(PartScope::of('shipping', 'ctry'))
+			$schema->when(ValueScope::of('billing', 'country'))
+				->equals(ValueScope::of('shipping', 'ctry'))
 				->then($schema->fields->getByName('note')->makeRequired()),
 		);
 	}
@@ -186,8 +186,8 @@ final class PartComparisonTest extends TestCase
 	{
 		$schema = $this->schema();
 		$schema->addRule(
-			$schema->when(PartScope::of('shipping', 'country'))
-				->notEquals(PartScope::of('billing', 'country'))
+			$schema->when(ValueScope::of('shipping', 'country'))
+				->notEquals(ValueScope::of('billing', 'country'))
 				->then($schema->fields->getByName('note')->makeRequired()),
 		);
 
