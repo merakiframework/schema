@@ -10,6 +10,65 @@ is a commit subject, with the body kept because the body is where the reasoning 
 
 ## Unreleased
 
+### Give the rule failures real exception classes
+
+`5b662524` · 2026-09-23
+
+Every hand-written throw in the rule machinery now names what went wrong, in
+three classes split by what a caller can do about it:
+
+- InvalidRule (InvalidArgumentException) — a rule that cannot do what it says.
+  The reason almost all of these are checked at all is that a rule which cannot
+  fire raises nothing, so it is indistinguishable from one whose condition never
+  held. They are raised where the rule is written rather than on the request
+  where it would have fired.
+- IncompleteRule (LogicException) — a draft asked for something it is not ready
+  to give. Nothing about the values is wrong; the sequence of calls is.
+- NothingToValidate (LogicException) — validating a schema with no fields. Not a
+  validation failure: no input could make it right, so there is nothing to report
+  back to whoever filled the form in.
+
+Every message is preserved verbatim and every class extends what it replaced, so
+the tests catching InvalidArgumentException and asserting on message text are
+untouched. 1837 tests still pass.
+
+Two things tightened on the way past:
+
+- Facade::assertRuleCanBeApplied() caught InvalidArgumentException around the
+  resolver and rethrew. It now catches InvalidScope|UnknownField, which is what
+  the resolver actually throws, and carries the cause through as previous.
+- extractData()'s docblock claimed InvalidArgumentException for an array. The
+  signature is object|null, so PHP raises TypeError; the docblock now says so.
+
+### Give the scope and field-name failures real exception classes
+
+`ac6d3f65` · 2026-09-23
+
+The first of several passes over the ninety-odd generic throws. This one takes
+the ones about *naming things*, following the shape Exception\InvalidScope
+already set: a final class in Exception\, extending the SPL type it replaces,
+implementing the Exception marker, with a named factory per distinct failure.
+
+- InvalidScope gains seven factories and absorbs every remaining scope failure —
+  ScopeResolver's three, PropertyScope's two, PartScope's one, and the one in
+  Message\PartedSet, which is the same question asked of a message set.
+- InvalidFieldName, for a name that cannot identify a field.
+- UnknownField and DuplicateFieldName, kept apart because a caller catching one
+  almost never wants the other: "look this up and tell me if it is missing" and
+  "add this and tell me if it is already here" are different questions asked at
+  different times.
+
+MalformedValue, BadMessage and BadResource already had the shape and were missing
+only the marker, so `catch (Meraki\Schema\Exception)` now reaches them too.
+
+Every message is preserved verbatim and every class extends what it replaced, so
+the sixty tests catching InvalidArgumentException and the thirty asserting on
+message text are untouched. That is deliberate: the refactor is worth nothing if
+it has to be verified by reading.
+
+The @throws docblocks now name what you would actually catch, which is the half
+of this that pays off at a call site rather than in a catch block.
+
 ### One way in to a value and its parts
 
 `b27684d8` · 2026-09-23
