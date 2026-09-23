@@ -551,9 +551,9 @@ four matchers, one per capability set, and a field's declaration picks one:
 
 | Matcher | Fields |
 | --- | --- |
-| [`Matcher\Basic`](../src/Rule/Matcher/Basic.php) | Address, Boolean, Collection, CreditCard, Enum, File, Password |
+| [`Matcher\Basic`](../src/Rule/Matcher/Basic.php) | Address, Boolean, Collection, CreditCard, File, Password |
 | [`Matcher\Ordered`](../src/Rule/Matcher/Ordered.php) | Money |
-| [`Matcher\Text`](../src/Rule/Matcher/Text.php) | EmailAddress, Name, PhoneNumber, Text, Uri, Uuid |
+| [`Matcher\Text`](../src/Rule/Matcher/Text.php) | EmailAddress, Enum, Name, PhoneNumber, Text, Uri, Uuid |
 | [`Matcher\OrderedText`](../src/Rule/Matcher/OrderedText.php) | Number, Date, DateTime, Time, Duration |
 
 So `$notes->when()->isAtLeast(3)` is a **call to a method that is not there** — absent from

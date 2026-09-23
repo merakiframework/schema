@@ -4,7 +4,8 @@ declare(strict_types=1);
 namespace Meraki\Schema;
 
 /**
- * Names what a field was given — `#/fields/username/value`.
+ * Names what a field was given, `#/fields/username/value`, the parsed and canonicalized
+ * form of the `value` segment of a field's input.
  *
  * The only scope kind whose answer depends on the request rather than on the schema, which
  * is why {@see ScopeResolver} needs the submitted data to resolve one at all. Everything

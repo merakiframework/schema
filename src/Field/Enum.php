@@ -49,13 +49,16 @@ final readonly class Enum extends AtomicField
 	}
 
 	/**
-	 * What a rule may ask about this field: the case list is the vocabulary, and isIn asks about it.
+	 * What a rule may ask about this field: the case list is the vocabulary, and `isIn` asks about
+	 * it directly. The text questions come with the chosen case reading back as a string — useful
+	 * for a prefixed code, redundant beside `equals` for most enums. No order: a list of options
+	 * is not a ranking, and declaring one would be inventing a meaning the author never gave.
 	 *
 	 * @see \Meraki\Schema\Rule\Matcher for the four sets and why a field declares one
 	 */
-	public function when(): Matcher\Basic
+	public function when(): Matcher\Text
 	{
-		return new Matcher\Basic(ValueScope::of($this->name));
+		return new Matcher\Text(ValueScope::of($this->name));
 	}
 
 	/**

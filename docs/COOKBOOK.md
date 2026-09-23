@@ -59,9 +59,14 @@ $schema->add(
 
 $theme = $schema->validate((object) [])->forField('theme');
 
-$theme->value->case;     // 'light'
+(string) $theme->value;   // 'light'
+$theme->value->case;     // 'light', at the type the cases were declared with
 $theme->source->name;    // 'Default'
 ```
+
+Every value reads back as text where it sensibly can; the typed form is a property beside it —
+`$value->case` for an enum, `$value->number` for a number, `$value->date` for a date. Reach for
+the property to compare, the string to display.
 
 Fields are required unless you say otherwise. A default is a constant *you* wrote — it serialises
 with the schema and is the same for everyone. One belonging to a particular user is a

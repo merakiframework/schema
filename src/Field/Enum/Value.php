@@ -39,4 +39,31 @@ final readonly class Value implements ParsedValue
 	{
 		return $other instanceof self && $this->case === $other->case;
 	}
+
+	/**
+	 * The chosen case, as text.
+	 *
+	 * `{@see self::$case}` stays, and is not redundant: it holds the case at its *declared type*,
+	 * so `$value->case === 3` is true for an enum of integers where `(string) $value === '3'`. The
+	 * same arrangement {@see \Meraki\Schema\Field\Number\Value} has — a `BigDecimal` on the
+	 * property, a rendering here. Reach for the property to compare, this to display.
+	 *
+	 * ### A boolean case is `true` or `false`, not `1` and nothing
+	 *
+	 * PHP casts `false` to the empty string, which a template renders as nothing at all — an enum
+	 * whose chosen case simply vanished. Every other scalar casts sensibly, so this is the one
+	 * place the rendering is spelled out rather than delegated.
+	 *
+	 * Worth saying that a two-case boolean enum is a {@see \Meraki\Schema\Field\Boolean} written
+	 * the long way round, and `Boolean` has `mustBeAccepted()` and a matcher that suits it. This
+	 * makes the unusual case render correctly; it is not encouragement.
+	 */
+	public function __toString(): string
+	{
+		if (is_bool($this->case)) {
+			return $this->case ? 'true' : 'false';
+		}
+
+		return (string) $this->case;
+	}
 }

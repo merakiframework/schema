@@ -9,8 +9,8 @@ use Meraki\Schema\Rule\Draft;
 /**
  * The two questions a value with a string form can answer.
  *
- * Offered only by a matcher whose field parses to a {@see \Stringable} — email address, name,
- * phone number, text, URI, UUID, and the temporal and numeric types.
+ * Offered only by a matcher whose field parses to a {@see \Stringable} — email address, enum,
+ * name, phone number, text, URI, UUID, and the temporal and numeric types.
  *
  * The absences are the interesting part. {@see \Meraki\Schema\Field\Password\Value} and
  * {@see \Meraki\Schema\Field\CreditCard\Value} have no `__toString()` **on purpose**, so their

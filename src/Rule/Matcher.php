@@ -21,9 +21,9 @@ use Meraki\Schema\Scope;
  *
  * | Matcher | Offers | Fields |
  * | --- | --- | --- |
- * | {@see Matcher\Basic} | the five that work on anything | Address, Boolean, Collection, CreditCard, Enum, File, Password |
+ * | {@see Matcher\Basic} | the five that work on anything | Address, Boolean, Collection, CreditCard, File, Password |
  * | {@see Matcher\Ordered} | + `isAtLeast` and the rest | Money |
- * | {@see Matcher\Text} | + `contains`, `matches` | EmailAddress, Name, PhoneNumber, Text, Uri, Uuid |
+ * | {@see Matcher\Text} | + `contains`, `matches` | EmailAddress, Enum, Name, PhoneNumber, Text, Uri, Uuid |
  * | {@see Matcher\OrderedText} | all twelve | Number, Date, DateTime, Time, Duration |
  *
  * {@see \Meraki\Schema\Field::when()} returns the one its value has earned, so `$text->when()`

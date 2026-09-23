@@ -65,4 +65,38 @@ final class EnumTest extends FieldTestCase
 
 		$this->assertNull($field->defaultValue);
 	}
+	#[Test]
+	public function the_chosen_case_reads_back_as_text(): void
+	{
+		// So a template can interpolate the value rather than reaching past it. Before this it had
+		// no string form at all, which made `(string) $result->forField('theme')->value` a fatal.
+		$field = new Enum(new FieldName('theme'), ['light', 'dark']);
+
+		$this->assertSame('dark', (string) $field->validate('dark')->value);
+	}
+
+	#[Test]
+	public function the_typed_case_is_still_there_to_compare_against(): void
+	{
+		// `__toString()` renders; `$case` holds the case at its declared type. An enum of integers
+		// compares as integers and displays as digits, and neither reading is the other's job.
+		$field = new Enum(new FieldName('priority'), [1, 2, 3]);
+		$value = $field->validate(2)->value;
+
+		$this->assertSame(2, $value->case);
+		$this->assertSame('2', (string) $value);
+	}
+
+	#[Test]
+	public function a_boolean_case_renders_as_a_word_rather_than_vanishing(): void
+	{
+		// PHP casts false to the empty string, so a template would render nothing at all and the
+		// chosen case would appear to have gone missing. The one scalar whose rendering is spelled
+		// out rather than delegated.
+		$field = new Enum(new FieldName('answer'), [true, false]);
+
+		$this->assertSame('false', (string) $field->validate(false)->value);
+		$this->assertSame('true', (string) $field->validate(true)->value);
+	}
+
 }

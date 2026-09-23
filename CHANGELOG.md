@@ -10,6 +10,26 @@ is a commit subject, with the body kept because the body is where the reasoning 
 
 ## Unreleased
 
+### Simplify docs
+
+`0ef9d957` · 2026-09-23
+
+### Add a proper exception for handling invalid scope paths and cleaned up docs
+
+`370bf472` · 2026-09-23
+
+### Tidy docs meanings
+
+`f1670023` · 2026-09-23
+
+### Clarify comments
+
+`e9bdfc05` · 2026-09-23
+
+### Regenerate the changelog
+
+`e7140ce0` · 2026-09-23
+
 ### Add a cookbook of common form patterns
 
 `895071f8` · 2026-09-23

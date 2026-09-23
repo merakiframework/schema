@@ -9,7 +9,7 @@ use Meraki\Schema\Scope;
 /**
  * Identity, presence and text, for a value with a string form but no order.
  *
- * Returned by: EmailAddress, Name, PhoneNumber, Text, Uri, Uuid.
+ * Returned by: EmailAddress, Enum, Name, PhoneNumber, Text, Uri, Uuid.
  *
  * @see Matcher for why there are four of these rather than one, and why the verbs live in traits.
  */
