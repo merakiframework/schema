@@ -10,6 +10,59 @@ is a commit subject, with the body kept because the body is where the reasoning 
 
 ## Unreleased
 
+### Let a value refuse to be built out of something it is not
+
+`ffa5115e` · 2026-09-23
+
+The first nine of nineteen. A value's constructor now enforces its own invariant
+and canonicalises, `parse()` raises rather than returning null, and `Definition`
+decides what happens to the exception.
+
+### Why the value has to own it
+
+`EmailAddress\Value` lower-cases the domain, and `equals()` depends on that having
+happened. The lower-casing lived in the field, so:
+
+    $field->resolvedValueFor('kim@EXAMPLE.TEST')   // kim@example.test
+    new Value('kim', 'EXAMPLE.TEST')               // and not equal to it
+
+An invariant a value's own equality relies on cannot be enforced outside it.
+`Uuid\Value` had the same fault in a different shape — `strcasecmp()` inside
+`equals()` — which got comparison right and left everything else wrong: two equal
+UUIDs still read back as different strings. RFC 9562 says which spelling is
+canonical, so it is folded once at construction and `equals()` is `===` again.
+
+### Why parse() raises
+
+The definition-time check could only say *"The default for "email" is not a value
+it can hold"*, because `parse()` had thrown the reason away one frame earlier —
+while the constraint branch three lines below it named the constraint that failed.
+The weaker message was the one whose audience could act on it. Now:
+
+    The default for "email" is not a value it can hold. EmailAddress: the part
+    before the @ is 65 octets and RFC 5321 allows 64.
+
+`Definition` decides who absorbs it, not the field: the request path catches and
+reports `null`, the definition path lets it through. Every call site of `parse()`
+was already inside the lifecycle, and FIELD-API.md argues these are not the field
+author's decisions to make — one field catching where its neighbours bubble would
+report a bad default as a silent null.
+
+So a field author writes `parse(): Value` and no try/catch at all, which is less
+to know than the old contract, where they had to remember which failures returned
+null.
+
+`MalformedValue` is its own type because it is caught, and a catch is only as good
+as its aim: Brick, libphonenumber and commerceguys all throw
+`InvalidArgumentException`, and `Money::parse()` was swallowing their bugs as
+"the user typed something unreadable". It names the value *class* rather than a
+kind in words, because the words belong to a language pack.
+
+Also here: `Uri\Value` keeps the scheme it had to parse anyway, so `allowedSchemes`
+stops re-parsing a string already proved to be a URI.
+
+Ten fields still to go, and the signature is still `?ParsedValue` until they are.
+
 ### Reunite parse()'s docblock with parse()
 
 `2d321cf7` · 2026-09-23

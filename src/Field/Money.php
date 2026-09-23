@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Field;
 
+use Meraki\Schema\Field\MalformedValue;
 use Meraki\Schema\ValueScope;
 use Meraki\Schema\Rule\Matcher;
 use Meraki\Schema\Field\Money\Value;
@@ -168,25 +169,19 @@ final readonly class Money extends AtomicField
 	/**
 	 * @param array<string, mixed>|Value $value
 	 */
-	protected function parse(mixed $value): ?Value
+	protected function parse(mixed $value): Value
 	{
 		if ($value instanceof Value) {
 			return $value;
 		}
 
-		$parts = self::recordIn($value);
-
-		if ($parts === null) {
-			return null;
+		// An object is a record; an array is a list. Money has named parts, so it arrives as the
+		// former — see Definition::recordIn().
+		if (!is_object($value)) {
+			throw MalformedValue::of(Value::class, 'money is submitted as a record with a currency and an amount');
 		}
 
-		try {
-			return Value::fromInput($parts);
-		} catch (InvalidArgumentException) {
-			// An amount missing its currency, or either half unreadable. Reported rather than
-			// raised: this runs on a request.
-			return null;
-		}
+		return new Value($value);
 	}
 
 	protected function defineConstraints(): Constraint\Set

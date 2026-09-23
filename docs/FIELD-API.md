@@ -81,7 +81,7 @@ final readonly class Boolean extends AtomicField
         return new Matcher\Basic(ValueScope::of($this->name));
     }
 
-    protected function parse(mixed $value): ?Value         // 4. the one conversion hook
+    protected function parse(mixed $value): Value          // 4. the one conversion hook
     {
         return is_bool($value) ? new Value($value) : null;
     }
@@ -125,10 +125,15 @@ depends on them:
 
 - **It never receives `null`.** Absence is settled before it runs — no input and no default means
   there is nothing to read, so the field is skipped or reported missing without this being called.
-  `null` in the *return* therefore means one thing only: **unreadable**.
-- **It never raises.** It runs on attacker-controlled input, so an unreadable value is reported,
-  not thrown. Failing to parse is ordinary, not exceptional — throwing belongs to definition time,
-  where the author can act on it.
+- **It returns a value, or raises `Field\MalformedValue`.** There is no `null`, and no try/catch
+  for you to write: who absorbs the refusal is the lifecycle's decision, not the field's.
+- **A field still never raises on a request.** `Definition::readable()` catches and reports an
+  unreadable shape. What raising bought is the *definition-time* path, where `defaultsTo()` lets
+  the reason through to the author — the one message that could not say why, while the
+  constraint branch beside it named the constraint that failed.
+- **Most of the work is the value's.** Its constructor enforces the invariant and canonicalises,
+  so `parse()` narrows `mixed` and hands over. `Enum` and `Collection` keep more, because
+  membership of a case list and a row template are facts about the *field*.
 - **What it returns is what the constraints see.** So a constraint is typed `Number\Value` and has
   that be true by construction rather than by hoping a gate ran first.
 - **It always returns a value object this library defines.** Never a bare scalar, and never a third
@@ -234,7 +239,7 @@ value that is many of something arrives as an array. `Definition::recordIn()` is
 accepts objects only. The full reasoning is in [CODING-STYLE.md](CODING-STYLE.md).
 
 ```php
-protected function parse(mixed $value): ?Value
+protected function parse(mixed $value): Value
 {
     if ($value instanceof Value) {
         return $value;                       // already this field's own type
@@ -331,7 +336,7 @@ owns them:
 1. **Settle absence.** `$given`, or the authored default when nothing was submitted. If there is
    nothing at all: shape *skipped* when the field is optional, shape *missing* when it is not, and
    every constraint skipped.
-2. **Read it once.** `parse()` runs exactly once per resolution. If it returns `null`: shape
+2. **Read it once.** `parse()` runs exactly once per resolution. If it raises `MalformedValue`: shape
    *unreadable*, every constraint skipped.
 3. **Check the constraints** against the parsed value.
 

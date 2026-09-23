@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Field;
 
+use Meraki\Schema\Field\MalformedValue;
 use Meraki\Schema\ValueScope;
 use Meraki\Schema\Rule\Matcher;
 use Meraki\Schema\Field\CreditCard\Value;
@@ -121,21 +122,22 @@ final readonly class CreditCard extends AtomicField
 	/**
 	 * @param object|Value $value a record of the card's parts, or a {@see Value} already built
 	 */
-	protected function parse(#[SensitiveParameter] mixed $value): ?Value
+	protected function parse(#[SensitiveParameter] mixed $value): Value
 	{
-		if (!($value instanceof Value)) {
-			$parts = self::recordIn($value);
-
-			if ($parts === null) {
-				return null;
-			}
-
-			$value = Value::fromInput($parts);
+		if ($value instanceof Value) {
+			return $value;
 		}
 
-		// A card with nothing in it is not a card. A *partly* filled one still is, so it gets past
-		// here and the required-part constraints say which halves are missing.
-		return $value->isEmpty() ? null : $value;
+		// An object is a record; an array is a list. A card has named parts, so it arrives as
+		// the former — see Definition::recordIn().
+		if (!is_object($value)) {
+			throw MalformedValue::of(Value::class, 'a card is submitted as a record with a number, an expiry, a name and a security code');
+		}
+
+		// Whether a card with nothing in it is a card is the value's question now, and it
+		// answers no. A *partly* filled one still is, so it gets past and the required-part
+		// constraints say which halves are missing.
+		return new Value($value);
 	}
 
 

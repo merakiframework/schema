@@ -3,6 +3,8 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Field\PhoneNumber;
 
+use libphonenumber\NumberParseException;
+use Meraki\Schema\Field\MalformedValue;
 use Meraki\Schema\Comparison\Equality;
 use Meraki\Schema\Field\HasParts;
 use Meraki\Schema\Field\ParsedValue;
@@ -29,8 +31,61 @@ use libphonenumber\PhoneNumberUtil;
  */
 final readonly class Value implements ParsedValue, HasParts
 {
-	public function __construct(public LibPhoneNumber $number)
+	/** The parsed number, which is what every comparison and constraint reads. */
+	public LibPhoneNumber $number;
+
+	/**
+	 * Takes the record a field takes: a number and the country to read it in.
+	 *
+	 * Both halves are required, and valid **for that region** rather than valid somewhere. It
+	 * is what stops an Australian number passing a field told it is a New Zealand one, and it
+	 * settles the international case too: libphonenumber ignores the region when a number is
+	 * already E.164, so `+61…` paired with `US` would otherwise sail through with the two
+	 * halves disagreeing.
+	 *
+	 * @param object $number with a `number` and a `country`, or an already-parsed LibPhoneNumber
+	 *        — which is how a field hands back a value it resolved using its own default country
+	 * @throws MalformedValue if either half is missing, or the pair does not describe a number
+	 */
+	public function __construct(object $number)
 	{
+		// Already parsed, by a field applying its own defaults for the country.
+		if ($number instanceof LibPhoneNumber) {
+			$this->number = $number;
+
+			return;
+		}
+
+		$parts = get_object_vars($number);
+
+		if (!isset($parts['number']) || !is_string($parts['number'])) {
+			throw MalformedValue::of(self::class, 'it has no "number"');
+		}
+
+		if (!isset($parts['country']) || !is_string($parts['country'])) {
+			throw MalformedValue::of(self::class, 'it has no "country", and a number cannot be read without one');
+		}
+
+		// Upper-cased because ISO 3166-1 defines the codes that way, so `au` and `AU` are one
+		// country. Not trimmed: `' AU '` is not a code, and libphonenumber agrees — it refuses it.
+		$region = strtoupper($parts['country']);
+		$util = PhoneNumberUtil::getInstance();
+
+		try {
+			$proto = $util->parse($parts['number'], $region);
+		} catch (NumberParseException) {
+			throw MalformedValue::of(self::class, sprintf('"%s" is not a phone number', $parts['number']));
+		}
+
+		if (!$util->isValidNumberForRegion($proto, $region)) {
+			throw MalformedValue::of(self::class, sprintf(
+				'"%s" is not a valid number in %s',
+				$parts['number'],
+				$region,
+			));
+		}
+
+		$this->number = $proto;
 	}
 
 	/**

@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Field;
 
+use Meraki\Schema\Field\MalformedValue;
 use Meraki\Schema\ValueScope;
 use Meraki\Schema\Rule\Matcher;
 use Meraki\Schema\Field\Collection\Item;
@@ -368,12 +369,19 @@ final readonly class Collection implements Field
 	 * itself `0, 1, 2` and behaves exactly as before — named rows are the general case rather than
 	 * a mode.
 	 */
-	protected function parse(mixed $value): ?Value
+	protected function parse(mixed $value): Value
 	{
+		if ($value instanceof Value) {
+			return $value;
+		}
+
+		// The one shape check that has to stay on the field: a row is read against the *template*,
+		// which is this field's configuration and nothing a value could see. What the value owns
+		// is what it is made of — a list of rows — and that is settled here first.
 		$rows = $this->rowsIn($value, static fn(Field $field, mixed $raw): mixed => $field->resolvedValueFor($raw));
 
 		if ($rows === null) {
-			return null;
+			throw MalformedValue::of(Value::class, 'a collection is submitted as a list of rows, not a record');
 		}
 
 		// A row is a record, so it comes back as an object — the same rule its input obeyed. The

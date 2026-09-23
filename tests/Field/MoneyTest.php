@@ -47,7 +47,7 @@ final class MoneyTest extends FieldTestCase
 	#[Test]
 	public function it_accepts_its_own_value_object(): void
 	{
-		$value = new Value('AUD', BigDecimal::of('12.50'));
+		$value = Value::of('AUD', '12.50');
 
 		$this->assertEquals($value, $this->createField()->resolve($value)->value);
 	}
@@ -251,8 +251,8 @@ final class MoneyTest extends FieldTestCase
 	{
 		// BigDecimal keeps the scale it was given, so `==` calls these different. They are not:
 		// `12.50` and `12.5` are the same money, and only the value object knows that.
-		$written = new Value('AUD', BigDecimal::of('12.50'));
-		$shorter = new Value('AUD', BigDecimal::of('12.5'));
+		$written = Value::of('AUD', '12.50');
+		$shorter = Value::of('AUD', '12.5');
 
 		$this->assertFalse($written == $shorter, 'structural comparison is the wrong answer here');
 		$this->assertTrue($written->equals($shorter));
@@ -261,8 +261,8 @@ final class MoneyTest extends FieldTestCase
 	#[Test]
 	public function the_currency_still_has_to_match(): void
 	{
-		$aud = new Value('AUD', BigDecimal::of('12.50'));
-		$usd = new Value('USD', BigDecimal::of('12.50'));
+		$aud = Value::of('AUD', '12.50');
+		$usd = Value::of('USD', '12.50');
 
 		$this->assertFalse($aud->equals($usd));
 	}
@@ -420,7 +420,7 @@ final class MoneyTest extends FieldTestCase
 	{
 		// No __toString(): where the symbol sits and which separators are used is a locale's
 		// business, and guessing at it here would be wrong in most of the world.
-		$value = new Value('AUD', BigDecimal::of('12.50'));
+		$value = Value::of('AUD', '12.50');
 
 		$this->assertNotInstanceOf(\Stringable::class, $value);
 		$this->assertFalse(method_exists($value, '__toString'));

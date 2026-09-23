@@ -6,6 +6,7 @@ namespace Meraki\Schema\Field;
 use Meraki\Schema\Field\Address;
 use Meraki\Schema\Field\Address\Type;
 use Meraki\Schema\Field\Address\Value;
+use Meraki\Schema\Field\MalformedValue;
 use Meraki\Schema\FieldName;
 use Meraki\Schema\FieldTestCase;
 use InvalidArgumentException;
@@ -63,12 +64,12 @@ final class AddressTest extends FieldTestCase
 	#[Test]
 	public function it_accepts_its_own_value_object(): void
 	{
-		$value = new Value(
+		$value = Value::of(
 			line1: '1 Denham St',
 			locality: 'Rockhampton',
 			administrativeArea: 'QLD',
 			postalCode: '4700',
-			countryCode: 'AU',
+			country: 'AU',
 		);
 
 		$this->assertEquals($value, $this->australian()->resolve($value)->value);
@@ -543,11 +544,11 @@ final class AddressTest extends FieldTestCase
 	{
 		// Neither trimmed nor collapsed to null. An absent part is null; a blank one is blank, and
 		// the difference is information the field has no business discarding.
-		$value = Value::fromInput(['line1' => '  ', 'locality' => 'Rockhampton', 'postal_code' => ' 4700 ']);
+		$value = new Value((object) ['line1' => '  ', 'locality' => 'Rockhampton', 'postal_code' => ' 4700 ', 'country' => 'AU']);
 
 		$this->assertSame('  ', $value->line1);
 		$this->assertSame(' 4700 ', $value->postalCode);
-		$this->assertNull($value->countryCode, 'absent is still null');
+		$this->assertNull($value->organization, 'absent is still null');
 		$this->assertFalse($value->isEmpty(), 'a blank part is a part');
 	}
 
@@ -555,7 +556,7 @@ final class AddressTest extends FieldTestCase
 	public function a_part_is_addressed_by_the_name_submitted_data_uses(): void
 	{
 		// Which is the vocabulary a constraint's `part` reports in.
-		$value = Value::fromInput(self::rockhampton());
+		$value = new Value((object) self::rockhampton());
 
 		$this->assertSame('QLD', $value->partNamed('administrative_area'));
 		$this->assertNull($value->partNamed('not_a_part'));
@@ -564,16 +565,33 @@ final class AddressTest extends FieldTestCase
 	#[Test]
 	public function it_round_trips_through_an_array(): void
 	{
-		$value = Value::fromInput(self::rockhampton());
+		$value = new Value((object) self::rockhampton());
 
 		$this->assertSame(self::rockhampton(), array_filter($value->toArray(), static fn(?string $p): bool => $p !== null));
 	}
 
 	#[Test]
+	public function an_address_that_names_no_country_describes_no_place(): void
+	{
+		// `4700` is Rockhampton in Australia and something else elsewhere, so the pairing is what
+		// makes the rest mean anything — the same pairing money makes with a currency. It used to
+		// be checked by the field; it is a fact about an address, so it is the value's now.
+		$this->expectException(MalformedValue::class);
+
+		Value::of(line1: '1 Denham St', locality: 'Rockhampton');
+	}
+
+	#[Test]
 	public function an_address_with_nothing_in_it_is_absent_rather_than_vague(): void
 	{
-		$this->assertTrue((new Value())->isEmpty());
-		$this->assertFalse(Value::fromInput(['locality' => 'Rockhampton'])->isEmpty());
+		// Stronger than it used to be. This asserted that an empty address *reported* itself
+		// empty; now there is no empty address to ask, because the invariant moved into the
+		// constructor along with the country pairing it belongs with.
+		$this->assertFalse(Value::of(locality: 'Rockhampton', country: 'AU')->isEmpty());
+
+		$this->expectException(MalformedValue::class);
+
+		Value::of();
 	}
 
 	#[Test]
@@ -581,7 +599,7 @@ final class AddressTest extends FieldTestCase
 	{
 		// No __toString(): the order and punctuation an address takes is per-country, so a single
 		// line assembled here would be wrong in most of the world.
-		$value = Value::fromInput(self::rockhampton());
+		$value = new Value((object) self::rockhampton());
 
 		$this->assertNotInstanceOf(\Stringable::class, $value);
 		$this->assertFalse(method_exists($value, '__toString'));

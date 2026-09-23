@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Field\CreditCard;
 
+use Meraki\Schema\Field\MalformedValue;
 use Meraki\Schema\Comparison\Equality;
 use Meraki\Schema\Field\HasParts;
 use Meraki\Schema\Field\ParsedValue;
@@ -42,12 +43,80 @@ final readonly class Value implements ParsedValue, HasParts
 	 *        is good through the end of its stated month
 	 * @param string|null $securityCode the only optional part
 	 */
-	public function __construct(
-		#[SensitiveParameter] public ?string $number = null,
-		public ?LocalDate $expiry = null,
-		public ?string $name = null,
-		#[SensitiveParameter] public ?string $securityCode = null,
-	) {
+	/**
+	 * The PAN with its grouping removed, or null when none was given.
+	 *
+	 * No `#[SensitiveParameter]`: the attribute targets parameters, and PHP refuses it on a
+	 * property. The secrecy this type does carry is in what it withholds — there is no
+	 * `__toString()`, and no masking either, because a consumer may legitimately need the digits.
+	 */
+	public ?string $number;
+
+	/** The last day of the stated month, or null. */
+	public ?LocalDate $expiry;
+
+	/** The cardholder's name as printed, or null. */
+	public ?string $name;
+
+	public ?string $securityCode;
+
+	/**
+	 * Takes the record a field takes, so there is one answer to "what is a card here".
+	 *
+	 * Total about the *parts*: an absent or non-string part becomes null, because a
+	 * half-filled card is still a card and the required-part constraints are what say which
+	 * halves are missing. It refuses only a card with nothing in it at all, which is not a
+	 * vague card — it is not a card.
+	 *
+	 * @param object $card with any of `number`, `expiry`, `name`, `security_code`
+	 * @throws MalformedValue if every part is absent
+	 */
+	public function __construct(#[SensitiveParameter] object $card)
+	{
+		$parts = get_object_vars($card);
+
+		// Absent or not a string is null; `''` is kept, because submitting it was a decision.
+		// Nothing is trimmed — that is the port's job.
+		$text = static function (string $key) use ($parts): ?string {
+			$value = $parts[$key] ?? null;
+
+			return is_string($value) ? $value : null;
+		};
+
+		$number = $text('number');
+
+		// The one thing that *is* canonicalised: ISO/IEC 7812 says a PAN is digits, so the
+		// grouping people type it in is a display convention rather than part of the number.
+		$this->number = $number === null ? null : preg_replace('/\s+/', '', $number);
+		$this->expiry = self::readExpiry($text('expiry'));
+		$this->name = $text('name');
+		$this->securityCode = $text('security_code');
+
+		if ($this->number === null && $this->expiry === null && $this->name === null && $this->securityCode === null) {
+			throw MalformedValue::of(self::class, 'it has no number, expiry, name or security code');
+		}
+	}
+
+	/**
+	 * The readable way to write one by hand — a rule's bound, a test.
+	 *
+	 * A convenience over the constructor rather than a second way in: it builds the record a
+	 * form would submit and hands it over, so the invariant is enforced in one place.
+	 *
+	 * @throws MalformedValue if every part is absent
+	 */
+	public static function of(
+		#[SensitiveParameter] ?string $number = null,
+		?string $expiry = null,
+		?string $name = null,
+		#[SensitiveParameter] ?string $securityCode = null,
+	): self {
+		return new self((object) [
+			'number' => $number,
+			'expiry' => $expiry,
+			'name' => $name,
+			'security_code' => $securityCode,
+		]);
 	}
 
 	/**
@@ -80,28 +149,6 @@ final readonly class Value implements ParsedValue, HasParts
 					? $other->expiry === null
 					: $other->expiry !== null && $this->expiry->isEqualTo($other->expiry)
 			);
-	}
-
-	public static function fromInput(#[SensitiveParameter] array $parts): self
-	{
-		// Absent or not a string is null; `''` is kept, because submitting it was a decision.
-		// Nothing is trimmed — that is the port's job.
-		$text = static function (string $key) use ($parts): ?string {
-			$value = $parts[$key] ?? null;
-
-			return is_string($value) ? $value : null;
-		};
-
-		$number = $text('number');
-
-		return new self(
-			// The one thing that *is* canonicalised: ISO/IEC 7812 says a PAN is digits, so the
-			// grouping people type it in is a display convention rather than part of the number.
-			number: $number === null ? null : preg_replace('/\s+/', '', $number),
-			expiry: self::readExpiry($text('expiry')),
-			name: $text('name'),
-			securityCode: $text('security_code'),
-		);
 	}
 
 	/**

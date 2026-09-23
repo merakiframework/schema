@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Field;
 
+use Meraki\Schema\Field\MalformedValue;
 use Meraki\Schema\ValueScope;
 use Meraki\Schema\Rule\Matcher;
 use Meraki\Schema\Field\Enum\Value;
@@ -75,9 +76,26 @@ final readonly class Enum extends AtomicField
 	 * — so `1` and `'1'` are never both cases, and treating them as one would only hide a mistake
 	 * somewhere upstream.
 	 */
-	protected function parse(mixed $value): ?Value
+	protected function parse(mixed $value): Value
 	{
-		return in_array($value, $this->cases, true) ? new Value($value) : null;
+		if ($value instanceof Value) {
+			return $value;
+		}
+
+		// The one shape check that stays on the field, because it is a fact about *this* field
+		// rather than about the value — see Enum\Value. Membership is the shape: the list is
+		// the type, so being outside it is not a rule being broken, it is not being one of
+		// these at all.
+		if (!in_array($value, $this->cases, true)) {
+			throw MalformedValue::of(Value::class, sprintf(
+				'%s is not one of the cases this field offers',
+				is_scalar($value) ? var_export($value, true) : get_debug_type($value),
+			));
+		}
+
+		assert(is_string($value) || is_int($value) || is_float($value) || is_bool($value));
+
+		return new Value($value);
 	}
 
 	/**

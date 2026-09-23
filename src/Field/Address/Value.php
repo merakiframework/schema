@@ -3,6 +3,8 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Field\Address;
 
+use CommerceGuys\Addressing\Country\CountryRepository;
+use Meraki\Schema\Field\MalformedValue;
 use Meraki\Schema\Comparison\Equality;
 use Meraki\Schema\Field\HasParts;
 use Meraki\Schema\Field\ParsedValue;
@@ -21,7 +23,7 @@ use Meraki\Schema\Field\ParsedValue;
  * the format rather than being part of it.
  *
  * Properties are camelCase and array keys are snake_case, which is the convention a form sends
- * and a database column uses. {@see self::fromInput()} and {@see self::toArray()} are the seam.
+ * and a database column uses. The constructor and {@see self::toArray()} are the seam.
  *
  * This is the field's *internal* representation — what arrived, cleaned up so that everything
  * downstream reads one shape: blanks become nulls, and a country given by name becomes its code.
@@ -57,16 +59,145 @@ final readonly class Value implements ParsedValue, HasParts
 	 * @param string|null $countryCode ISO 3166-1 alpha-2 once `Address::process()` has canonicalised
 	 *        it, but as submitted — possibly a full country name — before that
 	 */
-	public function __construct(
-		public ?string $organization = null,
-		public ?string $line1 = null,
-		public ?string $line2 = null,
-		public ?string $dependentLocality = null,
-		public ?string $locality = null,
-		public ?string $administrativeArea = null,
-		public ?string $postalCode = null,
-		public ?string $countryCode = null,
-	) {
+	public ?string $organization;
+	public ?string $line1;
+	public ?string $line2;
+	public ?string $dependentLocality;
+	public ?string $locality;
+	public ?string $administrativeArea;
+	public ?string $postalCode;
+
+	/** The ISO 3166-1 alpha-2 code, whether a code or a country's name was submitted. */
+	public ?string $countryCode;
+
+	/**
+	 * Takes the record a field takes, so there is one answer to "what is an address here".
+	 *
+	 * Total about the *parts*: an absent or non-string part becomes null, and `''` is kept as
+	 * `''` because submitting it was a decision. Nothing is trimmed — that is the port's job.
+	 *
+	 * Two things it refuses, and both are about whether this is an address at all rather than
+	 * whether it is an acceptable one:
+	 *
+	 * - **Nothing in it.** An address with no parts is not a vague address; it is not an
+	 *   address.
+	 * - **No country.** A postcode means nothing without one — `4700` is Rockhampton in
+	 *   Australia and something else elsewhere — so an address without a country never
+	 *   described a place. The same pairing money makes with a currency.
+	 *
+	 * A country that is *present but unrecognised* is kept and passes: `allowedCountries` is
+	 * the constraint that reports it, and it can name the list it should have been from, which
+	 * is more use than refusing here.
+	 *
+	 * @param object $address with any of the keys in {@see self::PARTS}
+	 * @throws MalformedValue if it is empty, or names no country
+	 */
+	public function __construct(object $address)
+	{
+		$parts = get_object_vars($address);
+
+		$read = static function (string $key) use ($parts): ?string {
+			$value = $parts[$key] ?? null;
+
+			return is_string($value) ? $value : null;
+		};
+
+		$this->organization = $read('organization');
+		$this->line1 = $read('line1');
+		$this->line2 = $read('line2');
+		$this->dependentLocality = $read('dependent_locality');
+		$this->locality = $read('locality');
+		$this->administrativeArea = $read('administrative_area');
+		$this->postalCode = $read('postal_code');
+
+		// The one thing canonicalised: a code and a country's name are two spellings of one
+		// country, and ISO 3166-1 says which of them is the code. An unrecognised string is
+		// left exactly as it came, for `allowedCountries` to report.
+		$country = $read('country');
+		$this->countryCode = $country === null ? null : (self::codeFor($country) ?? $country);
+
+		if ($this->isEmpty()) {
+			throw MalformedValue::of(self::class, 'it has no parts at all');
+		}
+
+		if ($this->countryCode === null || $this->countryCode === '') {
+			throw MalformedValue::of(self::class, 'it names no country, and an address without one describes no place');
+		}
+	}
+
+	/**
+	 * The readable way to write one by hand — a rule's bound, a test.
+	 *
+	 * A convenience over the constructor rather than a second way in: it builds the record a
+	 * form would submit and hands it over, so the invariant is enforced in one place.
+	 *
+	 * @throws MalformedValue if it is empty, or names no country
+	 */
+	public static function of(
+		?string $line1 = null,
+		?string $locality = null,
+		?string $administrativeArea = null,
+		?string $postalCode = null,
+		?string $country = null,
+		?string $organization = null,
+		?string $line2 = null,
+		?string $dependentLocality = null,
+	): self {
+		return new self((object) [
+			'organization' => $organization,
+			'line1' => $line1,
+			'line2' => $line2,
+			'dependent_locality' => $dependentLocality,
+			'locality' => $locality,
+			'administrative_area' => $administrativeArea,
+			'postal_code' => $postalCode,
+			'country' => $country,
+		]);
+	}
+
+	/**
+	 * Exact on every part, because both sides are already canonical: the country is a code by
+	 * the time it gets here, whichever spelling was submitted.
+	 *
+	 * What it does *not* do is decide that two differently-written street lines are the same
+	 * place. That is an address-normalisation problem, it is locale-specific and genuinely hard,
+	 * and guessing at it would silently merge two distinct addresses.
+	 */
+	public function equals(Equality $other): bool
+	{
+		return $other instanceof self
+			&& $this->organization === $other->organization
+			&& $this->line1 === $other->line1
+			&& $this->line2 === $other->line2
+			&& $this->dependentLocality === $other->dependentLocality
+			&& $this->locality === $other->locality
+			&& $this->administrativeArea === $other->administrativeArea
+			&& $this->postalCode === $other->postalCode
+			&& $this->countryCode === $other->countryCode;
+	}
+
+	/**
+	 * The ISO 3166-1 code for a country written as a code or as a name, or null for neither.
+	 *
+	 * Public because the *field* needs the same answer when it checks an author's allow-list,
+	 * and two implementations of "is this a country" would eventually disagree.
+	 */
+	public static function codeFor(string $country): ?string
+	{
+		static $repository = null;
+		$known = ($repository ??= new CountryRepository())->getList();
+
+		if (isset($known[strtoupper($country)])) {
+			return strtoupper($country);
+		}
+
+		foreach ($known as $code => $name) {
+			if (mb_strtolower($name) === mb_strtolower($country)) {
+				return $code;
+			}
+		}
+
+		return null;
 	}
 
 	/**
@@ -83,53 +214,6 @@ final readonly class Value implements ParsedValue, HasParts
 	 *
 	 * @param array<string, mixed> $parts
 	 */
-	/**
-	 * Every part, compared exactly.
-	 *
-	 * Exact is right here because the parts arrive canonicalised: a country submitted as `AU` and
-	 * one submitted as `Australia` are already the same `AU` by the time they reach this object, so
-	 * two addresses that differ only in how they were typed are one address without this having to
-	 * know anything about postal conventions.
-	 *
-	 * What it does *not* do is decide that two differently-written street lines are the same place.
-	 * That is an address-normalisation problem, it is locale-specific and genuinely hard, and
-	 * guessing at it would silently merge two distinct addresses.
-	 */
-	public function equals(Equality $other): bool
-	{
-		return $other instanceof self
-			&& $this->organization === $other->organization
-			&& $this->line1 === $other->line1
-			&& $this->line2 === $other->line2
-			&& $this->dependentLocality === $other->dependentLocality
-			&& $this->locality === $other->locality
-			&& $this->administrativeArea === $other->administrativeArea
-			&& $this->postalCode === $other->postalCode
-			&& $this->countryCode === $other->countryCode;
-	}
-
-	public static function fromInput(array $parts): self
-	{
-		$read = static function (string $key) use ($parts): ?string {
-			$value = $parts[$key] ?? null;
-
-			return is_string($value) ? $value : null;
-		};
-
-		return new self(
-			organization: $read('organization'),
-			line1: $read('line1'),
-			line2: $read('line2'),
-			dependentLocality: $read('dependent_locality'),
-			locality: $read('locality'),
-			administrativeArea: $read('administrative_area'),
-			postalCode: $read('postal_code'),
-			// Left exactly as submitted. A code and a name are both acceptable, and only the field
-			// knows which countries exist, so canonicalising is its job rather than this one's.
-			countryCode: $read('country'),
-		);
-	}
-
 	/**
 	 * The snake_cased form, every part present even when null, so a consumer can rely on the
 	 * shape rather than testing for keys.
@@ -167,15 +251,15 @@ final readonly class Value implements ParsedValue, HasParts
 	 */
 	public function withCountryCode(string $countryCode): self
 	{
-		return new self(
-			organization: $this->organization,
+		return self::of(
 			line1: $this->line1,
-			line2: $this->line2,
-			dependentLocality: $this->dependentLocality,
 			locality: $this->locality,
 			administrativeArea: $this->administrativeArea,
 			postalCode: $this->postalCode,
-			countryCode: $countryCode,
+			country: $countryCode,
+			organization: $this->organization,
+			line2: $this->line2,
+			dependentLocality: $this->dependentLocality,
 		);
 	}
 

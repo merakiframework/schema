@@ -20,6 +20,17 @@ use Meraki\Schema\Field\ParsedValue;
  */
 final readonly class Value implements ParsedValue
 {
+	/**
+	 * The one value in this library whose constructor enforces nothing beyond its type, and
+	 * the exception is worth naming.
+	 *
+	 * Everywhere else, "is this the kind of thing I hold" is a fact about the value —
+	 * `"25:00"` is not a time under any configuration. Here it is a fact about the *field*:
+	 * membership of a case list the author supplied, which a value has no way to see. So
+	 * {@see \Meraki\Schema\Field\Enum::parse()} keeps that check, and it is the shape rather
+	 * than a constraint — an enum renderer reads `$cases` to draw the options anyway, so a
+	 * bound carrying them would say nothing new.
+	 */
 	public function __construct(public string|int|float|bool $case)
 	{
 	}

@@ -76,12 +76,12 @@ final class StructuredTypeTest extends TestCase
 	public function a_structured_field_accepts_its_own_value_object(): void
 	{
 		$address = new Field\Address(new FieldName('billing'), ['AU']);
-		$value = new Field\Address\Value(
+		$value = Field\Address\Value::of(
 			line1: '1 Denham St',
 			locality: 'Rockhampton',
 			administrativeArea: 'QLD',
 			postalCode: '4700',
-			countryCode: 'AU',
+			country: 'AU',
 		);
 
 		$this->assertEquals($value, $address->resolve($value)->value);

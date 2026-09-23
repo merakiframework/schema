@@ -39,7 +39,10 @@ downstream depends on them:
 
 - **It never receives `null`.** Absence is settled first, so `null` in the *return* means one
   thing only: unreadable.
-- **It never raises.** It runs on attacker-controlled input, so an unreadable value is reported.
+- **It raises `MalformedValue`, and a *request* never sees it.** The lifecycle catches on the
+  request path and reports an unreadable shape; it lets the exception through at definition
+  time, so a bad `defaultsTo()` tells its author why. Which of those happens is not the field's
+  decision — one field differing from its neighbours would make results inconsistent.
 - **What it returns is what the constraints see** — so a check is typed `Number\Value` and has
   that be true by construction rather than by hoping a gate ran first.
 

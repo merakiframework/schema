@@ -148,12 +148,43 @@ this library has never heard of. See [MESSAGES.md](MESSAGES.md).
 those properties. `Api\SealedFieldTest` checks this for every field, including yours if you add it
 to the sweep.
 
-**2. `parse()` returns your value object, or `null`.** Never a bare scalar, never a class from a
-dependency. `null` means *unreadable* and nothing else — absence is settled before `parse()` runs,
-so it never receives `null`.
+**2. Your value's constructor enforces its own invariant.** It takes what the *field* accepts —
+a string for a string-shaped field, a record for one with named parts — checks it, canonicalises
+where a standard says two spellings are one thing, and raises `Field\MalformedValue` for
+anything that is not one of these at all.
 
-**3. `parse()` never raises.** It runs on attacker-controlled input. An unreadable value is
-reported, not thrown; throwing belongs to definition time, where the author can act on it.
+That is not ceremony. An invariant your `equals()` relies on has to be enforced where the value
+is built, or a value constructed directly compares unequal to the same thing a field parsed.
+That was a live bug here before this rule existed.
+
+**Shape, never constraints.** Raise for what is not an ISBN; do not raise for an ISBN the field
+happens to disallow. A constraint failure names the check and the limit, and an unreadable value
+names neither — so moving a constraint behind the exception turns a precise answer into a blank
+one.
+
+**3. `parse()` narrows and hands over, and writes no try/catch.** It returns your value or
+raises; there is no `null`. Whether a refusal is absorbed or raised is the *lifecycle's*
+decision — caught on a request and reported as an unreadable shape, raised for a bad
+`defaultsTo()` so the author reads the reason. A field that decided this for itself would report
+a bad default as a silent null where its neighbours raised.
+
+```php
+protected function parse(mixed $value): Value
+{
+    if ($value instanceof Value) {
+        return $value;
+    }
+
+    if (!is_string($value)) {
+        throw MalformedValue::of(Value::class, 'an ISBN is submitted as a string');
+    }
+
+    return new Value($value);
+}
+```
+
+The narrowing is the only part that has to be here: a request can submit anything, and handing
+an array to a `string` parameter raises a `TypeError`, which is not what a lifecycle catches.
 
 **4. Configure with withers, never setters.** `return $this->with([...])`, and the caller keeps
 the copy. Writing to a field is a fatal. This is also what makes your field usable as a rule

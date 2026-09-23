@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Field;
 
+use Meraki\Schema\Field\MalformedValue;
 use Meraki\Schema\ValueScope;
 use Meraki\Schema\Rule\Matcher;
 use Meraki\Schema\Field\DateTime\TimePrecision;
@@ -107,17 +108,20 @@ final readonly class DateTime extends AtomicField
 		return $this->with(['interval' => $interval]);
 	}
 
-	protected function parse(mixed $value): ?Value
+	protected function parse(mixed $value): Value
 	{
-		if (!is_string($value)) {
-			return null;
+		if ($value instanceof Value) {
+			return $value;
 		}
 
-		try {
-			return new Value($this->mustParse($value));
-		} catch (DateTimeException) {
-			return null;
+		if (!is_string($value)) {
+			throw MalformedValue::of(Value::class, 'a date and time, as YYYY-MM-DDTHH:MM is submitted as a string');
 		}
+
+		// Two steps, and they belong to different owners. The value says whether this is a
+		// time at all; this field then applies the precision policy it was configured with,
+		// which no value could know about.
+		return new Value($this->policy->applyTo((new Value($value))->dateTime, $this->precision));
 	}
 
 	/**

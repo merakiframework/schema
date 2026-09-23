@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Field;
 
+use Meraki\Schema\Field\MalformedValue;
 use Meraki\Schema\ValueScope;
 use Meraki\Schema\Rule\Matcher;
 use Meraki\Schema\Field\PhoneNumber\Type;
@@ -128,24 +129,19 @@ final readonly class PhoneNumber extends AtomicField
 	/**
 	 * @param NumberAndCountry $value
 	 */
-	protected function parse(mixed $value): ?Value
+	protected function parse(mixed $value): Value
 	{
-		$number = self::numberIn($value);
-		$country = self::countryIn($value);
-
-		// Either half missing means this never described a number. No constraint can speak to
-		// that, so it is the shape that fails.
-		if ($number === null || $country === null) {
-			return null;
+		if ($value instanceof Value) {
+			return $value;
 		}
 
-		// Valid *for that region* rather than valid somewhere. It is what stops an Australian
-		// number passing a field told it is a New Zealand one, and it settles the international
-		// case too: libphonenumber ignores the region when a number is already E.164, so
-		// `+61…` paired with `US` would otherwise sail through with the two halves disagreeing.
-		$parsed = self::parseForRegion($number, $country);
+		// An object is a record; an array is a list. A number and its country are named parts,
+		// so they arrive as the former — see Definition::recordIn().
+		if (!is_object($value)) {
+			throw MalformedValue::of(Value::class, 'a phone number is submitted as a record with a number and a country');
+		}
 
-		return $parsed === null ? null : new Value($parsed);
+		return new Value($value);
 	}
 
 	protected function defineConstraints(): Constraint\Set

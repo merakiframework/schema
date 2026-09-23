@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Field\File;
 
+use Meraki\Schema\Field\MalformedValue;
 use Meraki\Schema\Comparison\Equality;
 use Meraki\Schema\Field\HasParts;
 use Meraki\Schema\Field\ParsedValue;
@@ -28,35 +29,64 @@ use InvalidArgumentException;
  */
 final readonly class Value implements ParsedValue, HasParts
 {
+	/** @var non-empty-string the client's filename */
+	public string $name;
+
+	/** @var non-empty-string the MIME type the client *claimed* */
+	public string $type;
+
+	/** @var non-negative-int the size the client *reported*, in bytes */
+	public int $size;
+
 	/**
-	 * @param non-empty-string $name the client's filename
-	 * @param non-empty-string $type the MIME type the client *claimed*
-	 * @param non-negative-int $size the size the client *reported*, in bytes
+	 * Takes the record a field takes, which for a file is the `$_FILES` triple a port hands
+	 * over: a name, a claimed type and a reported size.
+	 *
+	 * @param object $file with a `name`, a `type` and a `size`
+	 * @throws MalformedValue if any part is missing or unreadable
 	 */
-	public function __construct(
-		public string $name,
-		public string $type,
-		public int $size,
-	) {
-		if ($name === '') {
-			throw new InvalidArgumentException('A file must have a name.');
+	public function __construct(object $file)
+	{
+		$parts = get_object_vars($file);
+
+		foreach (['name', 'type', 'size'] as $key) {
+			// array_key_exists rather than isset: a null here is a malformed upload, and saying
+			// so is more useful than reporting the key as absent.
+			if (!array_key_exists($key, $parts)) {
+				throw MalformedValue::of(self::class, sprintf('it has no "%s"', $key));
+			}
 		}
 
-		if ($type === '') {
-			throw new InvalidArgumentException('A file must have a type.');
+		if (!is_string($parts['name']) || !is_string($parts['type'])) {
+			throw MalformedValue::of(self::class, 'a name and a type are strings');
 		}
 
-		if ($size < 0) {
-			throw new InvalidArgumentException('A file size cannot be negative.');
+		if ($parts['name'] === '' || $parts['type'] === '') {
+			throw MalformedValue::of(self::class, 'a name and a type cannot be empty');
 		}
+
+		if (!is_int($parts['size']) && !(is_string($parts['size']) && ctype_digit($parts['size']))) {
+			throw MalformedValue::of(self::class, 'a size is a whole number of bytes');
+		}
+
+		$this->name = $parts['name'];
+		$this->type = $parts['type'];
+		$this->size = (int) $parts['size'];
 	}
 
 	/**
-	 * Reads the `$_FILES`-shaped array a form upload arrives as.
+	 * The readable way to describe one by hand — a rule's bound, a test.
 	 *
-	 * @param array<string, mixed> $file
-	 * @throws InvalidArgumentException if it is not one
+	 * A convenience over the constructor rather than a second way in: it builds the same record
+	 * an upload arrives as and hands it over.
+	 *
+	 * @throws MalformedValue if any part is unusable
 	 */
+	public static function of(string $name, string $type, int $size): self
+	{
+		return new self((object) ['name' => $name, 'type' => $type, 'size' => $size]);
+	}
+
 	/**
 	 * Name, claimed type and size together.
 	 *
@@ -74,28 +104,6 @@ final readonly class Value implements ParsedValue, HasParts
 			&& $this->type === $other->type
 			&& $this->size === $other->size;
 	}
-
-	public static function fromInput(array $file): self
-	{
-		foreach (['name', 'type', 'size'] as $key) {
-			// array_key_exists rather than isset: a null here is a malformed upload, and
-			// saying so is more useful than reporting the key as absent.
-			if (!array_key_exists($key, $file)) {
-				throw new InvalidArgumentException(sprintf('A file is missing its "%s".', $key));
-			}
-		}
-
-		if (!is_string($file['name']) || !is_string($file['type'])) {
-			throw new InvalidArgumentException('A file\'s name and type must be strings.');
-		}
-
-		if (!is_int($file['size']) && !(is_string($file['size']) && ctype_digit($file['size']))) {
-			throw new InvalidArgumentException('A file\'s size must be a whole number of bytes.');
-		}
-
-		return new self($file['name'], $file['type'], (int) $file['size']);
-	}
-
 
 	/**
 	 * `type` is the MIME the *client* claimed, not a verified one — see this class's own

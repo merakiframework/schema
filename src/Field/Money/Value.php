@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Field\Money;
 
+use Meraki\Schema\Field\MalformedValue;
 use Meraki\Schema\Comparison\Comparable;
 use Meraki\Schema\Comparison\Equality;
 use Meraki\Schema\Comparison\Order;
@@ -37,19 +38,80 @@ use TypeError;
  */
 final readonly class Value implements ParsedValue, HasParts, Comparable
 {
+	/** ISO 4217 alpha-3, upper-cased. */
+	public string $currency;
+
+	/** The amount, at whatever scale it was written with. */
+	public BigDecimal $amount;
+
 	/**
-	 * @param string $currency ISO 4217 alpha-3, upper-cased
-	 * @throws InvalidArgumentException if the currency is not three letters
+	 * Takes the record a field takes, which is the rule everywhere: a value is made of exactly
+	 * what the field accepts, so there is one answer to "what is money here" rather than a
+	 * field that reads input and a value that trusts whatever it is handed.
+	 *
+	 * {@see self::of()} is the readable way to write one by hand — a rule's bound, a test —
+	 * and it is a convenience over this rather than a second way in.
+	 *
+	 * @param object $money with a `currency` and an `amount`
+	 * @throws MalformedValue if either half is missing or unreadable
 	 */
-	public function __construct(
-		public string $currency,
-		public BigDecimal $amount,
-	) {
-		if (preg_match('/^[A-Z]{3}$/', $currency) !== 1) {
-			throw new InvalidArgumentException(
-				"'{$currency}' is not an ISO 4217 currency code; three letters were expected.",
-			);
+	public function __construct(object $money)
+	{
+		$parts = get_object_vars($money);
+
+		foreach (['currency', 'amount'] as $key) {
+			// array_key_exists rather than isset: a null here is a half-filled form, and saying
+			// so is more useful than reporting the key as absent.
+			if (!array_key_exists($key, $parts)) {
+				throw MalformedValue::of(self::class, "it has no \"{$key}\"");
+			}
 		}
+
+		if (!is_string($parts['currency'])) {
+			throw MalformedValue::of(self::class, 'a currency is a string');
+		}
+
+		// Upper-cased because ISO 4217 defines the codes that way, so `aud` and `AUD` are one
+		// code. Not trimmed: `'AUD '` is not a code, and repairing it is the port's job.
+		$currency = strtoupper($parts['currency']);
+
+		if (preg_match('/^[A-Z]{3}$/', $currency) !== 1) {
+			throw MalformedValue::of(self::class, sprintf(
+				'"%s" is not an ISO 4217 currency code; three letters were expected',
+				$parts['currency'],
+			));
+		}
+
+		if (!is_float($parts['amount']) && !is_int($parts['amount']) && !is_string($parts['amount'])) {
+			throw MalformedValue::of(self::class, 'an amount is a number or a string');
+		}
+
+		try {
+			$this->amount = BigDecimal::of($parts['amount']);
+		} catch (MathException) {
+			throw MalformedValue::of(self::class, sprintf('"%s" is not an amount', $parts['amount']));
+		}
+
+		$this->currency = $currency;
+	}
+
+	/**
+	 * The readable way to write an amount by hand.
+	 *
+	 *     $price->when()->isAtLeast(Money\\Value::of('AUD', '10.00'))
+	 *
+	 * A convenience over the constructor, not a second way in: it builds the same record a
+	 * form would submit and hands it over, so there is one place where what money *is* gets
+	 * decided.
+	 *
+	 * @throws MalformedValue if either half is unreadable
+	 */
+	public static function of(string $currency, BigDecimal|float|int|string $amount): self
+	{
+		return new self((object) [
+			'currency' => $currency,
+			'amount' => $amount instanceof BigDecimal ? (string) $amount : $amount,
+		]);
 	}
 
 	/**
@@ -102,38 +164,6 @@ final readonly class Value implements ParsedValue, HasParts, Comparable
 
 		return Order::of($this->amount->compareTo($other->amount));
 	}
-
-	/**
-	 * Reads the array a form submits.
-	 *
-	 * @param array<string, mixed> $parts
-	 * @throws InvalidArgumentException if either half is missing or unreadable
-	 */
-	public static function fromInput(array $parts): self
-	{
-		foreach (['currency', 'amount'] as $key) {
-			// array_key_exists rather than isset: a null here is a half-filled form, and saying so
-			// is more useful than reporting the key as absent.
-			if (!array_key_exists($key, $parts)) {
-				throw new InvalidArgumentException("An amount of money is missing its \"{$key}\".");
-			}
-		}
-
-		if (!is_string($parts['currency'])) {
-			throw new InvalidArgumentException('A currency must be a string.');
-		}
-
-		try {
-			$amount = BigDecimal::of($parts['amount']);
-		} catch (MathException | TypeError) {
-			throw new InvalidArgumentException('An amount must be a number.');
-		}
-
-		// Upper-cased because ISO 4217 defines the codes that way, so `aud` and `AUD` are one
-		// code. Not trimmed: `'AUD '` is not a code, and repairing it is the port's job.
-		return new self(strtoupper($parts['currency']), $amount);
-	}
-
 
 	/**
 	 * The two halves, which are the whole of what money is. A rule comparing currencies

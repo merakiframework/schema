@@ -36,7 +36,7 @@ final class FileTest extends FieldTestCase
 	#[Test]
 	public function it_accepts_a_value_object(): void
 	{
-		$result = $this->createField()->validate(new Value('a.png', 'image/png', 123));
+		$result = $this->createField()->validate(Value::of('a.png', 'image/png', 123));
 
 		$this->assertSame(ValidationStatus::Passed, $result->status);
 		$this->assertSame('a.png', $result->value->name);
@@ -229,7 +229,7 @@ final class FileTest extends FieldTestCase
 	{
 		// No __toString(): a filename is attacker-controlled text, and stringifying invites it into
 		// a page or a path unescaped.
-		$value = new Value('report.pdf', 'application/pdf', 2048);
+		$value = Value::of('report.pdf', 'application/pdf', 2048);
 
 		$this->assertSame('report.pdf', $value->name);
 		$this->assertNotInstanceOf(\Stringable::class, $value);
@@ -288,7 +288,7 @@ final class FileTest extends FieldTestCase
 	{
 		// PHP hands $_FILES sizes back as integers, but a JSON body or a form round-trip
 		// can deliver the same number as a string.
-		$value = Value::fromInput(['name' => 'a.txt', 'type' => 'text/plain', 'size' => '2048']);
+		$value = new Value((object) ['name' => 'a.txt', 'type' => 'text/plain', 'size' => '2048']);
 
 		$this->assertSame(2048, $value->size);
 	}

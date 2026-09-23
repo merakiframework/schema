@@ -31,7 +31,7 @@ trait Definition
 	public readonly mixed $defaultValue;
 
 	/**
-	 * Reads submitted input as the thing this field is about, or hands back `null` when it cannot.
+	 * Reads submitted input as the thing this field is about, and refuses what it cannot.
 	 *
 	 * The single conversion step. It replaced `process()`, `validateValue()` and `transform()`,
 	 * which between them parsed most values twice and had to agree with each other to be correct.
@@ -40,18 +40,47 @@ trait Definition
 	 *
 	 * - **It never receives `null`.** Absence is settled before it runs — no input and no default
 	 *   means there is nothing to read, so the field is skipped or reported missing without this
-	 *   being called. `null` in the return therefore means one thing only: *unreadable*.
-	 * - **It never raises.** It runs on attacker-controlled input, so an unreadable value is
-	 *   reported, not thrown. Failing to parse is ordinary, not exceptional — throwing belongs to
-	 *   definition time, where the author can act on it.
+	 *   being called.
+	 * - **It returns a value, or raises {@see MalformedValue}.** There is no `null`, and no
+	 *   try/catch for a field author to write: who absorbs the refusal is decided by the
+	 *   lifecycle, below.
 	 * - **What it returns is what the constraints see.** So a constraint is typed `Number\Value`
 	 *   and has that be true by construction.
 	 * - **It always returns a value object this library defines.** Never a bare scalar, and never a
 	 *   third party's class — see below.
 	 *
+	 * ### Raising, and who absorbs it
+	 *
+	 * This used to return `null` for unreadable input, on the grounds that failing to parse is
+	 * ordinary rather than exceptional. It still is — and the field still never raises on a
+	 * request, because {@see self::readable()} catches. What changed is that the *reason* now
+	 * survives long enough to reach somebody who can act on it:
+	 *
+	 * | Asked by | Answer |
+	 * | --- | --- |
+	 * | A request | caught, reported as an unreadable *shape* |
+	 * | `defaultsTo()`, at definition time | raised, with the reason attached |
+	 *
+	 * The definition-time check could only say *"the default is not a value it can hold"*,
+	 * because the reason had been discarded one frame earlier — while the constraint branch
+	 * beside it named the constraint that failed. The weaker message was the one whose audience
+	 * could have used it.
+	 *
+	 * ### Most of this belongs to the value, not here
+	 *
+	 * A value's constructor enforces its own invariant, so "is this an email address" is asked
+	 * once, by the thing that has to be one. What is left here is narrowing `mixed` to the type
+	 * the value takes — a request can submit anything, and handing an array to a `string`
+	 * parameter raises a `TypeError`, which is not what a lifecycle catches.
+	 *
+	 * Two fields keep more, and both for the same reason: the check is a fact about the *field*
+	 * rather than the value. {@see Enum} owns membership of a case list it was given, and
+	 * {@see Collection} reads each row against its template.
+	 *
 	 * It does not *repair* input. Trimming whitespace or fixing case is the port's business — see
 	 * docs/CODING-STYLE.md. It canonicalises only where a standard says two spellings are one
-	 * thing, and that belongs in the field's own `Value` object, not here.
+	 * thing, and that belongs in the field's own `Value` object rather than here — an invariant
+	 * the value's own `equals()` relies on has to be the value's to enforce.
 	 *
 	 * ### It always returns a value object
 	 *
@@ -87,7 +116,7 @@ trait Definition
 	 * @see ParsedValue  what every returned value implements
 	 * @see Comparable for the ordered ones, which the comparison matchers build on
 	 */
-	abstract protected function parse(mixed $value): ?ParsedValue;
+	abstract protected function parse(mixed $value): ParsedValue;
 
 	/**
 	 * The instant this field's time-relative constraints were judged against, or `null` when it
@@ -229,7 +258,7 @@ trait Definition
 	 * lifecycle decision, and a field getting it differently from its neighbours would make
 	 * results inconsistent across a schema — see docs/FIELD-API.md.
 	 *
-	 * @param callable(mixed): ?ParsedValue $parse
+	 * @param callable(mixed): ParsedValue $parse
 	 */
 	final protected static function readable(callable $parse, mixed $raw): ?ParsedValue
 	{
@@ -314,13 +343,6 @@ trait Definition
 				(string) $this->name,
 				$malformed->getMessage(),
 			), previous: $malformed);
-		}
-
-		if ($parsed === null) {
-			throw new InvalidArgumentException(sprintf(
-				'The default for "%s" is not a value it can hold.',
-				(string) $this->name,
-			));
 		}
 
 		foreach ($this->constraints as $constraint) {

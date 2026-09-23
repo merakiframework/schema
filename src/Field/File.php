@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Field;
 
+use Meraki\Schema\Field\MalformedValue;
 use Meraki\Schema\ValueScope;
 use Meraki\Schema\Rule\Matcher;
 use Meraki\Schema\Field\File\Value;
@@ -211,23 +212,19 @@ final readonly class File extends AtomicField
 	/**
 	 * @param array<string, mixed>|Value $value
 	 */
-	protected function parse(mixed $value): ?Value
+	protected function parse(mixed $value): Value
 	{
 		if ($value instanceof Value) {
 			return $value;
 		}
 
-		$parts = self::recordIn($value);
-
-		if ($parts === null) {
-			return null;
+		// An object is a record; an array is a list. A file's description has named parts, so
+		// it arrives as the former — see Definition::recordIn().
+		if (!is_object($value)) {
+			throw MalformedValue::of(Value::class, 'a file is submitted as a record with a name, a type and a size');
 		}
 
-		try {
-			return Value::fromInput($parts);
-		} catch (InvalidArgumentException) {
-			return null;
-		}
+		return new Value($value);
 	}
 
 

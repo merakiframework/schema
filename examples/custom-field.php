@@ -15,6 +15,7 @@ namespace Acme\Isbn {
 	require_once __DIR__ . '/../vendor/autoload.php';
 
 	use Meraki\Schema\Comparison\Equality;
+	use Meraki\Schema\Field\MalformedValue;
 	use Meraki\Schema\Field\ParsedValue;
 
 	/**
@@ -24,8 +25,26 @@ namespace Acme\Isbn {
 	 */
 	final readonly class Value implements ParsedValue
 	{
-		public function __construct(public string $isbn)
+		/** Digits only, with any check digit. */
+		public string $isbn;
+
+		/**
+		 * The constructor enforces the invariant, so there is no way to hold one of these that a
+		 * field would not have produced — and the canonicalising happens where the comparison
+		 * does, which is what makes `equals()` reliable rather than dependent on how it was built.
+		 *
+		 * @throws MalformedValue if this is not an ISBN
+		 */
+		public function __construct(string $isbn)
 		{
+			// Canonicalising, not repairing: ISO 2108 says the hyphens are presentation.
+			$digits = preg_replace('/[\s-]/', '', $isbn);
+
+			if (preg_match('/^\d{9}[\dX]$|^\d{13}$/', $digits) !== 1) {
+				throw MalformedValue::of(self::class, sprintf('"%s" is not an ISBN', $isbn));
+			}
+
+			$this->isbn = $digits;
 		}
 
 		public function equals(Equality $other): bool
@@ -46,6 +65,7 @@ namespace Acme {
 	use Acme\Isbn\Value;
 	use Meraki\Schema\AtomicField;
 	use Meraki\Schema\Field\Constraint;
+	use Meraki\Schema\Field\MalformedValue;
 	use Meraki\Schema\FieldName;
 	use Meraki\Schema\Rule\Matcher;
 	use Meraki\Schema\ValueScope;
@@ -86,20 +106,27 @@ namespace Acme {
 		}
 
 		/**
-		 * The one conversion hook. It never receives null — absence is settled before it runs —
-		 * and it never raises, because it runs on untrusted input. `null` out means one thing
-		 * only: this could not be read as an ISBN.
+		 * The one conversion hook, and almost nothing is left in it.
+		 *
+		 * What an ISBN *is* belongs to the value — no configuration makes `"hello"` one — so this
+		 * narrows `mixed` to the type the value takes and hands over. It never receives null:
+		 * absence is settled before it runs.
+		 *
+		 * There is no try/catch, and there should not be. Whether a refusal is absorbed or raised
+		 * is the lifecycle's decision — caught on a request, raised for a bad `defaultsTo()` so
+		 * the author reads the reason.
 		 */
-		protected function parse(mixed $value): ?Value
+		protected function parse(mixed $value): Value
 		{
-			if (!is_string($value)) {
-				return null;
+			if ($value instanceof Value) {
+				return $value;
 			}
 
-			// Canonicalising, not repairing: ISO 2108 says the hyphens are presentation.
-			$digits = preg_replace('/[\s-]/', '', $value);
+			if (!is_string($value)) {
+				throw MalformedValue::of(Value::class, 'an ISBN is submitted as a string');
+			}
 
-			return preg_match('/^\d{9}[\dX]$|^\d{13}$/', $digits) === 1 ? new Value($digits) : null;
+			return new Value($value);
 		}
 
 		protected function defineConstraints(): Constraint\Set

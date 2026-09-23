@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Field;
 
+use Meraki\Schema\Field\MalformedValue;
 use Meraki\Schema\ValueScope;
 use Meraki\Schema\Rule\Matcher;
 use Meraki\Schema\Field\Password\Strength;
@@ -231,16 +232,30 @@ final readonly class Password extends AtomicField
 		PrefillPolicy $policy = PrefillPolicy::Checked,
 	): Password\Result {
 		$raw = $given ?? $this->defaultValue;
-		$parsed = $raw === null ? null : $this->parse($raw);
+
+		// Through the lifecycle's reader rather than calling parse() directly: this overrides
+		// validate() to report entropy, not to decide what an unreadable secret means.
+		$parsed = $raw === null ? null : self::readable($this->parse(...), $raw);
 		$source = $this->sourceOf($given, $givenAs);
 
 		return (new Password\Result($this, $given, $parsed ?? $raw, $appliedOutcomes, $source, $this->evaluatedAt()))
 			->withResults(...$this->check($raw, $parsed, $source, $policy));
 	}
 
-	protected function parse(#[SensitiveParameter] mixed $value): ?Value
+	protected function parse(#[SensitiveParameter] mixed $value): Value
 	{
-		return is_string($value) ? new Value($value) : null;
+		if ($value instanceof Value) {
+			return $value;
+		}
+
+		// Any string is a password. Length, composition and strength are all constraints, and
+		// putting any of them here would report "unreadable" where the result should say which
+		// check failed and what the limit was.
+		if (!is_string($value)) {
+			throw MalformedValue::of(Value::class, 'a password is submitted as a string');
+		}
+
+		return new Value($value);
 	}
 
 	/**

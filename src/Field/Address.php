@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Field;
 
+use Meraki\Schema\Field\MalformedValue;
 use Meraki\Schema\ValueScope;
 use Meraki\Schema\Rule\Matcher;
 use Meraki\Schema\Field\Address\Type;
@@ -11,7 +12,6 @@ use Meraki\Schema\AtomicField;
 use Meraki\Schema\FieldName;
 use CommerceGuys\Addressing\AddressFormat\AddressFormat;
 use CommerceGuys\Addressing\AddressFormat\AddressFormatRepository;
-use CommerceGuys\Addressing\Country\CountryRepository;
 use CommerceGuys\Addressing\Subdivision\SubdivisionRepository;
 use InvalidArgumentException;
 
@@ -204,35 +204,22 @@ final readonly class Address extends AtomicField
 	 *
 	 * @param array<string, mixed>|Value $value
 	 */
-	protected function parse(mixed $value): ?Value
+	protected function parse(mixed $value): Value
 	{
-		if (!$value instanceof Value) {
-			// Anything that is not a set of parts could not be read as an address.
-			$parts = self::recordIn($value);
-
-			if ($parts === null) {
-				return null;
-			}
-
-			$value = Value::fromInput($parts);
+		if ($value instanceof Value) {
+			return $value;
 		}
 
-		// An address with nothing in it is not a vague address — it is not an address, so it is
-		// unreadable rather than absent.
-		if ($value->isEmpty()) {
-			return null;
+		// An object is a record; an array is a list. An address has named parts, so it arrives
+		// as the former — see Definition::recordIn().
+		if (!is_object($value)) {
+			throw MalformedValue::of(Value::class, 'an address is submitted as a record of its parts');
 		}
 
-		$address = $this->canonicaliseCountry($value);
-
-		// The country is not optional. A postcode means nothing without one — `4700` is
-		// Rockhampton in Australia and something else elsewhere — so an address without a country
-		// never described a place. The same pairing Money makes with a currency.
-		//
-		// Note this is about *presence*. A country that is present but unrecognised passes the
-		// shape and is reported by `allowedCountries`, which can name the list it should have been
-		// from; rejecting it here would replace that with a blunter message.
-		return $address->countryCode === null || $address->countryCode === '' ? null : $address;
+		// Emptiness, the country pairing and the code-or-name canonicalising are all the value's
+		// now. Each is a fact about an address rather than about this field: no configuration
+		// makes an address with no country describe a place.
+		return new Value($value);
 	}
 
 	/**
@@ -242,17 +229,6 @@ final readonly class Address extends AtomicField
 	 * `allowedCountries` to report — rewriting it would lose what the author actually typed, and
 	 * guessing at a near-miss is not this field's business.
 	 */
-	private function canonicaliseCountry(Value $address): Value
-	{
-		if ($address->countryCode === null) {
-			return $address;
-		}
-
-		$code = self::codeFor($address->countryCode);
-
-		return $code === null || $code === $address->countryCode ? $address : $address->withCountryCode($code);
-	}
-
 
 	/**
 	 * Four constraints, each naming the part it is about rather than embedding this field's name.
@@ -384,7 +360,7 @@ final readonly class Address extends AtomicField
 		}
 
 		// Present but not a region libaddressinput knows, so there is no format to look up.
-		return self::codeFor($country) === null ? null : $country;
+		return Value::codeFor($country) === null ? null : $country;
 	}
 
 	/**
@@ -398,7 +374,7 @@ final readonly class Address extends AtomicField
 		foreach ($additional as $country) {
 			// Trimmed here and not in codeFor(), because this is the *author's* string written in
 			// their own source. A submitted country is untrusted input and is left as it came.
-			$code = self::codeFor(trim($country));
+			$code = Value::codeFor(trim($country));
 
 			if ($code === null) {
 				throw new InvalidArgumentException("Country '{$country}' is not a supported region.");
@@ -419,35 +395,11 @@ final readonly class Address extends AtomicField
 	 * with a code — so accepting both costs nothing in clarity. Accepting only the code would mean
 	 * a form offering a country dropdown had to map it back before submitting.
 	 */
-	private static function codeFor(string $country): ?string
-	{
-		$known = self::countries()->getList();
-
-		if (isset($known[strtoupper($country)])) {
-			return strtoupper($country);
-		}
-
-		foreach ($known as $code => $name) {
-			if (mb_strtolower($name) === mb_strtolower($country)) {
-				return $code;
-			}
-		}
-
-		return null;
-	}
-
 	private static function formats(): AddressFormatRepository
 	{
 		static $repository = null;
 
 		return $repository ??= new AddressFormatRepository();
-	}
-
-	private static function countries(): CountryRepository
-	{
-		static $repository = null;
-
-		return $repository ??= new CountryRepository();
 	}
 
 	private static function subdivisions(): SubdivisionRepository

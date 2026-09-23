@@ -5,6 +5,7 @@ namespace Meraki\Schema\Field;
 
 use Meraki\Schema\Field\CreditCard;
 use Meraki\Schema\Field\CreditCard\Value;
+use Meraki\Schema\Field\MalformedValue;
 use Meraki\Schema\FieldName;
 use Meraki\Schema\FieldTestCase;
 use Brick\DateTime\Clock\FixedClock;
@@ -117,11 +118,16 @@ final class CreditCardTest extends FieldTestCase
 	}
 
 	#[Test]
-	public function an_empty_value_object_reads_the_same_way(): void
+	public function an_empty_card_cannot_be_built_at_all(): void
 	{
-		// The same card, built rather than submitted. Which route it arrived by is not a difference
-		// the field should care about.
-		$this->assertShapeFailed($this->createField()->validate(new Value()));
+		// Stronger than it used to be. This asserted that an empty Value read the same way as an
+		// empty submission; now there is no empty Value to read, because the invariant moved into
+		// the constructor. Both routes still agree — they agree by refusing.
+		$this->assertShapeFailed($this->createField()->validate((object) []));
+
+		$this->expectException(MalformedValue::class);
+
+		Value::of();
 	}
 
 	#[Test]
@@ -147,11 +153,11 @@ final class CreditCardTest extends FieldTestCase
 	public function a_card_knows_whether_it_holds_the_three(): void
 	{
 		$this->assertTrue($this->createField()->resolve((object) self::card())->value->isComplete());
-		$this->assertFalse(Value::fromInput(self::card(without: 'name'))->isComplete());
-		$this->assertFalse((new Value())->isComplete());
+		$this->assertFalse((new Value((object) self::card(without: 'name')))->isComplete());
+		$this->assertFalse(Value::of(number: '4242424242424242')->isComplete());
 		// The security code is the one part a card can do without.
-		$this->assertTrue(Value::fromInput(self::card())->isComplete());
-		$this->assertTrue(Value::fromInput(self::card(['security_code' => '123']))->isComplete());
+		$this->assertTrue((new Value((object) self::card()))->isComplete());
+		$this->assertTrue((new Value((object) self::card(['security_code' => '123'])))->isComplete());
 	}
 
 	// ── the three required parts ──────────────────────────────────────────────────────────
@@ -361,7 +367,7 @@ final class CreditCardTest extends FieldTestCase
 
 		$this->assertSame('4242424242424242', $value->number);
 		$this->assertSame('4242', $value->lastFourDigits());
-		$this->assertNull((new Value())->lastFourDigits());
+		$this->assertNull(Value::of(name: 'Kim Nguyen')->lastFourDigits());
 	}
 
 	#[Test]
@@ -387,10 +393,10 @@ final class CreditCardTest extends FieldTestCase
 			return $parameter->getAttributes(SensitiveParameter::class) !== [];
 		};
 
-		$this->assertTrue($sensitive('__construct', 0), '$number');
-		$this->assertTrue($sensitive('__construct', 3), '$securityCode');
-		$this->assertTrue($sensitive('fromInput', 0), 'the submitted array holds both');
-		$this->assertFalse($sensitive('__construct', 2), '$name is not a secret');
+		$this->assertTrue($sensitive('__construct', 0), 'the submitted record holds both');
+		$this->assertTrue($sensitive('of', 0), '$number');
+		$this->assertTrue($sensitive('of', 3), '$securityCode');
+		$this->assertFalse($sensitive('of', 2), '$name is not a secret');
 	}
 
 	#[Test]
