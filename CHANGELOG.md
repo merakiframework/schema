@@ -10,6 +10,30 @@ is a commit subject, with the body kept because the body is where the reasoning 
 
 ## Unreleased
 
+### Add a cookbook of common form patterns
+
+`895071f8` · 2026-09-23
+
+Fifteen patterns a form actually needs, one snippet each, sitting between the
+README's first-schema walkthrough and API.md's full surface. The gap it fills is
+real: the answer to "how do I make one field required when another says so" was
+a 120-line example or nothing.
+
+The two you asked for are the first two of substance — branching on a choice, and
+getting back what somebody typed so a redrawn form can echo it. The rest are the
+ones that come up next: which row of a collection failed, which part of an
+address, telling a rule-driven optional from an authored one, prefilling from a
+stored record.
+
+Every snippet was run against the current API before it was written down. That
+turned up one of my own: Enum\Value has no string form, so you read its "case"
+property rather than casting it — which is now in the doc rather than waiting to
+surprise somebody.
+
+Named cookbook rather than quick start deliberately: a quick start is the linear
+install-then-first-schema path, and the README already is one. This is the
+per-task reference you come back to.
+
 ### Finish the nineteen, and make parse() raise rather than return null
 
 `db4dd8a6` · 2026-09-23
