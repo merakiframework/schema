@@ -153,7 +153,7 @@ final class Facade
 
 		$given = $this->extractData($data);
 		$prefilled = $prefilledWith === null ? [] : $this->extractData($prefilledWith);
-		$working = $this->copyForRequest();
+		$working = clone $this;	// make sure clone is a shallow copy, not a deep one.
 
 		// Conditions resolve values from $given via ScopeResolver, so nothing is staged
 		// onto the copies: they carry the definition only, and rules change that.
@@ -166,13 +166,7 @@ final class Facade
 			$byField[self::fieldNameIn($outcome->outcome->getScope())][] = $outcome;
 		}
 
-		// Resolved once, then handed to every field. A hundred-field form does one lookup, and —
-		// more importantly — every field on the page is answered by the same wording, which a
-		// per-field lookup could not promise if a pack were swapped underneath it.
-		$translator = $locale === null || $this->messages === null
-			? null
-			: $this->messages->forLocale($locale);
-
+		$translator = ($locale === null || $this->messages === null) ? null : $this->messages->forLocale($locale);
 		$results = [];
 
 		foreach ($working->fields as $field) {
@@ -207,9 +201,7 @@ final class Facade
 			// After the verdict, never before. Nothing about a language may change what was
 			// decided, and doing it here rather than inside the field is what keeps that true —
 			// a field has no provider and cannot acquire one.
-			$results[] = $translator !== null && $result instanceof FieldResult
-				? $result->withMessagesFrom($translator)
-				: $result;
+			$results[] = ($translator !== null && $result instanceof FieldResult) ? $result->withMessagesFrom($translator) : $result;
 		}
 
 		return new SchemaValidationResult($this->clock->getTime(), ...$results);
@@ -249,40 +241,6 @@ final class Facade
 		}
 
 		return $applied;
-	}
-
-	/**
-	 * A copy whose field set can be changed without touching this schema's.
-	 *
-	 * It starts out sharing the very same {@see Field\Set} instance, which is safe because
-	 * every way of changing one returns a new set rather than writing to it: an outcome
-	 * assigns `$copy->fields` a replacement, and this schema's own property still points at
-	 * the original.
-	 *
-	 * That was the argument before it was true. `Field\Set::mutableAdd()` was public, so a
-	 * caller could change the shared instance in place and every concurrent request would see
-	 * it. It is private now, and `$fields` is `private(set)`, so the only writes are the
-	 * replacement above — which is what makes sharing the instance safe rather than merely
-	 * intended.
-	 *
-	 * The fields themselves are not copied, and must not be. They are immutable, so a copy
-	 * could differ from the original in nothing but identity — and identity is the thing worth
-	 * keeping, since it is how a caller recognises the field it authored in the result it gets
-	 * back.
-	 */
-	private function copyForRequest(): self
-	{
-		// The clock, the message provider and the country defaults come too. Dropping them was
-		// harmless while nothing built a field on the copy — the request's instant is read from
-		// this schema, and the fields are shared instances that already hold their own clock — but
-		// it is the kind of harmless that stops being harmless silently: the copy constructed a
-		// SystemClock, so a test pinned to a FixedClock would have started failing for a reason
-		// nobody would connect to this line. The provider is here for exactly that reason and not
-		// because anything reads it off the copy yet.
-		$copy = new self((string) $this->name, $this->fields, $this->rules, $this->clock, $this->messages);
-		$copy->defaultCountries = $this->defaultCountries;
-
-		return $copy;
 	}
 
 	/**

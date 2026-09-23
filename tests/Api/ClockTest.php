@@ -71,7 +71,7 @@ final class ClockTest extends TestCase
 		$clock = $this->fixed();
 		$schema = (new Facade('checkout', clock: $clock))->for('AU');
 
-		$copy = (new ReflectionMethod($schema, 'copyForRequest'))->invoke($schema);
+		$copy = clone $schema;	// make sure clone is a shallow copy, not a deep one.
 
 		$this->assertSame($clock, (new ReflectionProperty(Facade::class, 'clock'))->getValue($copy));
 
