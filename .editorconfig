@@ -1,0 +1,31 @@
+# The 110-column limit lives here and nowhere else. It is a soft limit: PHP-CS-Fixer has no
+# line-length rule, and a too-long line is often best fixed by a shorter name or fewer
+# parameters, which no tool can decide. indent_size alongside indent_style = tab sets the
+# display width, which is what makes 110 mean the same thing in every editor.
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+
+[{*.php,bin/schema-lang}]
+indent_style = tab
+indent_size = 4
+tab_width = 4
+max_line_length = 110
+
+[*.{json,xml,neon,dist}]
+indent_style = space
+indent_size = 4
+
+[*.{yml,yaml}]
+indent_style = space
+indent_size = 2
+
+# Two trailing spaces are a hard line break in Markdown, and CHANGELOG.md is generated.
+[*.md]
+indent_style = space
+indent_size = 4
+trim_trailing_whitespace = false
