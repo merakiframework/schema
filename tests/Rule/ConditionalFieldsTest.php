@@ -46,8 +46,6 @@ use PHPUnit\Framework\Attributes\CoversClass;
 #[CoversClass(Reconfigure::class)]
 final class ConditionalFieldsTest extends TestCase
 {
-
-
 	// ── one condition, two branches ───────────────────────────────────────────────────────
 
 	/**

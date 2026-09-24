@@ -32,7 +32,7 @@ final class SchemaFacadeTest extends TestCase
 		// Api\ClockTest asserts the clock and country defaults survive a clone, and
 		// LongLivedProcessTest asserts a clone's validation leaves the original untouched. Neither
 		// would notice a deep copy. This does.
-		$messages = new class implements Message\Provider {
+		$messages = new class() implements Message\Provider {
 			public function supports(string $locale): bool
 			{
 				return false;

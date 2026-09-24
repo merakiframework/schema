@@ -22,8 +22,6 @@ use PHPUnit\Framework\Attributes\CoversClass;
 #[CoversClass(Field\Money::class)]
 final class MalformedCompositeInputTest extends TestCase
 {
-
-
 	/** @return array<string, array{mixed}> */
 	public static function unusableValues(): array
 	{

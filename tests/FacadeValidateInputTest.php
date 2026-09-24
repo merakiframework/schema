@@ -17,8 +17,6 @@ use PHPUnit\Framework\Attributes\CoversClass;
 #[CoversClass(SchemaValidationResult::class)]
 final class FacadeValidateInputTest extends TestCase
 {
-
-
 	#[Test]
 	public function it_reads_input_from_plain_public_properties(): void
 	{

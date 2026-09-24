@@ -11,7 +11,9 @@ use Meraki\Schema\FieldScope;
 use Meraki\Schema\Scope;
 use Meraki\Schema\ScopeResolver;
 use PHPUnit\Framework\TestCase;
-use PHPUnit\Framework\Attributes\{Test, CoversClass, Group};
+use PHPUnit\Framework\Attributes\Test;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Group;
 
 /**
  * A long-lived worker validates against the same schema thousands of times, so an outcome
@@ -27,8 +29,6 @@ use PHPUnit\Framework\Attributes\{Test, CoversClass, Group};
 #[CoversClass(Rule::class)]
 final class RepeatedApplicationTest extends TestCase
 {
-
-
 	#[Test]
 	public function an_outcome_can_be_applied_more_than_once(): void
 	{

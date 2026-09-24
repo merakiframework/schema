@@ -19,8 +19,6 @@ use PHPUnit\Framework\Attributes\CoversClass;
 #[CoversClass(Uri::class)]
 final class UriValidationTest extends TestCase
 {
-
-
 	/** @return array<string, array{string}> */
 	public static function notUris(): array
 	{

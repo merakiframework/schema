@@ -25,8 +25,6 @@ use PHPUnit\Framework\Attributes\Group;
 #[CoversClass(Facade::class)]
 final class LongLivedProcessTest extends TestCase
 {
-
-
 	/**
 	 * Built once per test, exactly as a worker would build it once at boot.
 	 *

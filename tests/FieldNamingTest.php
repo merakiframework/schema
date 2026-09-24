@@ -16,8 +16,6 @@ use PHPUnit\Framework\Attributes\CoversClass;
 #[CoversClass(Facade::class)]
 final class FieldNamingTest extends TestCase
 {
-
-
 	/** @return array<string, array{string}> */
 	public static function unusableNames(): array
 	{

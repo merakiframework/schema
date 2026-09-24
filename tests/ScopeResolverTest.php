@@ -21,8 +21,6 @@ use PHPUnit\Framework\Attributes\Group;
 #[CoversClass(ScopeResolver::class)]
 final class ScopeResolverTest extends TestCase
 {
-
-
 	private function schema(): Facade
 	{
 		$schema = new Facade('signup');

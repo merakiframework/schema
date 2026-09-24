@@ -6,7 +6,8 @@ namespace Meraki\Schema\Rule;
 use Meraki\Schema\Rule;
 use Meraki\Schema\Rule\Set;
 use PHPUnit\Framework\TestCase;
-use PHPUnit\Framework\Attributes\{Test, CoversClass};
+use PHPUnit\Framework\Attributes\Test;
+use PHPUnit\Framework\Attributes\CoversClass;
 
 #[CoversClass(Set::class)]
 final class SetTest extends TestCase

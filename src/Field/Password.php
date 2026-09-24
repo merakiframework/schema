@@ -55,7 +55,6 @@ use SensitiveParameter;
  */
 final readonly class Password extends AtomicField
 {
-
 	/**
 	 * The shortest a secret may be required to be — and therefore also the default, because a
 	 * field with no configuration is already at the baseline rather than below it.

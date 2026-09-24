@@ -12,5 +12,4 @@ namespace Meraki\Schema;
  */
 interface Exception
 {
-
 }

@@ -8,7 +8,9 @@ use Meraki\Schema\PropertyScope;
 use Meraki\Schema\Rule\Outcome;
 use InvalidArgumentException;
 use PHPUnit\Framework\TestCase;
-use PHPUnit\Framework\Attributes\{Test, CoversClass, Group};
+use PHPUnit\Framework\Attributes\Test;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Group;
 
 /**
  * A rule that targets something the schema does not have used to be accepted and then fail
@@ -22,8 +24,6 @@ use PHPUnit\Framework\Attributes\{Test, CoversClass, Group};
 #[CoversClass(Facade::class)]
 final class ScopeValidationTest extends TestCase
 {
-
-
 	private function schema(): Facade
 	{
 		$schema = new Facade('signup');

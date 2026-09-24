@@ -8,7 +8,6 @@ use Stringable;
 
 final readonly class FieldName implements Stringable
 {
-
 	private const PATTERN = '/^[A-Za-z_][A-Za-z0-9_-]*$/';
 
 	public function __construct(
