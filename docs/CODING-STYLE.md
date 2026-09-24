@@ -11,6 +11,7 @@ which is which.
 | --- | --- | --- |
 | **Fixed** | `.php-cs-fixer.dist.php` | Applied automatically. Only rules that cannot change behaviour. |
 | **Reported** | `.php-cs-fixer-risky.dist.php` | Shown as a diff, never applied. A finding fails CI. |
+| **Reported** | `tools/CodeStyle/PhpStan/` | House rules needing type information. A finding fails CI. |
 | **Human** | this document | Nothing checks it. |
 
 ```sh
@@ -83,6 +84,34 @@ exactly the same way, so covering every comparison would be more consistent, and
 considered and rejected: one comparison already reads as one unit, and the rule would have
 touched 66 further sites to no benefit. The ambiguity worth spending parentheses on is *where a
 multi-clause condition ends*.
+
+## Building strings
+
+**Interpolation where every value is already a string.** `"A minimum {$what} cannot be negative."`
+rather than `sprintf('A minimum %s cannot be negative.', $what)` — the format string, the argument
+list and the mapping between them are ceremony the reader has to hold.
+
+**sprintf keeps everything else**: mixed types, padding, width, positional arguments, and any
+value built by a call. `implode(', ', $names)` reads better as an argument than wedged into a
+string, and `sprintf('A field named "%s" already exists.', $name)` stays too — the interpolated
+form needs two escapes and reads worse.
+
+**Concatenation is for line wrapping, not for gluing values into text.** Leading-dot continuation
+of a long message is house style and makes one unbroken string:
+
+```php
+'A rule must say what happens: attach an outcome with then() or else() before '
+. 'adding it to a schema.'
+```
+
+Joining a value with `.` is not: `"{$this->prefix()}/{$this->property}"`, not
+`$this->prefix() . '/' . $this->property`. A heredoc is for text that is genuinely multi-line —
+using one for a wrapped message would put real newlines into it.
+
+Both are PHPStan rules rather than fixers, because the deciding question is "is this value a
+string", which no token-level tool can answer: `$this->name` might be a `string` or a
+`FieldName`. Both exempt anything a double-quoted string cannot hold unchanged — a class
+constant, a regex, a literal `$` — and neither ever reports a call that takes arguments.
 
 ## No language hacks
 
