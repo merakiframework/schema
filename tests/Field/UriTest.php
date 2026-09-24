@@ -51,7 +51,7 @@ final class UriTest extends FieldTestCase
 	public function min_constraint_passes_when_met(): void
 	{
 		$sut = $this->createSubject()
-			
+
 			->minLengthOf(12);
 
 		$result = $sut->validate('https://example.com');
@@ -63,7 +63,7 @@ final class UriTest extends FieldTestCase
 	public function min_constraint_fails_when_not_met(): void
 	{
 		$sut = $this->createSubject()
-			
+
 			->minLengthOf(30);
 
 		$result = $sut->validate('https://example.com');
@@ -75,7 +75,7 @@ final class UriTest extends FieldTestCase
 	public function max_constraint_passes_when_met(): void
 	{
 		$sut = $this->createSubject()
-			
+
 			->maxLengthOf(20);
 
 		$result = $sut->validate('https://example.com');
@@ -87,7 +87,7 @@ final class UriTest extends FieldTestCase
 	public function max_constraint_fails_when_not_met(): void
 	{
 		$sut = $this->createSubject()
-			
+
 			->maxLengthOf(12);
 
 		$result = $sut->validate('https://example.com');

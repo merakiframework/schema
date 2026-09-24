@@ -82,7 +82,7 @@ final class UuidTest extends FieldTestCase
 	public function uuids_can_be_restricted_to_a_version_and_pass(int $version, string $uuidToPass): void
 	{
 		$sut = $this->createSubject()
-			
+
 			->allowVersions($version);
 
 		$result = $sut->validate($uuidToPass);
@@ -111,7 +111,7 @@ final class UuidTest extends FieldTestCase
 	public function uuids_can_be_restricted_to_a_version_and_fail(int $version, string $uuidToFail): void
 	{
 		$sut = $this->createSubject()
-			
+
 			->allowVersions($version);
 
 		$result = $sut->validate($uuidToFail);
@@ -140,7 +140,7 @@ final class UuidTest extends FieldTestCase
 	public function can_restrict_to_mulitple_versions(string $uuid, ValidationStatus $expectedStatus): void
 	{
 		$sut = $this->createSubject()
-			
+
 			->allowVersions(4)
 			->allowVersions(7);
 

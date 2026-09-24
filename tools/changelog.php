@@ -36,71 +36,71 @@ const REPO = __DIR__ . '/..';
  */
 function commits(): array
 {
-    // Separators that cannot occur in a commit message. git writes them itself, via its own
-    // %x escapes, rather than them being passed through as bytes.
-    $sep = "\x1e";
-    $field = "\x1f";
+	// Separators that cannot occur in a commit message. git writes them itself, via its own
+	// %x escapes, rather than them being passed through as bytes.
+	$sep = "\x1e";
+	$field = "\x1f";
 
-    // proc_open with an *array* runs git directly instead of through a shell. That matters on
-    // Windows, where cmd.exe treats `%` as the start of a variable and quietly eats every
-    // placeholder in the format string.
-    $process = proc_open(
-        ['git', '-C', REPO, 'log', '--reverse', '--no-merges', '--format=%H%x1f%s%x1f%cs%x1f%D%x1f%b%x1e'],
-        [1 => ['pipe', 'w'], 2 => ['pipe', 'w']],
-        $pipes,
-    );
+	// proc_open with an *array* runs git directly instead of through a shell. That matters on
+	// Windows, where cmd.exe treats `%` as the start of a variable and quietly eats every
+	// placeholder in the format string.
+	$process = proc_open(
+		['git', '-C', REPO, 'log', '--reverse', '--no-merges', '--format=%H%x1f%s%x1f%cs%x1f%D%x1f%b%x1e'],
+		[1 => ['pipe', 'w'], 2 => ['pipe', 'w']],
+		$pipes,
+	);
 
-    if (!is_resource($process)) {
-        fwrite(STDERR, "Could not run git.\n");
+	if (!is_resource($process)) {
+		fwrite(STDERR, "Could not run git.\n");
 
-        exit(1);
-    }
+		exit(1);
+	}
 
-    $out = stream_get_contents($pipes[1]);
-    $err = stream_get_contents($pipes[2]);
+	$out = stream_get_contents($pipes[1]);
+	$err = stream_get_contents($pipes[2]);
 
-    fclose($pipes[1]);
-    fclose($pipes[2]);
+	fclose($pipes[1]);
+	fclose($pipes[2]);
 
-    if (proc_close($process) !== 0) {
-        fwrite(STDERR, "Not a git repository, or git is unavailable.\n" . $err);
+	if (proc_close($process) !== 0) {
+		fwrite(STDERR, "Not a git repository, or git is unavailable.\n" . $err);
 
-        exit(1);
-    }
+		exit(1);
+	}
 
-    $commits = [];
+	$commits = [];
 
-    foreach (explode($sep, (string) $out) as $record) {
-        $record = trim($record, "\n");
+	foreach (explode($sep, (string) $out) as $record) {
+		$record = trim($record, "\n");
 
-        if ($record === '') {
-            continue;
-        }
+		if ($record === '') {
+			continue;
+		}
 
-        [$hash, $subject, $date, $refs, $body] = array_pad(explode($field, $record, 5), 5, '');
+		[$hash, $subject, $date, $refs, $body] = array_pad(explode($field, $record, 5), 5, '');
 
-        $commits[] = [
-            'hash' => substr($hash, 0, 8),
-            'subject' => trim($subject),
-            'body' => trim($body),
-            'date' => $date,
-            'tag' => tagIn($refs),
-        ];
-    }
+		$commits[] = [
+			'hash' => substr($hash, 0, 8),
+			'subject' => trim($subject),
+			'body' => trim($body),
+			'date' => $date,
+			'tag' => tagIn($refs),
+		];
+	}
 
-    return $commits;
+	return $commits;
 }
 
 /** The tag a commit carries, if any — `tag: v2.0.0` among the ref names. */
 function tagIn(string $refs): ?string
 {
-    foreach (explode(', ', $refs) as $ref) {
-        if (str_starts_with($ref, 'tag: ')) {
-            return substr($ref, 5);
-        }
-    }
+	foreach (explode(', ', $refs) as $ref) {
+		if (str_starts_with($ref, 'tag: ')) {
+			return substr($ref, 5);
+		}
+	}
 
-    return null;
+	return null;
 }
 
 /**
@@ -115,29 +115,29 @@ function tagIn(string $refs): ?string
  */
 function releases(array $commits): array
 {
-    $releases = [];
-    $pending = [];
+	$releases = [];
+	$pending = [];
 
-    foreach ($commits as $commit) {
-        $pending[] = $commit;
+	foreach ($commits as $commit) {
+		$pending[] = $commit;
 
-        if ($commit['tag'] !== null) {
-            $releases[] = ['release' => $commit['tag'], 'date' => $commit['date'], 'commits' => $pending];
-            $pending = [];
-        }
-    }
+		if ($commit['tag'] !== null) {
+			$releases[] = ['release' => $commit['tag'], 'date' => $commit['date'], 'commits' => $pending];
+			$pending = [];
+		}
+	}
 
-    if ($pending !== []) {
-        $releases[] = ['release' => 'Unreleased', 'date' => null, 'commits' => $pending];
-    }
+	if ($pending !== []) {
+		$releases[] = ['release' => 'Unreleased', 'date' => null, 'commits' => $pending];
+	}
 
-    // Newest first, which is the order a changelog is read in.
-    return array_reverse($releases);
+	// Newest first, which is the order a changelog is read in.
+	return array_reverse($releases);
 }
 
 function render(array $releases): string
 {
-    $out = <<<'MD'
+	$out = <<<'MD'
 # Changelog
 
 **Generated from the commit history** by `php tools/changelog.php`. Do not edit by hand — a
@@ -150,27 +150,27 @@ is a commit subject, with the body kept because the body is where the reasoning 
 
 MD;
 
-    foreach ($releases as $release) {
-        $heading = $release['date'] === null
-            ? '## Unreleased'
-            : sprintf('## %s — %s', $release['release'], $release['date']);
+	foreach ($releases as $release) {
+		$heading = $release['date'] === null
+			? '## Unreleased'
+			: sprintf('## %s — %s', $release['release'], $release['date']);
 
-        $out .= "\n" . $heading . "\n";
+		$out .= "\n" . $heading . "\n";
 
-        foreach (array_reverse($release['commits']) as $commit) {
-            $out .= "\n### " . $commit['subject'] . "\n\n";
-            $out .= sprintf("`%s` · %s\n", $commit['hash'], $commit['date']);
+		foreach (array_reverse($release['commits']) as $commit) {
+			$out .= "\n### " . $commit['subject'] . "\n\n";
+			$out .= sprintf("`%s` · %s\n", $commit['hash'], $commit['date']);
 
-            $body = preg_replace('/\n?Co-Authored-By:.*$/s', '', $commit['body']) ?? '';
-            $body = trim($body);
+			$body = preg_replace('/\n?Co-Authored-By:.*$/s', '', $commit['body']) ?? '';
+			$body = trim($body);
 
-            if ($body !== '') {
-                $out .= "\n" . $body . "\n";
-            }
-        }
-    }
+			if ($body !== '') {
+				$out .= "\n" . $body . "\n";
+			}
+		}
+	}
 
-    return $out;
+	return $out;
 }
 
 $commits = commits();
@@ -178,44 +178,44 @@ $rendered = render(releases($commits));
 $target = REPO . '/CHANGELOG.md';
 
 if (in_array('-', $argv, true)) {
-    echo $rendered;
+	echo $rendered;
 
-    exit(0);
+	exit(0);
 }
 
 if (in_array('--check', $argv, true)) {
-    $current = is_file($target) ? file_get_contents($target) : '';
+	$current = is_file($target) ? file_get_contents($target) : '';
 
-    if ($current === $rendered) {
-        echo "  CHANGELOG.md is up to date\n";
+	if ($current === $rendered) {
+		echo "  CHANGELOG.md is up to date\n";
 
-        exit(0);
-    }
+		exit(0);
+	}
 
-    // One missing entry is allowed, and only one: the commit that carries the file.
-    //
-    // A changelog cannot list the commit it is committed in. The file has to be written before
-    // that commit exists, and every entry carries a hash — so amending the commit to include a
-    // freshly generated changelog invalidates the hash it has just recorded, and the loop never
-    // converges. "Up to date" therefore has to mean *up to date as of the parent*, which is the
-    // most this can truthfully assert.
-    //
-    // The tolerance is exactly one commit wide, so a changelog nobody has regenerated for a week
-    // is still caught, and so is one regenerated against a different history.
-    $withoutHead = array_slice($commits, 0, -1);
+	// One missing entry is allowed, and only one: the commit that carries the file.
+	//
+	// A changelog cannot list the commit it is committed in. The file has to be written before
+	// that commit exists, and every entry carries a hash — so amending the commit to include a
+	// freshly generated changelog invalidates the hash it has just recorded, and the loop never
+	// converges. "Up to date" therefore has to mean *up to date as of the parent*, which is the
+	// most this can truthfully assert.
+	//
+	// The tolerance is exactly one commit wide, so a changelog nobody has regenerated for a week
+	// is still caught, and so is one regenerated against a different history.
+	$withoutHead = array_slice($commits, 0, -1);
 
-    if ($withoutHead !== [] && $current === render(releases($withoutHead))) {
-        printf(
-            "  CHANGELOG.md is up to date as of %s — HEAD is not listed, and cannot be\n",
-            $withoutHead[count($withoutHead) - 1]['hash'],
-        );
+	if ($withoutHead !== [] && $current === render(releases($withoutHead))) {
+		printf(
+			"  CHANGELOG.md is up to date as of %s — HEAD is not listed, and cannot be\n",
+			$withoutHead[count($withoutHead) - 1]['hash'],
+		);
 
-        exit(0);
-    }
+		exit(0);
+	}
 
-    fwrite(STDERR, "CHANGELOG.md is out of date. Run: php tools/changelog.php\n");
+	fwrite(STDERR, "CHANGELOG.md is out of date. Run: php tools/changelog.php\n");
 
-    exit(1);
+	exit(1);
 }
 
 file_put_contents($target, $rendered);

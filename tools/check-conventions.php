@@ -36,37 +36,37 @@ const ROOTS = ['src', 'tests', 'tools', 'examples', 'bin'];
 $problems = [];
 
 foreach (ROOTS as $root) {
-    if (!is_dir($root)) {
-        continue;
-    }
+	if (!is_dir($root)) {
+		continue;
+	}
 
-    foreach (phpFilesIn($root) as $path) {
-        $source = file_get_contents($path);
+	foreach (phpFilesIn($root) as $path) {
+		$source = file_get_contents($path);
 
-        if ($source === false) {
-            continue;
-        }
+		if ($source === false) {
+			continue;
+		}
 
-        foreach (unusedImportsIn($source) as $import) {
-            $problems[] = sprintf('%s: unused import — use %s;', $path, $import);
-        }
+		foreach (unusedImportsIn($source) as $import) {
+			$problems[] = sprintf('%s: unused import — use %s;', $path, $import);
+		}
 
-        foreach (arrayShorthandIn($source) as $line => $tag) {
-            $problems[] = sprintf('%s:%d: %s — write list<T> or array<K, V> instead', $path, $line, $tag);
-        }
-    }
+		foreach (arrayShorthandIn($source) as $line => $tag) {
+			$problems[] = sprintf('%s:%d: %s — write list<T> or array<K, V> instead', $path, $line, $tag);
+		}
+	}
 }
 
 if ($problems === []) {
-    echo "  imports are used and array types are spelled out\n";
+	echo "  imports are used and array types are spelled out\n";
 
-    exit(0);
+	exit(0);
 }
 
 echo '  ' . count($problems) . " convention problem(s):\n";
 
 foreach ($problems as $problem) {
-    echo '    ' . $problem . "\n";
+	echo '    ' . $problem . "\n";
 }
 
 exit(1);
@@ -76,18 +76,18 @@ exit(1);
  */
 function phpFilesIn(string $root): array
 {
-    $paths = [];
-    $walk = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($root));
+	$paths = [];
+	$walk = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($root));
 
-    foreach ($walk as $file) {
-        if ($file instanceof SplFileInfo && $file->getExtension() === 'php') {
-            $paths[] = str_replace('\\', '/', $file->getPathname());
-        }
-    }
+	foreach ($walk as $file) {
+		if ($file instanceof SplFileInfo && $file->getExtension() === 'php') {
+			$paths[] = str_replace('\\', '/', $file->getPathname());
+		}
+	}
 
-    sort($paths);
+	sort($paths);
 
-    return $paths;
+	return $paths;
 }
 
 /**
@@ -102,88 +102,88 @@ function phpFilesIn(string $root): array
  */
 function unusedImportsIn(string $source): array
 {
-    $tokens = token_get_all($source);
-    $imports = [];
-    $used = [];
-    $inUse = false;
-    $grouped = false;
-    $depth = 0;
-    $alias = null;
-    $name = '';
+	$tokens = token_get_all($source);
+	$imports = [];
+	$used = [];
+	$inUse = false;
+	$grouped = false;
+	$depth = 0;
+	$alias = null;
+	$name = '';
 
-    foreach ($tokens as $i => $token) {
-        if (is_string($token)) {
-            if ($token === '{') {
-                $depth++;
+	foreach ($tokens as $i => $token) {
+		if (is_string($token)) {
+			if ($token === '{') {
+				$depth++;
 
-                if ($inUse) {
-                    $grouped = true;
-                }
-            }
+				if ($inUse) {
+					$grouped = true;
+				}
+			}
 
-            if ($token === '}') {
-                $depth--;
-            }
+			if ($token === '}') {
+				$depth--;
+			}
 
-            if ($inUse && $token === ';') {
-                $at = strrpos($name, '\\');
-                $short = $alias ?? ($at === false ? $name : substr($name, $at + 1));
+			if ($inUse && $token === ';') {
+				$at = strrpos($name, '\\');
+				$short = $alias ?? ($at === false ? $name : substr($name, $at + 1));
 
-                if ($short !== '' && !$grouped) {
-                    $imports[$short] = trim($name);
-                }
+				if ($short !== '' && !$grouped) {
+					$imports[$short] = trim($name);
+				}
 
-                $inUse = false;
-                $grouped = false;
-                $alias = null;
-                $name = '';
-            }
+				$inUse = false;
+				$grouped = false;
+				$alias = null;
+				$name = '';
+			}
 
-            continue;
-        }
+			continue;
+		}
 
-        [$id, $text] = $token;
+		[$id, $text] = $token;
 
-        if ($id === T_USE) {
-            $next = $tokens[$i + 2] ?? null;
-            $inUse = $depth === 0 && !(is_string($next) && $next === '(');
-            $grouped = false;
-            $alias = null;
-            $name = '';
+		if ($id === T_USE) {
+			$next = $tokens[$i + 2] ?? null;
+			$inUse = $depth === 0 && !(is_string($next) && $next === '(');
+			$grouped = false;
+			$alias = null;
+			$name = '';
 
-            continue;
-        }
+			continue;
+		}
 
-        if ($inUse) {
-            if ($id === T_AS) {
-                $alias = '';
-            } elseif ($id === T_STRING || $id === T_NAME_QUALIFIED || $id === T_NAME_FULLY_QUALIFIED) {
-                if ($alias === '') {
-                    $alias = $text;
-                } else {
-                    $name .= $text;
-                }
-            }
+		if ($inUse) {
+			if ($id === T_AS) {
+				$alias = '';
+			} elseif ($id === T_STRING || $id === T_NAME_QUALIFIED || $id === T_NAME_FULLY_QUALIFIED) {
+				if ($alias === '') {
+					$alias = $text;
+				} else {
+					$name .= $text;
+				}
+			}
 
-            continue;
-        }
+			continue;
+		}
 
-        if ($id === T_STRING || $id === T_NAME_QUALIFIED || $id === T_NAME_FULLY_QUALIFIED) {
-            $used[explode('\\', ltrim($text, '\\'))[0]] = true;
+		if ($id === T_STRING || $id === T_NAME_QUALIFIED || $id === T_NAME_FULLY_QUALIFIED) {
+			$used[explode('\\', ltrim($text, '\\'))[0]] = true;
 
-            continue;
-        }
+			continue;
+		}
 
-        if ($id === T_DOC_COMMENT || $id === T_COMMENT || $id === T_CONSTANT_ENCAPSED_STRING) {
-            preg_match_all('/[A-Za-z_][A-Za-z0-9_]*/', $text, $words);
+		if ($id === T_DOC_COMMENT || $id === T_COMMENT || $id === T_CONSTANT_ENCAPSED_STRING) {
+			preg_match_all('/[A-Za-z_][A-Za-z0-9_]*/', $text, $words);
 
-            foreach ($words[0] as $word) {
-                $used[$word] = true;
-            }
-        }
-    }
+			foreach ($words[0] as $word) {
+				$used[$word] = true;
+			}
+		}
+	}
 
-    return array_values(array_diff_key($imports, $used));
+	return array_values(array_diff_key($imports, $used));
 }
 
 /**
@@ -191,13 +191,13 @@ function unusedImportsIn(string $source): array
  */
 function arrayShorthandIn(string $source): array
 {
-    $found = [];
+	$found = [];
 
-    foreach (explode("\n", str_replace("\r\n", "\n", $source)) as $index => $line) {
-        if (preg_match('/@(param|return|var)\s+\S*\[\]/', $line, $match) === 1) {
-            $found[$index + 1] = trim($match[0]);
-        }
-    }
+	foreach (explode("\n", str_replace("\r\n", "\n", $source)) as $index => $line) {
+		if (preg_match('/@(param|return|var)\s+\S*\[\]/', $line, $match) === 1) {
+			$found[$index + 1] = trim($match[0]);
+		}
+	}
 
-    return $found;
+	return $found;
 }

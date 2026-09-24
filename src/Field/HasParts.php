@@ -37,20 +37,20 @@ namespace Meraki\Schema\Field;
  */
 interface HasParts
 {
-    /**
-     * Every part this kind of value has, whether or not any of them were submitted.
-     *
-     * Static, so a scope can be checked against a field before any request exists.
-     *
-     * @return list<string>
-     */
-    public static function partNames(): array;
+	/**
+	 * Every part this kind of value has, whether or not any of them were submitted.
+	 *
+	 * Static, so a scope can be checked against a field before any request exists.
+	 *
+	 * @return list<string>
+	 */
+	public static function partNames(): array;
 
-    /**
-     * This value's parts, by name. A part nobody supplied is present and `null` rather than
-     * missing, so reading one is never a question about whether the key exists.
-     *
-     * @return array<string, mixed>
-     */
-    public function parts(): array;
+	/**
+	 * This value's parts, by name. A part nobody supplied is present and `null` rather than
+	 * missing, so reading one is never a question about whether the key exists.
+	 *
+	 * @return array<string, mixed>
+	 */
+	public function parts(): array;
 }
