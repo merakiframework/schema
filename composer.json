@@ -70,17 +70,25 @@
             "@composer validate --strict",
             "@composer audit",
             "@analyse",
+            "@test:style",
+            "@style:report",
             "@test:coverage",
             "@test:examples",
             "@test:references",
-            "@test:conventions",
             "@test:changelog"
         ],
+        "style": "php-cs-fixer fix",
+        "style:report": "php-cs-fixer fix --config=.php-cs-fixer-risky.dist.php --dry-run --diff --show-progress=none",
+        "test:style": "php-cs-fixer fix --dry-run --diff --show-progress=none",
+        "hooks:install": [
+            "git config core.hooksPath .githooks",
+            "git config blame.ignoreRevsFile .git-blame-ignore-revs"
+        ],
+        "post-install-cmd": "@hooks:install",
         "test:examples": "php tools/check-examples.php",
         "changelog": "php tools/changelog.php",
         "test:changelog": "php tools/changelog.php --check",
-        "test:references": "php tools/check-references.php",
-        "test:conventions": "php tools/check-conventions.php"
+        "test:references": "php tools/check-references.php"
     },
     "extra": {
         "branch-alias": {
@@ -92,6 +100,11 @@
         "test:coverage": "Run the suite with coverage (needs Xdebug or pcov).",
         "analyse": "Run PHPStan.",
         "ci": "Run everything CI runs, in the same order.",
+        "style": "Fix formatting. Only applies changes that cannot alter behaviour.",
+        "style:report": "Report what the risky rules would change. Never writes.",
+        "test:style": "Fail if anything is unformatted.",
+        "hooks:install": "Point git at .githooks and teach git blame to skip the reformatting commits.",
+        "test:examples": "Run every example and fail if any exits non-zero.",
         "changelog": "Regenerate CHANGELOG.md from the commit history.",
         "test:changelog": "Fail if CHANGELOG.md is out of date.",
         "test:references": "Fail if any {@see} in src/ points at something that does not exist."
