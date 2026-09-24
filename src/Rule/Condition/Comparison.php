@@ -217,7 +217,7 @@ abstract class Comparison implements Condition
 	final protected static function describe(mixed $value): string
 	{
 		return match (true) {
-			is_string($value) => "'" . $value . "'",
+			is_string($value) => "'{$value}'",
 			is_scalar($value) => var_export($value, true),
 			default => get_debug_type($value),
 		};

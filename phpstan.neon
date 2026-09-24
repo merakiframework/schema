@@ -132,3 +132,7 @@ services:
         class: Meraki\CodeStyle\PhpStan\SprintfOfStringsRule
         tags:
             - phpstan.rules.rule
+    -
+        class: Meraki\CodeStyle\PhpStan\ConcatOfStringsRule
+        tags:
+            - phpstan.rules.rule

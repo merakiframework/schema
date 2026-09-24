@@ -224,7 +224,7 @@ final class Mf2Provider implements Provider
 		$tag = '';
 
 		foreach ($parts as $part) {
-			$tag = $tag === '' ? $part : $tag . '_' . $part;
+			$tag = $tag === '' ? $part : "{$tag}_{$part}";
 			$chain[] = $tag;
 		}
 

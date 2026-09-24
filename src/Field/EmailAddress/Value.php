@@ -121,7 +121,7 @@ final readonly class Value implements ParsedValue, HasParts
 	 */
 	public function __toString(): string
 	{
-		return $this->localPart . '@' . $this->domain;
+		return "{$this->localPart}@{$this->domain}";
 	}
 
 	/**
