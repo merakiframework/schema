@@ -1,0 +1,59 @@
+#!/bin/sh
+#
+# Fix what can be fixed safely; report and stop on anything else. By the time a commit
+# exists, the files in it are formatted.
+#
+# Git has no hook for `git add` — nothing fires there, and post-index-change runs after the
+# index is written and cannot abort. So this runs at commit time instead, which also catches
+# files staged by `git add -p`, `git commit -a` or the editor rather than only `git add`.
+#
+# This is not the enforcement boundary: `git commit --no-verify` skips it, and a clone that
+# never ran `composer install` never installs it. CI is what actually holds the line.
+set -eu
+
+FIXER=vendor/bin/php-cs-fixer
+
+[ -x "$FIXER" ] || { echo "pre-commit: $FIXER not found; run composer install"; exit 1; }
+
+staged=$(git diff --cached --name-only --diff-filter=ACMR -- '*.php' 'bin/schema-lang')
+
+[ -n "$staged" ] || exit 0
+
+# A file with both staged and unstaged changes would have its working-tree copy formatted and
+# re-staged, quietly pulling the unstaged edits into the commit. Refuse rather than do that.
+partial=$(git diff --name-only -- $staged)
+
+if [ -n "$partial" ]; then
+	echo "pre-commit: these files are staged but also have unstaged changes:"
+	echo "$partial" | sed 's/^/  /'
+	echo
+	echo "Formatting them now would pull the unstaged edits into this commit."
+	echo "Stage them fully, or commit them separately."
+	exit 1
+fi
+
+# --config is not optional here even though PHP-CS-Fixer would discover the same file on its
+# own: given more than one path it refuses to guess, with "For multiple paths config parameter
+# is required". --path-mode=intersection is what narrows the config's Finder to the staged
+# files; without it, passing paths makes PHP-CS-Fixer ignore the Finder altogether.
+"$FIXER" fix --config=.php-cs-fixer.dist.php --path-mode=intersection --quiet -- $staged
+git add -- $staged
+
+set +e
+"$FIXER" fix --config=.php-cs-fixer-risky.dist.php --path-mode=intersection \
+	--dry-run --diff --show-progress=none -- $staged
+status=$?
+set -e
+
+[ $status -eq 0 ] && exit 0
+
+echo
+# The exit code is a bit field: 4 is invalid syntax, 8 is "needs fixing".
+if [ $((status & 4)) -ne 0 ]; then
+	echo "pre-commit: that is a syntax error, not a formatting one."
+else
+	echo "pre-commit: the changes above could alter behaviour, so they are not applied"
+	echo "automatically. Make them by hand, or re-run with --no-verify."
+fi
+
+exit 1
