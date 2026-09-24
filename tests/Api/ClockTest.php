@@ -55,22 +55,15 @@ final class ClockTest extends TestCase
 		);
 	}
 
-	/**
-	 * The per-request copy carries the clock, rather than quietly building a SystemClock.
-	 *
-	 * Latent when it was found: the request's instant is read from the original, and a field is a
-	 * shared instance that already holds its own clock, so nothing observed the difference. It
-	 * stops being latent the moment anything builds a field on the working copy — and it would
-	 * have surfaced as a fixed-clock test failing for a reason nobody would connect to
-	 * `copyForRequest()`.
-	 */
 	#[Test]
-	public function the_per_request_copy_inherits_the_schemas_clock(): void
+	public function cloning_the_schema_preserves_the_clock(): void
 	{
 		$clock = $this->fixed();
 		$schema = (new Facade('checkout', clock: $clock))->for('AU');
 
-		$copy = clone $schema;	// make sure clone is a shallow copy, not a deep one.
+		// should always be a shallow copy, not a deep one: the author of the
+		// copy should get the same clock and country defaults as the original
+		$copy = clone $schema;
 
 		$this->assertSame($clock, (new ReflectionProperty(Facade::class, 'clock'))->getValue($copy));
 
