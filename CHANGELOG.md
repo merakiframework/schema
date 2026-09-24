@@ -10,6 +10,26 @@ is a commit subject, with the body kept because the body is where the reasoning 
 
 ## Unreleased
 
+### Fix wording on some docs
+
+`ca822b5f` · 2026-09-24
+
+### Remove unused import
+
+`e2c39312` · 2026-09-24
+
+### Add proper tests confirming desired shallow copy behaviour
+
+`e4921a64` · 2026-09-24
+
+### Remove references to obsolete copyForRequest() method
+
+`6bf8a736` · 2026-09-24
+
+### Update listing
+
+`cd2de5ae` · 2026-09-24
+
 ### Remove ambiguity in testing clock references when cloning
 
 `2dcbaa3d` · 2026-09-24
