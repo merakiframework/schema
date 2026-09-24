@@ -166,7 +166,7 @@ final class Facade
 			$byField[self::fieldNameIn($outcome->outcome->getScope())][] = $outcome;
 		}
 
-		// prevent N lookups in the loop below, and make sure every field has an entry even if no rule touched it
+		// prevent N lookups in the loop below and make sure field messages get same translator wording
 		$translator = ($locale === null || $this->messages === null) ? null : $this->messages->forLocale($locale);
 		$results = [];
 
@@ -205,7 +205,10 @@ final class Facade
 			$results[] = ($translator !== null && $result instanceof FieldResult) ? $result->withMessagesFrom($translator) : $result;
 		}
 
-		return new SchemaValidationResult($this->clock->getTime(), ...$results);
+		// Off the working copy, not this schema: the instant a result records comes from whatever
+		// judged it. The same clock today, and reading it here is what keeps that so — a copy
+		// that had lost it would answer from a fresh SystemClock, and nothing would say so.
+		return new SchemaValidationResult($working->clock->getTime(), ...$results);
 	}
 
 	/**
