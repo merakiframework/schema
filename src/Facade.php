@@ -153,7 +153,7 @@ final class Facade
 
 		$given = $this->extractData($data);
 		$prefilled = $prefilledWith === null ? [] : $this->extractData($prefilledWith);
-		$working = clone $this;	// make sure clone is a shallow copy, not a deep one.
+		$working = clone $this;
 
 		// Conditions resolve values from $given via ScopeResolver, so nothing is staged
 		// onto the copies: they carry the definition only, and rules change that.
@@ -166,6 +166,7 @@ final class Facade
 			$byField[self::fieldNameIn($outcome->outcome->getScope())][] = $outcome;
 		}
 
+		// prevent N lookups in the loop below, and make sure every field has an entry even if no rule touched it
 		$translator = ($locale === null || $this->messages === null) ? null : $this->messages->forLocale($locale);
 		$results = [];
 
