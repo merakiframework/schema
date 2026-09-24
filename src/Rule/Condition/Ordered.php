@@ -56,9 +56,9 @@ abstract class Ordered extends Comparison
 	/**
 	 * @param array<string, mixed> $data
 	 */
-	final public function matches(array $data, Facade $schema): bool
+	final public function matches(array $data, Field\Set $fields): bool
 	{
-		$order = $this->orderAgainst($this->expected, $data, $schema);
+		$order = $this->orderAgainst($this->expected, $data, $fields);
 
 		return $order !== null && $this->holdsWhen($order);
 	}
@@ -72,24 +72,24 @@ abstract class Ordered extends Comparison
 	 *
 	 * @param array<string, mixed> $data
 	 */
-	final protected function orderAgainst(mixed $expectation, array $data, Facade $schema): ?Order
+	final protected function orderAgainst(mixed $expectation, array $data, Field\Set $fields): ?Order
 	{
-		$resolver = new ScopeResolver($schema, $data);
+		$resolver = new ScopeResolver($fields, $data);
 		$value = $resolver->resolve($this->scope);
 
 		if (!$value instanceof Comparable) {
 			return null;
 		}
 
-		$against = $this->readExpectation($expectation, $schema, $resolver);
+		$against = $this->readExpectation($expectation, $fields, $resolver);
 
 		return $against instanceof Comparable ? $value->compareTo($against) : null;
 	}
 
-	public function whyItCouldNeverHold(Facade $schema): ?string
+	public function whyItCouldNeverHold(Field\Set $fields): ?string
 	{
 		if ($this->scope instanceof ValueScope) {
-			$field = $schema->fields->findByName($this->scope->field);
+			$field = $fields->findByName($this->scope->field);
 			$valueClass = $field === null ? null : Field\ValueClass::of($field);
 
 			if ($valueClass !== null && !is_a($valueClass, Comparable::class, true)) {
@@ -103,6 +103,6 @@ abstract class Ordered extends Comparison
 			}
 		}
 
-		return parent::whyItCouldNeverHold($schema);
+		return parent::whyItCouldNeverHold($fields);
 	}
 }

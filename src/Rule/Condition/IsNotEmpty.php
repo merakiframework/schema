@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Rule\Condition;
 
-use Meraki\Schema\Facade;
+use Meraki\Schema\Field;
 
 /**
  * Holds when the scope points at something.
@@ -20,8 +20,8 @@ final class IsNotEmpty extends Emptiness
 	/**
 	 * @param array<string, mixed> $data
 	 */
-	public function matches(array $data, Facade $schema): bool
+	public function matches(array $data, Field\Set $fields): bool
 	{
-		return !$this->pointsAtNothing($data, $schema);
+		return !$this->pointsAtNothing($data, $fields);
 	}
 }

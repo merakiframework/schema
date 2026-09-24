@@ -4,7 +4,7 @@ declare(strict_types=1);
 namespace Meraki\Schema\Rule\Condition;
 
 use Meraki\Schema\Exception\InvalidRule;
-use Meraki\Schema\Facade;
+use Meraki\Schema\Field;
 use Meraki\Schema\Scope;
 
 /**
@@ -49,9 +49,9 @@ final class Contains extends Textual
 	/**
 	 * @param array<string, mixed> $data
 	 */
-	public function matches(array $data, Facade $schema): bool
+	public function matches(array $data, Field\Set $fields): bool
 	{
-		$text = $this->textAt($data, $schema);
+		$text = $this->textAt($data, $fields);
 
 		return $text !== null && str_contains($text, $this->needle);
 	}

@@ -225,7 +225,7 @@ final class Facade
 		$applied = [];
 
 		foreach ($this->rules as $rule) {
-			foreach ($rule->evaluate($this, $given) as $outcome) {
+			foreach ($rule->evaluate($this->fields, $given) as $outcome) {
 				$name = $outcome->outcome->getScope()->field;
 
 				// An outcome is an operation, so it is handed the field as it currently stands
@@ -392,7 +392,7 @@ final class Facade
 			// tell which applied. An unreadable expectation and a field with no order are
 			// different mistakes needing different corrections, and one message describing both
 			// would be wrong about at least one of them.
-			$why = $comparison->whyItCouldNeverHold($this);
+			$why = $comparison->whyItCouldNeverHold($this->fields);
 
 			if ($why !== null) {
 				throw InvalidRule::because($why);
@@ -449,7 +449,7 @@ final class Facade
 	 */
 	private function assertScopesAreAddressable(Rule $rule): void
 	{
-		$resolver = new ScopeResolver($this);
+		$resolver = new ScopeResolver($this->fields);
 
 		$scopes = [
 			...$rule->condition->getScopes(),

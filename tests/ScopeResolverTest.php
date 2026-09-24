@@ -35,7 +35,7 @@ final class ScopeResolverTest extends TestCase
 	{
 		$schema = $this->schema();
 
-		$resolved = (new ScopeResolver($schema, ['username' => 'alice']))
+		$resolved = (new ScopeResolver($schema->fields, ['username' => 'alice']))
 			->resolve(ValueScope::of('username'));
 
 		$this->assertSame('alice', $resolved->text);
@@ -46,7 +46,7 @@ final class ScopeResolverTest extends TestCase
 	{
 		$schema = $this->schema();
 
-		$resolved = (new ScopeResolver($schema, []))
+		$resolved = (new ScopeResolver($schema->fields, []))
 			->resolve(ValueScope::of('nickname'));
 
 		$this->assertSame('anonymous', $resolved->text);
@@ -58,8 +58,8 @@ final class ScopeResolverTest extends TestCase
 		$schema = $this->schema();
 		$scope = ValueScope::of('username');
 
-		$alice = (new ScopeResolver($schema, ['username' => 'alice']))->resolve($scope);
-		$mallory = (new ScopeResolver($schema, ['username' => 'mallory']))->resolve($scope);
+		$alice = (new ScopeResolver($schema->fields, ['username' => 'alice']))->resolve($scope);
+		$mallory = (new ScopeResolver($schema->fields, ['username' => 'mallory']))->resolve($scope);
 
 		$this->assertSame('alice', $alice->text);
 		$this->assertSame('mallory', $mallory->text);
@@ -72,7 +72,7 @@ final class ScopeResolverTest extends TestCase
 		// author wrote, and no request changes it.
 		$schema = $this->schema();
 
-		$resolved = (new ScopeResolver($schema, ['username' => 'alice']))
+		$resolved = (new ScopeResolver($schema->fields, ['username' => 'alice']))
 			->resolve(PropertyScope::of('username', 'minLength'));
 
 		$this->assertSame(3, $resolved);
@@ -84,7 +84,7 @@ final class ScopeResolverTest extends TestCase
 		$schema = $this->schema();
 		$before = print_r($schema, true);
 
-		$resolver = new ScopeResolver($schema, ['username' => 'alice', 'nickname' => 'al']);
+		$resolver = new ScopeResolver($schema->fields, ['username' => 'alice', 'nickname' => 'al']);
 		$resolver->resolve(ValueScope::of('username'));
 		$resolver->resolve(PropertyScope::of('username', 'minLength'));
 		$resolver->resolve(ValueScope::of('nickname'));
@@ -99,7 +99,7 @@ final class ScopeResolverTest extends TestCase
 		$field = $schema->createTextField('username');
 		$schema->add($field);
 
-		$resolved = (new ScopeResolver($schema))->resolve(FieldScope::of('username'));
+		$resolved = (new ScopeResolver($schema->fields))->resolve(FieldScope::of('username'));
 
 		$this->assertSame($field, $resolved);
 	}
@@ -110,7 +110,7 @@ final class ScopeResolverTest extends TestCase
 		$schema = new Facade('signup');
 		$schema->add($schema->createTextField('nickname')->makeOptional());
 
-		$this->assertTrue((new ScopeResolver($schema))->resolve(PropertyScope::of('nickname', 'optional')));
+		$this->assertTrue((new ScopeResolver($schema->fields))->resolve(PropertyScope::of('nickname', 'optional')));
 	}
 
 	#[Test]
@@ -120,7 +120,7 @@ final class ScopeResolverTest extends TestCase
 		$schema = new Facade('signup');
 		$schema->add($schema->createTextField('username')->minLengthOf(3)->maxLengthOf(20));
 
-		$resolver = new ScopeResolver($schema);
+		$resolver = new ScopeResolver($schema->fields);
 
 		$this->assertSame(3, $resolver->resolve(PropertyScope::of('username', 'minLength')));
 		$this->assertSame(20, $resolver->resolve(PropertyScope::of('username', 'maxLength')));
@@ -154,7 +154,7 @@ final class ScopeResolverTest extends TestCase
 
 		$this->expectException(InvalidArgumentException::class);
 
-		(new ScopeResolver($schema))->resolve(PropertyScope::of('username', 'nope'));
+		(new ScopeResolver($schema->fields))->resolve(PropertyScope::of('username', 'nope'));
 	}
 
 	#[Test]
@@ -165,7 +165,7 @@ final class ScopeResolverTest extends TestCase
 
 		$this->expectException(InvalidArgumentException::class);
 
-		(new ScopeResolver($schema))->resolve(ValueScope::of('nope'));
+		(new ScopeResolver($schema->fields))->resolve(ValueScope::of('nope'));
 	}
 
 	#[Test]
@@ -176,7 +176,7 @@ final class ScopeResolverTest extends TestCase
 		$schema = new Facade('signup');
 		$schema->add($schema->createTextField('username')->minLengthOf(3));
 
-		$resolver = new ScopeResolver($schema);
+		$resolver = new ScopeResolver($schema->fields);
 		$scope = PropertyScope::of('username', 'minLength');
 
 		$this->assertSame(3, $resolver->resolve($scope));

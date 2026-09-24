@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Rule\Condition;
 
-use Meraki\Schema\Facade;
+use Meraki\Schema\Field;
 use Meraki\Schema\Rule\Condition;
 use Meraki\Schema\Scope;
 use Meraki\Schema\ScopeResolver;
@@ -52,9 +52,9 @@ abstract class Emptiness implements Condition
 	/**
 	 * @param array<string, mixed> $data
 	 */
-	final protected function pointsAtNothing(array $data, Facade $schema): bool
+	final protected function pointsAtNothing(array $data, Field\Set $fields): bool
 	{
-		$value = (new ScopeResolver($schema, $data))->resolve($this->scope);
+		$value = (new ScopeResolver($fields, $data))->resolve($this->scope);
 
 		return match (true) {
 			$value === null => true,

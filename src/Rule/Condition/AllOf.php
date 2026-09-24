@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Rule\Condition;
 
-use Meraki\Schema\Facade;
+use Meraki\Schema\Field;
 use Meraki\Schema\Rule\Condition;
 use Meraki\Schema\Rule\ConditionGroup;
 
@@ -17,7 +17,7 @@ final class AllOf implements ConditionGroup
 		$this->conditions = $conditions;
 	}
 
-	public function matches(array $data, Facade $schema): bool
+	public function matches(array $data, Field\Set $fields): bool
 	{
 		// An empty group should not fire a rule (matches AnyOf's behaviour),
 		// rather than being vacuously true and always matching.
@@ -26,7 +26,7 @@ final class AllOf implements ConditionGroup
 		}
 
 		foreach ($this->conditions as $condition) {
-			if (!$condition->matches($data, $schema)) {
+			if (!$condition->matches($data, $fields)) {
 				return false;
 			}
 		}

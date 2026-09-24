@@ -4,7 +4,6 @@ declare(strict_types=1);
 namespace Meraki\Schema\Rule\Condition;
 
 use Meraki\Schema\Comparison\Values;
-use Meraki\Schema\Facade;
 use Meraki\Schema\Field;
 use Meraki\Schema\FieldResult;
 use Meraki\Schema\Rule\Condition;
@@ -21,7 +20,7 @@ use Meraki\Schema\ValueScope;
  * value — a `BigDecimal` for a number, a `LocalDate` for a date — because that is what the field
  * decided the input meant. The author, meanwhile, writes the scalar they would have submitted:
  *
- *     $schema->when($age)->equals(18)
+ *     $fields->when($age)->equals(18)
  *
  * Comparing those two directly is comparing `BigDecimal` to `int`, which is false for every input
  * there has ever been. The rule did not error; it simply never fired, on every field that parses to
@@ -48,10 +47,10 @@ use Meraki\Schema\ValueScope;
  * Which is what makes a rule able to compare two fields rather than a field and a constant:
  *
  *     // is the whole shipping address the billing address?
- *     $schema->when(ValueScope::of('shipping'))->equals(ValueScope::of('billing'))
+ *     $fields->when(ValueScope::of('shipping'))->equals(ValueScope::of('billing'))
  *
  *     // are they at least in the same country?
- *     $schema->when(ValueScope::of('shipping', 'country'))
+ *     $fields->when(ValueScope::of('shipping', 'country'))
  *         ->equals(ValueScope::of('billing', 'country'))
  *
  * Both sides go through the same {@see ScopeResolver}, so both are read the same way and a parsed
@@ -88,13 +87,13 @@ abstract class Comparison implements Condition
 	 *
 	 * @param array<string, mixed> $data
 	 */
-	final protected function pointsAtTheExpectedValue(array $data, Facade $schema): bool
+	final protected function pointsAtTheExpectedValue(array $data, Field\Set $fields): bool
 	{
-		$resolver = new ScopeResolver($schema, $data);
+		$resolver = new ScopeResolver($fields, $data);
 
 		return Values::same(
 			$resolver->resolve($this->scope),
-			$this->readExpectation($this->expected, $schema, $resolver),
+			$this->readExpectation($this->expected, $fields, $resolver),
 		);
 	}
 
@@ -115,11 +114,11 @@ abstract class Comparison implements Condition
 	 * this field hold that value" is the wrong question, because the answer is whatever the request
 	 * supplies.
 	 */
-	public function whyItCouldNeverHold(Facade $schema): ?string
+	public function whyItCouldNeverHold(Field\Set $fields): ?string
 	{
 		// Not this check's business. Facade::addRule() reports an unaddressable scope itself, and
 		// with a better message than anything here would be.
-		$field = $schema->fields->findByName($this->scope->field);
+		$field = $fields->findByName($this->scope->field);
 
 		if ($field === null) {
 			return null;
@@ -191,7 +190,7 @@ abstract class Comparison implements Condition
 	/**
 	 * One expectation, read the way the field would have read it.
 	 */
-	final protected function readExpectation(mixed $expectation, Facade $schema, ScopeResolver $resolver): mixed
+	final protected function readExpectation(mixed $expectation, Field\Set $fields, ScopeResolver $resolver): mixed
 	{
 		// The other side is somewhere else in the same request. Resolved through the same resolver,
 		// so both sides are read the same way and a parsed value is compared against a parsed
@@ -204,7 +203,7 @@ abstract class Comparison implements Condition
 			return $expectation;
 		}
 
-		$field = $schema->fields->findByName($this->scope->field);
+		$field = $fields->findByName($this->scope->field);
 
 		return $field === null ? $expectation : $field->resolvedValueFor($expectation);
 	}

@@ -15,10 +15,15 @@ use Meraki\Schema\Exception\UnknownField;
 final class ScopeResolver
 {
 	/**
+	 * A **field set**, not a schema. Resolving only ever needs to look a field up by name, and
+	 * taking the smaller thing is what lets a set that is not a schema's — a collection's
+	 * template, resolving one row — be resolved by this same class rather than by a second copy
+	 * of it.
+	 *
 	 * @param array<string, mixed> $given one request's data, by field name
 	 */
 	public function __construct(
-		private readonly Facade $schema,
+		private readonly Field\Set $fields,
 		private readonly array $given = [],
 	) {
 	}
@@ -29,7 +34,7 @@ final class ScopeResolver
 	 */
 	public function resolve(Scope $scope): mixed
 	{
-		$field = $this->schema->fields->getByName($scope->field);
+		$field = $this->fields->getByName($scope->field);
 
 		return match (true) {
 			$scope instanceof PartScope => $this->partOf($field, $scope->part),

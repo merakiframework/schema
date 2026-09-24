@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Rule\Condition;
 
-use Meraki\Schema\Facade;
+use Meraki\Schema\Field;
 
 /**
  * Holds when what the scope points at is the expected value.
@@ -21,8 +21,8 @@ final class Equals extends Comparison
 	/**
 	 * @param array<string, mixed> $data
 	 */
-	public function matches(array $data, Facade $schema): bool
+	public function matches(array $data, Field\Set $fields): bool
 	{
-		return $this->pointsAtTheExpectedValue($data, $schema);
+		return $this->pointsAtTheExpectedValue($data, $fields);
 	}
 }

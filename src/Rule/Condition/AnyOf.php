@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Rule\Condition;
 
-use Meraki\Schema\Facade;
+use Meraki\Schema\Field;
 use Meraki\Schema\Rule\Condition;
 use Meraki\Schema\Rule\ConditionGroup;
 
@@ -17,10 +17,10 @@ final class AnyOf implements ConditionGroup
 		$this->conditions = $conditions;
 	}
 
-	public function matches(array $data, Facade $schema): bool
+	public function matches(array $data, Field\Set $fields): bool
 	{
 		foreach ($this->conditions as $condition) {
-			if ($condition->matches($data, $schema)) {
+			if ($condition->matches($data, $fields)) {
 				return true;
 			}
 		}

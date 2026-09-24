@@ -5,7 +5,7 @@ namespace Meraki\Schema\Rule\Condition;
 
 use Meraki\Schema\Comparison\Values;
 use Meraki\Schema\Exception\InvalidRule;
-use Meraki\Schema\Facade;
+use Meraki\Schema\Field;
 use Meraki\Schema\Scope;
 use Meraki\Schema\ScopeResolver;
 
@@ -64,13 +64,13 @@ final class IsIn extends Comparison
 	/**
 	 * @param array<string, mixed> $data
 	 */
-	public function matches(array $data, Facade $schema): bool
+	public function matches(array $data, Field\Set $fields): bool
 	{
-		$resolver = new ScopeResolver($schema, $data);
+		$resolver = new ScopeResolver($fields, $data);
 		$value = $resolver->resolve($this->scope);
 
 		foreach ($this->candidates as $candidate) {
-			if (Values::same($value, $this->readExpectation($candidate, $schema, $resolver))) {
+			if (Values::same($value, $this->readExpectation($candidate, $fields, $resolver))) {
 				return true;
 			}
 		}

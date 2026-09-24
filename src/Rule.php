@@ -26,9 +26,9 @@ class Rule
 	 * @param array<string, mixed> $data what was submitted, under each field's name
 	 * @return list<AppliedOutcome>
 	 */
-	public function evaluate(Facade $schema, array $data): array
+	public function evaluate(Field\Set $fields, array $data): array
 	{
-		$matched = $this->condition->matches($data, $schema);
+		$matched = $this->condition->matches($data, $fields);
 
 		return array_map(
 			fn(Outcome $outcome): AppliedOutcome => new AppliedOutcome($this, $outcome, $matched),

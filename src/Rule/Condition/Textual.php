@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Rule\Condition;
 
-use Meraki\Schema\Facade;
+use Meraki\Schema\Field;
 use Meraki\Schema\Rule\Condition;
 use Meraki\Schema\Scope;
 use Meraki\Schema\ScopeResolver;
@@ -58,9 +58,9 @@ abstract class Textual implements Condition
 	 *
 	 * @param array<string, mixed> $data
 	 */
-	final protected function textAt(array $data, Facade $schema): ?string
+	final protected function textAt(array $data, Field\Set $fields): ?string
 	{
-		$value = (new ScopeResolver($schema, $data))->resolve($this->scope);
+		$value = (new ScopeResolver($fields, $data))->resolve($this->scope);
 
 		return match (true) {
 			is_string($value) => $value,

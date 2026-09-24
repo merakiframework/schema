@@ -67,7 +67,7 @@ final class RepeatedApplicationTest extends TestCase
 	{
 		$schema = $this->createSchemaWithAFiringRule();
 		$scope = FieldScope::of('phone_number');
-		$resolver = new ScopeResolver($schema);
+		$resolver = new ScopeResolver($schema->fields);
 
 		$this->assertSame($resolver->resolve($scope), $resolver->resolve($scope));
 	}

@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Rule\Condition;
 
-use Meraki\Schema\Facade;
+use Meraki\Schema\Field;
 use Meraki\Schema\Scope;
 
 /**
@@ -56,12 +56,12 @@ final class IsBetween extends Comparison
 	/**
 	 * @param array<string, mixed> $data
 	 */
-	public function matches(array $data, Facade $schema): bool
+	public function matches(array $data, Field\Set $fields): bool
 	{
 		// Short-circuit deliberately, and not only for speed: a value below the floor is out of
 		// range whatever the ceiling says, and asking the second question anyway would raise on a
 		// currency mismatch that the first had already settled.
-		return $this->floor->matches($data, $schema) && $this->ceiling->matches($data, $schema);
+		return $this->floor->matches($data, $fields) && $this->ceiling->matches($data, $fields);
 	}
 
 	/**
@@ -71,9 +71,9 @@ final class IsBetween extends Comparison
 	 * sentence {@see Ordered} would have given for a plain `isAtLeast` — one explanation of what
 	 * ordering means, in one place.
 	 */
-	public function whyItCouldNeverHold(Facade $schema): ?string
+	public function whyItCouldNeverHold(Field\Set $fields): ?string
 	{
-		return $this->floor->whyItCouldNeverHold($schema) ?? $this->ceiling->whyItCouldNeverHold($schema);
+		return $this->floor->whyItCouldNeverHold($fields) ?? $this->ceiling->whyItCouldNeverHold($fields);
 	}
 
 	/**
