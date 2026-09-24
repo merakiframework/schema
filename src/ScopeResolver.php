@@ -34,14 +34,137 @@ final class ScopeResolver
 	 */
 	public function resolve(Scope $scope): mixed
 	{
-		$field = $this->fields->getByName($scope->field);
+		// A column is the same question asked of every row, so it is answered by asking it — once
+		// per row, through this same method. That is the whole benefit of a scope being a locator
+		// and a tail: no tail has to learn what a list is.
+		if ($scope->in instanceof Scope\Column) {
+			return $this->acrossEveryRow($scope, $scope->in);
+		}
+
+		$field = $this->fieldIn($scope->in);
 
 		return match (true) {
-			$scope instanceof PartScope => $this->partOf($field, $scope->part),
-			$scope instanceof ValueScope => $this->valueOf($field),
+			$scope instanceof PartScope => $this->partOf($field, $this->valueIn($scope->in, $field), $scope->part),
+			$scope instanceof ValueScope => $this->valueIn($scope->in, $field),
 			$scope instanceof PropertyScope => $this->propertyOf($field, $scope->property),
 			default => $field,
 		};
+	}
+
+	/**
+	 * The field a scope is *about*, or null when the schema cannot offer one.
+	 *
+	 * Not the same as looking `$scope->field` up in the set: that answers the collection for
+	 * anything reaching into one, and a rule asking whether a field could hold a value has to ask
+	 * the field that would hold it. `#/fields/lines/value/rush/sku/value` is about `sku`, and
+	 * comparing it against `'URGENT'` is a question for `Text`, not for `Collection`.
+	 *
+	 * Null rather than raising, because every caller is a check that runs *after*
+	 * {@see Facade::addRule()} has already reported an unaddressable scope in better words.
+	 */
+	public function fieldFor(Scope $scope): ?Field
+	{
+		try {
+			return $this->fieldIn($scope->in);
+		} catch (InvalidScope | UnknownField) {
+			return null;
+		}
+	}
+
+	/**
+	 * The field a locator is about — the schema's own, or one of a collection's template fields.
+	 *
+	 * Everything checkable without a request is checked here, which is what makes a scope typo an
+	 * error where the rule is *written*: that the field is a collection at all, and that its
+	 * template really holds the field being named.
+	 *
+	 * @throws InvalidScope if the locator reaches into something that is not a collection, or names
+	 *         a template field that is not there
+	 * @throws UnknownField if it names a field the schema does not hold
+	 */
+	private function fieldIn(Scope\Locator $in): Field
+	{
+		$field = $this->fields->getByName($in->field);
+
+		if ($in instanceof Scope\SchemaField) {
+			return $field;
+		}
+
+		if (!$field instanceof Field\Collection) {
+			throw InvalidScope::fieldIsNotACollection((string) $in->field, $field::class);
+		}
+
+		return self::templateFieldOf($field, $in->addresses());
+	}
+
+	/**
+	 * What was given for the field a locator is about.
+	 *
+	 * @throws InvalidScope if a template value is asked for outside a row
+	 */
+	private function valueIn(Scope\Locator $in, Field $field): mixed
+	{
+		return match (true) {
+			$in instanceof Scope\Row => $this->rowsOf($in->field)?->valueOf($in->row, (string) $in->addresses()),
+			// The definition is row-agnostic; a value is not. Guessing between "the first row" and
+			// "all of them" would answer a question nobody asked — `*` is how you ask about every
+			// row, and a rule applied per row binds this to the row it is validating.
+			$in instanceof Scope\Template => throw InvalidScope::aTemplateValueNeedsARow((string) $in->field, (string) $in->addresses()),
+			default => $this->valueOf($field),
+		};
+	}
+
+	/**
+	 * The same tail, asked of every row, under the names the rows arrived with.
+	 *
+	 * @return array<string, mixed>
+	 */
+	private function acrossEveryRow(Scope $scope, Scope\Column $column): array
+	{
+		// Reached for the template check even when there are no rows, so `*` naming a field the
+		// template does not have still fails where the rule is written rather than answering `[]`.
+		$this->fieldIn($column);
+
+		$values = [];
+
+		foreach ($this->rowsOf($column->field)?->keys() ?? [] as $row) {
+			$in = new Scope\Row($column->field, $row, $column->addresses());
+			$values[$row] = $this->resolve($scope->rootedAt($in));
+		}
+
+		return $values;
+	}
+
+	/**
+	 * The rows of a collection, as it parsed them — or null when nothing usable was submitted.
+	 *
+	 * Absence is not an error. Which rows exist is a fact about a request, and a scope is written
+	 * long before one arrives, so a row that is not there resolves to nothing exactly as an
+	 * unfilled part of an address does.
+	 */
+	private function rowsOf(FieldName $collection): ?Field\Collection\Value
+	{
+		$rows = $this->valueOf($this->fields->getByName($collection));
+
+		return $rows instanceof Field\Collection\Value ? $rows : null;
+	}
+
+	/**
+	 * @throws InvalidScope if the template does not hold that field
+	 */
+	private static function templateFieldOf(Field\Collection $collection, FieldName $named): Field
+	{
+		foreach ($collection->template as $field) {
+			if ($field->name->equals($named)) {
+				return $field;
+			}
+		}
+
+		throw InvalidScope::collectionHasNoSuchTemplateField(
+			(string) $collection->name,
+			(string) $named,
+			array_map(static fn(Field $f): string => (string) $f->name, $collection->template),
+		);
 	}
 
 	/**
@@ -63,7 +186,7 @@ final class ScopeResolver
 	 *
 	 * @throws InvalidScope if the field's value has no parts, or not that one
 	 */
-	private function partOf(Field $field, string $part): mixed
+	private function partOf(Field $field, mixed $value, string $part): mixed
 	{
 		$parts = Field\ValueClass::partNamesOf($field);
 
@@ -74,8 +197,6 @@ final class ScopeResolver
 		if (!in_array($part, $parts, true)) {
 			throw InvalidScope::fieldHasNoSuchPart((string) $field->name, $part, $parts);
 		}
-
-		$value = $this->valueOf($field);
 
 		// Nothing was submitted, so every part of it is absent. Not an error: a rule asking
 		// "is the shipping country the billing country" on a request that gave neither is

@@ -183,4 +183,141 @@ final class ScopeResolverTest extends TestCase
 		$this->assertSame(3, $resolver->resolve($scope));
 		$this->assertSame(3, $resolver->resolve($scope));
 	}
+
+	// ── reaching into a collection ────────────────────────────────────────────────────────
+
+	private function order(): Facade
+	{
+		$schema = new Facade('order');
+		$schema->add($schema->createCollectionField(
+			'lines',
+			$schema->createTextField('sku')->minLengthOf(3),
+			$schema->createNumberField('qty'),
+		));
+
+		return $schema;
+	}
+
+	/** @return array<string, mixed> */
+	private static function twoLines(): array
+	{
+		return ['lines' => [
+			'first' => (object) ['sku' => 'A1X', 'qty' => '2'],
+			'second' => (object) ['sku' => 'B2Y', 'qty' => '5'],
+		]];
+	}
+
+	#[Test]
+	public function a_named_row_resolves_to_that_rows_value(): void
+	{
+		$schema = $this->order();
+		$resolver = new ScopeResolver($schema->fields, self::twoLines());
+
+		$this->assertSame('A1X', (string) $resolver->resolve(Scope::parse('#/fields/lines/value/first/sku/value')));
+		$this->assertSame('B2Y', (string) $resolver->resolve(Scope::parse('#/fields/lines/value/second/sku/value')));
+	}
+
+	#[Test]
+	public function a_row_that_was_not_submitted_resolves_to_nothing(): void
+	{
+		// Which rows exist is a fact about a request, and a scope is written long before one
+		// arrives — so this is the same answer an unfilled part of an address gives, not an error.
+		$schema = $this->order();
+		$resolver = new ScopeResolver($schema->fields, self::twoLines());
+
+		$this->assertNull($resolver->resolve(Scope::parse('#/fields/lines/value/third/sku/value')));
+	}
+
+	#[Test]
+	public function a_row_field_has_a_definition_as_well_as_a_value(): void
+	{
+		// The whole reason the grammar keeps a trailing `value`. Without it there would be no way
+		// to name the left-hand side of this pair.
+		$schema = $this->order();
+		$resolver = new ScopeResolver($schema->fields, self::twoLines());
+
+		$this->assertSame(3, $resolver->resolve(Scope::parse('#/fields/lines/value/first/sku/minLength')));
+		$this->assertSame('A1X', (string) $resolver->resolve(Scope::parse('#/fields/lines/value/first/sku/value')));
+	}
+
+	#[Test]
+	public function a_column_is_every_rows_value_under_the_row_names(): void
+	{
+		$schema = $this->order();
+		$resolver = new ScopeResolver($schema->fields, self::twoLines());
+
+		$column = $resolver->resolve(Scope::parse('#/fields/lines/value/*/sku/value'));
+
+		$this->assertSame(['first', 'second'], array_keys($column));
+		$this->assertSame(['A1X', 'B2Y'], array_map(strval(...), array_values($column)));
+	}
+
+	#[Test]
+	public function a_column_of_nothing_is_an_empty_list(): void
+	{
+		$schema = $this->order();
+
+		$this->assertSame([], (new ScopeResolver($schema->fields))->resolve(Scope::parse('#/fields/lines/value/*/sku/value')));
+	}
+
+	#[Test]
+	public function the_template_is_read_without_naming_a_row(): void
+	{
+		$schema = $this->order();
+
+		$this->assertSame(3, (new ScopeResolver($schema->fields))->resolve(Scope::parse('#/fields/lines/template/sku/minLength')));
+	}
+
+	#[Test]
+	public function a_template_value_needs_a_row(): void
+	{
+		// The definition is row-agnostic; a value is not. Answering "the first row" or "all of
+		// them" would be a silent answer to a question nobody asked.
+		$schema = $this->order();
+
+		$this->expectException(InvalidArgumentException::class);
+
+		(new ScopeResolver($schema->fields))->resolve(Scope::parse('#/fields/lines/template/sku/value'));
+	}
+
+	#[Test]
+	public function a_template_field_that_is_not_there_fails_where_the_rule_is_written(): void
+	{
+		// Resolved with no request at all, which is exactly how Facade::addRule() checks a scope.
+		$schema = $this->order();
+
+		$this->expectException(InvalidArgumentException::class);
+
+		(new ScopeResolver($schema->fields))->resolve(Scope::parse('#/fields/lines/value/first/nope/value'));
+	}
+
+	#[Test]
+	public function a_column_naming_a_field_the_template_lacks_fails_even_with_no_rows(): void
+	{
+		// Otherwise a typo would answer `[]` on every request, which is indistinguishable from a
+		// collection nobody filled in.
+		$schema = $this->order();
+
+		$this->expectException(InvalidArgumentException::class);
+
+		(new ScopeResolver($schema->fields))->resolve(Scope::parse('#/fields/lines/value/*/nope/value'));
+	}
+
+	#[Test]
+	public function only_a_collection_has_rows(): void
+	{
+		$schema = $this->schema();
+
+		$this->expectException(InvalidArgumentException::class);
+
+		(new ScopeResolver($schema->fields))->resolve(Scope::parse('#/fields/username/value/first/sku/value'));
+	}
+
+	#[Test]
+	public function a_collections_own_properties_are_still_addressed_as_they_were(): void
+	{
+		$schema = $this->order();
+
+		$this->assertSame(1, (new ScopeResolver($schema->fields))->resolve(PropertyScope::of('lines', 'minCount')));
+	}
 }

@@ -161,6 +161,23 @@ abstract readonly class Scope implements Stringable
 	}
 
 	/**
+	 * The same tail, rooted somewhere else.
+	 *
+	 * The operation the locator/tail split exists to make possible. It is how a column is answered
+	 * — by asking each row the very same question — rather than by a second implementation of every
+	 * tail that knows about lists.
+	 */
+	public function rootedAt(Scope\Locator $in): self
+	{
+		return match (true) {
+			$this instanceof PartScope => new PartScope($in, $this->part),
+			$this instanceof PropertyScope => new PropertyScope($in, $this->property),
+			$this instanceof ValueScope => new ValueScope($in),
+			default => new FieldScope($in),
+		};
+	}
+
+	/**
 	 * Whether two scopes address the same thing.
 	 */
 	public function equals(self $other): bool

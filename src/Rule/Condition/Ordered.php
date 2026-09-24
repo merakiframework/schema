@@ -89,7 +89,7 @@ abstract class Ordered extends Comparison
 	public function whyItCouldNeverHold(Field\Set $fields): ?string
 	{
 		if ($this->scope instanceof ValueScope) {
-			$field = $fields->findByName($this->scope->field);
+			$field = (new ScopeResolver($fields))->fieldFor($this->scope);
 			$valueClass = $field === null ? null : Field\ValueClass::of($field);
 
 			if ($valueClass !== null && !is_a($valueClass, Comparable::class, true)) {

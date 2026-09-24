@@ -56,6 +56,44 @@ final class InvalidScope extends InvalidArgumentException implements Exception
 		return new self(sprintf('"%s" names "%s" inside a collection, which is not a field name.', $path, $segment));
 	}
 
+	public static function fieldIsNotACollection(string $field, string $class): self
+	{
+		return new self(sprintf(
+			'"%s" is a %s, so it has no rows to address. Only a collection has rows.',
+			$field,
+			$class,
+		));
+	}
+
+	/**
+	 * @param list<string> $template
+	 */
+	public static function collectionHasNoSuchTemplateField(string $collection, string $named, array $template): self
+	{
+		return new self(sprintf(
+			'The collection "%s" has no field "%s" in its template. It has: %s.',
+			$collection,
+			$named,
+			implode(', ', $template),
+		));
+	}
+
+	/**
+	 * The definition is row-agnostic and a value is not, so `…/template/<f>/value` has nothing to
+	 * read until a row says which one.
+	 */
+	public static function aTemplateValueNeedsARow(string $collection, string $field): self
+	{
+		return new self(sprintf(
+			'"#/fields/%s/template/%s/value" asks what a row holds, and names no row. Address one '
+			. 'with "#/fields/%s/value/<row>/%s/value", or every row with "*".',
+			$collection,
+			$field,
+			$collection,
+			$field,
+		));
+	}
+
 	public static function propertyIsMissing(): self
 	{
 		return new self('A property scope must name a property.');

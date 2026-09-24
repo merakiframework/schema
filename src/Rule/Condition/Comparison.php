@@ -118,7 +118,7 @@ abstract class Comparison implements Condition
 	{
 		// Not this check's business. Facade::addRule() reports an unaddressable scope itself, and
 		// with a better message than anything here would be.
-		$field = $fields->findByName($this->scope->field);
+		$field = (new ScopeResolver($fields))->fieldFor($this->scope);
 
 		if ($field === null) {
 			return null;
@@ -203,7 +203,7 @@ abstract class Comparison implements Condition
 			return $expectation;
 		}
 
-		$field = $fields->findByName($this->scope->field);
+		$field = (new ScopeResolver($fields))->fieldFor($this->scope);
 
 		return $field === null ? $expectation : $field->resolvedValueFor($expectation);
 	}
