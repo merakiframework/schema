@@ -63,7 +63,7 @@ final class ValueClass
 	{
 		$class = self::of($field);
 
-		return $class !== null && is_a($class, HasParts::class, true) ? $class::partNames() : [];
+		return ($class !== null && is_a($class, HasParts::class, true)) ? $class::partNames() : [];
 	}
 
 	/** @return class-string|null */
@@ -78,7 +78,7 @@ final class ValueClass
 
 		$returns = (new ReflectionMethod($field, 'parse'))->getReturnType();
 
-		return $returns instanceof ReflectionNamedType && !$returns->isBuiltin()
+		return ($returns instanceof ReflectionNamedType && !$returns->isBuiltin())
 			? $returns->getName()
 			: null;
 	}

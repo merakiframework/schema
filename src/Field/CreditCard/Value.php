@@ -196,7 +196,7 @@ final readonly class Value implements ParsedValue, HasParts
 
 	public function lastFourDigits(): ?string
 	{
-		return $this->number === null || strlen($this->number) < 4 ? null : substr($this->number, -4);
+		return ($this->number === null || strlen($this->number) < 4) ? null : substr($this->number, -4);
 	}
 
 	/**

@@ -75,7 +75,7 @@ final class Result extends ResolvedField
 	 */
 	private function measure(#[SensitiveParameter] mixed $value): ?int
 	{
-		return $value instanceof Value && $value->secret !== ''
+		return ($value instanceof Value && $value->secret !== '')
 			? $this->password->entropyOf($value->secret)
 			: null;
 	}
