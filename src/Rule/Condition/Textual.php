@@ -70,7 +70,7 @@ abstract class Textual implements Condition
 	}
 
 	/**
-	 * @return array<Scope>
+	 * @return list<Scope>
 	 */
 	public function getScopes(): array
 	{

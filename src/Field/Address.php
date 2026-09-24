@@ -81,7 +81,7 @@ final readonly class Address extends AtomicField
 	public bool $mustBeSpecific;
 
 	/**
-	 * @param array<string> $allowedCountries
+	 * @param list<string> $allowedCountries
 	 * @throws InvalidConfiguration if a country is not one libaddressinput knows
 	 */
 	public function __construct(
@@ -361,7 +361,7 @@ final readonly class Address extends AtomicField
 
 	/**
 	 * @param list<string> $existing
-	 * @param array<string> $additional
+	 * @param list<string> $additional
 	 * @return list<string>
 	 * @throws InvalidConfiguration
 	 */

@@ -12,10 +12,10 @@ class Rule
 	public function __construct(
 		public readonly ConditionGroup $condition,
 
-		/** @var array<Outcome> what happens when the condition holds */
+		/** @var list<Outcome> what happens when the condition holds */
 		public readonly array $outcomes,
 
-		/**  @var array<Outcome> What happens when it does not */
+		/**  @var list<Outcome> What happens when it does not */
 		public readonly array $else = [],
 	) {
 	}

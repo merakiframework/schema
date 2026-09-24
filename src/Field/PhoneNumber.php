@@ -54,7 +54,7 @@ final readonly class PhoneNumber extends AtomicField
 	public Type $numberType;
 
 	/**
-	 * @param array<string> $allowedCountries
+	 * @param list<string> $allowedCountries
 	 * @throws InvalidConfiguration if a country is not a region libphonenumber knows
 	 */
 	public function __construct(
@@ -172,7 +172,7 @@ final readonly class PhoneNumber extends AtomicField
 
 	/**
 	 * @param list<string> $existing
-	 * @param array<string> $additional
+	 * @param list<string> $additional
 	 * @return list<string>
 	 * @throws InvalidConfiguration
 	 */

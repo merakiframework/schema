@@ -51,7 +51,7 @@ final readonly class Enum extends AtomicField
 	}
 
 	/**
-	 * @param array<mixed> $cases
+	 * @param list<mixed> $cases
 	 * @throws InvalidConfiguration if the list is empty, or holds anything but non-empty strings
 	 */
 	private function validateCases(array $cases): void

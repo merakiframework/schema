@@ -160,7 +160,7 @@ abstract class Comparison implements Condition
 	 * that does not exist is refused where the rule is written rather than resolving to `null` on
 	 * every request afterwards.
 	 *
-	 * @return array<Scope>
+	 * @return list<Scope>
 	 */
 	public function getScopes(): array
 	{

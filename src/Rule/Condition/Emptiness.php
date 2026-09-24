@@ -65,7 +65,7 @@ abstract class Emptiness implements Condition
 	}
 
 	/**
-	 * @return array<Scope>
+	 * @return list<Scope>
 	 */
 	public function getScopes(): array
 	{

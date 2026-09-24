@@ -14,7 +14,7 @@ interface Condition
 	public function matches(array $data, Facade $schema): bool;
 
 	/**
-	 * @return array<Scope>
+	 * @return list<Scope>
 	 */
 	public function getScopes(): array;
 }

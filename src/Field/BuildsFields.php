@@ -44,7 +44,7 @@ trait BuildsFields
 	 * outside this package has no other way to inherit what {@see self::for()} declared, so
 	 * without it a third-party region-aware field is second-class in a way its author cannot fix.
 	 *
-	 * @var array<string>
+	 * @var list<string>
 	 */
 	protected array $defaultCountries = [];
 
@@ -94,7 +94,7 @@ trait BuildsFields
 	}
 
 	/**
-	 * @param array<string>|null $allowedCountries null inherits this schema's own
+	 * @param list<string>|null $allowedCountries null inherits this schema's own
 	 *        (see {@see self::for()}); [] means free-form.
 	 */
 	public function createAddressField(string $name, ?array $allowedCountries = null): Address
@@ -199,7 +199,7 @@ trait BuildsFields
 	}
 
 	/**
-	 * @param array<string>|null $allowedCountries null inherits this schema's own
+	 * @param list<string>|null $allowedCountries null inherits this schema's own
 	 *        (see {@see self::for()}); [] means international-only.
 	 */
 	public function createPhoneNumberField(string $name, ?array $allowedCountries = null): PhoneNumber

@@ -15,7 +15,7 @@ interface ConditionGroup extends Condition
 	 * needs exactly that, to check every comparison in a rule at the point the rule is written
 	 * rather than when it first fires.
 	 *
-	 * @return array<Condition>
+	 * @return list<Condition>
 	 */
 	public function conditions(): array;
 }

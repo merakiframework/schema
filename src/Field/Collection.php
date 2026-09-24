@@ -279,7 +279,7 @@ final readonly class Collection implements Field
 	 * It is also how a mistake surfaces. Forgetting one name in a list of twenty is exactly the
 	 * sort of thing that would otherwise validate and then report against the wrong row.
 	 *
-	 * @param array<mixed> $items
+	 * @param list<mixed> $items
 	 */
 	private static function keysAgree(array $items): bool
 	{
