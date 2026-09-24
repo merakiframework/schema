@@ -10,6 +10,35 @@ is a commit subject, with the body kept because the body is where the reasoning 
 
 ## Unreleased
 
+### Say what the 2.0 alpha changes, and what it does not freeze
+
+`827c7fbe` · 2026-09-24
+
+An upgrade guide is the only compatibility story a breaking major has an
+audience for, and an alpha's audience is precisely the people attempting
+that migration. UPGRADING.md maps every removed 1.x name to what replaces
+it, organised around the one idea the rest follows from: the definition is
+immutable, so what you used to write onto a field is now an argument to
+validate(), and what you used to read back off it is now on the result.
+
+Two corrections fell out of checking the claims rather than repeating them.
+Scopes *can* address inside a structured value — PartScope landed and
+"when the address is in AU, require the state" works end to end, so both
+LIMITATIONS.md and the note this was written from were describing a
+limitation that no longer exists. What is genuinely still open is a part of
+a part, and collection items, which is why the scope string format is the
+one part of the API deliberately left unfrozen.
+
+The collection-index entry claimed it was fixed in 2.0 while sitting under
+"not yet implemented" with a 1.x sample; moved to "recently fixed" with a
+sample that was run. Also drops a sentence duplicated inline in API.md, and
+a phpunit.xml comment deferring coverage metadata until a seam that has
+since landed.
+
+### Update history
+
+`19c2c209` · 2026-09-24
+
 ### Fix wording on some docs
 
 `ca822b5f` · 2026-09-24
