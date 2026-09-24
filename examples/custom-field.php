@@ -1,5 +1,4 @@
 <?php
-
 declare(strict_types=1);
 
 // A field type defined entirely outside meraki/schema.
