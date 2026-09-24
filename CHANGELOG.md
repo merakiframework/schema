@@ -10,6 +10,198 @@ is a commit subject, with the body kept because the body is where the reasoning 
 
 ## Unreleased
 
+### Document the two string rules in the coding style
+
+`775ca7c9` · 2026-09-24
+
+The "what the tools enforce" table listed the two fixer configs but not the
+PHPStan rules in tools/CodeStyle/PhpStan/, which are a third enforcement
+category: house rules that need type information and so can only report.
+
+Adds a "building strings" section covering when interpolation wins, when sprintf
+keeps its place, and the distinction between leading-dot continuation as line
+wrapping and concatenation as gluing — which is the difference the concat rule
+is built around.
+
+### Prefer interpolation to concatenation where it says the same thing
+
+`7c2a6b8e` · 2026-09-24
+
+`$this->prefix() . '/' . $this->property` reads as three things joined;
+"{$this->prefix()}/{$this->property}" reads as the path it is. Three sites.
+
+Most concatenation in this codebase is left alone, and the rule is written to
+say why rather than to be tuned until it is quiet:
+
+  - Leading-dot continuation is line wrapping, not concatenation. It makes one
+    unbroken string, which is the point, and a heredoc would put real newlines
+    into an exception message. Any chain spanning lines is skipped.
+  - Field::class . '\' . $kind cannot interpolate a class constant at all.
+  - '~^(?:' . $pattern . ')$~' is a regex whose closing $~ would need escaping.
+  - .= in Mf2\Formatter is a character-parser loop, and a different node type.
+
+The first draft of this rule reported all three of those. Concatenation is
+left-associative, so `$a . '/' . $b` is Concat(Concat($a, '/'), $b) and the rule
+ran on both nodes — validating the inner pair and never seeing the rest of the
+chain. It now reports only where the left operand is itself a Concat, which
+fires once at the outermost node with every operand in view. The cost is that
+two-operand chains are never reported: PHPStan exposes no parent pointer, so
+such a node is indistinguishable from the base of a longer chain. Silence is the
+right side to err on for an advisory rule.
+
+### A condition is given the fields, not the schema
+
+`0b42e052` · 2026-09-24
+
+Facade appeared in a dozen condition signatures and in every one it was
+used for exactly one thing: reaching ->fields. ScopeResolver was the same
+— a single getByName() call behind a whole schema.
+
+So the parameter narrows to Field\Set. Nothing about behaviour changes,
+and the suite is the proof: 1851 tests green with no test rewritten except
+the two that construct a ScopeResolver directly.
+
+What it buys is the thing that comes next. A collection's rows have to be
+resolved against the *template* — a field set that is nobody's schema —
+and a rule applied per row has to evaluate against that same set. While
+the engine demanded a Facade, none of that could reuse it, and per-row
+rules would have meant a second copy of the rule engine sitting beside
+this one. A set is the smallest thing resolution ever needed, and it is
+the thing a row can supply.
+
+Comparison.php also loses an import that only its comments still used.
+
+### Prefer interpolation to sprintf where every value is already a string
+
+`b7783e0a` · 2026-09-24
+
+sprintf('A minimum %s cannot be negative.', $what) says the same thing as
+"A minimum {$what} cannot be negative." with a format string, an argument list,
+and a mapping between them for the reader to hold. Nineteen sites, most of them
+exception factories, several of which shed escapes on the way:
+
+  sprintf('Country \'%s\' is not a supported region.', $country)
+  "Country '{$country}' is not a supported region."
+
+sprintf keeps everything else: mixed types, padding and width, positional
+arguments, and values built by a call. `implode(', ', $names)` reads better as
+an argument than wedged into a string, and the rule never reports it — not by a
+special case, but because a call with arguments cannot sit inside {...} at all.
+
+This is a PHPStan rule rather than a fixer because the deciding question is "is
+this argument a string", and no token-level tool can answer it: $this->name
+might be a string or a FieldName. Reporting also leaves the judgement where it
+belongs — the rewrite is mechanical, but whether a given message reads better
+either way is not.
+
+src/Exception/InvalidConfiguration.php is now visibly mixed: 17 of its factories
+interpolate and the rest still use sprintf, because the rest take %d or
+non-string values. That is the rule working as specified rather than a gap.
+
+### Adopt phpstan-strict-rules, and fix the one real thing it found
+
+`c1a95f4c` · 2026-09-24
+
+Measured before adopting, as the whole shipped tree: 20 errors in four
+categories. Everything else in the ruleset was already at zero — loose
+comparison, empty(), backticks, variable variables, non-strict in_array, useless
+casts, truthiness on non-booleans — so the set costs one package with no
+transitive dependencies and buys insurance against all of them.
+
+The real finding is in Facade::against(). $applied holds a list<AppliedOutcome>
+from applyRules(), and a nested foreach rebound the same name to a single
+AppliedOutcome. Not a bug — the list is not read again — but it is precisely the
+"a variable keeps one type" rule, and a heuristic scan of the tree had reported
+zero violations of it. A real analyser found one. Renamed to $appliedOutcome.
+
+Three categories are ignored with reasons rather than fixed. Each is a design
+decision the rule disagrees with: fields deliberately narrow what parse() takes,
+`glob(...) ?: []` is array-or-false rather than null, and five sites of dynamic
+property access want a refactor rather than a style fix.
+
+src only. Tests stay at level 1 and reassign scratch variables freely.
+
+### A collection row is named, and a name is all it can be
+
+`0a6d1570` · 2026-09-24
+
+Positional rows are gone. A row addressed by its position meant a
+different row the moment anything was inserted above it, so a stored rule
+naming one silently changed its mind between requests — which is why a
+collection's rows were unaddressable at all, and why the scope grammar
+cannot yet reach into a collection value.
+
+A key is now held to the same pattern a field name obeys, asked through
+the new FieldName::isUsable() so the rule lives in one place. That choice
+removes a class of problem rather than managing it: there is nothing to
+escape, because a name cannot contain a slash or a space; `*` is free to
+mean "every row" later, because it cannot be a name; and the hazard that
+PHP turns the array key '0' into 0 cannot arise, because a name cannot
+start with a digit. keysAgree() and the three docblocks arguing about
+which row `0` referred to are deleted along with the question.
+
+A bad key fails the request rather than raising: keys arrive from a
+submitter, so a positional list reports shape: unreadable like any other
+input a field cannot read.
+
+Collection\Value::equals() compared array_keys() in order while its own
+docblock said naming rows was how you asked for order-insensitivity. Only
+one of those could be true, and now that naming is the only way to submit
+a collection it is the comparison that was wrong — two lists with the same
+rows under the same names are equal whatever order they arrived in.
+
+examples/collections.php was exiting 0 while printing "PASSES / status:
+Failed" and a PHP warning, because check-examples.php only checks exit
+codes.
+
+### Rewrite the coding-style preamble now that formatting is enforced
+
+`c4c57c87` · 2026-09-24
+
+The document opened by saying "formatting is whatever the editor and PHPStan
+already enforce" — which meant nothing enforced it, and the drift showed: 47% of
+src/ files had unsorted imports and one file was space-indented in a tab
+codebase.
+
+Adds, ahead of the existing material: which conventions are fixed, which are
+reported, and which stay human; the four places @PSR12 is deliberately departed
+from; how the pre-commit hook behaves and why --no-verify means CI is the real
+boundary; the four import tiers; the ternary rule and why a single comparison is
+deliberately exempt; and "no language hacks" as a concrete list rather than a
+sentiment, naming the three @-suppression sites that are allowed to stay.
+
+The existing body — properties versus methods, withers, records versus lists,
+the core does not serialise — is untouched. None of it is mechanical.
+
+### Teach git blame to skip the reformatting commits
+
+`3e19eece` · 2026-09-24
+
+Seven commits on this branch reformatted the tree without changing what it does
+— 117 files reordered imports, 58 dropped dead ones, 15 took the rest of PSR-12.
+Left alone, those become the last change to most lines in the repo and `git
+blame` stops answering the question people ask it.
+
+GitHub reads this file with no configuration. Locally it needs
+blame.ignoreRevsFile, which composer hooks:install now sets alongside
+core.hooksPath.
+
+The SHAs are branch-local: if this branch is squashed or rebased on merge they
+will need regenerating against the new history.
+
+### Check style in CI, and run the two checks that never ran there
+
+`a4116012` · 2026-09-24
+
+Adds a style job: composer test:style fails on anything unformatted, and
+composer style:report fails on any risky finding. The pre-commit hook does the
+same locally, but --no-verify skips it and a clone that never ran composer
+install never had it, so this is the boundary that actually holds.
+
+Also closes a gap that predates this work. The `ci` script listed eight steps
+and the workflow ran five: tools/check-references.php and the CHANGELOG check
+have existed for a while and have never once run in CI. They do now.
+
 ### Keep the pre-commit hook quiet unless it has something to say
 
 `2d511b3c` · 2026-09-24
