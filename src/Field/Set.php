@@ -88,11 +88,6 @@ class Set implements IteratorAggregate, Countable
 	/**
 	 * Private, because a set handed to a schema must not be changeable from outside it.
 	 *
-	 * {@see \Meraki\Schema\Facade::copyForRequest()} shares the very same instance rather than
-	 * copying it, on the grounds that every way of changing one returns a new set. That was true
-	 * of {@see self::add()} and {@see self::replace()} and was not true of this, so one caller
-	 * reaching in here changed a definition every concurrent request was reading.
-	 *
 	 * @throws DuplicateFieldName if a field with the same name is already present
 	 */
 	private function mutableAdd(Field ...$fields): void
