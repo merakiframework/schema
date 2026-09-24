@@ -1,0 +1,10 @@
+# The working tree was 175-of-228 CRLF against an LF index (core.autocrlf=true, no
+# .gitattributes). PHP-CS-Fixer's line_ending rule reported every one of those files on
+# every local run while CI, checking out LF on Linux, saw nothing. This makes git and the
+# fixer agree.
+* text=auto eol=lf
+*.php text eol=lf
+
+# Git for Windows runs hooks through its bundled sh. A CRLF on the #!/bin/sh line breaks
+# the hook with an error that does not mention line endings.
+.githooks/* text eol=lf
