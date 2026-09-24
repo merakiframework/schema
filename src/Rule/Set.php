@@ -4,7 +4,6 @@ declare(strict_types=1);
 namespace Meraki\Schema\Rule;
 
 use Meraki\Schema\Rule;
-use Meraki\Schema\Facade;
 
 /**
  * @implements \IteratorAggregate<int, Rule>
