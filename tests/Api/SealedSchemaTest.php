@@ -24,16 +24,6 @@ use PHPUnit\Framework\TestCase;
  * Every *field* was sealed by the language — `readonly` is inherited both ways, so nothing below
  * `AtomicField` could be written to whether or not its author thought about it. The **set** holding
  * those fields was a plain mutable object behind a plain public property.
- *
- * That mattered because {@see Facade::copyForRequest()} deliberately hands every concurrent request
- * the *same* `Field\Set` instance, on the documented grounds that every way of changing one returns
- * a new set. That was true of `add()` and `replace()` and untrue of `mutableAdd()` — so a single
- * caller reaching in changed a definition every in-flight request was reading.
- *
- * Nothing in the library ever did it. The point is that nothing *can*, which is a different and
- * much stronger statement, and the only one worth making about concurrency.
- *
- * These assert the runtime half. The compile-time half is the visibility itself.
  */
 #[Group('api-2.0')]
 #[CoversNothing]

@@ -144,15 +144,6 @@ final class SetTest extends TestCase
 		$this->assertFalse($newSet->contains($rule));
 	}
 
-	/**
-	 * A set cannot be changed in place, which is what makes sharing one safe.
-	 *
-	 * These two replace tests that asserted the opposite — `rules_can_be_added_mutably` and its
-	 * removal twin. The capability was real and was the hole in the central claim of 2.0:
-	 * `Facade::copyForRequest()` hands every concurrent request the *same* set instance, on the
-	 * grounds that every way of changing one returns a new set. A public `mutableAdd()` made that
-	 * false, so one caller could change a definition every in-flight request was reading.
-	 */
 	#[Test]
 	public function adding_a_rule_leaves_the_original_set_alone(): void
 	{

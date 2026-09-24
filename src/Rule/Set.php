@@ -41,14 +41,6 @@ class Set implements \IteratorAggregate, \Countable
 		return $this->indexOf($rule) !== null;
 	}
 
-	/**
-	 * Private, because a set handed to a schema must not be changeable from outside it.
-	 *
-	 * `Facade::copyForRequest()` shares the very same instance rather than copying it, on the
-	 * grounds that every way of changing one returns a new set. That was true of `add()` and
-	 * `remove()` and was not true of this, so one caller reaching in here changed a definition
-	 * every concurrent request was reading.
-	 */
 	private function mutableAdd(Rule ...$rules): void
 	{
 		foreach ($rules as $rule) {
