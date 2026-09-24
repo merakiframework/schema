@@ -86,8 +86,12 @@ return (new PhpCsFixer\Config())
 		// 'ignore' leaves the shape alone and still normalises comma spacing.
 		'method_argument_space' => ['on_multiline' => 'ignore'],
 
-		// PSR-12 writes `fn (`. Every one of the 67 arrow functions here writes `fn(`.
+		// PSR-12 writes `fn (` and `new class ()`. This codebase never puts a space before an
+		// argument list — 67 arrow functions write `fn(`, and both anonymous classes write
+		// `new class(`. Deviating in both places is what keeps it consistent; deviating in
+		// only one would not.
 		'function_declaration' => ['closure_fn_spacing' => 'none'],
+		'class_definition' => ['space_before_parenthesis' => false],
 
 		// ── Imports ─────────────────────────────────────────────────────────────────────
 		// Replaces the unused-import half of tools/check-conventions.php. Note it is
