@@ -20,7 +20,7 @@ use Meraki\Schema\ValueScope;
  * value — a `BigDecimal` for a number, a `LocalDate` for a date — because that is what the field
  * decided the input meant. The author, meanwhile, writes the scalar they would have submitted:
  *
- *     $fields->when($age)->equals(18)
+ *     $schema->when($age)->equals(18)
  *
  * Comparing those two directly is comparing `BigDecimal` to `int`, which is false for every input
  * there has ever been. The rule did not error; it simply never fired, on every field that parses to
@@ -47,10 +47,10 @@ use Meraki\Schema\ValueScope;
  * Which is what makes a rule able to compare two fields rather than a field and a constant:
  *
  *     // is the whole shipping address the billing address?
- *     $fields->when(ValueScope::of('shipping'))->equals(ValueScope::of('billing'))
+ *     $schema->when(ValueScope::of('shipping'))->equals(ValueScope::of('billing'))
  *
  *     // are they at least in the same country?
- *     $fields->when(ValueScope::of('shipping', 'country'))
+ *     $schema->when(ValueScope::of('shipping', 'country'))
  *         ->equals(ValueScope::of('billing', 'country'))
  *
  * Both sides go through the same {@see ScopeResolver}, so both are read the same way and a parsed

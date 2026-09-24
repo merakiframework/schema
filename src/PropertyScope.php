@@ -14,7 +14,7 @@ use Meraki\Schema\Exception\InvalidScope;
  */
 final readonly class PropertyScope extends Scope
 {
-	public function __construct(FieldName $field, public string $property)
+	public function __construct(FieldName|Scope\Locator $in, public string $property)
 	{
 		if ($property === '') {
 			throw InvalidScope::propertyIsMissing();
@@ -24,7 +24,7 @@ final readonly class PropertyScope extends Scope
 			throw InvalidScope::valueIsNotAProperty($property, ValueScope::class);
 		}
 
-		parent::__construct($field);
+		parent::__construct($in);
 	}
 
 	/**
@@ -40,6 +40,6 @@ final readonly class PropertyScope extends Scope
 
 	public function __toString(): string
 	{
-		return $this->prefix() . '/' . $this->property;
+		return "{$this->prefix()}/{$this->property}";
 	}
 }

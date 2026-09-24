@@ -25,8 +25,28 @@ abstract readonly class Scope implements Stringable
 	 */
 	public const FIELD_COLLECTION = 'fields';
 
-	public function __construct(public FieldName $field)
+	/**
+	 * Where this scope's tail is rooted. A bare {@see FieldName} means the schema's own field, so
+	 * everything written before collections were addressable keeps building what it always built.
+	 */
+	public Scope\Locator $in;
+
+	/**
+	 * The schema field this is about — the collection, when the scope reaches inside one.
+	 *
+	 * Kept as a property rather than becoming `$in->field` at every call site because it is read in
+	 * two places that have no interest in locators: grouping outcomes by field, and looking the
+	 * field up to resolve against.
+	 */
+	public FieldName $field;
+
+	public function __construct(FieldName|Scope\Locator $in)
 	{
+		$this->in = $in instanceof Scope\Locator ? $in : new Scope\SchemaField($in);
+
+		// Copied rather than read through the locator on demand, because this class is readonly
+		// and a readonly class may not hold a hooked property.
+		$this->field = $this->in->field;
 	}
 
 	/**
@@ -47,29 +67,96 @@ abstract readonly class Scope implements Stringable
 		}
 
 		$name = $segments[1] ?? '';
-		$property = $segments[2] ?? null;
 
 		if ($name === '') {
 			throw InvalidScope::fieldNameIsMissing($path);
 		}
 
-		// A fourth segment addresses a part of a value (i.e. `#/fields/billing/value/country`).
-		if (count($segments) === 4) {
-			if ($property !== ValueScope::SEGMENT) {
-				throw InvalidScope::formatIsIncorrectForTargetingAValuePart($path, self::FIELD_COLLECTION, $name, ValueScope::SEGMENT);
-			}
+		[$in, $tail] = self::locatorIn($segments, new FieldName($name), $path);
 
-			return new PartScope(new FieldName($name), $segments[3]);
+		return self::tail($in, $tail, $path);
+	}
+
+	/**
+	 * Reads the locator off the front of a path, and hands back what is left for the tail.
+	 *
+	 * Positional throughout, so this never has to ask what kind of field `$name` is — which is what
+	 * keeps parsing free of the schema. A locator is recognised by its marker segment, and a
+	 * collection's by the wildcard or row name sitting where one belongs.
+	 *
+	 * @param list<string> $segments
+	 * @return array{Scope\Locator, list<string>}
+	 * @throws InvalidScope if a marker is there but what it introduces is not
+	 */
+	private static function locatorIn(array $segments, FieldName $name, string $path): array
+	{
+		$marker = $segments[2] ?? null;
+
+		// `#/fields/<c>/template/<tf>` — but `#/fields/<c>/template` alone is still the ordinary
+		// property scope it has always been, handing back the whole template list. The marker only
+		// takes over once something follows it.
+		if ($marker === Scope\Template::SEGMENT && count($segments) >= 4) {
+			return [
+				new Scope\Template($name, self::templateFieldIn($segments[3], $path)),
+				array_slice($segments, 4),
+			];
 		}
 
-		if (count($segments) > 4) {
-			throw InvalidScope::tooManySegments($path);
+		// `#/fields/<c>/value/<row|*>/<tf>`. Five segments is the shortest this can be, which is
+		// exactly one more than a value part needs — so `#/fields/billing/value/country` is read
+		// as it always was, without either reading having to know whether `billing` is a
+		// collection.
+		if ($marker === ValueScope::SEGMENT && count($segments) >= 5) {
+			$row = $segments[3];
+			$field = self::templateFieldIn($segments[4], $path);
+
+			return [
+				$row === Scope\Column::EVERY_ROW
+					? new Scope\Column($name, $field)
+					: new Scope\Row($name, $row, $field),
+				array_slice($segments, 5),
+			];
 		}
 
-		return match (true) {
-			$property === null => new FieldScope(new FieldName($name)),
-			$property === ValueScope::SEGMENT => new ValueScope(new FieldName($name)),
-			default => new PropertyScope(new FieldName($name), $property),
+		return [new Scope\SchemaField($name), array_slice($segments, 2)];
+	}
+
+	/**
+	 * @throws InvalidScope if the segment naming a template field is empty or not a name
+	 */
+	private static function templateFieldIn(string $segment, string $path): FieldName
+	{
+		if (!FieldName::isUsable($segment)) {
+			throw InvalidScope::templateFieldIsNotAName($path, $segment);
+		}
+
+		return new FieldName($segment);
+	}
+
+	/**
+	 * What to read once the locator says where — the same four shapes wherever it is rooted.
+	 *
+	 * Written once and reached from all four namespaces, which is the whole point of splitting a
+	 * scope into a locator and a tail: a row's field is addressed exactly like a top-level one
+	 * because it goes through this same function.
+	 *
+	 * @param list<string> $tail
+	 * @throws InvalidScope if the tail is not one of the four
+	 */
+	private static function tail(Scope\Locator $in, array $tail, string $path): self
+	{
+		return match (count($tail)) {
+			0 => new FieldScope($in),
+			1 => $tail[0] === ValueScope::SEGMENT ? new ValueScope($in) : new PropertyScope($in, $tail[0]),
+			2 => $tail[0] === ValueScope::SEGMENT
+				? new PartScope($in, $tail[1])
+				: throw InvalidScope::formatIsIncorrectForTargetingAValuePart(
+					$path,
+					self::FIELD_COLLECTION,
+					(string) $in->addresses(),
+					ValueScope::SEGMENT,
+				),
+			default => throw InvalidScope::tooManySegments($path),
 		};
 	}
 
@@ -81,8 +168,12 @@ abstract readonly class Scope implements Stringable
 		return $other::class === static::class && (string) $other === (string) $this;
 	}
 
+	/**
+	 * The path up to and including the field this is about. The locator owns it, because the four
+	 * of them are precisely the four ways of getting there.
+	 */
 	protected function prefix(): string
 	{
-		return '#/' . self::FIELD_COLLECTION . '/' . $this->field;
+		return (string) $this->in;
 	}
 }

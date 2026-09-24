@@ -34,7 +34,26 @@ final class InvalidScope extends InvalidArgumentException implements Exception
 
 	public static function tooManySegments(string $path): self
 	{
-		return new self(sprintf('"%s" has more segments than a scope can address. A part of a value is as deep as this goes; collection items are not addressable.', $path));
+		return new self(sprintf('"%s" has more segments than a scope can address. A part of a value is as deep as this goes.', $path));
+	}
+
+	/**
+	 * A collection's rows are addressed by name, so the segment where a row goes has to be one —
+	 * or `*`, meaning every row.
+	 */
+	public static function rowIsNotAName(string $collection, string $row): self
+	{
+		return new self(sprintf(
+			'"%s" is not a row of "%s" that can be addressed. A row is named the way a field is: '
+			. 'letters, digits, "_" and "-", never starting with a digit. Use "*" for every row.',
+			$row,
+			$collection,
+		));
+	}
+
+	public static function templateFieldIsNotAName(string $path, string $segment): self
+	{
+		return new self(sprintf('"%s" names "%s" inside a collection, which is not a field name.', $path, $segment));
 	}
 
 	public static function propertyIsMissing(): self

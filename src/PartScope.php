@@ -32,13 +32,13 @@ use Meraki\Schema\Exception\InvalidScope;
  */
 final readonly class PartScope extends Scope
 {
-	public function __construct(FieldName $field, public string $part)
+	public function __construct(FieldName|Scope\Locator $in, public string $part)
 	{
 		if ($part === '') {
 			throw InvalidScope::partIsMissing();
 		}
 
-		parent::__construct($field);
+		parent::__construct($in);
 	}
 
 	public static function of(FieldName|string $field, string $part): self
