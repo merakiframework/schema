@@ -10,6 +10,269 @@ is a commit subject, with the body kept because the body is where the reasoning 
 
 ## Unreleased
 
+### Keep the pre-commit hook quiet unless it has something to say
+
+`2d511b3c` · 2026-09-24
+
+The risky report was streamed straight to the terminal, so every clean commit
+printed the fixer banner and a "Found 0 of N files" line. Captured instead, and
+echoed only when the report is non-empty.
+
+### Format staged files on commit, and stop on what cannot be fixed safely
+
+`071bf0f0` · 2026-09-24
+
+Git has no hook for `git add`: nothing fires there, and post-index-change runs
+after the index is written and cannot abort. So this runs at commit time, which
+also catches files staged by `git add -p`, `git commit -a` or the editor rather
+than only by `git add`.
+
+It fixes the staged files with the safe config, re-stages them, then runs the
+risky config as a report and aborts if it finds anything.
+
+Two flags that are load-bearing and look optional:
+
+  --path-mode=intersection  narrows the config's Finder to the staged files.
+                            Without it, passing paths makes PHP-CS-Fixer ignore
+                            the Finder entirely and format on CLI paths alone.
+  --config                  PHP-CS-Fixer would discover the same file on its
+                            own, but given more than one path it refuses to
+                            guess: "For multiple paths config parameter is
+                            required". Omitting it fails on any commit that
+                            touches two files.
+
+A file that is both staged and modified is refused rather than formatted. Doing
+otherwise would format the working-tree copy and re-stage it, quietly pulling
+unstaged edits into the commit — the classic version of this bug.
+
+Not the enforcement boundary: --no-verify skips it and a fresh clone lacks it
+until composer install runs. CI is what holds the line.
+
+### Retire tools/check-conventions.php
+
+`87c6f73f` · 2026-09-24
+
+Both its checks are now covered, but by different configs, and the split is the
+interesting part:
+
+  unused imports  ->  no_unused_imports   safe config, fixed automatically
+  T[] docblocks   ->  phpdoc_array_type   risky config, reported only
+
+The second is better than what the script did rather than merely equivalent.
+The script refused T[] and made a human choose between list<T> and array<K, V>;
+auto-fixing would have silently written the weaker array<T> and thrown that
+choice away. Reporting keeps the human in the loop and shows the diff — which
+is how the 11 array<T> narrowings in the previous commit were found.
+
+Retired only after both preconditions held: no_unused_imports is a no-op on
+src/, and the script itself still passed.
+
+Adds the composer scripts: style, style:report, test:style, hooks:install.
+test:style and style:report join `ci` where test:conventions left it.
+
+### Narrow array<T> to list<T> where the keys really are sequential
+
+`c6c30ae9` · 2026-09-24
+
+The first run of the risky report found 11 files promising only array<T> for
+methods that return a list. tools/check-conventions.php could not see these: it
+refuses T[] and accepts either array<T> or list<T>, so array<T> passed.
+
+This is the report/fix split doing what it was built for. Auto-fixing would have
+been the wrong shape in both directions — phpdoc_array_type silently writes the
+weaker array<T>, and phpdoc_list_type asserts sequential keys it cannot verify.
+Reported instead, read, then confirmed by PHPStan before committing.
+
+Also corrects two claims in the risky config that were wrong: all 235 files do
+have declare(strict_types=1) — in examples/validate-with-rules.php it sits below
+a file docblock rather than on line 2 — and phpdoc_list_type was not zero-churn.
+
+Both configs now report clean.
+
+### Keep `new class(` unspaced, and drop a stray blank line
+
+`fb9add5c` · 2026-09-24
+
+PSR-12 writes `new class ()`. This codebase never puts a space before an
+argument list — the same reason closure_fn_spacing is already set to none for
+its 67 `fn(` sites. Both anonymous classes write `new class(`, so matching them
+is what keeps the rule consistent rather than what breaks it.
+
+Also removes a double blank line after a namespace declaration.
+
+`composer style` is now clean across all 235 files.
+
+### Parenthesise compound ternary conditions
+
+`7641578c` · 2026-09-24
+
+`$a === 1 || $a === 2 ? x : y` becomes `($a === 1 || $a === 2) ? x : y`.
+
+The parentheses are for the reader, not the parser: && and || already bind
+tighter than ?:, so this changes nothing about evaluation. That is the point —
+seeing where the condition ends should not require knowing the precedence table.
+Two sites in Facade.php were already written this way; this makes it the rule.
+
+Only && and ||. A single comparison is left alone, which was a decision rather
+than an oversight: === binds tighter than ?: in exactly the same way, but one
+comparison already reads as one unit, and covering every comparison would have
+touched 66 further sites for no gain. The reasoning is recorded on the fixer.
+
+Safe by construction. The parentheses would NOT be a no-op for `and`/`or`/`xor`,
+which bind looser than ?: — there, wrapping the condition changes the meaning.
+The fixer never triggers on those, there are zero in the repo, and the risky
+config's logical_operators reports the day one appears.
+
+No rule for this exists in PHP-CS-Fixer, kubawerlos, PedroTroller or Slevomat.
+
+### Put declare(strict_types=1) on line 2 in examples/
+
+`05ca9d6b` · 2026-09-24
+
+All 212 files in src/ and tests/ open with the declare immediately under the
+open tag. Ten of the twelve examples had a blank line there instead, so the
+examples did not look like the code they demonstrate.
+
+No built-in rule does this. PSR-12 wants the blank line, and setting
+blank_line_after_opening_tag to false only stops the rule inserting one — it
+does not remove an existing one.
+
+(examples/validate-with-rules.php has no declare at all. That is a behaviour
+change, so the risky config reports it rather than this fixing it.)
+
+### Order imports nearest-first
+
+`9281165e` · 2026-09-24
+
+Four tiers, one unbroken block, alphabetical within each:
+
+  1. this project            Meraki\Schema\*
+  2. other Meraki packages   Meraki\*
+  3. everything else scoped  Brick\*, PHPUnit\*, Uri\*, …
+  4. the root namespace      Countable, Stringable, Closure, …
+
+There was no ordering convention before — imports were appended where needed,
+and 47% of src/ files and 83% of tests/ had drifted out of any order at all.
+
+ordered_imports cannot express this: imports_order distinguishes only class,
+function and const, with no grouping by prefix. So this is a custom fixer, and
+ordered_imports is on the never-enable list because it would flatten the tiers.
+
+Tier 3 deliberately mixes PHP's own namespaced classes with third-party
+packages. Nothing in the token stream separates Uri\Rfc3986\Uri (PHP 8.5) from
+Brick\DateTime\Clock (composer), and a hand-maintained list of PHP's namespaced
+classes would be wrong every time PHP adds one. Merging them makes the whole
+classification mechanical.
+
+This commit also registers the other two custom fixers in the config; their
+changes land in the next two commits.
+
+### Use single quotes where double quotes buy nothing
+
+`5d0fc351` · 2026-09-24
+
+A double-quoted string with nothing in it that needs double quotes is a question
+the reader has to answer. 11 files, mostly printf format strings in examples/.
+
+### Remove imports that do nothing
+
+`d5f5e887` · 2026-09-24
+
+58 files carried imports for classes in their own namespace, where the short
+name already resolves. Most are Meraki\Schema\Field\MalformedValue imported from
+inside Meraki\Schema\Field (21 files), and five test files importing
+Meraki\Schema\Facade while themselves living in Meraki\Schema.
+
+tools/check-conventions.php could not see these. It counts an import as used if
+its short name appears anywhere later in the file, which for a same-namespace
+import it always does — the name is in use, the import just is not what makes it
+work. It reports the tree as clean today and did so before this commit.
+
+Verified rather than assumed: only `use` lines are touched in the whole diff,
+and PHPStan (level 6 on src, plus the tests config), 1846 tests and all 12
+examples are green afterwards.
+
+### Apply the rest of PSR-12
+
+`85c9bc6d` · 2026-09-24
+
+Blank lines after a class opening brace, blank line after namespace, class
+declaration spacing, parentheses on argument-less `new`, and one import per
+statement — which expanded the three group-use statements in tests/Rule/.
+
+### Normalise indentation and trailing whitespace
+
+`eeb116d9` · 2026-09-24
+
+Tabs were already universal in src/ and tests/. The exceptions were
+src/Field/HasParts.php, which was space-indented throughout, and three of the
+four tools/ scripts — check-examples.php was tabbed and the other three were
+not, so tools/ disagreed with itself.
+
+Content is untouched: `git diff -w` on this commit is empty.
+
+### Add PHP-CS-Fixer with a safe-fix / report split
+
+`602fc3f4` · 2026-09-24
+
+Nothing enforced formatting. docs/CODING-STYLE.md said so outright — "formatting
+is whatever the editor and PHPStan already enforce" — and the drift was
+measurable: 47% of src/ files had unsorted imports, one file was space-indented
+in a tab codebase, and 58 files carried imports that do nothing.
+
+Two configs, because "fix it for me" and "this might change behaviour" are
+different requests:
+
+  .php-cs-fixer.dist.php        setRiskyAllowed(false), writes
+  .php-cs-fixer-risky.dist.php  setRiskyAllowed(true), --dry-run only
+
+Nothing that could alter behaviour is ever applied automatically. The risky set
+is zero-churn today apart from one examples/ file missing declare(strict_types=1);
+it is insurance against `sizeof`, `and`, and `T[]` docblocks, not cleanup.
+
+tools/check-conventions.php argued a coding-standard package was "not worth ~15
+transitive dependencies to answer two questions". That was right while the
+questions numbered two. This encodes about thirty, and the real cost is 34
+packages — more than double what was rejected. What changed the answer is that
+this fixes rather than reports.
+
+Config choices verified against the tree rather than assumed: concat_space
+leaves the 36 leading-dot continuation sites alone, binary_operator_spaces with
+'=>' => null preserves the aligned data-provider tables, and
+closure_fn_spacing: none keeps all 67 `fn(` sites as they are.
+
+### Record indentation and the 110-column limit in .editorconfig
+
+`00eda572` · 2026-09-24
+
+Tabs at a display width of 4 were already universal — 222 of 225 files — but
+nothing wrote it down, so the three space-indented files in tools/ drifted
+without anything noticing.
+
+The column limit stays soft and stays here. PHP-CS-Fixer has no line-length
+rule, and the right fix for a long line is often a shorter name or fewer
+parameters rather than a wrap, which is not a decision a fixer can make.
+
+### Make git and the working tree agree on line endings
+
+`33bfdecd` · 2026-09-24
+
+175 of 228 PHP files were CRLF in the working tree while the index was LF
+(core.autocrlf=true, no .gitattributes). Nothing noticed, because git
+normalised on the way in and CI checks out LF on Linux.
+
+It stops being invisible the moment a formatter runs: PHP-CS-Fixer compares
+bytes, so it would report all 175 files as needing a line-ending fix on every
+local run, forever, while CI saw a clean tree.
+
+The renormalize is a no-op against the index, so this commit changes no content.
+
+## v2.0.0-alpha.1 — 2026-09-24
+
+### Update history
+
+`9a8749be` · 2026-09-24
+
 ### Say what the 2.0 alpha changes, and what it does not freeze
 
 `827c7fbe` · 2026-09-24

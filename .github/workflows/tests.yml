@@ -46,6 +46,14 @@ jobs:
       - name: Run examples
         run: php tools/check-examples.php
 
+      # These two have existed as composer scripts and as tools/ since before this workflow, and
+      # neither has ever run here — the `ci` script listed them and the workflow did not.
+      - name: Check {@see} references
+        run: php tools/check-references.php
+
+      - name: Check CHANGELOG is current
+        run: php tools/changelog.php --check
+
       - name: Upload coverage
         if: matrix.php == '8.5'
         uses: actions/upload-artifact@v4
@@ -75,6 +83,33 @@ jobs:
 
       - name: Run PHPStan (tests)
         run: vendor/bin/phpstan analyse -c phpstan-tests.neon --no-progress --memory-limit=1G
+
+  style:
+    name: Code style
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.5'
+          coverage: none
+          tools: composer:v2
+
+      - name: Install dependencies
+        uses: ramsey/composer-install@v3
+
+      # The pre-commit hook does this locally, but --no-verify skips it and a clone that never
+      # ran composer install never had it. This is the one that actually holds the line.
+      - name: Check formatting
+        run: composer test:style
+
+      # Rules that could change behaviour are never applied automatically. They report here, and
+      # a finding fails the build rather than being silently rewritten.
+      - name: Report risky findings
+        run: composer style:report
 
   audit:
     name: Security advisories
