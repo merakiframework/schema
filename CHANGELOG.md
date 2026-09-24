@@ -10,6 +10,30 @@ is a commit subject, with the body kept because the body is where the reasoning 
 
 ## Unreleased
 
+### Remove ambiguity in testing clock references when cloning
+
+`2dcbaa3d` · 2026-09-24
+
+### Remove unused import statement
+
+`9508546e` · 2026-09-24
+
+### Remove outdated doc block
+
+`f94ae1c0` · 2026-09-24
+
+### Remove ambiguity in some ternary expressions and clone
+
+`c8c79ad4` · 2026-09-24
+
+### Remove support for magic getters on classes as input to schema
+
+`c5acf874` · 2026-09-23
+
+### Update changelog
+
+`bca6a588` · 2026-09-23
+
 ### Reach PHPStan level 6, and check what it cannot
 
 `a58077bd` · 2026-09-23
