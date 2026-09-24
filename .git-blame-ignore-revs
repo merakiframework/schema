@@ -1,0 +1,34 @@
+# Commits that reformatted the tree without changing what it does.
+#
+# `git blame` would otherwise name these as the last change to most lines in the
+# repo, which makes it useless for the question people actually ask it. GitHub reads
+# this file automatically; locally it needs
+#
+#     git config blame.ignoreRevsFile .git-blame-ignore-revs
+#
+# which `composer hooks:install` sets up.
+#
+# Only whitespace, import and docblock-type commits belong here. A commit that
+# changed behaviour must never be added, however mechanical it looked.
+
+# Normalise indentation and trailing whitespace
+eeb116d9e24257a93fe1b70649d44254783fa04e
+
+# Apply the rest of PSR-12
+85c9bc6d244e82d48b26fd4dcf27da3f34cb8acd
+
+# Remove imports that do nothing
+d5f5e8875294e335776b2fab1723f78bcac928af
+
+# Use single quotes where double quotes buy nothing
+5d0fc351884b3bbcfe54d2886e19bff896169c26
+
+# Order imports nearest-first
+9281165ee34a24ca5c37fad8e304ea9d0cfae1fb
+
+# Narrow array<T> to list<T> where the keys really are sequential
+c6c30ae966bfc46d81c1fdd27f0178431edc0210
+
+# Keep `new class(` unspaced, and drop a stray blank line
+fb9add5c22833986356a70ecfb0ea35624231757
+
