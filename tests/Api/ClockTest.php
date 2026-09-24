@@ -10,7 +10,6 @@ use Brick\DateTime\Clock\FixedClock;
 use Brick\DateTime\Instant;
 use Brick\DateTime\ZonedDateTime;
 use PHPUnit\Framework\TestCase;
-use ReflectionMethod;
 use ReflectionProperty;
 use PHPUnit\Framework\Attributes\CoversNothing;
 use PHPUnit\Framework\Attributes\Test;
