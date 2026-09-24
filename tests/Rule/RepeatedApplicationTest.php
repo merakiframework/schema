@@ -5,8 +5,6 @@ namespace Meraki\Schema\Rule;
 
 use Meraki\Schema\Facade;
 use Meraki\Schema\Rule;
-use Meraki\Schema\Rule\Condition;
-use Meraki\Schema\Rule\Outcome;
 use Meraki\Schema\FieldScope;
 use Meraki\Schema\Scope;
 use Meraki\Schema\ScopeResolver;

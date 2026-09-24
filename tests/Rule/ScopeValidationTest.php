@@ -5,7 +5,6 @@ namespace Meraki\Schema\Rule;
 
 use Meraki\Schema\Facade;
 use Meraki\Schema\PropertyScope;
-use Meraki\Schema\Rule\Outcome;
 use InvalidArgumentException;
 use PHPUnit\Framework\TestCase;
 use PHPUnit\Framework\Attributes\Test;

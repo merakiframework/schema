@@ -4,7 +4,6 @@ declare(strict_types=1);
 namespace Meraki\Schema\Field;
 
 use Meraki\Schema\Facade;
-use Meraki\Schema\Field\BuildsFields;
 use PHPUnit\Framework\TestCase;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\Attributes\Group;

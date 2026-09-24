@@ -4,7 +4,6 @@ declare(strict_types=1);
 namespace Meraki\Schema\Field;
 
 use Meraki\Schema\Exception\InvalidConfiguration;
-use Meraki\Schema\Field\Text;
 use Meraki\Schema\FieldName;
 use Meraki\Schema\FieldTestCase;
 use PHPUnit\Framework\Attributes\Group;

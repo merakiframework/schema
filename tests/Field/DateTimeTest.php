@@ -5,7 +5,6 @@ namespace Meraki\Schema\Field;
 
 use Meraki\Schema\Field\DateTime\TimePrecision;
 use Meraki\Schema\FieldTestCase;
-use Meraki\Schema\Field\DateTime;
 use Meraki\Schema\Field\DateTime\PrecisionPolicy;
 use Meraki\Schema\FieldName;
 use Meraki\Schema\ValidationStatus;

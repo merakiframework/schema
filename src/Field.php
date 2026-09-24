@@ -4,9 +4,6 @@ declare(strict_types=1);
 namespace Meraki\Schema;
 
 use Meraki\Schema\Exception\InvalidDefault;
-use Meraki\Schema\FieldName;
-use Meraki\Schema\Rule;
-use Meraki\Schema\AggregatedValidationResult;
 use Meraki\Schema\Field\Constraint;
 
 /**

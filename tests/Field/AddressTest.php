@@ -3,10 +3,8 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Field;
 
-use Meraki\Schema\Field\Address;
 use Meraki\Schema\Field\Address\Type;
 use Meraki\Schema\Field\Address\Value;
-use Meraki\Schema\Field\MalformedValue;
 use Meraki\Schema\FieldName;
 use Meraki\Schema\FieldTestCase;
 use InvalidArgumentException;

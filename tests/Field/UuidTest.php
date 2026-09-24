@@ -3,7 +3,6 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Field;
 
-use Meraki\Schema\Field\Uuid;
 use Meraki\Schema\FieldName;
 use Meraki\Schema\ValidationStatus;
 use Meraki\Schema\FieldTestCase;

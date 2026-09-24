@@ -3,7 +3,6 @@ declare(strict_types=1);
 
 namespace Meraki\Schema;
 
-use Meraki\Schema\ValidationResult;
 use IteratorAggregate;
 use Countable;
 

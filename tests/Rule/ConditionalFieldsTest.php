@@ -5,9 +5,6 @@ namespace Meraki\Schema\Rule;
 
 use Meraki\Schema\Facade;
 use Meraki\Schema\Rule;
-use Meraki\Schema\Rule\Condition;
-use Meraki\Schema\Rule\Draft;
-use Meraki\Schema\Rule\Matcher;
 use Meraki\Schema\Rule\Outcome\Ignore;
 use Meraki\Schema\Rule\Outcome\Reconfigure;
 use InvalidArgumentException;

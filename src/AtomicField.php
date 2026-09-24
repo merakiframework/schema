@@ -6,8 +6,6 @@ namespace Meraki\Schema;
 use Meraki\Schema\Field\ConstraintValidationResult;
 use Meraki\Schema\Field\ShapeValidationResult;
 use Meraki\Schema\Field\Definition;
-use Meraki\Schema\PrefillPolicy;
-use Meraki\Schema\ValueSource;
 
 /**
  * A field holding one value, checked against its own constraints.

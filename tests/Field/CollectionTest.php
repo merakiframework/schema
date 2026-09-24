@@ -5,14 +5,8 @@ namespace Meraki\Schema\Field;
 
 use Meraki\Schema\Field\Collection\Value as CollectionValue;
 use Meraki\Schema\Field\Number\Value as NumberValue;
-use Meraki\Schema\Field\Collection;
 use Meraki\Schema\Field\Collection\Item;
 use Meraki\Schema\Field\Collection\Result;
-use Meraki\Schema\Field\Money;
-use Meraki\Schema\Field\Number;
-use Meraki\Schema\Field\Text;
-use Meraki\Schema\Field\EmailAddress;
-use Meraki\Schema\Field\Address;
 use Meraki\Schema\FieldName;
 use Meraki\Schema\FieldResult;
 use Meraki\Schema\ValidationStatus;

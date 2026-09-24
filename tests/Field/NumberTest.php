@@ -3,7 +3,6 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Field;
 
-use Meraki\Schema\Field\Number;
 use Meraki\Schema\FieldName;
 use InvalidArgumentException;
 use Meraki\Schema\FieldTestCase;

@@ -3,7 +3,6 @@ declare(strict_types=1);
 
 namespace Meraki\Schema;
 
-use Meraki\Schema\FieldName;
 use InvalidArgumentException;
 use PHPUnit\Framework\TestCase;
 use PHPUnit\Framework\Attributes\Group;

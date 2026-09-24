@@ -7,7 +7,6 @@ use Meraki\Schema\Exception\InvalidConfiguration;
 use Meraki\Schema\ValueScope;
 use Meraki\Schema\Rule\Matcher;
 use Meraki\Schema\Field\EmailAddress\Value;
-use Meraki\Schema\Field\MalformedValue;
 use Meraki\Schema\AtomicField;
 use Meraki\Schema\FieldName;
 

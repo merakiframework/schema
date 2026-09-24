@@ -3,9 +3,7 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Field;
 
-use Meraki\Schema\Field\CreditCard;
 use Meraki\Schema\Field\CreditCard\Value;
-use Meraki\Schema\Field\MalformedValue;
 use Meraki\Schema\FieldName;
 use Meraki\Schema\FieldTestCase;
 use Brick\DateTime\Clock\FixedClock;

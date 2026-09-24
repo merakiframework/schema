@@ -3,7 +3,6 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Field;
 
-use Meraki\Schema\Field\Duration;
 use Meraki\Schema\FieldName;
 use Meraki\Schema\FieldTestCase;
 use Meraki\Schema\ValidationStatus;

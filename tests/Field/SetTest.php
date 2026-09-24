@@ -5,8 +5,6 @@ namespace Meraki\Schema\Field;
 
 use Meraki\Schema\Exception\UnknownField;
 use Meraki\Schema\FieldName;
-use Meraki\Schema\Field\Set;
-use Meraki\Schema\Field\Text;
 use InvalidArgumentException;
 use PHPUnit\Framework\TestCase;
 use PHPUnit\Framework\Attributes\Test;

@@ -4,7 +4,6 @@ declare(strict_types=1);
 namespace Meraki\Schema\Field;
 
 use Meraki\Schema\Exception\InvalidConfiguration;
-use Meraki\Schema\Field\MalformedValue;
 use Meraki\Schema\ValueScope;
 use Meraki\Schema\Rule\Matcher;
 use Meraki\Schema\Field\Collection\Item;

@@ -3,11 +3,9 @@ declare(strict_types=1);
 
 namespace Meraki\Schema;
 
-use Meraki\Schema\Field;
 use Meraki\Schema\Field\ConstraintValidationResult;
 use Meraki\Schema\Field\ShapeProblem;
 use Meraki\Schema\Field\ShapeValidationResult;
-use Meraki\Schema\FieldName;
 use PHPUnit\Framework\TestCase;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\Attributes\CoversClass;

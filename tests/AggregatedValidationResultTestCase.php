@@ -3,8 +3,6 @@ declare(strict_types=1);
 
 namespace Meraki\Schema;
 
-use Meraki\Schema\ValidationResult;
-use Meraki\Schema\ValidationResultTestCase;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Group;

@@ -9,13 +9,7 @@ use Meraki\Schema\Exception\InvalidRule;
 use Meraki\Schema\Exception\InvalidScope;
 use Meraki\Schema\Exception\NothingToValidate;
 use Meraki\Schema\Exception\UnknownField;
-use Meraki\Schema\Field;
-use Meraki\Schema\Rule;
-use Meraki\Schema\PrefillPolicy;
-use Meraki\Schema\ValidationStatus;
-use Meraki\Schema\ValueSource;
 use Meraki\Schema\Rule\AppliedOutcome;
-use Meraki\Schema\SchemaValidationResult;
 use Meraki\Schema\Rule\Condition;
 
 final class Facade

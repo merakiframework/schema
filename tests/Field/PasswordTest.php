@@ -3,7 +3,6 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Field;
 
-use Meraki\Schema\Field\Password;
 use Meraki\Schema\Field\Password\Strength;
 use Meraki\Schema\FieldName;
 use Meraki\Schema\FieldTestCase;

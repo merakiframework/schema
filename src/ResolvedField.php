@@ -7,7 +7,6 @@ use Meraki\Schema\Exception\InvalidConstraint;
 use Meraki\Schema\Field\ConstraintValidationResult;
 use Meraki\Schema\Rule\AppliedOutcome;
 use Brick\DateTime\Instant;
-use Meraki\Schema\ValueSource;
 
 /**
  * One field, resolved against one request.
