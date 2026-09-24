@@ -39,16 +39,19 @@ fi
 "$FIXER" fix --config=.php-cs-fixer.dist.php --path-mode=intersection --quiet -- $staged
 git add -- $staged
 
+# Captured rather than streamed, so a clean commit prints nothing at all.
 set +e
-"$FIXER" fix --config=.php-cs-fixer-risky.dist.php --path-mode=intersection \
-	--dry-run --diff --show-progress=none -- $staged
+report=$("$FIXER" fix --config=.php-cs-fixer-risky.dist.php --path-mode=intersection \
+	--dry-run --diff --show-progress=none -- $staged 2>&1)
 status=$?
 set -e
 
 [ $status -eq 0 ] && exit 0
 
+echo "$report"
 echo
-# The exit code is a bit field: 4 is invalid syntax, 8 is "needs fixing".
+
+# The exit status is a bit field: 4 is invalid syntax, 8 is "needs fixing".
 if [ $((status & 4)) -ne 0 ]; then
 	echo "pre-commit: that is a syntax error, not a formatting one."
 else
