@@ -175,7 +175,7 @@ final class StructuredTypeTest extends TestCase
 
 		$result = $schema->validate((object) [
 			'sessions' => [
-				(object) ['starts_at' => '2026-01-01T09:00', 'ends_at' => '2026-01-01T10:00'],
+				'opening' => (object) ['starts_at' => '2026-01-01T09:00', 'ends_at' => '2026-01-01T10:00'],
 			],
 		]);
 

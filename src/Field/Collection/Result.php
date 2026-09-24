@@ -36,7 +36,7 @@ use Brick\DateTime\Instant;
 final class Result extends ResolvedField
 {
 	/**
-	 * @param array<string|int, Item> $items one per submitted row, in the order they arrived and
+	 * @param array<string, Item> $items one per submitted row, in the order they arrived and
 	 *        under the key they arrived with
 	 * @param ValidationResult ...$results the collection's *own* shape and constraint verdicts
 	 */
@@ -69,7 +69,7 @@ final class Result extends ResolvedField
 	 * One row's result, by the key it was submitted under — a position for a plain list, a name
 	 * for an array that gave one. `null` if there was no such row.
 	 */
-	public function itemAt(string|int $key): ?Item
+	public function itemAt(string $key): ?Item
 	{
 		return $this->items[$key] ?? null;
 	}

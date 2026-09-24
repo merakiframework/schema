@@ -19,9 +19,13 @@ use Meraki\Schema\ValueSource;
 /**
  * A repeatable list of items, each item a group of fields — the *template*.
  *
- * Resolves to a list of item arrays keyed by the template's field names, so a schedule of
- * sessions comes back as `[['starts_at' => …, 'ends_at' => …], …]`. `minCount`/`maxCount` bound
- * the list; every item is checked against every template field.
+ * Every row carries a **name**, and resolves to a record keyed by the template's field names — so
+ * a schedule of sessions is submitted and comes back as
+ * `['opening' => ['starts_at' => …, 'ends_at' => …], …]`. `minCount`/`maxCount` bound the list;
+ * every row is checked against every template field.
+ *
+ * The name is what makes a row addressable: `#/fields/sessions/value/opening/starts_at` means the
+ * same row on every request, which a position could never promise.
  *
  * This is what `Composite` was kept for. A composite was a field made of other fields with
  * exactly one of each, which is a collection whose length happens to be one — so it earned its
@@ -48,7 +52,7 @@ use Meraki\Schema\ValueSource;
  * while this resolves a list and returns a verdict per constraint **and per item**. Inheriting
  * the atomic lifecycle only to replace it would have bought a misleading name.
  *
- * @implements Field<list<object>>
+ * @implements Field<array<string, object>>
  */
 final readonly class Collection implements Field
 {
@@ -260,41 +264,38 @@ final readonly class Collection implements Field
 	}
 
 	/**
-	 * Whether this is a list this field can work with: an array, keyed consistently.
+	 * Whether this is a list this field can work with: an array whose every key names a row.
 	 */
 	private static function isUsableList(mixed $value): bool
 	{
-		return is_array($value) && self::keysAgree($value);
+		return is_array($value) && self::keysAreNames($value);
 	}
 
 	/**
-	 * Whether every key is the same kind — all positions, or all names.
+	 * Whether every row is named, and named the way everything else in this library is.
 	 *
-	 * A half-named list is refused rather than repaired. `['a' => …, …]` with one name and one
-	 * bare entry is not a list somebody meant to write: PHP numbers whatever was not named, so
-	 * the unnamed rows end up keyed `0, 1, 2` *around* the named ones, and which row `0` refers
-	 * to depends on how many names came before it. Reporting a failure against a key that moves
-	 * is worse than refusing the input.
+	 * A row key is a **name** — the same shape as a {@see \Meraki\Schema\FieldName}, which is what
+	 * it is asked. So `['first' => …, 'second' => …]` is a collection and `[…, …]` is not: a
+	 * positional list is refused rather than numbered.
 	 *
-	 * It is also how a mistake surfaces. Forgetting one name in a list of twenty is exactly the
-	 * sort of thing that would otherwise validate and then report against the wrong row.
+	 * ### Why positions are gone
 	 *
-	 * @param list<mixed> $items
+	 * They were addressable by nothing and stable under nothing. A rule naming row `1` meant a
+	 * different row the moment anything was inserted above it, so a stored rule silently changed
+	 * its mind between requests — which is why collection items used to be unaddressable at all.
+	 * A name is chosen by whoever built the payload and means the same thing every time, so
+	 * `#/fields/attendees/value/alice/email` is a reference rather than a guess.
+	 *
+	 * It also removes a hazard rather than policing one. PHP turns the array key `'0'` into `0`,
+	 * so a naming scheme permitting leading digits could not tell a name from a position; names
+	 * cannot start with a digit, so the question never arises.
+	 *
+	 * @param array<array-key, mixed> $items the raw submitted rows, whose keys are exactly what is in question
 	 */
-	private static function keysAgree(array $items): bool
+	private static function keysAreNames(array $items): bool
 	{
-		$named = null;
-
 		foreach (array_keys($items) as $key) {
-			$isNamed = is_string($key);
-
-			if ($named === null) {
-				$named = $isNamed;
-
-				continue;
-			}
-
-			if ($named !== $isNamed) {
+			if (!is_string($key) || !FieldName::isUsable($key)) {
 				return false;
 			}
 		}
@@ -361,10 +362,10 @@ final readonly class Collection implements Field
 	 * array is no longer ambiguous between "a list" and "a set of named parts", so a string key
 	 * here means something.
 	 *
-	 * **Keys are kept.** `['line item 1' => …]` names its rows, and the name follows through to
-	 * {@see Collection\Item::$key} so a failure can be reported against it. A plain list keys
-	 * itself `0, 1, 2` and behaves exactly as before — named rows are the general case rather than
-	 * a mode.
+	 * **Every row is named.** `['first_night' => …]` names its rows, and the name follows through
+	 * to {@see Collection\Item::$key} so a failure can be reported against something a person
+	 * recognises — and so a rule can address the row at all. A positional list is not a shorthand
+	 * for this; it is refused. See {@see self::keysAreNames()}.
 	 */
 	protected function parse(mixed $value): Value
 	{
@@ -378,7 +379,7 @@ final readonly class Collection implements Field
 		$rows = $this->rowsIn($value, static fn(Field $field, mixed $raw): mixed => $field->resolvedValueFor($raw));
 
 		if ($rows === null) {
-			throw MalformedValue::of(Value::class, 'a collection is submitted as a list of rows, not a record');
+			throw MalformedValue::of(Value::class, 'a collection is submitted as rows under names, not a record and not a positional list');
 		}
 
 		// A row is a record, so it comes back as an object — the same rule its input obeyed. The
@@ -404,7 +405,7 @@ final readonly class Collection implements Field
 	 * Sharing the traversal is what stops them disagreeing about which rows exist.
 	 *
 	 * @param callable(Field, mixed): mixed $leaf
-	 * @return array<string|int, array<string, mixed>|mixed>|null null when this was not a usable list
+	 * @return array<string, array<string, mixed>|mixed>|null null when this was not a usable list
 	 */
 	private function rowsIn(mixed $value, callable $leaf): ?array
 	{
@@ -494,7 +495,7 @@ final readonly class Collection implements Field
 
 	/**
 	 * @param callable(Field, mixed): ResolvedField $each
-	 * @return list<Item>
+	 * @return array<string, Item> keyed by row name, so itemAt() is a lookup rather than a scan
 	 */
 	private function eachItem(mixed $given, callable $each): array
 	{

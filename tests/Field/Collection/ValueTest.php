@@ -40,11 +40,11 @@ final class ValueTest extends TestCase
 	public function it_keeps_the_keys_the_rows_arrived_with(): void
 	{
 		$value = $this->rowsFor([
-			'first run' => (object) ['sku' => 'A1', 'qty' => '2'],
-			'second run' => (object) ['sku' => 'B2', 'qty' => '3'],
+			'first_run' => (object) ['sku' => 'A1', 'qty' => '2'],
+			'second_run' => (object) ['sku' => 'B2', 'qty' => '3'],
 		]);
 
-		$this->assertSame(['first run', 'second run'], array_keys($value->rows));
+		$this->assertSame(['first_run', 'second_run'], array_keys($value->rows));
 		$this->assertCount(2, $value);
 	}
 
@@ -52,16 +52,16 @@ final class ValueTest extends TestCase
 	public function it_reaches_a_row_and_a_field_by_key(): void
 	{
 		$value = $this->rowsFor([
-			'first run' => (object) ['sku' => 'A1', 'qty' => '2'],
-			'second run' => (object) ['sku' => 'B2', 'qty' => '3'],
+			'first_run' => (object) ['sku' => 'A1', 'qty' => '2'],
+			'second_run' => (object) ['sku' => 'B2', 'qty' => '3'],
 		]);
 
-		$this->assertSame(['first run', 'second run'], $value->keys());
-		$this->assertTrue($value->has('second run'));
-		$this->assertFalse($value->has('third run'));
+		$this->assertSame(['first_run', 'second_run'], $value->keys());
+		$this->assertTrue($value->has('second_run'));
+		$this->assertFalse($value->has('third_run'));
 
-		$this->assertSame('A1', $value->rowAt('first run')->sku->text);
-		$this->assertSame('B2', $value->valueOf('second run', 'sku')->text);
+		$this->assertSame('A1', $value->rowAt('first_run')->sku->text);
+		$this->assertSame('B2', $value->valueOf('second_run', 'sku')->text);
 	}
 
 	/**
@@ -71,11 +71,11 @@ final class ValueTest extends TestCase
 	#[Test]
 	public function a_missing_row_or_field_reads_as_nothing(): void
 	{
-		$value = $this->rowsFor([(object) ['sku' => 'A1', 'qty' => '2']]);
+		$value = $this->rowsFor(['only' => (object) ['sku' => 'A1', 'qty' => '2']]);
 
 		$this->assertNull($value->rowAt('nope'));
 		$this->assertNull($value->valueOf('nope', 'sku'));
-		$this->assertNull($value->valueOf(0, 'not_a_template_field'));
+		$this->assertNull($value->valueOf('only', 'not_a_template_field'));
 	}
 
 	#[Test]
@@ -111,8 +111,8 @@ final class ValueTest extends TestCase
 	#[Test]
 	public function two_lists_are_equal_when_every_leaf_is(): void
 	{
-		$written = $this->rowsFor([(object) ['sku' => 'A1', 'qty' => '2.0']]);
-		$otherWay = $this->rowsFor([(object) ['sku' => 'A1', 'qty' => '2']]);
+		$written = $this->rowsFor(['one' => (object) ['sku' => 'A1', 'qty' => '2.0']]);
+		$otherWay = $this->rowsFor(['one' => (object) ['sku' => 'A1', 'qty' => '2']]);
 
 		$this->assertTrue($written->equals($otherWay));
 	}
@@ -121,20 +121,27 @@ final class ValueTest extends TestCase
 	public function a_different_leaf_makes_a_different_list(): void
 	{
 		$this->assertFalse(
-			$this->rowsFor([(object) ['sku' => 'A1', 'qty' => '2']])
-				->equals($this->rowsFor([(object) ['sku' => 'A2', 'qty' => '2']])),
+			$this->rowsFor(['one' => (object) ['sku' => 'A1', 'qty' => '2']])
+				->equals($this->rowsFor(['one' => (object) ['sku' => 'A2', 'qty' => '2']])),
 		);
 	}
 
 	#[Test]
-	public function order_counts(): void
+	public function order_does_not_count(): void
 	{
-		$forwards = $this->rowsFor([(object) ['sku' => 'A1', 'qty' => '1'], (object) ['sku' => 'B2', 'qty' => '1']]);
-		$backwards = $this->rowsFor([(object) ['sku' => 'B2', 'qty' => '1'], (object) ['sku' => 'A1', 'qty' => '1']]);
+		$forwards = $this->rowsFor([
+			'deposit' => (object) ['sku' => 'A1', 'qty' => '1'],
+			'balance' => (object) ['sku' => 'B2', 'qty' => '1'],
+		]);
+		$backwards = $this->rowsFor([
+			'balance' => (object) ['sku' => 'B2', 'qty' => '1'],
+			'deposit' => (object) ['sku' => 'A1', 'qty' => '1'],
+		]);
 
-		// Two invoices with the same lines in a different order are not obviously one invoice, and
-		// deciding they were would be this object inventing a rule nobody asked for.
-		$this->assertFalse($forwards->equals($backwards));
+		// A name already says which row is which, so the order they arrived in cannot also say it.
+		// This used to assert the opposite, back when a row could be positional and the order was the
+		// only identity a row had.
+		$this->assertTrue($forwards->equals($backwards));
 	}
 
 	#[Test]
@@ -150,8 +157,8 @@ final class ValueTest extends TestCase
 	public function it_finds_a_repeat_written_two_ways(): void
 	{
 		$value = $this->rowsFor([
-			(object) ['sku' => 'A1', 'qty' => '2.0'],
-			(object) ['sku' => 'A1', 'qty' => '2'],
+			'written' => (object) ['sku' => 'A1', 'qty' => '2.0'],
+			'other_way' => (object) ['sku' => 'A1', 'qty' => '2'],
 		]);
 
 		$this->assertTrue($value->hasRepeats());
@@ -161,8 +168,8 @@ final class ValueTest extends TestCase
 	public function distinct_rows_are_not_repeats(): void
 	{
 		$value = $this->rowsFor([
-			(object) ['sku' => 'A1', 'qty' => '2'],
-			(object) ['sku' => 'B2', 'qty' => '2'],
+			'first' => (object) ['sku' => 'A1', 'qty' => '2'],
+			'second' => (object) ['sku' => 'B2', 'qty' => '2'],
 		]);
 
 		$this->assertFalse($value->hasRepeats());

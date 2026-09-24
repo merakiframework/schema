@@ -19,12 +19,12 @@ use Traversable;
  * serialises a value has to ask what kind of thing it is holding first. With this,
  * {@see \Meraki\Schema\Field\Definition::parse()} returns a {@see ParsedValue} and nothing else.
  *
- * ### Rows keep the keys they arrived with
+ * ### Every row has a name
  *
- * `['line item 1' => …]` names its rows and the names survive to here, so a failure can be reported
- * against something a person recognises. A plain list keys itself `0, 1, 2`. Mixed keys never reach
- * this object — {@see \Meraki\Schema\Field\Collection} refuses them, because PHP numbers whatever
- * was not named and which row `0` refers to would then depend on how many names came before it.
+ * `['first_night' => …]` names its rows and the names survive to here, so a failure can be reported
+ * against something a person recognises, and a rule can address the row. Positional keys never
+ * reach this object — {@see \Meraki\Schema\Field\Collection::keysAreNames()} refuses them, so a key
+ * here is always a name and always means the same row on the next request.
  *
  * ### A row is a record, not a value object
  *
@@ -32,12 +32,12 @@ use Traversable;
  * parsed value. So the rule holds where it matters — at the leaves — and a row stays a plain record
  * of them rather than growing a class per collection.
  *
- * @implements IteratorAggregate<string|int, mixed>
+ * @implements IteratorAggregate<string, mixed>
  */
 final readonly class Value implements ParsedValue, IteratorAggregate, Countable
 {
 	/**
-	 * @param array<string|int, object|mixed> $rows one per submitted item, keyed as submitted.
+	 * @param array<string, object|mixed> $rows one per submitted item, keyed as submitted.
 	 *        A row that was not a record at all is kept exactly as it came, so it fails on its own
 	 *        terms instead of being quietly reshaped into something it is not.
 	 */
@@ -46,20 +46,27 @@ final readonly class Value implements ParsedValue, IteratorAggregate, Countable
 	}
 
 	/**
-	 * The same rows, in the same order, under the same keys.
+	 * The same rows under the same names, whatever order they arrived in.
 	 *
-	 * Order counts. Two invoices with the same lines in a different order are not obviously the
-	 * same invoice, and deciding they were would be this object inventing a rule the author never
-	 * asked for. An author who wants order-insensitivity has a set, and can say so by naming rows.
+	 * Order does not count, because a name already says which row is which. Two invoices listing
+	 * `deposit` and `balance` are the same invoice whichever was written first — the names are the
+	 * identity, and a position is no longer available to disagree with them.
+	 *
+	 * This used to compare `array_keys()` directly, which made the order significant while the
+	 * docblock above it claimed that naming rows was how you asked for order-insensitivity. Only
+	 * one of those could be true; naming is now the only way to submit a collection, so this is the
+	 * half that was wrong.
 	 */
 	public function equals(Equality $other): bool
 	{
-		if (!$other instanceof self || array_keys($this->rows) !== array_keys($other->rows)) {
+		if (!$other instanceof self || count($this->rows) !== count($other->rows)) {
 			return false;
 		}
 
 		foreach ($this->rows as $key => $row) {
-			if (!self::sameRow($row, $other->rows[$key])) {
+			// Both halves matter: a missing name and a differing row are different disagreements,
+			// and checking the count above is what makes "every one of mine is in yours" enough.
+			if (!array_key_exists($key, $other->rows) || !self::sameRow($row, $other->rows[$key])) {
 				return false;
 			}
 		}
@@ -108,17 +115,16 @@ final readonly class Value implements ParsedValue, IteratorAggregate, Countable
 	}
 
 	/**
-	 * The key each row arrived under, in order — `0, 1, 2` for a plain list, the names for an
-	 * array that gave them.
+	 * The name each row arrived under, in the order they arrived.
 	 *
-	 * @return list<string|int>
+	 * @return list<string>
 	 */
 	public function keys(): array
 	{
 		return array_keys($this->rows);
 	}
 
-	public function has(string|int $key): bool
+	public function has(string $key): bool
 	{
 		return array_key_exists($key, $this->rows);
 	}
@@ -129,7 +135,7 @@ final readonly class Value implements ParsedValue, IteratorAggregate, Countable
 	 * A plain record of one value per template field, so `$row->sku` is that field's parsed value.
 	 * It is not a result — there is no verdict here. Ask {@see Result::itemAt()} for that.
 	 */
-	public function rowAt(string|int $key): ?object
+	public function rowAt(string $key): ?object
 	{
 		$row = $this->rows[$key] ?? null;
 
@@ -145,7 +151,7 @@ final readonly class Value implements ParsedValue, IteratorAggregate, Countable
 	 * `$value->rows['line 2']->sku ?? null` with two ways to be absent in it — no such row, and
 	 * no such field. Both answer `null` here.
 	 */
-	public function valueOf(string|int $key, string $field): mixed
+	public function valueOf(string $key, string $field): mixed
 	{
 		return $this->rowAt($key)->{$field} ?? null;
 	}
@@ -156,7 +162,7 @@ final readonly class Value implements ParsedValue, IteratorAggregate, Countable
 	 * For the question a collection is usually asked — "what were the SKUs" — without the caller
 	 * writing the loop and deciding what to do about a row that was not a record.
 	 *
-	 * @return array<string|int, mixed>
+	 * @return array<string, mixed>
 	 */
 	public function column(string $field): array
 	{
@@ -174,7 +180,7 @@ final readonly class Value implements ParsedValue, IteratorAggregate, Countable
 	/**
 	 * Iterates the rows under their own keys, so a named row stays named.
 	 *
-	 * @return Traversable<string|int, object|mixed>
+	 * @return Traversable<string, object|mixed>
 	 */
 	public function getIterator(): Traversable
 	{

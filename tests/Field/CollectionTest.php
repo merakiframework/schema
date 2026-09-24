@@ -33,10 +33,22 @@ final class CollectionTest extends TestCase
 		);
 	}
 
-	/** @return list<array<string, mixed>> */
+	/**
+	 * Rows named `item1`, `item2`, … — because every row carries a name now, and a helper that
+	 * built a positional list would be building something the field refuses.
+	 *
+	 * @return array<string, array<string, mixed>>
+	 */
 	private static function items(int ...$quantities): array
 	{
-		return array_map(static fn(int $qty): array => ['sku' => 'A1', 'qty' => $qty], $quantities);
+		$rows = [];
+		$n = 0;
+
+		foreach ($quantities as $qty) {
+			$rows['item' . ++$n] = ['sku' => 'A1', 'qty' => $qty];
+		}
+
+		return $rows;
 	}
 
 	// ── the list itself ────────────────────────────────────────────────────────────────────
@@ -53,7 +65,7 @@ final class CollectionTest extends TestCase
 	}
 
 	#[Test]
-	public function rows_may_be_named_instead_of_numbered(): void
+	public function every_row_carries_a_name(): void
 	{
 		$result = $this->lines()->validate([
 			'first' => (object)['sku' => 'A1', 'qty' => 50],
@@ -61,7 +73,7 @@ final class CollectionTest extends TestCase
 		]);
 
 		$this->assertShapePassed($result);
-		$this->assertSame(['first', 'second'], array_values(array_map(static fn(Item $i): string|int => $i->key, $result->items)));
+		$this->assertSame(['first', 'second'], array_values(array_map(static fn(Item $i): string => $i->key, $result->items)));
 
 		// And the name is how a row is addressed, so a failure can be reported against something
 		// a person recognises rather than an ordinal.
@@ -69,21 +81,18 @@ final class CollectionTest extends TestCase
 	}
 
 	#[Test]
-	public function a_plain_list_still_numbers_itself(): void
+	public function a_positional_list_is_refused(): void
 	{
-		$result = $this->lines()->validate([(object)['sku' => 'A1', 'qty' => 50]]);
-
-		$this->assertSame([0], array_values(array_map(static fn(Item $i): string|int => $i->key, $result->items)));
-		$this->assertSame('A1', $result->itemAt(0)->forField('sku')->value->text);
+		// Positions are gone. A row addressed by its position meant a different row the moment
+		// anything was inserted above it, so a stored rule silently changed its mind between
+		// requests — which is why a collection's rows used to be unaddressable at all.
+		$this->assertShapeFailed($this->lines()->validate([(object)['sku' => 'A1', 'qty' => 50]]));
 	}
 
 	#[Test]
-	public function keys_must_all_be_of_one_kind(): void
+	public function a_half_named_list_is_refused_too(): void
 	{
-		// Half-named is refused rather than repaired. PHP numbers whatever was not named, so the
-		// unnamed rows end up keyed *around* the named ones and which row `0` means depends on
-		// how many names came before it — a failure reported against a key that moves is worse
-		// than no answer.
+		// Not a special case any more — the bare row simply has no name.
 		$this->assertShapeFailed($this->lines()->validate([
 			'first' => (object)['sku' => 'A1', 'qty' => 50],
 			(object)['sku' => 'B2', 'qty' => 10],
@@ -91,18 +100,41 @@ final class CollectionTest extends TestCase
 	}
 
 	#[Test]
+	#[DataProvider('keysThatAreNotNames')]
+	public function a_row_key_must_be_shaped_like_a_name(string|int $key): void
+	{
+		// The same rule a field name obeys, asked of a row key — so `#/fields/lines/value/<row>`
+		// has one grammar rather than two. A key starting with a digit is the one that matters:
+		// PHP turns the array key `'0'` into `0`, so permitting it would make a name and a
+		// position indistinguishable.
+		$this->assertShapeFailed($this->lines()->validate([$key => (object)['sku' => 'A1', 'qty' => 50]]));
+	}
+
+	/** @return array<string, array{string|int}> */
+	public static function keysThatAreNotNames(): array
+	{
+		return [
+			'a position' => [0],
+			'leading digit' => ['2items'],
+			'a space' => ['line item 1'],
+			'a slash' => ['a/b'],
+			'empty' => [''],
+		];
+	}
+
+	#[Test]
 	public function a_row_that_is_not_a_record_fails_on_its_own_terms(): void
 	{
-		// Kept in place rather than dropped, so the list does not silently shorten and the
-		// position of everything after it does not shift.
+		// Kept in place rather than dropped, so the list does not silently shorten and a row that
+		// was submitted does not vanish from the answer.
 		$result = $this->lines()->validate([
-			(object)['sku' => 'A1', 'qty' => 50],
-			'not-a-row',
+			'item1' => (object)['sku' => 'A1', 'qty' => 50],
+			'item2' => 'not-a-row',
 		]);
 
 		$this->assertShapePassed($result);
 		$this->assertCount(2, $result->items);
-		$this->assertTrue($result->itemAt(1)->anyFailed());
+		$this->assertTrue($result->itemAt('item2')->anyFailed());
 	}
 
 	#[Test]
@@ -115,14 +147,14 @@ final class CollectionTest extends TestCase
 		// It used to be the submitted input reshaped to the template's key names: rows as
 		// associative arrays, values untouched. That made a collection the one field whose
 		// `$value` was raw, and the one place an array meant "named parts".
-		$result = $this->lines()->validate([(object)['sku' => 'A1', 'qty' => 50, 'ignored' => 'x']]);
+		$result = $this->lines()->validate(['item1' => (object)['sku' => 'A1', 'qty' => 50, 'ignored' => 'x']]);
 
 		// The value is a Collection\Value, not a bare array — every field parses to a value object
 		// this library defines, and a collection is not the exception it looks like it should be.
 		$this->assertInstanceOf(CollectionValue::class, $result->value);
 		$this->assertCount(1, $result->value);
 
-		$row = $result->value->rows[0];
+		$row = $result->value->rows['item1'];
 
 		$this->assertIsObject($row);
 		$this->assertSame('A1', $row->sku->text);
@@ -142,9 +174,9 @@ final class CollectionTest extends TestCase
 		// The same question asked two ways, which used to give two answers: `$value` held the raw
 		// submission while the item results held the parsed one. A port reading either must see
 		// the same thing.
-		$result = $this->lines()->validate([(object)['sku' => 'A1', 'qty' => 50]]);
+		$result = $this->lines()->validate(['item1' => (object)['sku' => 'A1', 'qty' => 50]]);
 
-		$this->assertEquals($result->value->rows[0]->qty, $result->itemAt(0)->forField('qty')->value);
+		$this->assertEquals($result->value->rows['item1']->qty, $result->itemAt('item1')->forField('qty')->value);
 	}
 
 	#[Test]
@@ -153,9 +185,9 @@ final class CollectionTest extends TestCase
 		// Resolving the rows must not reach `$given`. A rejected form is re-rendered from it, and
 		// showing somebody a coerced value in place of what they typed is how a correction turns
 		// into a second mistake.
-		$result = $this->lines()->validate([(object)['sku' => 'A1', 'qty' => '0050']]);
+		$result = $this->lines()->validate(['item1' => (object)['sku' => 'A1', 'qty' => '0050']]);
 
-		$this->assertSame('0050', $result->itemAt(0)->forField('qty')->given);
+		$this->assertSame('0050', $result->itemAt('item1')->forField('qty')->given);
 	}
 
 	#[Test]
@@ -166,12 +198,12 @@ final class CollectionTest extends TestCase
 		// default is to validate what arrived — consistent with fields being required until told
 		// otherwise.
 		$result = $this->lines()->validate([
-			(object)['sku' => 'A1', 'qty' => 50],
-			(object)['sku' => '', 'qty' => null],
+			'filled' => (object)['sku' => 'A1', 'qty' => 50],
+			'blank' => (object)['sku' => '', 'qty' => null],
 		]);
 
 		$this->assertCount(2, $result->items);
-		$this->assertSame(ValidationStatus::Failed, $result->itemAt(1)->status);
+		$this->assertSame(ValidationStatus::Failed, $result->itemAt('blank')->status);
 	}
 
 	#[Test]
@@ -182,13 +214,13 @@ final class CollectionTest extends TestCase
 		// arrives as an array with UPLOAD_ERR_NO_FILE, and a hidden row index is never blank at
 		// all. The core could only ever have approximated it.
 		$result = $this->lines()->validate([
-			(object)['sku' => 'A1', 'qty' => 50],
-			(object)['sku' => '', 'qty' => null],
+			'filled' => (object)['sku' => 'A1', 'qty' => 50],
+			'blank' => (object)['sku' => '', 'qty' => null],
 		]);
 
 		$this->assertCount(2, $result->items, 'nothing is discarded');
 		$this->assertTrue($result->anyFailed());
-		$this->assertSame(ValidationStatus::Failed, $result->itemAt(1)->status);
+		$this->assertSame(ValidationStatus::Failed, $result->itemAt('blank')->status);
 	}
 
 	#[Test]
@@ -305,8 +337,8 @@ final class CollectionTest extends TestCase
 	{
 		$this->assertConstraintPassed('unique', $this->lines()->validate(self::items(50, 60)));
 		$this->assertConstraintPassed('unique', $this->lines()->validate([
-			(object)['sku' => 'A1', 'qty' => 50],
-			(object)['sku' => 'B2', 'qty' => 50],
+			'first' => (object)['sku' => 'A1', 'qty' => 50],
+			'second' => (object)['sku' => 'B2', 'qty' => 50],
 		]));
 	}
 
@@ -343,8 +375,8 @@ final class CollectionTest extends TestCase
 		$parts = ['line1' => '1 Denham St', 'locality' => 'Rockhampton', 'postal_code' => '4700'];
 
 		$this->assertConstraintFailed('unique', $sites->validate([
-			(object)['site' => (object) ($parts + ['country' => 'AU'])],
-			(object)['site' => (object) ($parts + ['country' => 'Australia'])],
+			'by_code' => (object)['site' => (object) ($parts + ['country' => 'AU'])],
+			'spelled_out' => (object)['site' => (object) ($parts + ['country' => 'Australia'])],
 		]));
 	}
 
@@ -360,8 +392,8 @@ final class CollectionTest extends TestCase
 		);
 
 		$this->assertConstraintFailed('unique', $guests->validate([
-			(object)['email' => 'alice@example.test'],
-			(object)['email' => 'alice@EXAMPLE.test'],
+			'lower_domain' => (object)['email' => 'alice@example.test'],
+			'upper_domain' => (object)['email' => 'alice@EXAMPLE.test'],
 		]));
 	}
 
@@ -376,13 +408,13 @@ final class CollectionTest extends TestCase
 		);
 
 		$this->assertConstraintFailed('unique', $lines->validate([
-			(object)['price' => (object)['currency' => 'AUD', 'amount' => '12.50']],
-			(object)['price' => (object)['currency' => 'AUD', 'amount' => '12.5']],
+			'trailing_zero' => (object)['price' => (object)['currency' => 'AUD', 'amount' => '12.50']],
+			'without' => (object)['price' => (object)['currency' => 'AUD', 'amount' => '12.5']],
 		]));
 
 		$this->assertConstraintPassed('unique', $lines->validate([
-			(object)['price' => (object)['currency' => 'AUD', 'amount' => '12.50']],
-			(object)['price' => (object)['currency' => 'AUD', 'amount' => '9.99']],
+			'dearer' => (object)['price' => (object)['currency' => 'AUD', 'amount' => '12.50']],
+			'cheaper' => (object)['price' => (object)['currency' => 'AUD', 'amount' => '9.99']],
 		]));
 	}
 
@@ -397,8 +429,8 @@ final class CollectionTest extends TestCase
 		);
 
 		$this->assertConstraintPassed('unique', $guests->validate([
-			(object)['email' => 'Alice@example.test'],
-			(object)['email' => 'alice@example.test'],
+			'upper_local' => (object)['email' => 'Alice@example.test'],
+			'lower_local' => (object)['email' => 'alice@example.test'],
 		]));
 	}
 	// ── which item failed ─────────────────────────────────────────────────────────────────
@@ -410,9 +442,9 @@ final class CollectionTest extends TestCase
 		// could tell that *an* item had failed but never which.
 		$result = $this->lines()->validate(self::items(50, 1, 80));
 
-		$this->assertSame(ValidationStatus::Passed, $result->itemAt(0)->status);
-		$this->assertSame(ValidationStatus::Failed, $result->itemAt(1)->status);
-		$this->assertSame(ValidationStatus::Passed, $result->itemAt(2)->status);
+		$this->assertSame(ValidationStatus::Passed, $result->itemAt('item1')->status);
+		$this->assertSame(ValidationStatus::Failed, $result->itemAt('item2')->status);
+		$this->assertSame(ValidationStatus::Passed, $result->itemAt('item3')->status);
 	}
 
 	#[Test]
@@ -422,7 +454,7 @@ final class CollectionTest extends TestCase
 
 		$this->assertSame(
 			ValidationStatus::Failed,
-			$result->itemAt(1)->forField('qty')->forConstraint('minValue')->status,
+			$result->itemAt('item2')->forField('qty')->forConstraint('minValue')->status,
 		);
 	}
 
@@ -431,17 +463,20 @@ final class CollectionTest extends TestCase
 	{
 		$result = $this->lines()->validate(self::items(50, 1, 80, 2));
 
-		$this->assertSame([1, 3], array_map(static fn(Item $i): int => $i->key, $result->failedItems));
+		$this->assertSame(
+			['item2', 'item4'],
+			array_values(array_map(static fn(Item $i): string => $i->key, $result->failedItems)),
+		);
 	}
 
 	#[Test]
-	public function an_item_carries_the_position_it_arrived_at(): void
+	public function an_item_carries_the_name_it_arrived_under(): void
 	{
 		$result = $this->lines()->validate(self::items(50, 60));
 
-		$this->assertSame(0, $result->itemAt(0)->key);
-		$this->assertSame(1, $result->itemAt(1)->key);
-		$this->assertNull($result->itemAt(2));
+		$this->assertSame('item1', $result->itemAt('item1')->key);
+		$this->assertSame('item2', $result->itemAt('item2')->key);
+		$this->assertNull($result->itemAt('nothing_called_this'));
 	}
 
 	#[Test]
@@ -451,8 +486,8 @@ final class CollectionTest extends TestCase
 		// field is named once rather than once per item.
 		$result = $this->lines()->validate(self::items(50));
 
-		$this->assertNotNull($result->itemAt(0)->forField('sku'));
-		$this->assertNull($result->itemAt(0)->forField('lines.0.sku'));
+		$this->assertNotNull($result->itemAt('item1')->forField('sku'));
+		$this->assertNull($result->itemAt('item1')->forField('lines.0.sku'));
 	}
 
 	#[Test]

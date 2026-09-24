@@ -21,16 +21,15 @@ use Meraki\Schema\ResolvedField;
 final class Item extends AggregatedValidationResult
 {
 	/**
-	 * @param string|int $key what the item arrived under. A plain list gives `0, 1, 2`; an array
-	 *        with string keys — `['line item 1' => …]` — gives the name, which is worth having
-	 *        because "row 3 is wrong" is a poor thing to tell someone about a named section.
+	 * @param string $key the name the row arrived under — `['first_night' => …]` gives
+	 *        `'first_night'`. Worth having because "row 3 is wrong" is a poor thing to tell
+	 *        someone about a named section, and because it is what a rule addresses.
 	 *
-	 *        One field rather than a position *and* an optional name: there is only ever one
-	 *        answer to "which item is this", and carrying two would invite them to disagree. A
-	 *        list still keys itself by position, so nothing is lost when no name was given.
+	 *        A name rather than a position: there is only ever one answer to "which row is this",
+	 *        and a position answered it differently depending on what was submitted above it.
 	 */
 	public function __construct(
-		public readonly string|int $key,
+		public readonly string $key,
 		ResolvedField ...$fields,
 	) {
 		parent::__construct(...$fields);

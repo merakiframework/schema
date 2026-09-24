@@ -203,10 +203,10 @@ $schema->add($schema->createCollectionField(
 $lines = $result->forField('lines');
 
 foreach ($lines->failedItems as $item) {
-    echo $item->key;                        // 0, 1, … or the name it was submitted under
+    echo $item->key;                        // the name the row was submitted under
 }
 
-$lines->itemAt(0)->forField('sku')->value;
+$lines->itemAt('first_run')->forField('sku')->value;
 ```
 
 A collection fails on two axes — the list is too short, *and* row 3 is wrong — and both count

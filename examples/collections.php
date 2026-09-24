@@ -22,11 +22,12 @@ $schema->add(
 );
 
 // The collection is an **array**, because it holds many of something. Each row is an **object**,
-// because a row is one record with named parts. That distinction is what lets a row be *named*.
+// because a row is one record with named parts. Every row carries a name: a positional list is
+// refused, because a position means a different row the moment anything is inserted above it.
 $result = $schema->validate((object) [
 	'lines' => [
-		'first run' => (object) ['sku' => 'A1', 'qty' => '2'],
-		'second run' => (object) ['sku' => 'B2', 'qty' => '3'],
+		'first_run' => (object) ['sku' => 'A1', 'qty' => '2'],
+		'second_run' => (object) ['sku' => 'B2', 'qty' => '3'],
 	],
 ]);
 
@@ -35,8 +36,8 @@ $lines = $result->forField('lines');
 echo 'PASSES' . PHP_EOL;
 echo '  status: ' . $lines->status->name . PHP_EOL;
 
-// A row keeps the key it arrived under, so a failure can be reported against something a person
-// recognises rather than "row 2".
+// A row keeps the name it arrived under, so a failure can be reported against something a person
+// recognises rather than "row 2" — and so a rule can address it.
 foreach ($lines->value as $key => $row) {
 	printf('  %-12s sku=%s qty=%s' . PHP_EOL, $key, $row->sku->text, $row->qty->number);
 }
@@ -48,8 +49,8 @@ echo PHP_EOL . 'FAILS — a duplicated row' . PHP_EOL;
 // quantity here — the comparison asks the value, and a number written two ways is one number.
 $repeated = $schema->validate((object) [
 	'lines' => [
-		(object) ['sku' => 'A1', 'qty' => '2.0'],
-		(object) ['sku' => 'A1', 'qty' => '2'],
+		'written_out' => (object) ['sku' => 'A1', 'qty' => '2.0'],
+		'the_other_way' => (object) ['sku' => 'A1', 'qty' => '2'],
 	],
 ]);
 
@@ -59,8 +60,8 @@ echo PHP_EOL . 'FAILS — one bad row, and the collection fails with it' . PHP_E
 
 $bad = $schema->validate((object) [
 	'lines' => [
-		(object) ['sku' => 'A1', 'qty' => '2'],
-		(object) ['sku' => 'B2', 'qty' => 'three'],
+		'good' => (object) ['sku' => 'A1', 'qty' => '2'],
+		'bad' => (object) ['sku' => 'B2', 'qty' => 'three'],
 	],
 ]);
 
@@ -75,5 +76,5 @@ echo '  minCount:          ' . $lines->forConstraint('minCount')->status->name .
 foreach ($lines->failedItems as $item) {
 	$qty = $item->forField('qty');
 
-	printf('  row %-3s qty %-8s %s' . PHP_EOL, $item->key, var_export($qty->given, true), $qty->shape->status->name);
+	printf('  row %-6s qty %-8s %s' . PHP_EOL, $item->key, var_export($qty->given, true), $qty->shape->status->name);
 }

@@ -212,13 +212,13 @@ That value is where a collection's rows are reached, because rows are *data* and
 ```php
 $lines = $resolved->value;              // Collection\Value
 
-$lines->keys();                         // ['first run', 'second run']
-$lines->rowAt('first run')->sku;        // Text\Value  — one row's field
-$lines->valueOf('second run', 'qty');   // Number\Value — or null, for either kind of absence
-$lines->column('sku');                  // every row's sku, under the row keys
+$lines->keys();                         // ['first_run', 'second_run']
+$lines->rowAt('first_run')->sku;        // Text\Value  — one row's field
+$lines->valueOf('second_run', 'qty');   // Number\Value — or null, for either kind of absence
+$lines->column('sku');                  // every row's sku, under the row names
 $lines->hasRepeats();                   // what the `unique` constraint asks
 
-$resolved->itemAt('first run');         // Collection\Item — that row's *verdicts*
+$resolved->itemAt('first_run');         // Collection\Item — that row's *verdicts*
 ```
 
 Two values are deliberately **not** printable: `Password\Value` and `CreditCard\Value` have no

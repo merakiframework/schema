@@ -52,7 +52,7 @@ final class ValueObjectTest extends TestCase
 	{
 		yield 'Address' => [Field\Address::class, (object) ['line1' => '1 Test St', 'locality' => 'Sydney', 'administrative_area' => 'NSW', 'postal_code' => '2000', 'country' => 'AU']];
 		yield 'Boolean' => [Field\Boolean::class, true];
-		yield 'Collection' => [Field\Collection::class, [(object) ['item' => 'a']]];
+		yield 'Collection' => [Field\Collection::class, ['only' => (object) ['item' => 'a']]];
 		yield 'CreditCard' => [Field\CreditCard::class, (object) ['number' => '4014 1828 2909 8807', 'expiry' => '2029-07', 'name' => 'K Miller', 'security_code' => '936']];
 		yield 'Date' => [Field\Date::class, '2030-01-01'];
 		yield 'DateTime' => [Field\DateTime::class, '2030-01-01T09:30'];
@@ -256,7 +256,7 @@ final class ValueObjectTest extends TestCase
 		$schema = new \Meraki\Schema\Facade('invoice');
 		$schema->add($schema->createCollectionField('lines', $schema->createNumberField('qty')));
 
-		$result = $schema->validate((object) ['lines' => [(object) ['qty' => 'not a number']]]);
+		$result = $schema->validate((object) ['lines' => ['only' => (object) ['qty' => 'not a number']]]);
 		$collection = $result->forField('lines');
 
 		$this->assertTrue($collection->anyFailed());

@@ -150,15 +150,15 @@ final class SchemaMessagesTest extends TestCase
 			$schema->createTextField('sku')->minLengthOf(3),
 		));
 
-		$result = $schema->validate((object) ['lines' => [['sku' => 'ab'], ['sku' => 'abc']]], locale: 'en');
+		$result = $schema->validate((object) ['lines' => ['too_short' => ['sku' => 'ab'], 'long_enough' => ['sku' => 'abc']]], locale: 'en');
 		$lines = $result->forField('lines');
 
 		$this->assertInstanceOf(Field\Collection\Result::class, $lines);
 		$this->assertSame(
 			'Use at least 3 characters.',
-			$lines->itemAt(0)?->forField('sku')?->messages->first,
+			$lines->itemAt('too_short')?->forField('sku')?->messages->first,
 		);
-		$this->assertTrue($lines->itemAt(1)?->forField('sku')?->messages->isEmpty());
+		$this->assertTrue($lines->itemAt('long_enough')?->forField('sku')?->messages->isEmpty());
 	}
 
 	#[Test]

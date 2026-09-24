@@ -192,7 +192,7 @@ a legitimate answer for a part that is fine, so a typo that returned it would be
 Every row of a collection carries its own:
 
 ```php
-$result->forField('lines')->itemAt(0)->forField('sku')->messages->first;
+$result->forField('lines')->itemAt('first_run')->forField('sku')->messages->first;
 ```
 
 ## Writing a pack

@@ -318,13 +318,16 @@ sub-field results. A collection's results are reached per item, and a failure na
 
 ```php
 $schema->add($schema->createCollectionField('items', $schema->createNumberField('qty')->minValueOf(10)));
-$result = $schema->validate((object) ['items' => [(object) ['qty' => 50], (object) ['qty' => 1]]]);
+$result = $schema->validate((object) ['items' => [
+    'plenty' => (object) ['qty' => 50],
+    'too_few' => (object) ['qty' => 1],
+]]);
 
 $items = $result->forField('items');
 
-$items->itemAt(1)->forField('qty')->anyFailed();   // true
-$items->itemAt(0)->forField('qty')->anyFailed();   // false
-$items->failedItems;                               // the failing rows, keyed — here, item 1
+$items->itemAt('too_few')->forField('qty')->anyFailed();   // true
+$items->itemAt('plenty')->forField('qty')->anyFailed();   // false
+$items->failedItems;                                      // here, the `too_few` row
 ```
 
 ### Password strength ignored patterns and repetition
