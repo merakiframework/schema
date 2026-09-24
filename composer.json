@@ -37,7 +37,8 @@
     "require-dev": {
         "phpunit/phpunit": "^11.3",
         "phpstan/phpstan": "^2.2",
-        "friendsofphp/php-cs-fixer": "^3.95"
+        "friendsofphp/php-cs-fixer": "^3.95",
+        "phpstan/phpstan-strict-rules": "^2.0"
     },
     "suggest": {
         "meraki/schema-json": "Serialize a schema to JSON and back, so one definition can drive non-PHP consumers",

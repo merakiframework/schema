@@ -173,8 +173,8 @@ final class Facade
 			// a flag on the field keeps it a fact about this request.
 			$ignored = false;
 
-			foreach ($outcomes as $applied) {
-				if ($applied->is(Rule\Outcome\Ignore::class)) {
+			foreach ($outcomes as $appliedOutcome) {
+				if ($appliedOutcome->is(Rule\Outcome\Ignore::class)) {
 					$ignored = true;
 					break;
 				}

@@ -48,6 +48,15 @@
 # Errors get fixed, not recorded. The three entries below are limitations of the analyser
 # rather than faults in the code, they name one class and one message each, and PHP 8.6's
 # readonly property defaults remove all three.
+includes:
+    # Measured before adopting: 20 errors across the whole shipped tree, in four
+    # categories. One was a real finding and is fixed; three are design-level and are
+    # ignored below with reasons. Everything else in the ruleset — loose comparison,
+    # empty(), backticks, variable variables, non-strict in_array, useless casts,
+    # truthiness on non-booleans — was already at zero, which is why taking the whole
+    # set costs one package and no transitive dependencies.
+    - vendor/phpstan/phpstan-strict-rules/rules.neon
+
 parameters:
     level: 6
     paths:
@@ -92,3 +101,25 @@ parameters:
         -
             message: '#Readonly property .+::\$(optional|defaultValue) is assigned outside of the constructor\.#'
             path: src/Field/Definition.php
+
+        # ── phpstan-strict-rules, the three categories kept off ──────────────────────────
+        #
+        # Every field narrows what it parses: Field::parse() takes mixed, and Address::parse()
+        # takes array|Address\Value. That is contravariance in the strict sense, and PHP allows
+        # it while LSP does not. Satisfying the rule means widening all nineteen parse() and
+        # check() signatures back to mixed and re-asserting inside each one, which throws away
+        # the types that make the field classes readable to buy nothing the tests do not already
+        # cover.
+        -
+            identifier: method.childParameterType
+        # `glob(...) ?: []` and `preg_split(...) ?: []` — four sites, all of the shape
+        # "array|false, and false means empty". `??` does not help: the value is false, not
+        # null. Writing the long ternary would repeat the call or name a variable for it.
+        -
+            identifier: ternary.shortNotAllowed
+        # Five sites of $this->{$property}, all reading a property whose name was just derived
+        # from a constraint name. Worth revisiting — dynamic access is the kind of indirection
+        # docs/CODING-STYLE.md argues against — but the replacement is a match arm per property,
+        # which is a refactor rather than a style fix.
+        -
+            identifier: property.dynamicName
