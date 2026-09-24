@@ -19,9 +19,11 @@
         #[UsesClass] today, and a single Address test loads 16 core classes, so turning
         it on means roughly 300 new attributes to write and then maintain.
 
-        That is deferred rather than dismissed: the test suite churns substantially in
-        1.14.0-beta.2 when per-request state moves to ResolvedField, so the attributes
-        would be written twice. Revisit once the seam has landed.
+        That is deferred rather than dismissed. The original reason was that the suite would
+        churn when per-request state moved to ResolvedField, so the attributes would be
+        written twice. That seam has landed and the churn is behind us, so the reason is now
+        simply cost: ~300 attributes buy stricter coverage attribution and nothing else.
+        Revisit once 2.0.0 is stable and the suite has stopped moving.
 
         requireCoverageMetadata stays on, so every test still declares what it covers.
 

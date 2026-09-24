@@ -617,7 +617,7 @@ merge instead of clobbering, and what makes an outcome serialisable.
 `thenIgnore()` is the one named verb left, because ignoring is about a *request* — the input never
 reaches the field — rather than about the definition, so no wither expresses it.
 
-**An expectation can be another scope**, which is what lets a rule compare two fields:**An expectation can be another scope**, which is what lets a rule compare two fields:
+**An expectation can be another scope**, which is what lets a rule compare two fields:
 
 ```php
 $schema->when(ValueScope::of('shipping'))->equals(ValueScope::of('billing'));

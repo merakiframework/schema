@@ -4,13 +4,18 @@
 [![Packagist](https://img.shields.io/packagist/v/meraki/schema)](https://packagist.org/packages/meraki/schema)
 [![License](https://img.shields.io/packagist/l/meraki/schema)](LICENSE)
 
-> ### `2.0` is in development
+> ### `2.0` is in alpha
 >
-> The API on `main` is the `2.0` one and is not yet tagged. It is a **breaking rewrite** of
-> `1.x`: fields are immutable, input is objects rather than arrays, and every field parses to a
-> value object. The sibling packages are mid-migration.
+> `main` is tagged `2.0.0-alpha.1`. It is a **breaking rewrite** of `1.x`: fields are immutable,
+> input is objects rather than arrays, and every field parses to a value object.
+> [UPGRADING.md](UPGRADING.md) is the migration guide.
 >
-> `1.14.0` is the last stable `1.x` release. See [CHANGELOG.md](CHANGELOG.md) and
+> **The sibling packages are not migrated yet** — `meraki/schema-html` and `meraki/schema-json`
+> do not work against this tag. If you depend on either, stay on `1.14.0`, which is the last
+> stable `1.x` release.
+>
+> The public API is otherwise settled; the scope string format is the one part deliberately left
+> unfrozen ([docs/LIMITATIONS.md](docs/LIMITATIONS.md)). See [CHANGELOG.md](CHANGELOG.md) and
 > [docs/ROADMAP.md](docs/ROADMAP.md).
 
 Define a form **once** — its fields, their constraints, and the rules that wire them together —

@@ -278,24 +278,54 @@ accepted value was `'none'`, and the check behind the unreachable `'custom'` opt
 returning a hard-coded result. It did not survive the merge into `Password` — a constraint that
 appears in results and in serialized documents while doing nothing is worse than its absence.
 
-### Collection failures carry no item index
+### A part of a value is as deep as a scope goes
 
-Every item in a collection is validated against the same template fields, and the results
-are flattened into one list — so you can tell that *an* item failed, but not *which* one.
-This makes repeatable collections hard to report on in a real form.
+A scope can name a field, one of its public properties, or **one part** of the value a structured
+field owns. It cannot go deeper, and it cannot name a collection item.
 
 ```php
-$schema->addCollectionField('items', fn($i) => $i->addNumberField('qty')->minOf(10));
-$result = $schema->validate(['items' => [['qty' => 50], ['qty' => 1]]]);
-
-$result->anyFailed();   // true — but nothing says it was item 1
+ValueScope::of('addr');             // #/fields/addr/value        — the whole address
+ValueScope::of('addr', 'country');  // #/fields/addr/value/country — one part
+Scope::parse('#/fields/addr/a/b/c');       // InvalidScope — too many segments
+Scope::parse('#/fields/items/0/sku');      // items are not addressable
 ```
 
-Fixed in `2.0.0`, where a structured value carries its own shape rather than being flattened into sub-field results.
+One part is enough for the case that motivated this — "when the address is in AU, require the
+state" works, using the part names a structured type reports (`country`, `administrative_area`,
+`postal_code`, …), not the camelCase spellings. What is not expressible is a part *of* a part, or
+anything keyed by collection row: which row `0` is depends on what was submitted, so a stored rule
+naming one would mean a different row on a different request.
+
+**The scope string format is therefore not frozen at `2.0.0-alpha.1`** even though the rest of the
+public API is. Widening it is additive — existing scope strings keep their meaning — but anything
+that assumes a hard three-segment ceiling should expect that to change.
+
+`ValueScope::of()` silently ignores arguments past the second rather than raising, which is worth
+knowing if you build scopes dynamically.
 
 ---
 
 ## Recently fixed
+
+### Collection failures carried no item index
+
+Every item in a collection was validated against the same template fields and the results were
+flattened into one list, so you could tell that *an* item failed but not *which* one — which made
+repeatable collections hard to report on in a real form.
+
+Fixed in `2.0.0`, where a structured value carries its own shape rather than being flattened into
+sub-field results. A collection's results are reached per item, and a failure names the row:
+
+```php
+$schema->add($schema->createCollectionField('items', $schema->createNumberField('qty')->minValueOf(10)));
+$result = $schema->validate((object) ['items' => [(object) ['qty' => 50], (object) ['qty' => 1]]]);
+
+$items = $result->forField('items');
+
+$items->itemAt(1)->forField('qty')->anyFailed();   // true
+$items->itemAt(0)->forField('qty')->anyFailed();   // false
+$items->failedItems;                               // the failing rows, keyed — here, item 1
+```
 
 ### Password strength ignored patterns and repetition
 
