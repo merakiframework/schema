@@ -1,7 +1,112 @@
 # Coding style
 
-Conventions that are decisions rather than formatting. Formatting is whatever the editor and
-PHPStan already enforce; this is the part a tool cannot check.
+Formatting is enforced. `.php-cs-fixer.dist.php` fixes it, a pre-commit hook runs on the files
+you stage, and CI fails on anything unformatted. What follows is the part a tool still cannot
+check — conventions that are decisions rather than formatting — plus, first, a short account of
+which is which.
+
+## What the tools enforce
+
+| | Where | What happens |
+| --- | --- | --- |
+| **Fixed** | `.php-cs-fixer.dist.php` | Applied automatically. Only rules that cannot change behaviour. |
+| **Reported** | `.php-cs-fixer-risky.dist.php` | Shown as a diff, never applied. A finding fails CI. |
+| **Human** | this document | Nothing checks it. |
+
+```sh
+composer style          # fix what can be fixed safely
+composer style:report   # show what the risky rules would change; never writes
+composer test:style     # fail if anything is unformatted
+```
+
+The split is the design, not an accident of what was easy. A rule that could alter behaviour is
+never applied on the strength of an assumption it cannot check — it reports, and a human decides.
+That is how the eleven `array<T>` docblocks that should have been `list<T>` were found: the rule
+cannot verify that keys are sequential, so it asked rather than rewrote.
+
+Formatting comes from `@PSR12` with four deliberate departures, each because this codebase had
+already decided otherwise and was consistent about it: tabs rather than four spaces,
+`declare(strict_types=1)` on line 2 with no blank line above it, `fn(` and `new class(` with no
+space before the argument list, and multi-line argument lists left alone so the
+`throw X::of(self::class, sprintf(` shape survives.
+
+**The 110-column limit lives in `.editorconfig` and nothing enforces it.** PHP-CS-Fixer has no
+line-length rule, and that suits: the right fix for a long line is often a shorter name or fewer
+parameters, which is not a decision a fixer can make. A signature past the limit gets folded; a
+long string gets wrapped with a leading dot. Neither is a tool's call.
+
+### How it runs
+
+`composer install` points git at `.githooks/`. On commit, the hook formats the files you staged,
+re-stages them, and aborts if the risky report finds anything. A file that is both staged and
+modified is refused rather than formatted, because formatting the working-tree copy and
+re-staging it would pull your unstaged edits into the commit.
+
+`git commit --no-verify` skips all of it, and a clone that never ran `composer install` never had
+it. CI is the boundary that actually holds.
+
+---
+
+## Imports
+
+Four tiers, one unbroken block, alphabetical within each:
+
+1. this project — `Meraki\Schema\*`
+2. other Meraki packages — `Meraki\*`
+3. everything else with a namespace — `Brick\*`, `PHPUnit\*`, `Uri\*`
+4. the root namespace — `Countable`, `Stringable`, `Closure`
+
+Nearest-first: the block runs from the code you own to the code you merely use.
+
+Tier 3 deliberately mixes PHP's own namespaced classes with third-party packages. Nothing
+distinguishes `Uri\Rfc3986\Uri` (PHP 8.5) from `Brick\DateTime\Clock` (composer) without a
+hand-maintained list that would be wrong every time PHP adds a namespace. Merging them makes the
+whole classification mechanical, which is worth more than the distinction.
+
+`Meraki/grouped_imports` does this. `ordered_imports` cannot — it sorts the block flat, with no
+grouping by prefix — so it is disabled, and must stay that way.
+
+## Compound ternary conditions
+
+A condition containing `&&` or `||` is parenthesised:
+
+```php
+$a = ($a === 123 || $a === 456) ? 789 : null;
+```
+
+`&&` and `||` already bind tighter than `?:`, so the parentheses change nothing about how PHP
+evaluates this. **That is the point.** They are for the reader: seeing where the condition ends
+should not require knowing the precedence table.
+
+A single comparison is left alone — `$x === null ? a : b` stays. `===` binds tighter than `?:` in
+exactly the same way, so covering every comparison would be more consistent, and it was
+considered and rejected: one comparison already reads as one unit, and the rule would have
+touched 66 further sites to no benefit. The ambiguity worth spending parentheses on is *where a
+multi-clause condition ends*.
+
+## No language hacks
+
+A hack is a construct chosen for terseness or speed over saying what is meant.
+
+**The fixer bans** function aliases (`count`, not `sizeof`), `die` for `exit`, `and`/`or`/`xor`
+— whose precedence against `?:` and `=` is the canonical PHP gotcha — and `"$x"`/`"${x}"` in
+favour of the explicit `{$x}`. It also bans `\count()`: prefixing builtins for opcode-cache
+dispatch is exactly the trade this rejects, and is enforced by *not* enabling
+`native_function_invocation`.
+
+**Left to judgement**, because each has legitimate uses this codebase relies on:
+
+- **`@` suppression.** Three sites, all justified: `@preg_match($regex, '')` is the only way to
+  ask whether a user-supplied pattern is valid, and each converts the suppressed warning straight
+  into an exception. A fourth needs an argument.
+- **`isset()` versus `array_key_exists()`** — documented at both sites where it matters. A key
+  present with a `null` value is a half-filled form, and saying so beats reporting it absent.
+- **Short `?:`** — fine for an `array|false` return such as `glob(...) ?: []`, not as a stand-in
+  for `??`.
+- Bit-twiddling in place of arithmetic, `&$x` as an output channel, `extract()`/`compact()`,
+  `array_map(null, ...)` as a zip, and `&&` used as a statement.
+
+**A variable keeps one type.** Where the type genuinely changes, introduce a second variable.
 
 ---
 
