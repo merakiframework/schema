@@ -26,7 +26,7 @@ final class UriValidationTest extends TestCase
 			'prose'          => ['not a url at all !!'],
 			'spaces'         => ['http://example .com'],
 			'empty'          => [''],
-			'bare backslash' => ["http://example.com/\\"],
+			'bare backslash' => ['http://example.com/\\'],
 			'control char'   => ["http://example.com/\x00"],
 		];
 	}

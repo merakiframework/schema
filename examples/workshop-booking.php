@@ -171,8 +171,8 @@ foreach ($result->getFailed() as $fieldResult) {
 	// The shape is asked separately, because it is not a constraint: it says whether the value
 	// could be read at all, and when it could not, every constraint is skipped rather than failed.
 	if ($fieldResult->shape->failed()) {
-		printf("    %-18s could not be read as this kind of value
-", 'shape');
+		printf('    %-18s could not be read as this kind of value
+', 'shape');
 
 		continue;
 	}

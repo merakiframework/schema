@@ -36,7 +36,7 @@ echo 'Shape:        ' . $result->shape->name . PHP_EOL;
 foreach ($result->constraintNames as $name) {
 	$constraint = $result->forConstraint($name);
 
-	printf("  %-10s %-8s%s" . PHP_EOL, $name, $constraint->status->name,
+	printf('  %-10s %-8s%s' . PHP_EOL, $name, $constraint->status->name,
 		// The bound is what a message needs in order to say something useful: not
 		// "too short" but "needs at least 3 characters".
 		$constraint->bound === null ? '' : ' (bound: ' . json_encode($constraint->bound) . ')');

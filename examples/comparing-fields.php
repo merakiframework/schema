@@ -62,7 +62,7 @@ $report = static function (Facade $schema, string $label, array $billing, array 
 	]);
 
 	printf(
-		"  %-34s identical: %-5s  customs: %s" . PHP_EOL,
+		'  %-34s identical: %-5s  customs: %s' . PHP_EOL,
 		$label,
 		var_export($result->forField('same_address')->wasAlteredByRule(), true),
 		var_export($result->forField('customs_declaration')->wasAlteredByRule(), true),

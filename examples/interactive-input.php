@@ -93,5 +93,5 @@ $result = $schema->validate((object) $answers);
 echo '  any failures: ' . var_export($result->anyFailed(), true) . PHP_EOL;
 
 foreach ($result as $field) {
-	printf("  %-10s %-8s %s" . PHP_EOL, (string) $field->field->name, $field->status->name, $field->source->name);
+	printf('  %-10s %-8s %s' . PHP_EOL, (string) $field->field->name, $field->status->name, $field->source->name);
 }

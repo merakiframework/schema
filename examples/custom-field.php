@@ -160,7 +160,7 @@ namespace Main {
 		$field = $schema->validate((object) ['isbn' => $submitted])->forField('isbn');
 
 		printf(
-			"  %-20s shape %-8s isbn13 %-8s value %s" . PHP_EOL,
+			'  %-20s shape %-8s isbn13 %-8s value %s' . PHP_EOL,
 			$submitted === null ? '(nothing)' : $submitted,
 			$field->shape->status->name,
 			$field->forConstraint('isbn13')->status->name,
@@ -188,7 +188,7 @@ namespace Main {
 		$result = $schema->validate((object) ['isbn' => $submitted]);
 
 		printf(
-			"  %-20s shelf required: %s" . PHP_EOL,
+			'  %-20s shelf required: %s' . PHP_EOL,
 			$submitted,
 			var_export($result->forField('shelf')->wasAlteredByRule(), true),
 		);

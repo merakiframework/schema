@@ -36,7 +36,7 @@ $report = static function (Facade $schema, string $label, array $submitted): voi
 		$field = $result->forField($name);
 
 		printf(
-			"  %-18s required: %-5s  %-7s  %s" . PHP_EOL,
+			'  %-18s required: %-5s  %-7s  %s' . PHP_EOL,
 			$name,
 			var_export(!$field->field->optional, true),
 			$field->status->name,
@@ -97,5 +97,5 @@ $combined->addRule(
 foreach ([['someone_else', 'participant'], ['someone_else', 'organiser'], ['myself', 'participant']] as [$for, $manages]) {
 	$email = $combined->validate((object) ['who_for' => $for, 'who_manages' => $manages])->forField('participant_email');
 
-	printf("  %-14s %-12s email required: %s" . PHP_EOL, $for, $manages, var_export(!$email->field->optional, true));
+	printf('  %-14s %-12s email required: %s' . PHP_EOL, $for, $manages, var_export(!$email->field->optional, true));
 }

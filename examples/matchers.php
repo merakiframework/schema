@@ -37,13 +37,13 @@ $fired = static function (Facade $schema, array $submitted): string {
 };
 
 echo 'Inclusive or exclusive — the names carry it:' . PHP_EOL . PHP_EOL;
-printf("  %-22s %-8s %-8s %-8s%s", '', 'age 17', 'age 18', 'age 19', PHP_EOL);
+printf('  %-22s %-8s %-8s %-8s%s', '', 'age 17', 'age 18', 'age 19', PHP_EOL);
 
 foreach (['isAtLeast', 'isGreaterThan', 'isAtMost', 'isLessThan'] as $matcher) {
 	$schema = $build(static fn($age): Draft => $age->when()->{$matcher}(18));
 
 	printf(
-		"  %-22s %-8s %-8s %-8s%s",
+		'  %-22s %-8s %-8s %-8s%s',
 		$matcher . '(18)',
 		$fired($schema, ['age' => '17']),
 		$fired($schema, ['age' => '18']),
@@ -59,7 +59,7 @@ $between = $build(static fn($age): Draft => $age->when()->isBetween(18, 65));
 echo PHP_EOL . '  isBetween(18, 65)' . PHP_EOL;
 
 foreach (['17', '18', '40', '65', '66'] as $age) {
-	printf("    age %-4s %s%s", $age, $fired($between, ['age' => $age]), PHP_EOL);
+	printf('    age %-4s %s%s', $age, $fired($between, ['age' => $age]), PHP_EOL);
 }
 
 echo PHP_EOL . 'The rest:' . PHP_EOL . PHP_EOL;
@@ -87,7 +87,7 @@ $cases = [
 foreach ($cases as [$label, $rule, $holds, $doesNot]) {
 	$schema = $build($rule);
 
-	printf("  %-42s %-8s %s%s", $label, $fired($schema, $holds), $fired($schema, $doesNot), PHP_EOL);
+	printf('  %-42s %-8s %s%s', $label, $fired($schema, $holds), $fired($schema, $doesNot), PHP_EOL);
 }
 
 // The questions a field cannot answer are not there to ask. `$notes` is a Text field, so its
@@ -114,8 +114,8 @@ $mistakes = [
 foreach ($mistakes as $label => $mistake) {
 	try {
 		$build($mistake);
-		printf("  %-38s accepted — which it should not have been%s", $label, PHP_EOL);
+		printf('  %-38s accepted — which it should not have been%s', $label, PHP_EOL);
 	} catch (InvalidRule $e) {
-		printf("  %-38s %s%s", $label, $e->getMessage(), PHP_EOL);
+		printf('  %-38s %s%s', $label, $e->getMessage(), PHP_EOL);
 	}
 }

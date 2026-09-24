@@ -33,13 +33,13 @@ $result = $schema->validate((object) [
 
 $lines = $result->forField('lines');
 
-echo "PASSES" . PHP_EOL;
+echo 'PASSES' . PHP_EOL;
 echo '  status: ' . $lines->status->name . PHP_EOL;
 
 // A row keeps the key it arrived under, so a failure can be reported against something a person
 // recognises rather than "row 2".
 foreach ($lines->value as $key => $row) {
-	printf("  %-12s sku=%s qty=%s" . PHP_EOL, $key, $row->sku->text, $row->qty->number);
+	printf('  %-12s sku=%s qty=%s' . PHP_EOL, $key, $row->sku->text, $row->qty->number);
 }
 
 echo PHP_EOL . 'FAILS — a duplicated row' . PHP_EOL;
@@ -76,5 +76,5 @@ echo '  minCount:          ' . $lines->forConstraint('minCount')->status->name .
 foreach ($lines->failedItems as $item) {
 	$qty = $item->forField('qty');
 
-	printf("  row %-3s qty %-8s %s" . PHP_EOL, $item->key, var_export($qty->given, true), $qty->shape->status->name);
+	printf('  row %-3s qty %-8s %s' . PHP_EOL, $item->key, var_export($qty->given, true), $qty->shape->status->name);
 }

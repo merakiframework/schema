@@ -107,10 +107,10 @@ if ($bad === []) {
 	exit(0);
 }
 
-echo "  " . count($bad) . " dead reference(s):\n";
+echo '  ' . count($bad) . " dead reference(s):\n";
 
 foreach ($bad as $line) {
-	echo "    " . $line . "\n";
+	echo '    ' . $line . "\n";
 }
 
 exit(1);
