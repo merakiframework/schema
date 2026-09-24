@@ -27,22 +27,22 @@ final class InvalidConfiguration extends InvalidArgumentException implements Exc
 
 	public static function minimumIsNegative(string $what): self
 	{
-		return new self(sprintf('A minimum %s cannot be negative.', $what));
+		return new self("A minimum {$what} cannot be negative.");
 	}
 
 	public static function maximumIsNegative(string $what): self
 	{
-		return new self(sprintf('A maximum %s cannot be negative.', $what));
+		return new self("A maximum {$what} cannot be negative.");
 	}
 
 	public static function minimumExceedsMaximum(string $what): self
 	{
-		return new self(sprintf('A minimum %s cannot exceed the maximum.', $what));
+		return new self("A minimum {$what} cannot exceed the maximum.");
 	}
 
 	public static function maximumIsBelowMinimum(string $what): self
 	{
-		return new self(sprintf('A maximum %s cannot be less than the minimum.', $what));
+		return new self("A maximum {$what} cannot be less than the minimum.");
 	}
 
 	// ── a limit that could not do its job ───────────────────────────────────
@@ -109,7 +109,7 @@ final class InvalidConfiguration extends InvalidArgumentException implements Exc
 
 	public static function characterCountIsNegative(string $property): self
 	{
-		return new self(sprintf('A character count cannot be negative (%s).', $property));
+		return new self("A character count cannot be negative ({$property}).");
 	}
 
 	public static function compositionDemandsMoreThanTheMaximumLength(int $demanded, int $maxLength): self
@@ -128,12 +128,12 @@ final class InvalidConfiguration extends InvalidArgumentException implements Exc
 	 */
 	public static function listMemberIsEmpty(string $what): self
 	{
-		return new self(sprintf('A %s cannot be empty.', $what));
+		return new self("A {$what} cannot be empty.");
 	}
 
 	public static function regionIsNotSupported(string $country): self
 	{
-		return new self(sprintf('Country \'%s\' is not a supported region.', $country));
+		return new self("Country '{$country}' is not a supported region.");
 	}
 
 	public static function uuidVersionDoesNotExist(int $version): self
@@ -152,25 +152,24 @@ final class InvalidConfiguration extends InvalidArgumentException implements Exc
 
 	public static function minimumAmountExceedsMaximum(string $amount, string $currency): self
 	{
-		return new self(sprintf('A minimum of %s %s cannot exceed its maximum.', $amount, $currency));
+		return new self("A minimum of {$amount} {$currency} cannot exceed its maximum.");
 	}
 
 	public static function maximumAmountIsBelowMinimum(string $amount, string $currency): self
 	{
-		return new self(sprintf('A maximum of %s %s cannot be less than its minimum.', $amount, $currency));
+		return new self("A maximum of {$amount} {$currency} cannot be less than its minimum.");
 	}
 
 	public static function currencyIsNotAllowed(string $currency): self
 	{
-		return new self(sprintf(
-			'\'%s\' is not one of this field\'s currencies; allow it before giving it a bound.',
-			$currency,
-		));
+		return new self(
+			"'{$currency}' is not one of this field's currencies; allow it before giving it a bound.",
+		);
 	}
 
 	public static function amountIsNotANumber(string $amount): self
 	{
-		return new self(sprintf('\'%s\' is not a number.', $amount));
+		return new self("'{$amount}' is not a number.");
 	}
 
 	public static function amountHasMoreDecimalsThanTheCurrencyTakes(
@@ -188,29 +187,22 @@ final class InvalidConfiguration extends InvalidArgumentException implements Exc
 
 	public static function currencyCodeIsNotAString(string $given): self
 	{
-		return new self(sprintf('A currency code must be a string, %s given.', $given));
+		return new self("A currency code must be a string, {$given} given.");
 	}
 
 	public static function currencyCodeIsNotThreeLetters(string $currency): self
 	{
-		return new self(sprintf(
-			'\'%s\' is not an ISO 4217 currency code; three letters were expected.',
-			$currency,
-		));
+		return new self("'{$currency}' is not an ISO 4217 currency code; three letters were expected.");
 	}
 
 	public static function currencyIsNotKnown(string $currency): self
 	{
-		return new self(sprintf('\'%s\' is not a known ISO 4217 currency.', $currency));
+		return new self("'{$currency}' is not a known ISO 4217 currency.");
 	}
 
 	public static function currencyScaleIsNotAWholeNumber(string $currency, string $given): self
 	{
-		return new self(sprintf(
-			'%s\'s scale must be a whole number of decimal places, %s given.',
-			$currency,
-			$given,
-		));
+		return new self("{$currency}'s scale must be a whole number of decimal places, {$given} given.");
 	}
 
 	public static function currencyScaleIsNegative(string $currency, int $places): self
@@ -254,7 +246,7 @@ final class InvalidConfiguration extends InvalidArgumentException implements Exc
 
 	public static function templateAlreadyHasAField(string $name): self
 	{
-		return new self(sprintf('The template already has a field named \'%s\'.', $name));
+		return new self("The template already has a field named '{$name}'.");
 	}
 
 	public static function templateFieldResolvesToMoreThanOneValue(string $field, string $got): self
@@ -316,9 +308,6 @@ final class InvalidConfiguration extends InvalidArgumentException implements Exc
 
 	public static function addressTypeMustNameAStreet(string $type): self
 	{
-		return new self(sprintf(
-			'A %s address must name a street, so it cannot also be allowed without one.',
-			$type,
-		));
+		return new self("A {$type} address must name a street, so it cannot also be allowed without one.");
 	}
 }

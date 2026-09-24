@@ -35,6 +35,6 @@ final class BadResource extends InvalidArgumentException implements Exception
 
 	public static function in(string $origin, string $why): self
 	{
-		return new self(sprintf('%s: %s', $origin, $why), $origin, null);
+		return new self("{$origin}: {$why}", $origin, null);
 	}
 }

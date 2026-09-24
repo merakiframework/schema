@@ -123,3 +123,12 @@ parameters:
         # which is a refactor rather than a style fix.
         -
             identifier: property.dynamicName
+
+# House rules that no off-the-shelf package implements. They live in tools/CodeStyle/PhpStan/
+# and are autoloaded via the Meraki\CodeStyle\ autoload-dev entry. Custom rules run at every
+# level, independent of the `level` above.
+services:
+    -
+        class: Meraki\CodeStyle\PhpStan\SprintfOfStringsRule
+        tags:
+            - phpstan.rules.rule

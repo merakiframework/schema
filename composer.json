@@ -54,7 +54,8 @@
     },
     "autoload-dev": {
         "psr-4": {
-            "Meraki\\Schema\\": "tests/"
+            "Meraki\\Schema\\": "tests/",
+            "Meraki\\CodeStyle\\": "tools/CodeStyle/"
         }
     },
     "scripts": {

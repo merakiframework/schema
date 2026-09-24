@@ -72,6 +72,6 @@ final class IncomparableValues extends InvalidArgumentException implements Excep
 	 */
 	public static function becauseTheyAreNotAlike(string $subject, string $operand): self
 	{
-		return new self(sprintf('%s can only be ordered against %s.', $subject, $operand));
+		return new self("{$subject} can only be ordered against {$operand}.");
 	}
 }
