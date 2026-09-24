@@ -7,12 +7,12 @@ use Meraki\Schema\AggregatedValidationResult;
 use Meraki\Schema\Facade;
 use Meraki\Schema\Field;
 use Meraki\Schema\Rule;
-use Error;
-use LogicException;
 use PHPUnit\Framework\Attributes\CoversNothing;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
+use Error;
+use LogicException;
 
 /**
  * A schema cannot be changed from outside it, and neither can a result.

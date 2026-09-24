@@ -3,9 +3,9 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Exception;
 
+use Meraki\Schema\Exception;
 use InvalidArgumentException;
 use Throwable;
-use Meraki\Schema\Exception;
 
 /**
  * A rule that could not do what it says.

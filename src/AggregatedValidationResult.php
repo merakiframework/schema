@@ -3,8 +3,8 @@ declare(strict_types=1);
 
 namespace Meraki\Schema;
 
-use IteratorAggregate;
 use Countable;
+use IteratorAggregate;
 
 /**
  * @template T of ValidationResult = ValidationResult

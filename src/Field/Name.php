@@ -3,12 +3,12 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Field;
 
-use Meraki\Schema\Exception\InvalidConfiguration;
-use Meraki\Schema\ValueScope;
-use Meraki\Schema\Rule\Matcher;
-use Meraki\Schema\Field\Name\Value;
 use Meraki\Schema\AtomicField;
+use Meraki\Schema\Exception\InvalidConfiguration;
+use Meraki\Schema\Field\Name\Value;
 use Meraki\Schema\FieldName;
+use Meraki\Schema\Rule\Matcher;
+use Meraki\Schema\ValueScope;
 
 /**
  * A "name" field is used to represent a person's full name.

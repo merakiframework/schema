@@ -3,15 +3,15 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Field;
 
-use Meraki\Schema\Field\DateTime\TimePrecision;
-use Meraki\Schema\FieldTestCase;
 use Meraki\Schema\Field\DateTime\PrecisionPolicy;
+use Meraki\Schema\Field\DateTime\TimePrecision;
 use Meraki\Schema\FieldName;
+use Meraki\Schema\FieldTestCase;
 use Meraki\Schema\ValidationStatus;
-use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\Attributes\CoversClass;
-use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\DataProvider;
+use PHPUnit\Framework\Attributes\Group;
+use PHPUnit\Framework\Attributes\Test;
 
 #[Group('field')]
 #[CoversClass(DateTime::class)]

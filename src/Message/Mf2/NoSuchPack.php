@@ -3,8 +3,8 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Message\Mf2;
 
-use InvalidArgumentException;
 use Meraki\Schema\Exception;
+use InvalidArgumentException;
 
 /**
  * A language pack that is not where the provider was told to look.

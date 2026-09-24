@@ -5,11 +5,11 @@ namespace Meraki\Schema\Field;
 
 use Meraki\Schema\Exception\UnknownField;
 use Meraki\Schema\FieldName;
-use InvalidArgumentException;
-use PHPUnit\Framework\TestCase;
-use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Group;
+use PHPUnit\Framework\Attributes\Test;
+use PHPUnit\Framework\TestCase;
+use InvalidArgumentException;
 
 #[Group('field')]
 #[CoversClass(Set::class)]

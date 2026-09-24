@@ -3,13 +3,13 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Field;
 
-use Meraki\Schema\ValueScope;
-use Meraki\Schema\Rule\Matcher;
 use Meraki\Schema\AtomicField;
-use Meraki\Schema\FieldName;
-use Brick\DateTime\Period;
 use Meraki\Schema\Field\Date\Value;
+use Meraki\Schema\FieldName;
+use Meraki\Schema\Rule\Matcher;
+use Meraki\Schema\ValueScope;
 use Brick\DateTime\LocalDate;
+use Brick\DateTime\Period;
 
 /**
  * A calendar date, written as `YYYY-MM-DD`.

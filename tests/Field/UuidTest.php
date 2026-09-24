@@ -4,12 +4,12 @@ declare(strict_types=1);
 namespace Meraki\Schema\Field;
 
 use Meraki\Schema\FieldName;
-use Meraki\Schema\ValidationStatus;
 use Meraki\Schema\FieldTestCase;
-use PHPUnit\Framework\Attributes\Group;
-use PHPUnit\Framework\Attributes\Test;
+use Meraki\Schema\ValidationStatus;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
+use PHPUnit\Framework\Attributes\Group;
+use PHPUnit\Framework\Attributes\Test;
 
 #[Group('field')]
 #[CoversClass(Uuid::class)]

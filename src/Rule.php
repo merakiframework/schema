@@ -3,9 +3,9 @@ declare(strict_types=1);
 
 namespace Meraki\Schema;
 
+use Meraki\Schema\Rule\AppliedOutcome;
 use Meraki\Schema\Rule\ConditionGroup;
 use Meraki\Schema\Rule\Outcome;
-use Meraki\Schema\Rule\AppliedOutcome;
 
 class Rule
 {

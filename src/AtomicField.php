@@ -4,8 +4,8 @@ declare(strict_types=1);
 namespace Meraki\Schema;
 
 use Meraki\Schema\Field\ConstraintValidationResult;
-use Meraki\Schema\Field\ShapeValidationResult;
 use Meraki\Schema\Field\Definition;
+use Meraki\Schema\Field\ShapeValidationResult;
 
 /**
  * A field holding one value, checked against its own constraints.

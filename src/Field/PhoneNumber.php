@@ -3,13 +3,13 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Field;
 
-use Meraki\Schema\Exception\InvalidConfiguration;
-use Meraki\Schema\ValueScope;
-use Meraki\Schema\Rule\Matcher;
-use Meraki\Schema\Field\PhoneNumber\Type;
 use Meraki\Schema\AtomicField;
-use Meraki\Schema\FieldName;
+use Meraki\Schema\Exception\InvalidConfiguration;
+use Meraki\Schema\Field\PhoneNumber\Type;
 use Meraki\Schema\Field\PhoneNumber\Value;
+use Meraki\Schema\FieldName;
+use Meraki\Schema\Rule\Matcher;
+use Meraki\Schema\ValueScope;
 use libphonenumber\PhoneNumberUtil;
 
 /**

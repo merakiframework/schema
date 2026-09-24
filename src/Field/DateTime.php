@@ -3,18 +3,18 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Field;
 
-use Meraki\Schema\Exception\InvalidConfiguration;
-use Meraki\Schema\ValueScope;
-use Meraki\Schema\Rule\Matcher;
-use Meraki\Schema\Field\DateTime\TimePrecision;
-use Meraki\Schema\Field\DateTime\PrecisionPolicy;
 use Meraki\Schema\AtomicField;
-use Meraki\Schema\FieldName;
-use Brick\Math\BigInteger;
-use Brick\DateTime\TimeZone;
+use Meraki\Schema\Exception\InvalidConfiguration;
+use Meraki\Schema\Field\DateTime\PrecisionPolicy;
+use Meraki\Schema\Field\DateTime\TimePrecision;
 use Meraki\Schema\Field\DateTime\Value;
-use Brick\DateTime\LocalDateTime;
+use Meraki\Schema\FieldName;
+use Meraki\Schema\Rule\Matcher;
+use Meraki\Schema\ValueScope;
 use Brick\DateTime\Duration;
+use Brick\DateTime\LocalDateTime;
+use Brick\DateTime\TimeZone;
+use Brick\Math\BigInteger;
 
 /**
  * A date and time of day.

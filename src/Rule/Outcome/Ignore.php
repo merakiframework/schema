@@ -5,8 +5,8 @@ namespace Meraki\Schema\Rule\Outcome;
 
 use Meraki\Schema\Exception\InvalidRule;
 use Meraki\Schema\Field;
-use Meraki\Schema\Rule\Outcome;
 use Meraki\Schema\FieldScope;
+use Meraki\Schema\Rule\Outcome;
 use Meraki\Schema\Scope;
 
 /**

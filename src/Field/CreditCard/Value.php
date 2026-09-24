@@ -3,12 +3,12 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Field\CreditCard;
 
-use Meraki\Schema\Field\MalformedValue;
 use Meraki\Schema\Comparison\Equality;
 use Meraki\Schema\Field\HasParts;
+use Meraki\Schema\Field\MalformedValue;
 use Meraki\Schema\Field\ParsedValue;
-use Brick\DateTime\LocalDate;
 use Brick\DateTime\DateTimeException;
+use Brick\DateTime\LocalDate;
 use SensitiveParameter;
 
 /**

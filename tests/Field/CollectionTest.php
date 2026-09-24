@@ -3,19 +3,19 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Field;
 
-use Meraki\Schema\Field\Collection\Value as CollectionValue;
-use Meraki\Schema\Field\Number\Value as NumberValue;
 use Meraki\Schema\Field\Collection\Item;
 use Meraki\Schema\Field\Collection\Result;
+use Meraki\Schema\Field\Collection\Value as CollectionValue;
+use Meraki\Schema\Field\Number\Value as NumberValue;
 use Meraki\Schema\FieldName;
 use Meraki\Schema\FieldResult;
 use Meraki\Schema\ValidationStatus;
-use InvalidArgumentException;
-use PHPUnit\Framework\TestCase;
-use PHPUnit\Framework\Attributes\Group;
-use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
+use PHPUnit\Framework\Attributes\Group;
+use PHPUnit\Framework\Attributes\Test;
+use PHPUnit\Framework\TestCase;
+use InvalidArgumentException;
 
 #[Group('field')]
 #[CoversClass(Collection::class)]

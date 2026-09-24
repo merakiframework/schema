@@ -3,8 +3,8 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Message\Mf2;
 
-use InvalidArgumentException;
 use Meraki\Schema\Exception;
+use InvalidArgumentException;
 
 /**
  * A message this formatter will not render, and why.

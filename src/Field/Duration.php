@@ -3,11 +3,11 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Field;
 
-use Meraki\Schema\ValueScope;
-use Meraki\Schema\Rule\Matcher;
 use Meraki\Schema\AtomicField;
-use Meraki\Schema\FieldName;
 use Meraki\Schema\Field\Duration\Value;
+use Meraki\Schema\FieldName;
+use Meraki\Schema\Rule\Matcher;
+use Meraki\Schema\ValueScope;
 use Brick\DateTime;
 
 /**

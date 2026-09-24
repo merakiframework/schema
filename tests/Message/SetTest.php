@@ -3,7 +3,6 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Message;
 
-use InvalidArgumentException;
 use Meraki\Schema\Field;
 use Meraki\Schema\FieldName;
 use Meraki\Schema\Message\Mf2\Formatter;
@@ -13,6 +12,7 @@ use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
+use InvalidArgumentException;
 
 /**
  * The one integration point: `$result->messages`.

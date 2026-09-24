@@ -6,10 +6,10 @@ namespace Meraki\Schema\Api;
 use Meraki\Schema\Facade;
 use Meraki\Schema\Field;
 use Meraki\Schema\FieldName;
-use PHPUnit\Framework\TestCase;
 use PHPUnit\Framework\Attributes\CoversNothing;
-use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\Attributes\Group;
+use PHPUnit\Framework\Attributes\Test;
+use PHPUnit\Framework\TestCase;
 
 /**
  * `Address`, `Money` and `CreditCard` are one field holding one value object, the way `File`

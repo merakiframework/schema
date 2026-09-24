@@ -6,11 +6,11 @@ namespace Meraki\Schema;
 use Meraki\Schema\Field\ConstraintValidationResult;
 use Meraki\Schema\Rule\AppliedOutcome;
 use Meraki\Schema\Rule\Outcome;
-use InvalidArgumentException;
-use PHPUnit\Framework\TestCase;
-use PHPUnit\Framework\Attributes\Test;
-use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Group;
+use PHPUnit\Framework\Attributes\Test;
+use PHPUnit\Framework\TestCase;
+use InvalidArgumentException;
 
 #[Group('validation')]
 #[CoversClass(ResolvedField::class)]

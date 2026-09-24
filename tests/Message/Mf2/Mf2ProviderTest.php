@@ -3,13 +3,13 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Message\Mf2;
 
-use InvalidArgumentException;
 use Meraki\Schema\Message\Silence;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
+use InvalidArgumentException;
 
 /**
  * Finding the right wording for the language a request asked for.

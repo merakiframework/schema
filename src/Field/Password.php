@@ -3,16 +3,16 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Field;
 
-use Meraki\Schema\Exception\InvalidConfiguration;
-use Meraki\Schema\ValueScope;
-use Meraki\Schema\Rule\Matcher;
-use Meraki\Schema\Field\Password\Strength;
-use ZxcvbnPhp\Zxcvbn;
-use Meraki\Schema\Field\Password\Value;
 use Meraki\Schema\AtomicField;
+use Meraki\Schema\Exception\InvalidConfiguration;
+use Meraki\Schema\Field\Password\Strength;
+use Meraki\Schema\Field\Password\Value;
 use Meraki\Schema\FieldName;
 use Meraki\Schema\PrefillPolicy;
+use Meraki\Schema\Rule\Matcher;
+use Meraki\Schema\ValueScope;
 use Meraki\Schema\ValueSource;
+use ZxcvbnPhp\Zxcvbn;
 use SensitiveParameter;
 
 /**

@@ -3,9 +3,9 @@ declare(strict_types=1);
 
 namespace Meraki\Schema;
 
-use PHPUnit\Framework\TestCase;
-use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\Attributes\Group;
+use PHPUnit\Framework\Attributes\Test;
+use PHPUnit\Framework\TestCase;
 
 #[Group('validation')]
 abstract class ValidationResultTestCase extends TestCase

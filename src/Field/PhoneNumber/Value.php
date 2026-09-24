@@ -3,11 +3,11 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Field\PhoneNumber;
 
-use libphonenumber\NumberParseException;
-use Meraki\Schema\Field\MalformedValue;
 use Meraki\Schema\Comparison\Equality;
 use Meraki\Schema\Field\HasParts;
+use Meraki\Schema\Field\MalformedValue;
 use Meraki\Schema\Field\ParsedValue;
+use libphonenumber\NumberParseException;
 use libphonenumber\PhoneNumber as LibPhoneNumber;
 use libphonenumber\PhoneNumberFormat;
 use libphonenumber\PhoneNumberUtil;

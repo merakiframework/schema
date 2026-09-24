@@ -53,6 +53,12 @@ declare(strict_types=1);
  *   — the docblocks are long-form prose carrying design rationale. These reflow and delete it.
  */
 
+// PHP-CS-Fixer loads this file with its own autoloader, not the project's, so the custom
+// fixers are required by hand.
+require_once __DIR__ . '/tools/CodeStyle/Fixer/GroupedImportsFixer.php';
+require_once __DIR__ . '/tools/CodeStyle/Fixer/NoBlankLineAfterOpeningTagFixer.php';
+require_once __DIR__ . '/tools/CodeStyle/Fixer/ParenthesizedTernaryConditionFixer.php';
+
 $finder = (require __DIR__ . '/tools/CodeStyle/finder.php')(__DIR__);
 
 return (new PhpCsFixer\Config())
@@ -61,6 +67,11 @@ return (new PhpCsFixer\Config())
 	->setLineEnding("\n")
 	// Everything that could change behaviour reports instead. See the risky config.
 	->setRiskyAllowed(false)
+	->registerCustomFixers([
+		new Meraki\CodeStyle\Fixer\GroupedImportsFixer(),
+		new Meraki\CodeStyle\Fixer\NoBlankLineAfterOpeningTagFixer(),
+		new Meraki\CodeStyle\Fixer\ParenthesizedTernaryConditionFixer(),
+	])
 	->setRules([
 		'@PSR12' => true,
 
@@ -106,4 +117,11 @@ return (new PhpCsFixer\Config())
 		'line_ending' => true,
 		'phpdoc_indent' => true,
 		'single_blank_line_at_eof' => true,
+
+		// ── Custom ──────────────────────────────────────────────────────────────────────
+		// None of these exist off the shelf — not in PHP-CS-Fixer, kubawerlos, PedroTroller
+		// or Slevomat. Each carries its reasoning in its own class docblock.
+		'Meraki/grouped_imports' => true,
+		'Meraki/no_blank_line_after_opening_tag' => true,
+		'Meraki/parenthesized_ternary_condition' => true,
 	]);

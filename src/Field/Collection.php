@@ -3,17 +3,17 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Field;
 
-use Meraki\Schema\Exception\InvalidConfiguration;
-use Meraki\Schema\ValueScope;
-use Meraki\Schema\Rule\Matcher;
-use Meraki\Schema\Field\Collection\Item;
-use Meraki\Schema\Field\Collection\Value;
-use Meraki\Schema\Field\Collection\Result;
 use Meraki\Schema\AtomicField;
+use Meraki\Schema\Exception\InvalidConfiguration;
 use Meraki\Schema\Field;
+use Meraki\Schema\Field\Collection\Item;
+use Meraki\Schema\Field\Collection\Result;
+use Meraki\Schema\Field\Collection\Value;
 use Meraki\Schema\FieldName;
 use Meraki\Schema\PrefillPolicy;
 use Meraki\Schema\ResolvedField;
+use Meraki\Schema\Rule\Matcher;
+use Meraki\Schema\ValueScope;
 use Meraki\Schema\ValueSource;
 
 /**

@@ -3,11 +3,11 @@ declare(strict_types=1);
 
 namespace Meraki\Schema;
 
-use InvalidArgumentException;
-use PHPUnit\Framework\TestCase;
-use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Group;
+use PHPUnit\Framework\Attributes\Test;
+use PHPUnit\Framework\TestCase;
+use InvalidArgumentException;
 
 /**
  * A rule condition asks what a field was given. That used to be answered by reading a

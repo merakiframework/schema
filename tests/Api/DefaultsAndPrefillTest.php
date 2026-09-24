@@ -7,12 +7,12 @@ use Meraki\Schema\Facade;
 use Meraki\Schema\PrefillPolicy;
 use Meraki\Schema\ValidationStatus;
 use Meraki\Schema\ValueSource;
-use InvalidArgumentException;
-use Fiber;
-use PHPUnit\Framework\TestCase;
 use PHPUnit\Framework\Attributes\CoversNothing;
-use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\Attributes\Group;
+use PHPUnit\Framework\Attributes\Test;
+use PHPUnit\Framework\TestCase;
+use Fiber;
+use InvalidArgumentException;
 
 /**
  * The split that closes B9: an authored constant lives on the definition and serialises; a

@@ -3,11 +3,11 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Field\Address;
 
-use CommerceGuys\Addressing\Country\CountryRepository;
-use Meraki\Schema\Field\MalformedValue;
 use Meraki\Schema\Comparison\Equality;
 use Meraki\Schema\Field\HasParts;
+use Meraki\Schema\Field\MalformedValue;
 use Meraki\Schema\Field\ParsedValue;
+use CommerceGuys\Addressing\Country\CountryRepository;
 
 /**
  * One postal or street address, held whole.

@@ -3,10 +3,10 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Field\Constraint;
 
+use Meraki\Schema\Exception\InvalidConstraint;
 use Meraki\Schema\Field\Constraint;
 use Meraki\Schema\Field\ConstraintValidationResult;
 use Countable;
-use Meraki\Schema\Exception\InvalidConstraint;
 use IteratorAggregate;
 use Traversable;
 

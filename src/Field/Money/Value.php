@@ -3,12 +3,12 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Field\Money;
 
-use Meraki\Schema\Exception\IncomparableValues;
-use Meraki\Schema\Field\MalformedValue;
 use Meraki\Schema\Comparison\Comparable;
 use Meraki\Schema\Comparison\Equality;
 use Meraki\Schema\Comparison\Order;
+use Meraki\Schema\Exception\IncomparableValues;
 use Meraki\Schema\Field\HasParts;
+use Meraki\Schema\Field\MalformedValue;
 use Meraki\Schema\Field\ParsedValue;
 use Brick\Math\BigDecimal;
 use Brick\Math\Exception\MathException;

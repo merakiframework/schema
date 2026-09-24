@@ -7,10 +7,10 @@ use Meraki\Schema\Field\Time\Precision;
 use Meraki\Schema\Field\Time\PrecisionPolicy;
 use Meraki\Schema\FieldName;
 use Meraki\Schema\FieldTestCase;
-use PHPUnit\Framework\Attributes\Group;
-use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
+use PHPUnit\Framework\Attributes\Group;
+use PHPUnit\Framework\Attributes\Test;
 
 #[Group('field')]
 #[CoversClass(Time::class)]

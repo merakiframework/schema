@@ -3,10 +3,10 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Message\Mf2;
 
-use Composer\InstalledVersions;
 use Meraki\Schema\Message\Provider;
 use Meraki\Schema\Message\Silence;
 use Meraki\Schema\Message\Translator;
+use Composer\InstalledVersions;
 
 /**
  * Wording read from language packs on disk: directories of `.mfr` files, one per locale.

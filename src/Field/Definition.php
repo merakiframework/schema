@@ -3,8 +3,8 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Field;
 
-use Meraki\Schema\Exception\InvalidDefault;
 use Meraki\Schema\AtomicField;
+use Meraki\Schema\Exception\InvalidDefault;
 use Meraki\Schema\Field;
 use Brick\DateTime\Instant;
 

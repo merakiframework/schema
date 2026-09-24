@@ -8,12 +8,12 @@ use Meraki\Schema\PropertyScope;
 use Meraki\Schema\Rule\Condition\Comparison;
 use Meraki\Schema\Rule\Condition\Equals;
 use Meraki\Schema\Rule\Condition\NotEquals;
-use InvalidArgumentException;
-use PHPUnit\Framework\TestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
+use PHPUnit\Framework\TestCase;
+use InvalidArgumentException;
 
 /**
  * A rule's expectation is read the same way the submitted value was.

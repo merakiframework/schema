@@ -3,16 +3,16 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Field;
 
+use Meraki\Schema\AtomicField;
 use Meraki\Schema\Exception\InvalidConfiguration;
-use Meraki\Schema\ValueScope;
-use Meraki\Schema\Rule\Matcher;
 use Meraki\Schema\Field\Time\Precision;
 use Meraki\Schema\Field\Time\PrecisionPolicy;
-use Meraki\Schema\AtomicField;
+use Meraki\Schema\Field\Time\Value;
 use Meraki\Schema\FieldName;
+use Meraki\Schema\Rule\Matcher;
+use Meraki\Schema\ValueScope;
 use Brick\DateTime\Duration;
 use Brick\DateTime\LocalDate;
-use Meraki\Schema\Field\Time\Value;
 use Brick\DateTime\LocalTime;
 use Brick\DateTime\TimeZone;
 use Brick\Math\BigInteger;

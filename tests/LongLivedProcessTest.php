@@ -3,11 +3,11 @@ declare(strict_types=1);
 
 namespace Meraki\Schema;
 
-use Fiber;
-use PHPUnit\Framework\TestCase;
-use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Group;
+use PHPUnit\Framework\Attributes\Test;
+use PHPUnit\Framework\TestCase;
+use Fiber;
 
 /**
  * A schema is meant to be built once when a worker boots and reused for the life of the

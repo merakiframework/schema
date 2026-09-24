@@ -3,8 +3,8 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Exception;
 
-use InvalidArgumentException;
 use Meraki\Schema\Exception;
+use InvalidArgumentException;
 use Throwable;
 
 /**

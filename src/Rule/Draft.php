@@ -3,8 +3,8 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Rule;
 
-use Meraki\Schema\Exception\InvalidRule;
 use Meraki\Schema\Exception\IncompleteRule;
+use Meraki\Schema\Exception\InvalidRule;
 use Meraki\Schema\Field;
 use Meraki\Schema\FieldName;
 use Meraki\Schema\FieldScope;

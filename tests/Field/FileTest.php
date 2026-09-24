@@ -5,14 +5,14 @@ namespace Meraki\Schema\Field\Type;
 
 use Meraki\Schema\Field\File;
 use Meraki\Schema\Field\File\Value;
-use Meraki\Schema\ValidationStatus;
 use Meraki\Schema\FieldName;
 use Meraki\Schema\FieldTestCase;
-use InvalidArgumentException;
-use PHPUnit\Framework\Attributes\Group;
-use PHPUnit\Framework\Attributes\Test;
+use Meraki\Schema\ValidationStatus;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
+use PHPUnit\Framework\Attributes\Group;
+use PHPUnit\Framework\Attributes\Test;
+use InvalidArgumentException;
 
 #[Group('field')]
 #[CoversClass(File::class)]

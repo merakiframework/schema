@@ -4,15 +4,15 @@ declare(strict_types=1);
 namespace Meraki\Schema\Api;
 
 use Meraki\Schema\Field;
-use Meraki\Schema\FieldName;
 use Meraki\Schema\Field\PhoneNumber\Value;
+use Meraki\Schema\FieldName;
 use libphonenumber\PhoneNumber as LibPhoneNumber;
 use libphonenumber\PhoneNumberFormat;
 use libphonenumber\PhoneNumberUtil;
-use PHPUnit\Framework\TestCase;
-use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Group;
+use PHPUnit\Framework\Attributes\Test;
+use PHPUnit\Framework\TestCase;
 
 /**
  * `allow()` used to do two jobs at once: constrain which countries were acceptable, and

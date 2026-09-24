@@ -6,10 +6,10 @@ namespace Meraki\Schema\Field;
 use Meraki\Schema\FieldName;
 use Meraki\Schema\FieldTestCase;
 use Meraki\Schema\ValidationStatus;
+use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
-use PHPUnit\Framework\Attributes\CoversClass;
 
 #[Group('field')]
 #[CoversClass(Duration::class)]

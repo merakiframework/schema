@@ -3,14 +3,14 @@ declare(strict_types=1);
 
 namespace Meraki\Schema;
 
-use Brick\DateTime\Clock;
-use Brick\DateTime\Clock\SystemClock;
 use Meraki\Schema\Exception\InvalidRule;
 use Meraki\Schema\Exception\InvalidScope;
 use Meraki\Schema\Exception\NothingToValidate;
 use Meraki\Schema\Exception\UnknownField;
 use Meraki\Schema\Rule\AppliedOutcome;
 use Meraki\Schema\Rule\Condition;
+use Brick\DateTime\Clock;
+use Brick\DateTime\Clock\SystemClock;
 
 final class Facade
 {

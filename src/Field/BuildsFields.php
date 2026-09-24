@@ -3,9 +3,9 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Field;
 
-use Brick\DateTime\Clock;
 use Meraki\Schema\Field;
 use Meraki\Schema\FieldName;
+use Brick\DateTime\Clock;
 
 /**
  * Builds fields, for whatever holds them.

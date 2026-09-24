@@ -3,8 +3,8 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Rule\Condition;
 
-use Meraki\Schema\Exception\InvalidRule;
 use Meraki\Schema\Comparison\Values;
+use Meraki\Schema\Exception\InvalidRule;
 use Meraki\Schema\Facade;
 use Meraki\Schema\Scope;
 use Meraki\Schema\ScopeResolver;

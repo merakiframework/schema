@@ -3,9 +3,9 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Api;
 
-use Meraki\Schema\Field;
 use Meraki\Schema\Comparison\Comparable;
 use Meraki\Schema\Comparison\Order;
+use Meraki\Schema\Field;
 use Meraki\Schema\Field\ParsedValue;
 use Meraki\Schema\FieldName;
 use PHPUnit\Framework\Attributes\CoversNothing;

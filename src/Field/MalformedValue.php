@@ -3,8 +3,8 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Field;
 
-use InvalidArgumentException;
 use Meraki\Schema\Exception;
+use InvalidArgumentException;
 
 /**
  * Input that is not the kind of thing a value holds.

@@ -5,11 +5,11 @@ namespace Meraki\Schema\Rule;
 
 use Meraki\Schema\Facade;
 use Meraki\Schema\PropertyScope;
-use InvalidArgumentException;
-use PHPUnit\Framework\TestCase;
-use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Group;
+use PHPUnit\Framework\Attributes\Test;
+use PHPUnit\Framework\TestCase;
+use InvalidArgumentException;
 
 /**
  * A rule that targets something the schema does not have used to be accepted and then fail

@@ -5,11 +5,11 @@ namespace Meraki\Schema\Api;
 
 use Meraki\Schema\Field;
 use Meraki\Schema\FieldName;
-use PHPUnit\Framework\TestCase;
 use PHPUnit\Framework\Attributes\CoversNothing;
-use PHPUnit\Framework\Attributes\Test;
-use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\DataProvider;
+use PHPUnit\Framework\Attributes\Group;
+use PHPUnit\Framework\Attributes\Test;
+use PHPUnit\Framework\TestCase;
 
 /**
  * The names a field reports a failure under. These are the strings `meraki/schema-html`

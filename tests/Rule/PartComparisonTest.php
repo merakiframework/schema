@@ -7,11 +7,11 @@ use Meraki\Schema\Facade;
 use Meraki\Schema\PartScope;
 use Meraki\Schema\Rule\Condition\Comparison;
 use Meraki\Schema\ValueScope;
-use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
+use InvalidArgumentException;
 
 /**
  * A rule can compare two fields, and can compare one part of each.

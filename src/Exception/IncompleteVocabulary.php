@@ -3,8 +3,8 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Exception;
 
-use LogicException;
 use Meraki\Schema\Exception;
+use LogicException;
 
 /**
  * A field type the vocabulary cannot report on.

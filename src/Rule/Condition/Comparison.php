@@ -3,9 +3,9 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Rule\Condition;
 
+use Meraki\Schema\Comparison\Values;
 use Meraki\Schema\Facade;
 use Meraki\Schema\Field;
-use Meraki\Schema\Comparison\Values;
 use Meraki\Schema\FieldResult;
 use Meraki\Schema\Rule\Condition;
 use Meraki\Schema\Scope;

@@ -3,11 +3,11 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Field;
 
-use Meraki\Schema\ValueScope;
-use Meraki\Schema\Rule\Matcher;
-use Meraki\Schema\Field\Boolean\Value;
 use Meraki\Schema\AtomicField;
+use Meraki\Schema\Field\Boolean\Value;
 use Meraki\Schema\FieldName;
+use Meraki\Schema\Rule\Matcher;
+use Meraki\Schema\ValueScope;
 
 /**
  * A true/false answer.

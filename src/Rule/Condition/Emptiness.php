@@ -3,11 +3,11 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Rule\Condition;
 
-use Countable;
 use Meraki\Schema\Facade;
 use Meraki\Schema\Rule\Condition;
 use Meraki\Schema\Scope;
 use Meraki\Schema\ScopeResolver;
+use Countable;
 use Stringable;
 
 /**

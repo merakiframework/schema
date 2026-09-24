@@ -3,13 +3,13 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Field\DateTime;
 
-use Meraki\Schema\Exception\IncomparableValues;
-use Brick\DateTime\DateTimeException;
-use Meraki\Schema\Field\MalformedValue;
+use Meraki\Schema\Comparison\Comparable;
 use Meraki\Schema\Comparison\Equality;
 use Meraki\Schema\Comparison\Order;
-use Meraki\Schema\Comparison\Comparable;
+use Meraki\Schema\Exception\IncomparableValues;
+use Meraki\Schema\Field\MalformedValue;
 use Meraki\Schema\Field\ParsedValue;
+use Brick\DateTime\DateTimeException;
 use Brick\DateTime\LocalDateTime;
 
 /**

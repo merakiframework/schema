@@ -6,13 +6,13 @@ namespace Meraki\Schema\Api;
 use Meraki\Schema\Field;
 use Meraki\Schema\Field\Password\Strength;
 use Meraki\Schema\FieldName;
+use PHPUnit\Framework\Attributes\CoversNothing;
+use PHPUnit\Framework\Attributes\DataProvider;
+use PHPUnit\Framework\Attributes\Group;
+use PHPUnit\Framework\Attributes\Test;
+use PHPUnit\Framework\TestCase;
 use InvalidArgumentException;
 use ReflectionClass;
-use PHPUnit\Framework\TestCase;
-use PHPUnit\Framework\Attributes\CoversNothing;
-use PHPUnit\Framework\Attributes\Test;
-use PHPUnit\Framework\Attributes\Group;
-use PHPUnit\Framework\Attributes\DataProvider;
 
 /**
  * A field encodes current best practice, and configuration narrows from there. It never

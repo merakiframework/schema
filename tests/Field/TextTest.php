@@ -6,9 +6,9 @@ namespace Meraki\Schema\Field;
 use Meraki\Schema\Exception\InvalidConfiguration;
 use Meraki\Schema\FieldName;
 use Meraki\Schema\FieldTestCase;
+use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
-use PHPUnit\Framework\Attributes\CoversClass;
 
 #[Group('field')]
 #[CoversClass(Text::class)]

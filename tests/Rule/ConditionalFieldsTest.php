@@ -7,12 +7,12 @@ use Meraki\Schema\Facade;
 use Meraki\Schema\Rule;
 use Meraki\Schema\Rule\Outcome\Ignore;
 use Meraki\Schema\Rule\Outcome\Reconfigure;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Group;
+use PHPUnit\Framework\Attributes\Test;
+use PHPUnit\Framework\TestCase;
 use InvalidArgumentException;
 use LogicException;
-use PHPUnit\Framework\TestCase;
-use PHPUnit\Framework\Attributes\Test;
-use PHPUnit\Framework\Attributes\Group;
-use PHPUnit\Framework\Attributes\CoversClass;
 
 /**
  * One field's value deciding whether another is required — the thing rules are actually for.

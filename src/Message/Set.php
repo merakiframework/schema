@@ -3,11 +3,11 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Message;
 
+use Meraki\Schema\Field;
+use Meraki\Schema\FieldResult;
 use ArrayIterator;
 use Countable;
 use IteratorAggregate;
-use Meraki\Schema\Field;
-use Meraki\Schema\FieldResult;
 use Traversable;
 
 /**

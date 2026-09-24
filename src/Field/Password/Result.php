@@ -6,8 +6,8 @@ namespace Meraki\Schema\Field\Password;
 use Meraki\Schema\Field\Password;
 use Meraki\Schema\ResolvedField;
 use Meraki\Schema\ValidationResult;
-use Brick\DateTime\Instant;
 use Meraki\Schema\ValueSource;
+use Brick\DateTime\Instant;
 use SensitiveParameter;
 
 /**

@@ -3,7 +3,6 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Rule;
 
-use InvalidArgumentException;
 use Meraki\Schema\Comparison\Comparable;
 use Meraki\Schema\Facade;
 use Meraki\Schema\Field;
@@ -26,6 +25,7 @@ use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
+use InvalidArgumentException;
 use ReflectionMethod;
 use ReflectionNamedType;
 use Stringable;

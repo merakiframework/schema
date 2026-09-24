@@ -3,12 +3,12 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Field;
 
-use Meraki\Schema\Exception\UnknownField;
 use Meraki\Schema\Exception\DuplicateFieldName;
+use Meraki\Schema\Exception\UnknownField;
 use Meraki\Schema\Field;
 use Meraki\Schema\FieldName;
-use IteratorAggregate;
 use Countable;
+use IteratorAggregate;
 
 /**
  * @implements IteratorAggregate<int, Field>
