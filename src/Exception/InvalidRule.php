@@ -129,4 +129,17 @@ final class InvalidRule extends InvalidArgumentException implements Exception
 			previous: $why,
 		);
 	}
+
+	/**
+	 * Quantifying a scope that names one value would be asking how many of one thing match, which
+	 * has no reading beyond the question already asked.
+	 */
+	public static function quantifiesSomethingThatIsNotAColumn(string $target): self
+	{
+		return new self(sprintf(
+			'"%s" names one value, so "any" and "every" have nothing to range over. '
+			. 'A quantifier belongs to a column — "#/fields/<collection>/value/*/<field>/value".',
+			$target,
+		));
+	}
 }

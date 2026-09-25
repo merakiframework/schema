@@ -7,6 +7,7 @@ use Meraki\Schema\Comparison\Values;
 use Meraki\Schema\Field;
 use Meraki\Schema\FieldResult;
 use Meraki\Schema\Rule\Condition;
+use Meraki\Schema\Rule\Scoped;
 use Meraki\Schema\Scope;
 use Meraki\Schema\ScopeResolver;
 use Meraki\Schema\ValueScope;
@@ -65,7 +66,7 @@ use Meraki\Schema\ValueScope;
  * a subclass widens — and the readability check, the scope collection and the parsing all follow
  * from it rather than being restated three times.
  */
-abstract class Comparison implements Condition
+abstract class Comparison implements Condition, Scoped
 {
 	public readonly Scope $scope;
 
@@ -228,5 +229,13 @@ abstract class Comparison implements Condition
 		return $this->scope instanceof ValueScope
 			&& $expectation !== null
 			&& !$expectation instanceof Scope;
+	}
+
+	/**
+	 * The same question, asked about somewhere else. See {@see Scoped::about()}.
+	 */
+	public function about(Scope $scope): static
+	{
+		return clone($this, ['scope' => $scope]);
 	}
 }

@@ -249,6 +249,16 @@ final class InvalidConfiguration extends InvalidArgumentException implements Exc
 		return new self("The template already has a field named '{$name}'.");
 	}
 
+	/**
+	 * @param list<string> $template
+	 */
+	public static function templateHasNoSuchField(string $collection, string $name, array $template): self
+	{
+		$has = implode(', ', $template);
+
+		return new self("The collection '{$collection}' has no field '{$name}' in its template. It has: {$has}.");
+	}
+
 	public static function templateFieldResolvesToMoreThanOneValue(string $field, string $got): self
 	{
 		return new self(sprintf(

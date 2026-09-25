@@ -26,7 +26,7 @@ trait AsksText
 	 */
 	public function contains(string $needle): Draft
 	{
-		return new Draft(new Condition\Contains($this->scope, $needle));
+		return $this->draft(new Condition\Contains($this->scope, $needle));
 	}
 
 	/**
@@ -35,6 +35,6 @@ trait AsksText
 	 */
 	public function matches(string $pattern): Draft
 	{
-		return new Draft(new Condition\Matches($this->scope, $pattern));
+		return $this->draft(new Condition\Matches($this->scope, $pattern));
 	}
 }

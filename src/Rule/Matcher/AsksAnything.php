@@ -20,7 +20,7 @@ trait AsksAnything
 	 */
 	public function equals(mixed $expected): Draft
 	{
-		return new Draft(new Condition\Equals($this->scope, $expected));
+		return $this->draft(new Condition\Equals($this->scope, $expected));
 	}
 
 	/**
@@ -28,7 +28,7 @@ trait AsksAnything
 	 */
 	public function notEquals(mixed $expected): Draft
 	{
-		return new Draft(new Condition\NotEquals($this->scope, $expected));
+		return $this->draft(new Condition\NotEquals($this->scope, $expected));
 	}
 
 	/**
@@ -40,7 +40,7 @@ trait AsksAnything
 	 */
 	public function isIn(array $candidates): Draft
 	{
-		return new Draft(new Condition\IsIn($this->scope, $candidates));
+		return $this->draft(new Condition\IsIn($this->scope, $candidates));
 	}
 
 	/**
@@ -52,7 +52,7 @@ trait AsksAnything
 	 */
 	public function isEmpty(): Draft
 	{
-		return new Draft(new Condition\IsEmpty($this->scope));
+		return $this->draft(new Condition\IsEmpty($this->scope));
 	}
 
 	/**
@@ -60,6 +60,6 @@ trait AsksAnything
 	 */
 	public function isNotEmpty(): Draft
 	{
-		return new Draft(new Condition\IsNotEmpty($this->scope));
+		return $this->draft(new Condition\IsNotEmpty($this->scope));
 	}
 }

@@ -72,6 +72,19 @@ final class ScopeResolver
 	}
 
 	/**
+	 * The names of the rows a collection was given, in the order they arrived.
+	 *
+	 * Empty when nothing usable was submitted, which is not an error — {@see Rule\Condition\Quantified}
+	 * folds over these, and "no rows" is a request it has to be able to answer about.
+	 *
+	 * @return list<string>
+	 */
+	public function rowNamesIn(FieldName $collection): array
+	{
+		return $this->rowsOf($collection)?->keys() ?? [];
+	}
+
+	/**
 	 * The field a locator is about — the schema's own, or one of a collection's template fields.
 	 *
 	 * Everything checkable without a request is checked here, which is what makes a scope typo an

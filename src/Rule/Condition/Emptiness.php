@@ -5,6 +5,7 @@ namespace Meraki\Schema\Rule\Condition;
 
 use Meraki\Schema\Field;
 use Meraki\Schema\Rule\Condition;
+use Meraki\Schema\Rule\Scoped;
 use Meraki\Schema\Scope;
 use Meraki\Schema\ScopeResolver;
 use Countable;
@@ -33,7 +34,7 @@ use Stringable;
  * number `0` is a quantity — treating either as empty is the mistake `empty()` makes in PHP and
  * the reason this does not use it.
  */
-abstract class Emptiness implements Condition
+abstract class Emptiness implements Condition, Scoped
 {
 	public readonly Scope $scope;
 
@@ -70,5 +71,13 @@ abstract class Emptiness implements Condition
 	public function getScopes(): array
 	{
 		return [$this->scope];
+	}
+
+	/**
+	 * The same question, asked about somewhere else. See {@see Scoped::about()}.
+	 */
+	public function about(Scope $scope): static
+	{
+		return clone($this, ['scope' => $scope]);
 	}
 }

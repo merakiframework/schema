@@ -40,7 +40,7 @@ trait AsksOrder
 	 */
 	public function isAtLeast(mixed $bound): Draft
 	{
-		return new Draft(new Condition\IsAtLeast($this->scope, $bound));
+		return $this->draft(new Condition\IsAtLeast($this->scope, $bound));
 	}
 
 	/**
@@ -48,7 +48,7 @@ trait AsksOrder
 	 */
 	public function isGreaterThan(mixed $bound): Draft
 	{
-		return new Draft(new Condition\IsGreaterThan($this->scope, $bound));
+		return $this->draft(new Condition\IsGreaterThan($this->scope, $bound));
 	}
 
 	/**
@@ -56,7 +56,7 @@ trait AsksOrder
 	 */
 	public function isAtMost(mixed $bound): Draft
 	{
-		return new Draft(new Condition\IsAtMost($this->scope, $bound));
+		return $this->draft(new Condition\IsAtMost($this->scope, $bound));
 	}
 
 	/**
@@ -66,7 +66,7 @@ trait AsksOrder
 	 */
 	public function isLessThan(mixed $bound): Draft
 	{
-		return new Draft(new Condition\IsLessThan($this->scope, $bound));
+		return $this->draft(new Condition\IsLessThan($this->scope, $bound));
 	}
 
 	/**
@@ -77,6 +77,6 @@ trait AsksOrder
 	 */
 	public function isBetween(mixed $atLeast, mixed $atMost): Draft
 	{
-		return new Draft(new Condition\IsBetween($this->scope, $atLeast, $atMost));
+		return $this->draft(new Condition\IsBetween($this->scope, $atLeast, $atMost));
 	}
 }

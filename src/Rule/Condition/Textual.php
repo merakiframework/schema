@@ -5,6 +5,7 @@ namespace Meraki\Schema\Rule\Condition;
 
 use Meraki\Schema\Field;
 use Meraki\Schema\Rule\Condition;
+use Meraki\Schema\Rule\Scoped;
 use Meraki\Schema\Scope;
 use Meraki\Schema\ScopeResolver;
 use Stringable;
@@ -37,7 +38,7 @@ use Stringable;
  *
  * What *is* checked where the rule is written is the pattern itself. See {@see Matches}.
  */
-abstract class Textual implements Condition
+abstract class Textual implements Condition, Scoped
 {
 	public readonly Scope $scope;
 
@@ -75,5 +76,13 @@ abstract class Textual implements Condition
 	public function getScopes(): array
 	{
 		return [$this->scope];
+	}
+
+	/**
+	 * The same question, asked about somewhere else. See {@see Scoped::about()}.
+	 */
+	public function about(Scope $scope): static
+	{
+		return clone($this, ['scope' => $scope]);
 	}
 }

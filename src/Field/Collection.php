@@ -13,6 +13,8 @@ use Meraki\Schema\FieldName;
 use Meraki\Schema\PrefillPolicy;
 use Meraki\Schema\ResolvedField;
 use Meraki\Schema\Rule\Matcher;
+use Meraki\Schema\Rule\Quantifier;
+use Meraki\Schema\Scope;
 use Meraki\Schema\ValueScope;
 use Meraki\Schema\ValueSource;
 
@@ -351,6 +353,70 @@ final readonly class Collection implements Field
 	public function when(): Matcher\Basic
 	{
 		return new Matcher\Basic(ValueScope::of($this->name));
+	}
+
+	/**
+	 * Asks about one template field across the rows, where **one row answering yes is enough**.
+	 *
+	 *     $lines->whereAny('sku')->equals('HAZMAT')->then($declaration->makeRequired());
+	 *
+	 * @throws InvalidConfiguration if the template has no such field
+	 */
+	public function whereAny(FieldName|string $field): Matcher
+	{
+		return $this->acrossRows($field, Quantifier::Any);
+	}
+
+	/**
+	 * The same, where **every row has to answer yes**.
+	 *
+	 *     $lines->whereEvery('kind')->equals('digital')->then($shippingAddress->makeOptional());
+	 *
+	 * @throws InvalidConfiguration if the template has no such field
+	 */
+	public function whereEvery(FieldName|string $field): Matcher
+	{
+		return $this->acrossRows($field, Quantifier::Every);
+	}
+
+	/**
+	 * The template field's own matcher, bound to the column and quantified.
+	 *
+	 * Its *own* matcher, so a row field offers exactly the questions its value can answer —
+	 * `whereAny('qty')` on a number has `isGreaterThan` and `whereAny('sku')` on text does not,
+	 * which is the same promise {@see Field::when()} makes for a top-level field. Built from the
+	 * class that field chose rather than from a table here, so a field type this library has never
+	 * heard of is quantifiable the moment it picks a matcher.
+	 *
+	 * @throws InvalidConfiguration if the template has no such field
+	 */
+	private function acrossRows(FieldName|string $field, Quantifier $how): Matcher
+	{
+		$name = $field instanceof FieldName ? $field : new FieldName($field);
+		$matcher = $this->templateField($name)->when();
+
+		return new ($matcher::class)(
+			new ValueScope(new Scope\Column($this->name, $name)),
+			$how,
+		);
+	}
+
+	/**
+	 * @throws InvalidConfiguration if the template has no such field
+	 */
+	private function templateField(FieldName $name): Field
+	{
+		foreach ($this->template as $field) {
+			if ($field->name->equals($name)) {
+				return $field;
+			}
+		}
+
+		throw InvalidConfiguration::templateHasNoSuchField(
+			(string) $this->name,
+			(string) $name,
+			array_map(static fn(Field $f): string => (string) $f->name, $this->template),
+		);
 	}
 
 	/**
