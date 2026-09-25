@@ -10,6 +10,201 @@ is a commit subject, with the body kept because the body is where the reasoning 
 
 ## Unreleased
 
+### Document reaching into a collection
+
+`fe1747f0` · 2026-09-26
+
+API.md said collection items were not addressable, which was true and is
+the thing these five commits changed. It now documents the grammar as what
+it is — four tails that can be rooted at a schema field, a named row, a
+column or the template — and why the trailing `value` is there: a row field
+is a field, so it has a definition as well as a value and both have to be
+nameable.
+
+LIMITATIONS.md's entry on scope depth kept the half that is still true (a
+part of a part is not expressible) and dropped the half that is not.
+
+UPGRADING.md gains the break that costs readers the most, and it is not a
+code change: a collection is submitted as rows under names now, and a
+positional list reports shape: unreadable. Both payloads in that section
+were run rather than written from memory, along with what follows from it —
+Item::$key is a string, the lookups take strings, and Value::equals() no
+longer cares about row order.
+
+### A rule can apply to one row at a time
+
+`cff2fac8` · 2026-09-26
+
+"If this attendee is a child, require this attendee's guardian" is a
+question about one row, and a schema rule could never ask it: naming the
+collection only ever speaks about the list as a whole. So a collection
+carries its own rules now, applied per row.
+
+    $attendees = $schema->createCollectionField('attendees', $age, $guardian)
+        ->forEachRow($age->when()->isLessThan(18)->then($guardian->makeRequired()));
+
+**It needed no new scope vocabulary**, which is the part worth noticing. A
+row rule's field set *is* the template, so `$age->when()` produces the
+ordinary `#/fields/age/value` and inside a row that is exactly what it
+says — the row's values are what was submitted. Narrowing the engine from
+Facade to Field\Set two commits ago is what makes that possible; while it
+demanded a whole schema, none of this could reuse it.
+
+So the fold is lifted out of Facade into Rule\Application rather than
+copied: a schema applies its rules to its own fields, a collection applies
+its row rules to a copy of its template, and both get the same
+interleaving, the same applyTo(), and the same record of what happened. A
+second implementation would have been a second place for rule ordering to
+be subtly wrong.
+
+Each row folds over its **own copy** of the template, so a rule that fired
+for one row has said nothing about the next. If a rule could reach the
+shared template, the first child in a list would make a guardian required
+for everybody after them — and a test holds that down.
+
+Ignore works per row too, because ignoring is about a request rather than a
+definition, and a row is a request's worth of values.
+
+A row rule may only reach fields the template holds, checked where the rule
+is written: it runs against the template and nothing else, so a field
+outside it could never resolve and would otherwise fail on a user's
+request. Changing something outside the collection is a schema rule's job.
+
+examples/row-rules.php shows both halves — per-row rules and the
+quantifiers from the previous commit.
+
+### Ask how many rows match, not just what they hold
+
+`ecb7bab2` · 2026-09-25
+
+The previous commit made a column resolvable and, in doing so, opened a
+hole: `when('#/fields/lines/value/*/sku/value')->equals('HAZMAT')` compared
+a *list* of one value per row against a string, so the rule was accepted,
+never fired, and said nothing about why. That is the failure this library
+spends most of its guards avoiding, so it does not get to stand.
+
+A column needs a quantifier before it means anything:
+
+    $lines->whereAny('sku')->equals('HAZMAT')->then($declaration->makeRequired());
+    $lines->whereEvery('kind')->equals('digital')->then($shipping->makeOptional());
+
+Rather than teach twelve matchers what a list is, Quantified re-roots the
+inner condition at each row through Scope::rootedAt() and asks it exactly
+as it would be asked of a top-level field. So a quantified isGreaterThan is
+the same isGreaterThan, and a matcher added later is quantifiable for free.
+
+whereAny() hands back the *template field's own* matcher, so a row field
+offers only the questions its value can answer — whereAny('qty') has the
+ordered verbs and whereAny('sku') does not. That needed one seam: the
+twelve verbs now finish through BuildsDrafts::draft() instead of building a
+Draft inline, which is the single place quantification is applied.
+
+Re-rooting needs to replace a readonly property, which only the declaring
+class may do, so the three condition families gained about() — the
+counterpart to Scope::rootedAt(), and the reason they now say out loud
+(via Scoped) that they hold a scope. A group like AllOf deliberately does
+not: it asks about several places, so there is no one scope to re-root.
+
+The quantifier is not part of the address. Both spellings name the same
+values, so it serialises on the condition and the scope format is untouched
+— which also means this could have landed later without changing what any
+stored scope means.
+
+Empty collections follow the standard reading, stated out loud because it
+is the case people forget: "any of nothing" is false, "every one of
+nothing" is true.
+
+### Resolve a scope that reaches into a collection
+
+`353468dd` · 2026-09-24
+
+The locator picks which field and which value; the tail logic that was
+already there runs against them unchanged. That ordering is what stops
+sixteen paths becoming sixteen branches.
+
+A column is answered by asking each row the same question, through
+Scope::rootedAt() — so no tail had to learn what a list is, and
+`…/value/*/sku/value` comes back as one value per row under the row names.
+The read side is Collection\Value's own valueOf() and keys(), reused rather
+than reimplemented.
+
+Everything knowable without a request is checked when the scope is
+resolved, which is where Facade::addRule() resolves it: that the field is a
+collection at all, and that its template really holds the field named. A
+row is not, because which rows exist is a fact about a request — so an
+absent row resolves to nothing, the way an unfilled part of an address
+does, and a rule naming it simply does not fire.
+
+`…/template/<f>/value` raises rather than guessing. The definition is
+row-agnostic and a value is not; answering "the first row" or "all of them"
+would be a silent answer to a question nobody asked.
+
+**And it found a bug in the comparison checks.** Every scope reports the
+*schema* field it belongs to — the collection — so
+`when(#/fields/lines/value/rush/sku/value)->equals('URGENT')` asked whether
+`Collection` could hold a string, decided it could not, and refused a
+working rule as one that could never fire. The same lookup fed the
+expectation through the collection's parse rather than the template
+field's. Both now ask ScopeResolver::fieldFor(), which answers with the
+field the scope is actually about.
+
+### A scope is a locator and a tail
+
+`d0f4d630` · 2026-09-24
+
+Four namespaces times four tails is sixteen paths, and writing a class per
+path would have meant twelve new ones. They are two independent things, so
+they are modelled that way: a locator says where to look, a tail says what
+to read once there.
+
+The four tails are the classes that already existed — FieldScope,
+PropertyScope, ValueScope, PartScope — so every instanceof in the library
+still dispatches on exactly what it did before. What is new is where they
+can be rooted:
+
+    #/fields/<f>                     a field the schema holds
+    #/fields/<c>/value/<row>/<tf>    one named row of a collection
+    #/fields/<c>/value/*/<tf>        every row, as a column
+    #/fields/<c>/template/<tf>       the template, row-agnostic
+
+parse() reads the locator off the front and applies one tail grammar to
+whatever is left, so a row's field is addressed exactly like a top-level
+one — and the trailing `value` that tells `…/alice/email` from
+`…/alice/email/value` is the same segment that has always told
+`#/fields/x/value` from `#/fields/x/minLength`. A row field is a field: it
+has a definition and a value, and both have to be nameable. Deferring that
+segment would not have been additive, because adding it later would change
+what an already-stored scope resolves to.
+
+Disambiguation stays positional, so parse() still never asks what kind of
+field it is looking at. Five segments under `value` is the shortest a row
+can be, one more than a value part needs, so `#/fields/billing/value/country`
+is read as it always was. `template` alone still resolves as the ordinary
+property it always did — the marker only takes over once a field follows it.
+
+Nothing needed escaping, because a row key is now a name: a name cannot
+contain the `/` that separates segments, and `*` cannot be a name, which is
+what leaves it free to mean "every row".
+
+Scope::$field stays the field the *schema* holds — the collection, never the
+template field — so the two places that read it, grouping outcomes and
+looking a field up, needed no change. It is copied from the locator rather
+than read through a hook, because a readonly class may not have one.
+
+ScopeTest becomes the grammar's specification: all sixteen shapes round-trip
+through parse() and __toString(), with the rejections beside them.
+
+Also restores three docblock examples in Comparison that the previous
+commit's rename flattened: they call $schema->when(), which is a Facade
+method, not a Field\Set one.
+
+### Regenerate CHANGELOG.md
+
+`f9a34cff` · 2026-09-24
+
+Brings it up to date with the code-style work. The check tolerates HEAD not
+being listed, so this commit does not invalidate itself.
+
 ### Document the two string rules in the coding style
 
 `775ca7c9` · 2026-09-24
