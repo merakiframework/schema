@@ -281,24 +281,25 @@ appears in results and in serialized documents while doing nothing is worse than
 ### A part of a value is as deep as a scope goes
 
 A scope can name a field, one of its public properties, or **one part** of the value a structured
-field owns. It cannot go deeper, and it cannot name a collection item.
+field owns. It cannot go deeper.
 
 ```php
-ValueScope::of('addr');             // #/fields/addr/value        — the whole address
-ValueScope::of('addr', 'country');  // #/fields/addr/value/country — one part
-Scope::parse('#/fields/addr/a/b/c');       // InvalidScope — too many segments
-Scope::parse('#/fields/items/0/sku');      // items are not addressable
+ValueScope::of('addr');                 // #/fields/addr/value         — the whole address
+ValueScope::of('addr', 'country');      // #/fields/addr/value/country — one part
+Scope::parse('#/fields/addr/a/b/c');    // InvalidScope — too many segments
 ```
 
 One part is enough for the case that motivated this — "when the address is in AU, require the
 state" works, using the part names a structured type reports (`country`, `administrative_area`,
-`postal_code`, …), not the camelCase spellings. What is not expressible is a part *of* a part, or
-anything keyed by collection row: which row `0` is depends on what was submitted, so a stored rule
-naming one would mean a different row on a different request.
+`postal_code`, …), not the camelCase spellings. What is **not** expressible is a part *of* a part.
 
-**The scope string format is therefore not frozen at `2.0.0-alpha.1`** even though the rest of the
-public API is. Widening it is additive — existing scope strings keep their meaning — but anything
-that assumes a hard three-segment ceiling should expect that to change.
+Collection rows, which this entry also used to rule out, are addressable now: a row key is a name
+rather than a position, so `#/fields/attendees/value/alice/email/value` means the same row on every
+request. See [API.md](API.md#reaching-into-a-collection).
+
+**The scope string format is still not frozen at `2.0.0-alpha.1`** even though the rest of the
+public API is. Widening it stays additive — existing scope strings keep their meaning — and nested
+parts are the remaining candidate.
 
 `ValueScope::of()` silently ignores arguments past the second rather than raising, which is worth
 knowing if you build scopes dynamically.

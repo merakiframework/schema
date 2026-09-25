@@ -76,6 +76,40 @@ $schema->addCollectionField('attendees', fn (Facade $s) => $s->addNameField('nam
 $schema->add($schema->createCollectionField('attendees', $schema->createNameField('name')));
 ```
 
+### Collection rows must be named
+
+**This one breaks payloads, not just code.** A collection is submitted as rows under *names*, and a
+positional list is refused — it reports `shape: unreadable`, like any other input a field cannot
+read.
+
+```php
+// 1.x — a list
+['attendees' => [['name' => 'Bilal'], ['name' => 'Chen']]]
+
+// 2.0 — named rows
+['attendees' => ['first' => (object) ['name' => 'Bilal'], 'second' => (object) ['name' => 'Chen']]]
+```
+
+A name is held to the same pattern as a field name: letters, digits, `_` and `-`, never starting with
+a digit. Pick whatever your data already has — an id, a slug, a line number prefixed with a letter.
+
+**Why.** A position meant a different row the moment anything was inserted above it, so a row could
+not be reported against or addressed by a rule, and `Collection\Value` was the one value a scope
+could not reach into. With names, `#/fields/attendees/value/alice/email/value` means the same row on
+every request — which is what [row rules](docs/API.md#rules-that-apply-to-one-row) and
+[columns](docs/API.md#asking-about-rows-collectively) are built on.
+
+What follows from it, if you read results:
+
+- `Collection\Item::$key` is a `string`, never an `int`.
+- `Result::itemAt()`, `Value::rowAt()`, `has()`, `valueOf()` and `column()` all take a `string`.
+- `Value::equals()` no longer cares about row *order*, because a name already says which row is
+  which. Two lists with the same rows under the same names are equal.
+
+If you render forms, the input names change with it: `attendees[0][name]` becomes
+`attendees[first][name]`. `meraki/schema-html` has to generate those names, which is part of its own
+migration.
+
 ### Supplying a request
 
 `input()`, `prefill()` and `applyRules()` all wrote to the schema and are gone. Everything a
@@ -184,6 +218,7 @@ believed a rule was producing.
 | `Passphrase` | Use `Password`. The real distinction was how strength is measured, which is now `minStrengthOf()`. |
 | `Placeholder` | Removed — a spacer is presentation, and belongs in your renderer. |
 | `AtomicMultiValue` | Removed. A field holds one value; several values are a `Collection`. |
+| Positional collection rows | Every row is named — see [Collection rows must be named](#collection-rows-must-be-named). A list is refused, and `Item::$key` is a `string`. |
 | `EmailAddress` comma-splitting | An email field takes one address. `a@b.com, c@d.com` is now a malformed single address, not a list. Use a `Collection` for several. |
 | `pairWith()` | Create both fields and write an ordinary rule. |
 | `Field::$schema` | Removed. A field no longer knows its schema. |
@@ -207,9 +242,10 @@ against.
   property, so `#/fields/username/minLength` is a legitimate stored target. That also means
   renaming a property is a breaking change for anyone holding stored rules.
 - **The scope string format is not frozen.** A scope reaches a field, one of its public
-  properties, or one *part* of a structured value (`#/fields/addr/value/country`) — but no
-  deeper, and never a collection item. Widening that is additive, so existing scope strings keep
-  their meaning; see [docs/LIMITATIONS.md](docs/LIMITATIONS.md).
+  properties, one *part* of a structured value (`#/fields/addr/value/country`), or a named row of a
+  collection (`#/fields/attendees/value/alice/email/value`) — but not a part *of* a part. Widening
+  that is additive, so existing scope strings keep their meaning; see
+  [docs/LIMITATIONS.md](docs/LIMITATIONS.md).
 
 ### What did not change
 

@@ -521,6 +521,9 @@ Four kinds, and the segment count says which:
 | `#/fields/age/minValue` | a public property of the definition |
 | `#/fields/billing/value/country` | one part of the value |
 
+Those four are the **tail**. They can be rooted at a schema field, as above, or inside a collection —
+see [reaching into a collection](#reaching-into-a-collection).
+
 A **part** belongs to a value, so it goes under `value`. The short form
 `#/fields/billing/country` reads better and is ambiguous: the third segment already means a
 definition property, and `#/fields/card/name` could be the field's name or the cardholder's.
@@ -626,8 +629,10 @@ $schema->when(ValueScope::of('shipping', 'country'))
     ->equals(ValueScope::of('billing', 'country'));
 ```
 
-**Collection items are not addressable.** Which row `0` is depends on what was submitted, so a
-stored rule naming one would mean a different row on a different request.
+**A collection's rows are addressable by name** — see [reaching into a collection](#reaching-into-a-collection)
+below. They were not, while a row could be positional: which row `0` is depended on what was
+submitted, so a stored rule naming one meant a different row on a different request. Rows are named
+now, and a name means the same row every time.
 
 ### Scopes reach properties, never methods
 
@@ -635,6 +640,80 @@ A property scope addresses a **public property**, and every public property is a
 exceptions list. That is a real versioning commitment: renaming `Text::$minLength` breaks any
 stored rule addressing `#/fields/x/minLength`. It is also why the three surfaces are named
 consistently — the property *is* the API.
+
+<a id="reaching-into-a-collection"></a>
+
+### Reaching into a collection
+
+The four scopes above are a **tail** — the field, one of its properties, its value, or one part of
+that value. A collection lets the same four be rooted somewhere else, so a row's field is addressed
+exactly the way a top-level field is:
+
+| Rooted at | Reaches |
+| --- | --- |
+| `#/fields/<f>/…` | a field the schema holds |
+| `#/fields/<c>/value/<row>/<tf>/…` | one named row of collection `<c>` |
+| `#/fields/<c>/value/*/<tf>/…` | every row, as a column |
+| `#/fields/<c>/template/<tf>/…` | the template, row-agnostic |
+
+So, in full:
+
+```
+#/fields/attendees/value/alice/email                 the field in that row
+#/fields/attendees/value/alice/email/minLength       its effective definition
+#/fields/attendees/value/alice/email/value           what that row was given
+#/fields/attendees/value/alice/addr/value/country    one part of that
+```
+
+**A row field is a field**, which is why the trailing `value` is there: it has a definition *and* a
+value, so it needs the same distinction `#/fields/x/value` and `#/fields/x/minLength` have always
+had. Per-row rules make that a real difference rather than a theoretical one — `guardian.optional`
+genuinely differs between one row and the next.
+
+**A row is named, never positional.** A key is held to the same pattern as a field name — letters,
+digits, `_` and `-`, never starting with a digit — so a positional list is refused outright. That is
+what removes the need to escape anything (a name cannot contain `/`) and what leaves `*` free to
+mean every row.
+
+**A row's existence is not checked when the rule is written.** Everything the schema knows is —
+that the field is a collection, that the template holds that field, that the part exists — but which
+rows were submitted is a fact about a request. A rule naming a row that never arrives simply does
+not fire.
+
+`#/fields/<c>/template/<f>/value` raises: the definition is row-agnostic and a value is not, so it
+names no row to read. Use `*` to ask about all of them.
+
+### Asking about rows collectively
+
+A column resolves to one value per row, so a question put to it needs to say how many must match:
+
+```php
+$lines->whereAny('sku')->equals('HAZMAT')->then($declaration->makeRequired());
+$lines->whereEvery('kind')->equals('digital')->then($shippingAddress->makeOptional());
+```
+
+`whereAny()` and `whereEvery()` hand back the **template field's own** matcher, so a row field offers
+only the questions its value can answer — `whereAny('qty')` on a number has `isGreaterThan` and
+`whereAny('sku')` on text does not.
+
+The quantifier belongs to the question, not the address: both spell the same scope, and it serialises
+on the condition. On an empty collection they read the standard way — "any of nothing" is false,
+"every one of nothing" is true.
+
+### Rules that apply to one row
+
+A schema rule speaks about the list; a **row rule** speaks about one row:
+
+```php
+$attendees = $schema->createCollectionField('attendees', $age, $guardian)
+    ->forEachRow($age->when()->isLessThan(18)->then($guardian->makeRequired()));
+```
+
+A row rule's field set *is* the template, so it is written like any other rule — `$age->when()` means
+"this row's age" — and needs no scope vocabulary of its own. Each row is judged against its own copy
+of the template, so a rule that fired for one row has said nothing about the next, and the authored
+template is never written to. A row rule may only reach fields the template holds; changing anything
+outside the collection is a schema rule's job.
 
 ## What raises, and what does not
 
