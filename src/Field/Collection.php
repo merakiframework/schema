@@ -12,6 +12,7 @@ use Meraki\Schema\Field\Collection\Value;
 use Meraki\Schema\FieldName;
 use Meraki\Schema\PrefillPolicy;
 use Meraki\Schema\ResolvedField;
+use Meraki\Schema\Rule;
 use Meraki\Schema\Rule\Matcher;
 use Meraki\Schema\Rule\Quantifier;
 use Meraki\Schema\Scope;
@@ -104,6 +105,15 @@ final readonly class Collection implements Field
 	public array $template;
 
 	/**
+	 * Rules applied to each row on its own, against a copy of the template.
+	 *
+	 * Separate from the schema's rules because they answer a different question and reach a
+	 * different place: a schema rule speaks about the list, and one of these speaks about one row.
+	 * See {@see self::forEachRow()}.
+	 */
+	public Rule\Set $rowRules;
+
+	/**
 	 * @throws InvalidConfiguration if the template is empty or names a field twice
 	 */
 	public function __construct(
@@ -129,6 +139,7 @@ final readonly class Collection implements Field
 		}
 
 		$this->template = array_values($template);
+		$this->rowRules = self::initially(new Rule\Set());
 		$this->minCount = self::initially(1);
 		$this->maxCount = self::initially(null);
 		$this->allowsDuplicates = self::initially(false);
@@ -261,7 +272,7 @@ final readonly class Collection implements Field
 			$appliedOutcomes,
 			$this->sourceOf($given, $givenAs),
 			$this->evaluatedAt(),
-			$this->eachItem($given, static fn(Field $f, mixed $v): ResolvedField => self::resolvedLeaf($f, $v)),
+			$this->eachItem($given, static fn(Field $f, mixed $v, array $o): ResolvedField => self::resolvedLeaf($f, $v, $o)),
 		);
 	}
 
@@ -339,7 +350,7 @@ final readonly class Collection implements Field
 			$appliedOutcomes,
 			$source,
 			$this->evaluatedAt(),
-			$this->eachItem($given, static fn(Field $f, mixed $v): ResolvedField => self::validatedLeaf($f, $v)),
+			$this->eachItem($given, static fn(Field $f, mixed $v, array $o): ResolvedField => self::validatedLeaf($f, $v, $o)),
 			...$this->check($items, $source, $policy),
 		);
 	}
@@ -365,6 +376,46 @@ final readonly class Collection implements Field
 	public function whereAny(FieldName|string $field): Matcher
 	{
 		return $this->acrossRows($field, Quantifier::Any);
+	}
+
+	/**
+	 * A rule applied to **each row on its own**, asking about that row and changing that row.
+	 *
+	 *     $age = $schema->createNumberField('age');
+	 *     $guardian = $schema->createTextField('guardian')->makeOptional();
+	 *
+	 *     $attendees = $schema->createCollectionField('attendees', $age, $guardian)
+	 *         ->forEachRow($age->when()->isLessThan(18)->then($guardian->makeRequired()));
+	 *
+	 * The question a repeatable section actually asks, and the one a schema rule cannot: "if *this*
+	 * attendee is a child, require *this* attendee's guardian" is about one row at a time, and a
+	 * rule naming the collection could only ever speak about the list as a whole.
+	 *
+	 * ### A row rule's world is the template
+	 *
+	 * Which is why it needs no new scope vocabulary. `$age->when()` produces the ordinary
+	 * `#/fields/age/value`, and inside a row that is exactly what it says — the row's field set
+	 * *is* the template, and the row's values are what was submitted. So a row rule is written the
+	 * way every other rule is written, and {@see \Meraki\Schema\Rule\Application} runs it unchanged.
+	 *
+	 * Use {@see self::whereAny()} instead to ask about the rows collectively, and a schema rule to
+	 * change something outside the collection — a row rule can only reach its own row.
+	 *
+	 * @throws InvalidConfiguration if the rule names a field the template does not hold
+	 */
+	public function forEachRow(Rule|Rule\Draft ...$rules): static
+	{
+		$set = $this->rowRules;
+
+		foreach ($rules as $rule) {
+			$rule = $rule instanceof Rule\Draft ? $rule->buildAgainst(new Set(...$this->template)) : $rule;
+
+			$this->assertRowRuleStaysInsideTheTemplate($rule);
+
+			$set = $set->add($rule);
+		}
+
+		return $this->with(['rowRules' => $set]);
 	}
 
 	/**
@@ -560,7 +611,7 @@ final readonly class Collection implements Field
 	}
 
 	/**
-	 * @param callable(Field, mixed): ResolvedField $each
+	 * @param callable(Field, mixed, list<\Meraki\Schema\Rule\AppliedOutcome>): ResolvedField $each
 	 * @return array<string, Item> keyed by row name, so itemAt() is a lookup rather than a scan
 	 */
 	private function eachItem(mixed $given, callable $each): array
@@ -576,8 +627,24 @@ final readonly class Collection implements Field
 			$fields = [];
 			$values = is_array($item) ? $item : [];
 
-			foreach ($this->template as $field) {
-				$fields[] = $each($field, $values[(string) $field->name] ?? null);
+			// Each row folds over its **own copy** of the template, so a rule that made one row's
+			// guardian required has said nothing about the next row. Nothing is written to
+			// `$this->template`, which is what has always let one template validate every row.
+			[$effective, $applied] = Rule\Application::of(
+				$this->rowRules,
+				new Set(...$this->template),
+				$values,
+			);
+
+			foreach ($effective as $field) {
+				$name = (string) $field->name;
+				$outcomes = Rule\Application::forField($applied, $name);
+
+				// A rule that ignored this field in this row means "treat it as though the row said
+				// nothing", exactly as it does for a schema field.
+				$value = Rule\Application::ignores($outcomes) ? null : ($values[$name] ?? null);
+
+				$fields[] = $each($field, $value, $outcomes);
 			}
 
 			// Keyed by the same key, so itemAt() is a lookup rather than a scan — and so a named
@@ -586,6 +653,32 @@ final readonly class Collection implements Field
 		}
 
 		return $results;
+	}
+
+	/**
+	 * A row rule may only reach fields the template holds.
+	 *
+	 * It runs against a copy of the template and nothing else, so a scope or outcome naming
+	 * something outside it could never resolve — and would fail on a user's request rather than
+	 * where the rule was written. Changing something outside the collection is a schema rule's job.
+	 *
+	 * @throws InvalidConfiguration naming the field and what the template does hold
+	 */
+	private function assertRowRuleStaysInsideTheTemplate(Rule $rule): void
+	{
+		$named = [
+			...array_map(static fn(Scope $s): string => (string) $s->field, $rule->condition->getScopes()),
+			...array_map(static fn(Rule\Outcome $o): string => (string) $o->getScope()->field, $rule->outcomes),
+			...array_map(static fn(Rule\Outcome $o): string => (string) $o->getScope()->field, $rule->else),
+		];
+
+		$held = array_map(static fn(Field $f): string => (string) $f->name, $this->template);
+
+		foreach ($named as $name) {
+			if (!in_array($name, $held, true)) {
+				throw InvalidConfiguration::templateHasNoSuchField((string) $this->name, $name, $held);
+			}
+		}
 	}
 
 	/**
@@ -611,19 +704,24 @@ final readonly class Collection implements Field
 	/**
 	 * A template field's own result. Flattened to a {@see ResolvedField} because an item is a
 	 * list of leaves: a collection of collections is not something a form can render.
+	 *
+	 * @param list<Rule\AppliedOutcome> $appliedOutcomes what this row's rules did to this field
 	 */
-	private static function resolvedLeaf(Field $field, mixed $value): ResolvedField
+	private static function resolvedLeaf(Field $field, mixed $value, array $appliedOutcomes = []): ResolvedField
 	{
-		$result = $field->resolve($value);
+		$result = $field->resolve($value, $appliedOutcomes);
 
 		return $result instanceof ResolvedField
 			? $result
 			: throw InvalidConfiguration::templateFieldResolvesToMoreThanOneValue((string) $field->name, $result::class);
 	}
 
-	private static function validatedLeaf(Field $field, mixed $value): ResolvedField
+	/**
+	 * @param list<Rule\AppliedOutcome> $appliedOutcomes what this row's rules did to this field
+	 */
+	private static function validatedLeaf(Field $field, mixed $value, array $appliedOutcomes = []): ResolvedField
 	{
-		$result = $field->validate($value);
+		$result = $field->validate($value, $appliedOutcomes);
 
 		return $result instanceof ResolvedField
 			? $result

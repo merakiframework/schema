@@ -169,16 +169,9 @@ final class Facade
 			$outcomes = $byField[$name] ?? [];
 
 			// A rule that ignores a field means "treat this as though nothing was sent", so
-			// the value never reaches the field. Reading that from the outcomes rather than
-			// a flag on the field keeps it a fact about this request.
-			$ignored = false;
-
-			foreach ($outcomes as $appliedOutcome) {
-				if ($appliedOutcome->is(Rule\Outcome\Ignore::class)) {
-					$ignored = true;
-					break;
-				}
-			}
+			// the value never reaches the field. Read from the outcomes rather than from a flag on
+			// the field, which keeps it a fact about this request.
+			$ignored = Rule\Application::ignores($outcomes);
 
 			// Submitted beats prefilled, and a rule that ignores the field discards both: the
 			// point of ignoring is that nothing was meant for this field on this request, and a
@@ -222,21 +215,7 @@ final class Facade
 	 */
 	private function applyRules(array $given): array
 	{
-		$applied = [];
-
-		foreach ($this->rules as $rule) {
-			foreach ($rule->evaluate($this->fields, $given) as $outcome) {
-				$name = $outcome->outcome->getScope()->field;
-
-				// An outcome is an operation, so it is handed the field as it currently stands
-				// and what it returns takes that field's place.
-				$this->fields = $this->fields->replace(
-					$outcome->outcome->applyTo($this->fields->getByName($name)),
-				);
-
-				$applied[] = $outcome;
-			}
-		}
+		[$this->fields, $applied] = Rule\Application::of($this->rules, $this->fields, $given);
 
 		return $applied;
 	}
