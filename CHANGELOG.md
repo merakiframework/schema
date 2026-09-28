@@ -10,6 +10,19 @@ is a commit subject, with the body kept because the body is where the reasoning 
 
 ## Unreleased
 
+### Say 2.0.0-alpha.2 where the tag is named
+
+`85eb4576` · 2026-09-28
+
+Three places name the current tag: the README banner, the note in
+LIMITATIONS.md about the scope format still being unfrozen, and the warning
+in UPGRADING.md that the sibling packages do not work against it. All three
+still say alpha.1.
+
+### Regenerate CHANGELOG.md
+
+`77c51b43` · 2026-09-28
+
 ### Date, Time and DateTime stay independent, and the reason is written down
 
 `cbda7197` · 2026-09-28
