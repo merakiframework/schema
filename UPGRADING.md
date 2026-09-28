@@ -236,6 +236,40 @@ believed a rule was producing.
 names and value type for all nineteen fields — and is the reference to check a specific call
 against.
 
+### `Time::until()` changed meaning — check any time range you wrote
+
+**This one does not break your build.** The call still compiles and still takes the same
+argument; it accepts one fewer value than it used to. That is the kind of change worth going
+and looking for rather than waiting to be told about.
+
+`Time::until()` was **inclusive** while `Date::until()` and `DateTime::until()` were exclusive.
+All three are exclusive now, which is what [docs/API.md](docs/API.md) always said they were.
+
+```php
+$shift = $schema->createTimeField('shift')->until('17:00');
+
+$schema->validate((object) ['shift' => '17:00']);   // 1.x: accepted   2.0: rejected
+```
+
+If you meant the endpoint to be included, say so — the inclusive bound is back under its own
+name, and reports under its own constraint name so a message pack can word it separately:
+
+```php
+$schema->createTimeField('shift')->through('17:00');   // 17:00 accepted
+```
+
+There is a matching `after()` for the exclusive *lower* bound, so all four combinations are
+nameable. See [The four temporal bounds](docs/API.md#the-four-temporal-bounds).
+
+**Two related changes on `Date`, `Time` and `DateTime`:**
+
+- `$from` and `$until` are **nullable** now, and default to `null` rather than to
+  `LocalDate::min()`/`max()`. If you read these properties directly, or address them with a
+  scope such as `#/fields/starts/until`, they can be `null`.
+- An **unset** bound reports `Skipped` rather than `Passed`. Previously the sentinel answered
+  every value with "yes", so the field returned a verdict on a question nobody asked. Code that
+  asserted `Passed` on an unconfigured `from` or `until` needs to expect `Skipped`.
+
 ### Two things to know before you store rules
 
 - **Every public property of a field is now wire format.** `ScopeResolver` addresses any public

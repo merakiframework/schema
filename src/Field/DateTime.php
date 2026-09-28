@@ -40,6 +40,22 @@ final readonly class DateTime extends AtomicField
 	public ?LocalDateTime $until;
 
 	/**
+	 * The earliest date-time accepted, exclusive; `null` means no lower bound.
+	 *
+	 * The counterpart to {@see self::$from}, and mutually exclusive with it.
+	 */
+	public ?LocalDateTime $after;
+
+	/**
+	 * The last date-time accepted, inclusive; `null` means no upper bound.
+	 *
+	 * Mutually exclusive with {@see self::$until}. Stored as the author wrote it rather than
+	 * folded into `until` plus one granule: the definition serialises, and a reader in another
+	 * language has to render back the bound that was declared, not one this library computed.
+	 */
+	public ?LocalDateTime $through;
+
+	/**
 	 * How far apart the accepted date-times are, counted from {@see self::$from}.
 	 *
 	 * Meaningless without a lower bound to count from, so the constraint is skipped when `from`
@@ -56,6 +72,8 @@ final readonly class DateTime extends AtomicField
 
 		$this->from = self::initially(null);
 		$this->until = self::initially(null);
+		$this->after = self::initially(null);
+		$this->through = self::initially(null);
 		$this->interval = match ($precision) {
 			TimePrecision::Minutes => Duration::ofMinutes(1),
 			TimePrecision::Seconds => Duration::ofSeconds(1),
@@ -71,7 +89,15 @@ final readonly class DateTime extends AtomicField
 	 */
 	public function from(string $dateTime): static
 	{
-		return $this->with(['from' => $this->mustParse($dateTime)]);
+		return $this->with(['from' => $this->mustParse($dateTime), 'after' => null]);
+	}
+
+	/**
+	 * Accepts anything later than this date-time, but not the date-time itself.
+	 */
+	public function after(string $dateTime): static
+	{
+		return $this->with(['after' => $this->mustParse($dateTime), 'from' => null]);
 	}
 
 	/**
@@ -79,7 +105,18 @@ final readonly class DateTime extends AtomicField
 	 */
 	public function until(string $dateTime): static
 	{
-		return $this->with(['until' => $this->mustParse($dateTime)]);
+		return $this->with(['until' => $this->mustParse($dateTime), 'through' => null]);
+	}
+
+	/**
+	 * Accepts this date-time and anything earlier.
+	 *
+	 * The inclusive upper bound. Use {@see self::until()} for adjacent ranges, which tile
+	 * without gaps precisely because they exclude their end.
+	 */
+	public function through(string $dateTime): static
+	{
+		return $this->with(['through' => $this->mustParse($dateTime), 'until' => null]);
 	}
 
 	/**
@@ -140,7 +177,9 @@ final readonly class DateTime extends AtomicField
 	{
 		return new Constraint\Set(
 			new Constraint('from', $this->isOnOrAfterFrom(...), $this->from?->__toString()),
+			new Constraint('after', $this->isAfterAfter(...), $this->after?->__toString()),
 			new Constraint('until', $this->isBeforeUntil(...), $this->until?->__toString()),
+			new Constraint('through', $this->isOnOrBeforeThrough(...), $this->through?->__toString()),
 			new Constraint('interval', $this->isOnAnInterval(...), (string) $this->interval),
 			new Constraint('precision', $this->hasAcceptablePrecision(...), $this->precision->value),
 		);
@@ -179,6 +218,22 @@ final readonly class DateTime extends AtomicField
 		return $this->from === null ? null : $dateTime->isAfterOrEqualTo($this->from);
 	}
 
+	/**
+	 * Whichever lower bound was declared, for the things that need an origin rather than a
+	 * verdict. The two are mutually exclusive, so at most one is ever set.
+	 */
+	private function lowerBound(): ?LocalDateTime
+	{
+		return $this->from ?? $this->after;
+	}
+
+	private function isAfterAfter(Value $parsed): ?bool
+	{
+		$dateTime = $parsed->dateTime;
+
+		return $this->after === null ? null : $dateTime->isAfter($this->after);
+	}
+
 	private function isBeforeUntil(Value $parsed): ?bool
 	{
 		$dateTime = $parsed->dateTime;
@@ -186,19 +241,28 @@ final readonly class DateTime extends AtomicField
 		return $this->until === null ? null : $dateTime->isBefore($this->until);
 	}
 
+	private function isOnOrBeforeThrough(Value $parsed): ?bool
+	{
+		$dateTime = $parsed->dateTime;
+
+		return $this->through === null ? null : $dateTime->isBeforeOrEqualTo($this->through);
+	}
+
 	private function isOnAnInterval(Value $parsed): ?bool
 	{
 		$dateTime = $parsed->dateTime;
 
+		$origin = $this->lowerBound();
+
 		// Nothing to count from, so nothing is being asked. See $interval.
-		if ($this->from === null) {
+		if ($origin === null) {
 			return null;
 		}
 
 		// Nanoseconds are computed inline rather than through intermediate helpers, which
 		// coerce to float on large multiplications and lose the low digits.
 		$input = $this->nanosOf($dateTime);
-		$from = $this->nanosOf($this->from);
+		$from = $this->nanosOf($origin);
 
 		$intervalNanos = BigInteger::of($this->interval->getSeconds())
 			->multipliedBy(BigInteger::of(1_000_000_000))

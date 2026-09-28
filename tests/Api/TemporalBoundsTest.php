@@ -63,6 +63,58 @@ final class TemporalBoundsTest extends TestCase
 	}
 
 	/**
+	 * A value equal to `after` is out of range — it is the exclusive lower bound.
+	 */
+	#[Test]
+	#[DataProvider('pointInTimeFields')]
+	public function after_excludes_the_value_it_names(callable $make, string $lower, string $upper): void
+	{
+		$field = $make()->after($lower);
+
+		$this->assertSame(
+			ValidationStatus::Failed,
+			$field->validate($lower)->forConstraint('after')->status,
+		);
+	}
+
+	/**
+	 * A value equal to `through` is in range — it is the inclusive upper bound.
+	 */
+	#[Test]
+	#[DataProvider('pointInTimeFields')]
+	public function through_includes_the_value_it_names(callable $make, string $lower, string $upper): void
+	{
+		$field = $make()->through($upper);
+
+		$this->assertSame(
+			ValidationStatus::Passed,
+			$field->validate($upper)->forConstraint('through')->status,
+		);
+	}
+
+	/**
+	 * The two lower bounds are one bound said two ways, so setting either clears the other.
+	 * Likewise the two upper. Nothing may end up carrying both.
+	 */
+	#[Test]
+	#[DataProvider('pointInTimeFields')]
+	public function the_paired_bounds_are_mutually_exclusive(callable $make, string $lower, string $upper): void
+	{
+		$lowerLast = $make()->from($lower)->after($lower);
+		$upperLast = $make()->until($upper)->through($upper);
+
+		$this->assertNull($lowerLast->from, 'after() should have cleared from()');
+		$this->assertNotNull($lowerLast->after);
+
+		$this->assertNull($upperLast->until, 'through() should have cleared until()');
+		$this->assertNotNull($upperLast->through);
+
+		// And the other way round, because a wither must not depend on call order.
+		$this->assertNull($make()->after($lower)->from($lower)->after);
+		$this->assertNull($make()->through($upper)->until($upper)->through);
+	}
+
+	/**
 	 * An unset bound is skipped rather than passed, because nothing was asked.
 	 *
 	 * A sentinel stood here before — `LocalTime::max()`, `LocalDate::max()` — which answered

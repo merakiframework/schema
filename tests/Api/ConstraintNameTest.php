@@ -55,9 +55,15 @@ final class ConstraintNameTest extends TestCase
 
 			// `precision` is what a field accepts, not what it stores — a time field told to take
 			// minutes refuses a value carrying seconds rather than truncating it.
-			'Date' => ['from', 'until', 'interval'],
-			'Time' => ['from', 'until', 'interval', 'precision'],
-			'DateTime' => ['from', 'until', 'interval', 'precision'],
+			// Four bounds, four names. `from`/`after` are the inclusive and exclusive lower
+			// bounds and `until`/`through` the exclusive and inclusive upper ones, each
+			// reporting under its own name so a verdict says which the author declared — and
+			// so a language pack can word "before 17:00" differently from "at or before
+			// 17:00". An earlier inclusive `to()` was removed for sharing `until`'s name; the
+			// objection was the shared name, not the choice.
+			'Date' => ['from', 'after', 'until', 'through', 'interval'],
+			'Time' => ['from', 'after', 'until', 'through', 'interval', 'precision'],
+			'DateTime' => ['from', 'after', 'until', 'through', 'interval', 'precision'],
 
 			'Boolean' => ['accepted'],
 			'EmailAddress' => ['minLength', 'maxLength', 'allowedDomains', 'disallowedDomains'],

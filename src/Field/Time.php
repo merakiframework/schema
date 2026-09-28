@@ -53,6 +53,22 @@ final readonly class Time extends AtomicField
 	public ?LocalTime $until;
 
 	/**
+	 * The earliest time accepted, exclusive; `null` means no lower bound.
+	 *
+	 * The counterpart to {@see self::$from}, and mutually exclusive with it.
+	 */
+	public ?LocalTime $after;
+
+	/**
+	 * The last time accepted, inclusive; `null` means no upper bound.
+	 *
+	 * Mutually exclusive with {@see self::$until}. Stored as the author wrote it rather than
+	 * folded into `until` plus one granule: the definition serialises, and a reader in another
+	 * language has to render back the bound that was declared, not one this library computed.
+	 */
+	public ?LocalTime $through;
+
+	/**
 	 * How far apart the accepted times are, counted from {@see self::$from}.
 	 *
 	 * Meaningless without a lower bound to count from, so the constraint is skipped when `from`
@@ -69,6 +85,8 @@ final readonly class Time extends AtomicField
 
 		$this->from = self::initially(null);
 		$this->until = self::initially(null);
+		$this->after = self::initially(null);
+		$this->through = self::initially(null);
 		$this->interval = match ($precision) {
 			Precision::Minutes => Duration::ofMinutes(1),
 			Precision::Seconds => Duration::ofSeconds(1),
@@ -84,7 +102,15 @@ final readonly class Time extends AtomicField
 	 */
 	public function from(string $value): static
 	{
-		return $this->with(['from' => $this->mustParse($value)]);
+		return $this->with(['from' => $this->mustParse($value), 'after' => null]);
+	}
+
+	/**
+	 * Accepts anything later than this time, but not the time itself.
+	 */
+	public function after(string $value): static
+	{
+		return $this->with(['after' => $this->mustParse($value), 'from' => null]);
 	}
 
 	/**
@@ -92,7 +118,18 @@ final readonly class Time extends AtomicField
 	 */
 	public function until(string $value): static
 	{
-		return $this->with(['until' => $this->mustParse($value)]);
+		return $this->with(['until' => $this->mustParse($value), 'through' => null]);
+	}
+
+	/**
+	 * Accepts this time and anything earlier.
+	 *
+	 * The inclusive upper bound. Use {@see self::until()} for adjacent ranges, which tile
+	 * without gaps precisely because they exclude their end.
+	 */
+	public function through(string $value): static
+	{
+		return $this->with(['through' => $this->mustParse($value), 'until' => null]);
 	}
 
 	/**
@@ -153,7 +190,9 @@ final readonly class Time extends AtomicField
 	{
 		return new Constraint\Set(
 			new Constraint('from', $this->isOnOrAfterFrom(...), $this->from?->__toString()),
+			new Constraint('after', $this->isAfterAfter(...), $this->after?->__toString()),
 			new Constraint('until', $this->isBeforeUntil(...), $this->until?->__toString()),
+			new Constraint('through', $this->isOnOrBeforeThrough(...), $this->through?->__toString()),
 			new Constraint('interval', $this->isOnAnInterval(...), (string) $this->interval),
 			new Constraint('precision', $this->hasAcceptablePrecision(...), $this->precision->value),
 		);
@@ -192,6 +231,22 @@ final readonly class Time extends AtomicField
 		return $this->from === null ? null : $time->isAfterOrEqualTo($this->from);
 	}
 
+	/**
+	 * Whichever lower bound was declared, for the things that need an origin rather than a
+	 * verdict. The two are mutually exclusive, so at most one is ever set.
+	 */
+	private function lowerBound(): ?LocalTime
+	{
+		return $this->from ?? $this->after;
+	}
+
+	private function isAfterAfter(Value $parsed): ?bool
+	{
+		$time = $parsed->time;
+
+		return $this->after === null ? null : $time->isAfter($this->after);
+	}
+
 	private function isBeforeUntil(Value $parsed): ?bool
 	{
 		$time = $parsed->time;
@@ -199,19 +254,28 @@ final readonly class Time extends AtomicField
 		return $this->until === null ? null : $time->isBefore($this->until);
 	}
 
+	private function isOnOrBeforeThrough(Value $parsed): ?bool
+	{
+		$time = $parsed->time;
+
+		return $this->through === null ? null : $time->isBeforeOrEqualTo($this->through);
+	}
+
 	private function isOnAnInterval(Value $parsed): ?bool
 	{
 		$time = $parsed->time;
 
+		$origin = $this->lowerBound();
+
 		// Nothing to count from, so nothing is being asked. See $interval.
-		if ($this->from === null) {
+		if ($origin === null) {
 			return null;
 		}
 
 		// Nanoseconds are computed inline rather than through intermediate helpers, which
 		// coerce to float on large multiplications and lose the low digits.
 		$input = $this->instantOf($time);
-		$from = $this->instantOf($this->from);
+		$from = $this->instantOf($origin);
 
 		$intervalNanos = BigInteger::of($this->interval->getSeconds())
 			->multipliedBy(BigInteger::of(1_000_000_000))

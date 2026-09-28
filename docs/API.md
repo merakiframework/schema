@@ -92,8 +92,8 @@ and the euro spans twenty.
 | `Boolean` | `mustBeAccepted()` | `accepted` | `Boolean\Value` |
 | `Collection` | `allowDuplicates()`, `maxCountOf()`, `minCountOf()` | `minCount`, `maxCount`, `unique` | `Collection\Value` |
 | `CreditCard` | `mustExpireInFuture()` | `numberFormat`, `numberChecksum`, `expiryFormat`, `expiryInFuture`, `expiryWithinReach`, `namePresent`, `securityCodeFormat` | `CreditCard\Value` |
-| `Date` | `atIntervalsOf()`, `from()`, `until()` | `from`, `until`, `interval` | `Date\Value` |
-| `DateTime` | `atIntervalsOf()`, `from()`, `until()` | `from`, `until`, `interval`, `precision` | `DateTime\Value` |
+| `Date` | `after()`, `atIntervalsOf()`, `from()`, `through()`, `until()` | `from`, `after`, `until`, `through`, `interval` | `Date\Value` |
+| `DateTime` | `after()`, `atIntervalsOf()`, `from()`, `through()`, `until()` | `from`, `after`, `until`, `through`, `interval`, `precision` | `DateTime\Value` |
 | `Duration` | `inIncrementsOf()`, `maxValueOf()`, `minValueOf()` | `minValue`, `maxValue`, `step` | `Duration\Value` |
 | `EmailAddress` | `allowDomains()`, `clearAllowedDomains()`, `clearDisallowedDomains()`, `disallowDomains()`, `maxLengthOf()`, `minLengthOf()` | `minLength`, `maxLength`, `allowedDomains`, `disallowedDomains` | `EmailAddress\Value` |
 | `Enum` | — | — | `Enum\Value` |
@@ -104,7 +104,7 @@ and the euro spans twenty.
 | `Password` | `maxLengthOf()`, `minLengthOf()`, `minNumberOfDigits()`, `minNumberOfLowercaseChars()`, `minNumberOfSymbols()`, `minNumberOfUppercaseChars()`, `minStrengthOf()` | `minLength`, `maxLength`, `minStrength`, `minUppercaseChars`, `minLowercaseChars`, `minDigits`, `minSymbols` | `Password\Value` |
 | `PhoneNumber` | `allowCountries()`, `clearAllowedCountries()`, `ofType()` | `allowedCountries`, `numberType` | `PhoneNumber\Value` |
 | `Text` | `maxLengthOf()`, `minLengthOf()`, `mustMatch()` | `minLength`, `maxLength`, `pattern` | `Text\Value` |
-| `Time` | `atIntervalsOf()`, `from()`, `until()` | `from`, `until`, `interval`, `precision` | `Time\Value` |
+| `Time` | `after()`, `atIntervalsOf()`, `from()`, `through()`, `until()` | `from`, `after`, `until`, `through`, `interval`, `precision` | `Time\Value` |
 | `Uri` | `allowSchemes()`, `clearAllowedSchemes()`, `maxLengthOf()`, `minLengthOf()` | `minLength`, `maxLength`, `allowedSchemes` | `Uri\Value` |
 | `Uuid` | `allowVersions()`, `clearAllowedVersions()` | `allowedVersions` | `Uuid\Value` |
 
@@ -134,6 +134,42 @@ knows it is characters without asking what field it came from.
 
 `from`/`until` rather than `min`/`max` on the temporal fields, for the same reason: a date range is
 not a magnitude, and `until` is exclusive in a way `max` does not suggest.
+
+### The four temporal bounds
+
+A point in time takes four, and the inclusive ones say so in their names — the same rule the
+matchers follow, where `isAtLeast` includes its bound and `isGreaterThan` does not.
+
+| Wither | Bound | Reads as |
+| --- | --- | --- |
+| `from('09:00')` | lower, **inclusive** | on or after 09:00 |
+| `after('09:00')` | lower, **exclusive** | later than 09:00 |
+| `until('17:00')` | upper, **exclusive** | before 17:00 |
+| `through('17:00')` | upper, **inclusive** | at or before 17:00 |
+
+Each reports a constraint under its own name, so a verdict says which the author wrote and a
+language pack can word "before 17:00" differently from "at or before 17:00". An inclusive `to()`
+existed once and was removed for reporting under `until`'s name; the objection was the shared
+name, not the choice, and `through` is the choice under a name of its own.
+
+**`from`/`until` is the pairing to reach for.** Half-open ranges tile without gaps or
+double-counting — `[Jan, Feb)` and `[Feb, Mar)` are exactly two months with no overlap and no
+missing instant between them — the empty range `[a, a)` is expressible, and the length is
+`until - from` with no off-by-one. Booking slots, billing periods and shift rosters are all
+adjacent ranges, so this is most of what forms actually collect.
+
+**`through` is for the bucket reading**, where "valid through 31 December" plainly includes the
+31st and writing `until('2027-01-01')` to mean it reads like a mistake.
+
+The bound is stored exactly as written: `through('2026-12-31')` is **not** folded into
+`until('2027-01-01')`. The definition serialises, and a reader in another language has to be able
+to render back the bound the author declared rather than one this library computed.
+
+The two lower bounds are one bound said two ways, as are the two upper, so setting either clears
+the other. An unset bound is **skipped**, not passed — nothing was asked.
+
+`Duration` has none of these. It is a *length* of time rather than a point in one, so it takes
+`minValue`/`maxValue` like `Number`, and both of those are inclusive.
 
 ## Baselines
 
