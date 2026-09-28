@@ -6,7 +6,7 @@
 
 > ### `2.0` is in alpha
 >
-> `main` is tagged `2.0.0-alpha.1`. It is a **breaking rewrite** of `1.x`: fields are immutable,
+> `main` is tagged `2.0.0-alpha.2`. It is a **breaking rewrite** of `1.x`: fields are immutable,
 > input is objects rather than arrays, and every field parses to a value object.
 > [UPGRADING.md](UPGRADING.md) is the migration guide.
 >

@@ -297,7 +297,7 @@ Collection rows, which this entry also used to rule out, are addressable now: a 
 rather than a position, so `#/fields/attendees/value/alice/email/value` means the same row on every
 request. See [API.md](API.md#reaching-into-a-collection).
 
-**The scope string format is still not frozen at `2.0.0-alpha.1`** even though the rest of the
+**The scope string format is still not frozen at `2.0.0-alpha.2`** even though the rest of the
 public API is. Widening it stays additive — existing scope strings keep their meaning — and nested
 parts are the remaining candidate.
 

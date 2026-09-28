@@ -13,7 +13,7 @@ know why.
 
 - **PHP 8.5 is required.** `2.0` uses clone-with and property hooks; there is no 8.4 fallback.
 - **The ports are not migrated yet.** `meraki/schema-html` and `meraki/schema-json` do not work
-  against `2.0.0-alpha.1`. If you depend on either, stay on `1.14.0` until they are tagged.
+  against `2.0.0-alpha.2`. If you depend on either, stay on `1.14.0` until they are tagged.
 - **Your stored documents still load.** The serialized form is unchanged: `#/fields/x/value` is
   still the scope wire format, and conditions and outcomes keep their `type`/`action` shapes.
   This is an API break, not a data break.
