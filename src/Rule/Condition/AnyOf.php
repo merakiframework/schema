@@ -7,7 +7,7 @@ use Meraki\Schema\Field;
 use Meraki\Schema\Rule\Condition;
 use Meraki\Schema\Rule\ConditionGroup;
 
-final class AnyOf implements ConditionGroup
+final readonly class AnyOf implements ConditionGroup
 {
 	/** @var list<Condition> */
 	private array $conditions;
@@ -25,12 +25,6 @@ final class AnyOf implements ConditionGroup
 			}
 		}
 		return false;
-	}
-
-	public function add(Condition $condition): static
-	{
-		$this->conditions[] = $condition;
-		return $this;
 	}
 
 	/**
