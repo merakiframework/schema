@@ -5,6 +5,7 @@ namespace Meraki\Schema\Rule;
 
 use Meraki\Schema\Facade;
 use Meraki\Schema\Field;
+use Meraki\Schema\PropertyScope;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
@@ -117,6 +118,46 @@ final class RowRuleTest extends TestCase
 
 		$schema->createCollectionField('attendees', $age, $guardian)
 			->forEachRow($outside->when()->equals('x')->then($guardian->makeRequired()));
+	}
+
+	/**
+	 * A row rule is held to everything a schema rule is held to.
+	 *
+	 * It was not. `addRule()` ran two authoring checks and `forEachRow()` ran neither, so a row
+	 * rule could be written two ways a schema rule could not — and both failed quietly, which is
+	 * the whole reason those checks exist. They are shared now; see {@see Guards}.
+	 */
+	#[Test]
+	public function a_row_rule_cannot_compare_against_a_value_the_field_could_never_hold(): void
+	{
+		// Dead on arrival: a number is never the string 'eighteen', so the rule could not fire,
+		// and a rule that never fires looks exactly like one whose condition never held.
+		$schema = new Facade('workshop');
+		$age = $schema->createNumberField('age');
+		$guardian = $schema->createTextField('guardian')->makeOptional();
+
+		$this->expectException(InvalidArgumentException::class);
+		$this->expectExceptionMessageMatches('/could never be true/');
+
+		$schema->createCollectionField('attendees', $age, $guardian)
+			->forEachRow($age->when()->equals('eighteen')->then($guardian->makeRequired()));
+	}
+
+	#[Test]
+	public function a_row_rule_cannot_address_a_property_nothing_has(): void
+	{
+		// This used to be accepted and then throw InvalidScope on whichever request first
+		// reached it — a 500 for the submitter, from a typo the author made.
+		$schema = new Facade('workshop');
+		$age = $schema->createNumberField('age');
+		$guardian = $schema->createTextField('guardian')->makeOptional();
+
+		$this->expectException(InvalidArgumentException::class);
+		$this->expectExceptionMessageMatches('/cannot address/');
+
+		$schema->createCollectionField('attendees', $age, $guardian)->forEachRow(
+			$schema->when(PropertyScope::of('age', 'nonesuch'))->equals(1)->then($guardian->makeRequired()),
+		);
 	}
 
 	#[Test]

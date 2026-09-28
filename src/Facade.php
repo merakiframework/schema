@@ -4,9 +4,7 @@ declare(strict_types=1);
 namespace Meraki\Schema;
 
 use Meraki\Schema\Exception\InvalidRule;
-use Meraki\Schema\Exception\InvalidScope;
 use Meraki\Schema\Exception\NothingToValidate;
-use Meraki\Schema\Exception\UnknownField;
 use Meraki\Schema\Rule\AppliedOutcome;
 use Meraki\Schema\Rule\Condition;
 use Brick\DateTime\Clock;
@@ -332,64 +330,14 @@ final class Facade
 			$rule = $rule->buildAgainst($this->fields);
 		}
 
-		$this->assertScopesAreAddressable($rule);
-		$this->assertExpectationsAreReadable($rule);
+		Rule\Guards::check($rule, $this->fields);
 
 		$this->rules = $this->rules->add($rule);
 
 		return $this;
 	}
 
-	/**
-	 * Checks that every value a rule compares against is one the field it names could actually hold.
-	 *
-	 * A comparison the field cannot read is unequal to every input there will ever be, so the rule
-	 * is dead — and a dead rule raises nothing, which makes it indistinguishable from one whose
-	 * condition simply never held. `when('age')->equals('eighteen')` on a number field is the shape
-	 * of it.
-	 *
-	 * Written where the rule is, like the scope check above and for the same reason.
-	 *
-	 * @throws InvalidRule naming the field and the value it cannot hold
-	 */
-	private function assertExpectationsAreReadable(Rule $rule): void
-	{
-		foreach (self::comparisonsIn($rule->condition) as $comparison) {
-			// The condition writes its own sentence, because the reasons differ and this cannot
-			// tell which applied. An unreadable expectation and a field with no order are
-			// different mistakes needing different corrections, and one message describing both
-			// would be wrong about at least one of them.
-			$why = $comparison->whyItCouldNeverHold($this->fields);
 
-			if ($why !== null) {
-				throw InvalidRule::because($why);
-			}
-		}
-	}
-
-	/**
-	 * Every comparison inside a condition, however deeply it was composed.
-	 *
-	 * @return list<Condition\Comparison>
-	 */
-	private static function comparisonsIn(Rule\Condition $condition): array
-	{
-		if ($condition instanceof Condition\Comparison) {
-			return [$condition];
-		}
-
-		if (!$condition instanceof Rule\ConditionGroup) {
-			return [];
-		}
-
-		$found = [];
-
-		foreach ($condition->conditions() as $inner) {
-			$found = [...$found, ...self::comparisonsIn($inner)];
-		}
-
-		return $found;
-	}
 
 	/**
 	 * Adds several independent rules. Each is its own rule, with its own condition — this is
@@ -404,32 +352,4 @@ final class Facade
 		return $this;
 	}
 
-	/**
-	 * Checks that every scope a rule mentions addresses something this schema really has.
-	 *
-	 * A scope typo used to surface as a 500 on whichever user request first matched the
-	 * rule; here it fails where the rule is written. The cost is an ordering constraint
-	 * that did not exist before — a rule can only be added once the fields it names are —
-	 * which is the trade the check is worth making.
-	 *
-	 * @throws InvalidRule naming the rule's bad scope
-	 */
-	private function assertScopesAreAddressable(Rule $rule): void
-	{
-		$resolver = new ScopeResolver($this->fields);
-
-		$scopes = [
-			...$rule->condition->getScopes(),
-			...array_map(static fn(Rule\Outcome $o): Scope => $o->getScope(), $rule->outcomes),
-			...array_map(static fn(Rule\Outcome $o): Scope => $o->getScope(), $rule->else),
-		];
-
-		foreach ($scopes as $scope) {
-			try {
-				$resolver->resolve($scope);
-			} catch (InvalidScope | UnknownField $e) {
-				throw InvalidRule::addressesSomethingTheSchemaCannot((string) $scope, $e);
-			}
-		}
-	}
 }

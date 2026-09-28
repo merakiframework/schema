@@ -387,15 +387,27 @@ final readonly class Collection implements Field
 	 * change something outside the collection — a row rule can only reach its own row.
 	 *
 	 * @throws InvalidConfiguration if the rule names a field the template does not hold
+	 * @throws \Meraki\Schema\Exception\InvalidRule if it addresses something the template has
+	 *         not got, or compares against a value the field it names could never hold
 	 */
 	public function forEachRow(Rule|Rule\Draft ...$rules): static
 	{
 		$set = $this->rowRules;
 
 		foreach ($rules as $rule) {
-			$rule = $rule instanceof Rule\Draft ? $rule->buildAgainst(new Set(...$this->template)) : $rule;
+			$template = new Set(...$this->template);
+			$rule = $rule instanceof Rule\Draft ? $rule->buildAgainst($template) : $rule;
 
+			// This one first: its message names the collection and lists what the template holds,
+			// which reads better than the `UnknownField` the general check would raise for the
+			// same mistake.
 			$this->assertRowRuleStaysInsideTheTemplate($rule);
+
+			// Then everything a schema rule has to pass. A row rule is checked against the
+			// template exactly as a schema rule is checked against the schema's fields — these
+			// used to be skipped here, so a row rule could be dead on arrival or blow up on a
+			// user's request in ways `addRule()` had refused since Step 1.
+			Rule\Guards::check($rule, $template);
 
 			$set = $set->add($rule);
 		}
