@@ -10,6 +10,30 @@ is a commit subject, with the body kept because the body is where the reasoning 
 
 ## Unreleased
 
+### Give the changelog check the history it reads
+
+`7449dc97` · 2026-09-28
+
+The check renders the changelog from the whole history, grouped by tag, and
+compares it to the file. actions/checkout defaults to fetch-depth 1 with no
+tags, so on CI it saw one commit and no releases, rendered a one-entry
+changelog, and called the real one stale.
+
+It had never run there to say so. The step was added in a411601 along with
+the other two checks that the `ci` script listed and the workflow did not,
+and that commit sat unpushed until now -- so the first time it executed on
+CI was the first push that carried it, and it failed on its own setup rather
+than on anything it was checking.
+
+Verified both ways against the pushed remote: a --depth 1 clone reports the
+changelog out of date, a full clone reports it current.
+
+## v2.0.0-alpha.2 — 2026-09-28
+
+### Update history
+
+`66defeb0` · 2026-09-28
+
 ### Say 2.0.0-alpha.2 where the tag is named
 
 `85eb4576` · 2026-09-28
