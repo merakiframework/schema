@@ -6,6 +6,7 @@ namespace Meraki\Schema\Field;
 use Meraki\Schema\AtomicField;
 use Meraki\Schema\Exception\InvalidDefault;
 use Meraki\Schema\Field;
+use Meraki\Schema\ValueSource;
 use Brick\DateTime\Instant;
 
 /**
@@ -273,9 +274,61 @@ trait Definition
 	 */
 	final public function resolvedValueFor(mixed $given): ?ParsedValue
 	{
-		$raw = $given ?? $this->defaultValue;
+		$raw = $this->rawFor($given);
 
 		return $raw === null ? null : self::readable($this->parse(...), $raw);
+	}
+
+	/**
+	 * What there was to read: the submission, the authored default standing in for it, or
+	 * whatever this kind of field calls absence.
+	 *
+	 * The single answer to "nothing was submitted, now what". It was three answers, and they
+	 * disagreed — `Collection` had a private copy that turned absence into an empty list while
+	 * this one turned it into `null`, so a rule resolving `#/fields/lines/value` and the result
+	 * for that same field reported different things about the same request.
+	 *
+	 * @see self::absentValue() for the one part a field is allowed to vary
+	 */
+	final protected function rawFor(mixed $given): mixed
+	{
+		return $given ?? $this->defaultValue ?? $this->absentValue();
+	}
+
+	/**
+	 * What absence *means* for this kind of field, when there is no authored default either.
+	 *
+	 * `null` for every field that holds one value: nothing was submitted, so there is nothing to
+	 * judge, and the shape check reports it missing.
+	 *
+	 * {@see Collection} is the exception and overrides this. A repeatable section a person left
+	 * alone and a JSON client sending `[]` say the same thing, and saying it as "there are no
+	 * items" lets `minCount` answer with "add at least one" rather than the blunter "this field
+	 * is required". That is a difference about the *kind* of field, which is why it is a hook
+	 * rather than a second implementation of {@see self::rawFor()}.
+	 */
+	protected function absentValue(): mixed
+	{
+		return null;
+	}
+
+	/**
+	 * Which of the three things the judged value actually was.
+	 *
+	 * Only the field can finish the answer: the caller knows whether it handed over something
+	 * submitted or something prefilled, and the field knows whether its own default stood in when
+	 * the caller handed over nothing.
+	 *
+	 * Lives here rather than on each lifecycle because the two copies were byte-identical, and
+	 * because it reads {@see self::$defaultValue}, which is this trait's to know about.
+	 */
+	protected function sourceOf(mixed $given, ValueSource $givenAs): ValueSource
+	{
+		if ($given !== null) {
+			return $givenAs;
+		}
+
+		return $this->defaultValue === null ? ValueSource::None : ValueSource::Default;
 	}
 
 	/**

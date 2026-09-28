@@ -320,4 +320,37 @@ final class ScopeResolverTest extends TestCase
 
 		$this->assertSame(1, (new ScopeResolver($schema->fields))->resolve(PropertyScope::of('lines', 'minCount')));
 	}
+
+	/**
+	 * A rule and a result must say the same thing about the same request.
+	 *
+	 * They did not, for a collection nobody submitted. `Collection` kept a private copy of the
+	 * "what stands in when nothing arrived" rule with `?? []` on the end, so resolve() and
+	 * validate() saw an empty list while this resolver — which goes through
+	 * `Definition::resolvedValueFor()` — saw `null`. Two answers to one question, and a rule
+	 * reading the scope got the one that was wrong.
+	 */
+	#[Test]
+	public function an_absent_collection_reads_the_same_through_a_scope_as_through_a_result(): void
+	{
+		$schema = $this->order();
+
+		$viaScope = (new ScopeResolver($schema->fields))->resolve(ValueScope::of('lines'));
+		$viaResult = $schema->validate((object)[])->forField('lines')->value;
+
+		$this->assertInstanceOf(Field\Collection\Value::class, $viaScope);
+		$this->assertCount(0, $viaScope);
+		$this->assertTrue($viaScope->equals($viaResult));
+	}
+
+	/**
+	 * And the hook does not leak: absence is still `null` for a field that holds one value.
+	 */
+	#[Test]
+	public function an_absent_atomic_field_still_reads_as_nothing(): void
+	{
+		$schema = $this->schema();
+
+		$this->assertNull((new ScopeResolver($schema->fields))->resolve(ValueScope::of('username')));
+	}
 }

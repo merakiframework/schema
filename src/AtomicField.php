@@ -71,22 +71,6 @@ abstract readonly class AtomicField implements Field
 	}
 
 	/**
-	 * Which of the three things the judged value actually was.
-	 *
-	 * Only this field can finish the answer: the caller knows whether it handed over something
-	 * submitted or something prefilled, and the field knows whether its own default stood in when
-	 * the caller handed over nothing.
-	 */
-	protected function sourceOf(mixed $given, ValueSource $givenAs): ValueSource
-	{
-		if ($given !== null) {
-			return $givenAs;
-		}
-
-		return $this->defaultValue === null ? ValueSource::None : ValueSource::Default;
-	}
-
-	/**
 	 * Settles absence, then reads the input exactly once.
 	 *
 	 * `$raw` is what there was to read — the submission, or the authored default standing in for
@@ -98,7 +82,7 @@ abstract readonly class AtomicField implements Field
 	 */
 	private function read(mixed $given): array
 	{
-		$raw = $given ?? $this->defaultValue;
+		$raw = $this->rawFor($given);
 
 		return [$raw, $raw === null ? null : self::readable($this->parse(...), $raw)];
 	}

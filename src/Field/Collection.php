@@ -268,7 +268,7 @@ final readonly class Collection implements Field
 		return new Result(
 			$this,
 			$given,
-			$this->itemsIn($given),
+			$this->resolvedValueFor($given),
 			$appliedOutcomes,
 			$this->sourceOf($given, $givenAs),
 			$this->evaluatedAt(),
@@ -317,21 +317,6 @@ final readonly class Collection implements Field
 	}
 
 	/**
-	 * Where the judged list came from.
-	 *
-	 * A collection turns absence into an empty list before anything else, so `None` is what an
-	 * empty one reports: there is a value to count, and nobody supplied it.
-	 */
-	private function sourceOf(mixed $given, ValueSource $givenAs): ValueSource
-	{
-		if ($given !== null) {
-			return $givenAs;
-		}
-
-		return $this->defaultValue === null ? ValueSource::None : ValueSource::Default;
-	}
-
-	/**
 	 * @param list<\Meraki\Schema\Rule\AppliedOutcome> $appliedOutcomes
 	 */
 	public function validate(
@@ -340,7 +325,7 @@ final readonly class Collection implements Field
 		ValueSource $givenAs = ValueSource::Submitted,
 		PrefillPolicy $policy = PrefillPolicy::Checked,
 	): Result {
-		$items = $this->itemsIn($given);
+		$items = $this->resolvedValueFor($given);
 		$source = $this->sourceOf($given, $givenAs);
 
 		return new Result(
@@ -564,13 +549,17 @@ final readonly class Collection implements Field
 	 * and saying it as "there are no items" lets `minCount` answer with "add at least one" instead
 	 * of the blunter "this field is required". The only field that overrides the absence rule, and
 	 * it does so here rather than inside parse(), which never sees null.
+	 *
+	 * This used to be a private copy of {@see Definition::rawFor()} with `?? []` on the end, which
+	 * meant the rule had two implementations that disagreed: resolve() and validate() went through
+	 * the copy and saw an empty list, while {@see \Meraki\Schema\ScopeResolver} went through
+	 * {@see Definition::resolvedValueFor()} and saw `null`. A rule reading
+	 * `#/fields/lines/value` and the result for `lines` reported different things about the same
+	 * request. It is a hook on the one rule now.
 	 */
-	private function itemsIn(mixed $given): mixed
+	protected function absentValue(): mixed
 	{
-		$raw = $given ?? $this->defaultValue ?? [];
-
-		// A {@see Value}, or nothing. What was actually submitted is on the result's `$given`.
-		return self::readable($this->parse(...), $raw);
+		return [];
 	}
 
 	/**
