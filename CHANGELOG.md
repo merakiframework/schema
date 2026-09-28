@@ -10,6 +10,298 @@ is a commit subject, with the body kept because the body is where the reasoning 
 
 ## Unreleased
 
+### Date, Time and DateTime stay independent, and the reason is written down
+
+`cbda7197` · 2026-09-28
+
+Normalise the type names and the three are close to identical -- after the
+four-bound change, only three genuine code differences remain between Time
+and DateTime: a parameter name, the MalformedValue message, and the one
+->atDate(...) hop a time of day needs to become an instant. So a shared base
+or trait is the obvious suggestion, and it will keep being suggested.
+
+It is declined. Each field is its own type and answers for itself, and the
+coupling would cost more than the repetition saves.
+
+There is a mechanical obstacle as well, recorded so nobody rediscovers it:
+Brick gives LocalDate, LocalTime and LocalDateTime no common supertype. They
+share Stringable and JsonSerializable and not one comparison method, so a
+shared base cannot type the bound properties -- sharing would mean loosening
+them to mixed or inventing a wrapper, and both read worse than two files that
+say what they do.
+
+What the duplication actually risked was drift, and it drifted once. That is
+now the thing that is guarded rather than the thing that is prevented:
+tests/Api/TemporalBoundsTest.php runs every bounds case against all three
+fields from one provider, so a change copied to two of them and not the third
+fails there. Copy by hand; let the test catch the miss.
+
+Noted in each class docblock and in TODO.md under "Recorded, not scheduled".
+
+### A composed condition cannot be written to
+
+`5aa53c50` · 2026-09-28
+
+ConditionGroup::add() wrote to $conditions and returned $this. It was the
+only mutating method anywhere in the rule model -- Rule\Set::add() and
+Draft::then() both clone -- and it had no caller in this package or in either
+sibling.
+
+Nothing had gone wrong yet, which is the only reason it survived. The problem
+is that a rule is meant to be a value, and the concurrency guarantee in the
+README rests on a composed condition not being writable by whoever happens to
+be holding one. Removing the method and sealing both implementations makes
+that structural rather than a matter of nobody having called it.
+
+AllOf and AnyOf are `final readonly` now; the constructor was already their
+only writer once add() was gone.
+
+Also repoints ConditionGroup::conditions()'s docblock at Rule\Guards, which
+is where the caller it names moved to.
+
+### A matcher says how it is quantified, instead of being rebuilt by convention
+
+`0f3aeb61` · 2026-09-28
+
+Collection::acrossRows() reconstructed the template field's matcher with
+`new ($matcher::class)($scope, $how)`. The Matcher interface required only a
+scope, so the two-argument constructor it relied on was a convention that all
+four built-in matchers happened to follow.
+
+Its docblock said "a field type this library has never heard of is
+quantifiable the moment it picks a matcher". That was not true. PHP passes
+extra arguments to a user-defined constructor without complaint, so a matcher
+of somebody else's declaring only a scope -- which is what the extension
+example in AsksOrder shows -- emitted `Undefined property: $quantifier`,
+dropped the quantifier, and built an unquantified condition against a column.
+That compares a list of every row's value against one scalar: accepted by
+both authoring guards, and it could never fire. The same dead-rule failure
+the guards exist to prevent, arriving through the seam the docs advertise.
+
+The contract is on the interface now. `quantifiedAt()` is a declared method,
+implemented once in BuildsDrafts as a clone-with so it needs no knowledge of
+the using class's constructor, and `$quantifier` is a declared property hook.
+A matcher missing either fails at class-declaration time naming what is
+absent, rather than on a request -- verified by writing one.
+
+$quantifier goes from protected to public to satisfy the hook. That is a
+break for a third-party matcher, which is cheap now and would not be later,
+and it reads as the rest of the library does: if something reads state, it is
+a property.
+
+MatcherVocabularyTest excludes quantifiedAt for the same reason it already
+excludes __construct -- it is not a question a rule can ask.
+
+### A row rule is checked the way a schema rule is
+
+`4c6f3d17` · 2026-09-28
+
+addRule() ran two authoring checks. forEachRow() ran neither -- it had a
+third of its own -- so a row rule could be written two ways a schema rule
+could not, and both failed quietly:
+
+  $age->when()->equals('eighteen')    a number is never that string, so the
+                                      rule was accepted and never fired
+
+  PropertyScope::of('age','nonesuch') accepted at authoring, then InvalidScope
+                                      on whichever request first reached it
+
+The first is defect D2 arriving through a second doorway: a dead rule raises
+nothing, which makes it indistinguishable from one whose condition simply
+never held. Step 1 spent a stage closing that. The second is the
+500-on-a-user-request that the scope check exists to prevent, from a typo the
+author made.
+
+Both guards move to Rule\Guards, for the reason Rule\Application already
+gives for living where it does: a schema applies its rules to its own fields
+and a collection applies its row rules to its template, so both want one
+implementation rather than a copy each. They are static and take the field
+set, because for a row rule that set is the template.
+
+assertRowRuleStaysInsideTheTemplate() stays, and runs first: its message
+names the collection and lists what the template holds, which reads better
+than the UnknownField the general check would raise for the same mistake.
+
+This can refuse a row rule that was accepted before. That is the point, and
+it fails at authoring time rather than on somebody's request.
+
+### One answer to "nothing was submitted, now what"
+
+`164a91c4` · 2026-09-28
+
+There were three, and two of them disagreed. Definition::resolvedValueFor()
+turned absence into null; AtomicField::read() repeated the same expression;
+Collection::itemsIn() was a private third copy with `?? []` on the end.
+
+So a collection nobody submitted read two different ways depending on who
+asked. resolve() and validate() went through the private copy and saw an
+empty list. ScopeResolver went through resolvedValueFor() and saw null -- so
+a rule reading #/fields/lines/value and the result for `lines` reported
+different things about the same request, and the rule got the wrong one.
+
+`final` on resolvedValueFor() is what forced the fork. Its docblock says the
+lifecycle must be uniform across fields, which is right, and Collection is
+the one field for which part of it legitimately is not. That is now a hook
+rather than a second implementation: rawFor() holds the rule, absentValue()
+is the one part a field may vary, and Collection overrides that alone. An
+empty list stays what absence means for a repeatable section -- which is what
+lets minCount say "add at least one" instead of "this field is required".
+
+sourceOf() moves to Definition as well. The two copies were byte-identical
+and it reads $defaultValue, which is this trait's to know about.
+
+Pinned by asserting the two paths agree, and that the hook does not leak:
+an absent atomic field still reads as nothing.
+
+### Documentation that teaches an API nobody can call
+
+`7f7b109d` · 2026-09-28
+
+Two kinds, found together because both are prose that no check reads.
+
+EXTENDING.md's worked example declared `parse(): ?Isbn\Value` and returned
+null on bad input. The contract is `parse(mixed): ParsedValue` -- non-nullable,
+throwing MalformedValue -- which the same page states plainly as rule 3 forty
+lines further down, and which examples/custom-field.php gets right. Anyone
+following the example rather than the rule wrote a field that fails on its
+first malformed input.
+
+The page claims to *be* that example. It had drifted: the signature, the
+missing when(), the namespace, and the line count. It is now the same code,
+so the CI-run file and the page agree.
+
+Four docblocks in src/ showed ->thenRequire() and ->elseMakeOptional(), an
+API Rule\Draft's own docblock says does not and cannot exist -- outcomes are
+the field put through its own withers. They sit on Facade::when(), allOf()
+and the BuildsFields header, which are the first things anyone reads about
+writing a rule. The BuildsFields one also used two variables it never
+assigned; the replacement runs, and was run.
+
+Nothing here is caught by test:examples, which executes examples/ but has no
+opinion about fenced code in docs/ or in a comment. That gap is real and
+worth closing, but it is a bigger job than this commit.
+
+### Eight docblocks were documenting nothing, and CI now says so
+
+`6397166a` · 2026-09-28
+
+PHP binds only the last docblock before a declaration. When a member is
+inserted between an existing block and the method it described -- which is
+how all eight happened, most of them when when() was added to each field --
+the earlier block stops documenting anything. It is invisible to PHPStan, to
+the risky-rule report and to an IDE, so it survives every sweep that looks at
+code, including the Step 4 rot sweep that caught this same shape elsewhere.
+
+The one that matters is Field\Definition: the entire rationale for "every
+wither routes through with() so the authored default is re-checked" -- a rule
+docs/CODING-STYLE.md calls out and Api\SealedFieldTest enforces at runtime --
+was filed under reconfiguredWith(), leaving with() with a bare @param stub.
+
+Four described members that no longer exist. Address and CreditCard\Value
+each carried an array-taking factory's docs from before the object-is-a-record
+migration, and PhoneNumber carried two methods' worth plus a reference to an
+`unambiguous` constraint that is not there either. Where those blocks said
+something the surviving code did not -- the YYYY-MM expiry spelling, why an
+empty string is not absence -- it has been folded into the member that does
+the work rather than deleted.
+
+The check lives in tools/check-references.php because it is the same failure
+as a dead {@see}: documentation rot that nothing else notices. Blank lines in
+the gap are still caught, since they change nothing about what PHP binds.
+Verified by planting one and watching CI fail.
+
+### A point in time takes four bounds, and each says which it is
+
+`ea291f97` · 2026-09-28
+
+from/after for the lower bound, until/through for the upper -- inclusive and
+exclusive at both ends, on Date, Time and DateTime. The inclusive ones say so
+in their names, which is the rule the matchers already follow: isAtLeast
+includes its bound and isGreaterThan does not.
+
+An inclusive `to()` stood beside until() once and was removed because both
+reported under the constraint name `until`, so a result could not say which
+had been declared. That objection was about the shared name, not about
+offering the choice. Each of the four reports under a name of its own now, so
+a verdict says which the author wrote -- and a language pack can word "before
+17:00" differently from "at or before 17:00", which it could not do before.
+
+The bound is stored as written. through('2026-12-31') is not folded into
+until('2027-01-01'), and the reason is the wire format: the definition
+serialises, so a reader in another language has to render back the bound the
+author declared rather than one this library computed. Deriving it would put a
+date in the document that nobody typed. It also removes any question of what
+happens when precision changes after the bound was set, because nothing was
+computed from the precision in the first place.
+
+The two lower bounds are one bound said two ways, as are the two upper, so
+setting either clears the other, in whichever order they are called. The
+interval counts from whichever lower bound exists.
+
+Duration is deliberately untouched: it is a length of time rather than a point
+in one, so it takes minValue/maxValue like Number and both are inclusive.
+
+### until means the same thing on all three point-in-time fields
+
+`9d585afb` · 2026-09-28
+
+Time::until() was inclusive while Date::until() and DateTime::until() were
+exclusive. All three report under the constraint name `until`, and a language
+pack writes one sentence per constraint name -- so that sentence was right for
+two fields and wrong for the third. docs/API.md already stated the contract
+("until is exclusive in a way max does not suggest"); Time did not keep it.
+
+Nothing compared them. Each field's tests live in its own file and assert its
+own behaviour, so three fields could disagree indefinitely. tests/Api/
+TemporalBoundsTest.php runs every case against all three from one provider,
+which is the part that stops this recurring.
+
+The bounds are nullable now rather than sentinel-defaulted, matching every
+other optional bound in the library (Number::$maxValue, Text::$maxLength,
+File::$maxSize). Two reasons beyond consistency:
+
+An unset bound was reported as *passed*. LocalDate::min() answers yes to every
+date, so the field returned a verdict on a question nobody asked. It is
+skipped now, which is what "no limit" means everywhere else here.
+
+And the sentinel was unsound on Time specifically. LocalTime::max() is
+23:59:59.999999999 -- a value a field at Precision::Nanoseconds can genuinely
+hold -- so an exclusive bound defaulting to it would have refused the last
+instant of the day while claiming to be unbounded. LocalDate::max() is year
+999999 and hides the same bug behind an unreachable date.
+
+`interval` counts from `from`, so it is skipped when there is no lower bound
+to count from rather than measured against an arbitrary origin.
+
+### A prefill no longer loses to the authored default
+
+`20efa7ce` · 2026-09-28
+
+`extractData(null)` seeded `$given` with every field's authored default, as
+though each had been submitted. The precedence match then found a non-null
+`$given[$name]`, chose ValueSource::Submitted, and never reached the prefill
+branch -- so `resolve(null, prefilledWith: $known)` returned the default and
+reported it as something the user had typed.
+
+That inverts the precedence validate() documents: submitted, then prefilled,
+then the authored default. It broke the primary prefill case, rendering a form
+for the first time with what is already known about a user, and it made
+$source lie on exactly the path a renderer uses to mark a prefilled field.
+
+The seeding was also unnecessary. Every read of request data goes through
+ScopeResolver::valueOf(), which calls resolvedValueFor($given[$name] ?? null)
+and applies the default itself, so a null payload is now simply an empty one
+and each field settles its own default. extractDefaultValues() is gone.
+
+Nothing caught this because both spellings of "nothing was submitted" were
+never compared: every field-level test calls $field->resolve(null) directly,
+bypassing extractData(), and every case here passed a data object. The new
+a_null_payload_says_the_same_as_an_empty_one is that comparison.
+
+### Update history
+
+`5ad4b9a0` · 2026-09-26
+
 ### Document reaching into a collection
 
 `fe1747f0` · 2026-09-26
