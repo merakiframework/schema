@@ -10,14 +10,18 @@ does not run is worse than none, because it is confidently wrong.
 
 ## A worked example
 
-An ISBN field. Forty lines, in your own namespace, touching nothing in `meraki/schema`:
+An ISBN field. Sixty lines, in your own namespace, touching nothing in `meraki/schema`:
 
 ```php
-namespace Acme\Fields;
+namespace Acme;
 
+use Acme\Isbn\Value;
 use Meraki\Schema\AtomicField;
-use Meraki\Schema\FieldName;
 use Meraki\Schema\Field\Constraint;
+use Meraki\Schema\Field\MalformedValue;
+use Meraki\Schema\FieldName;
+use Meraki\Schema\Rule\Matcher;
+use Meraki\Schema\ValueScope;
 
 final readonly class Isbn extends AtomicField
 {
@@ -31,28 +35,39 @@ final readonly class Isbn extends AtomicField
         $this->constraints = $this->defineConstraints();   // last: it reads the above
     }
 
+    /** Configuration is a wither: it hands back a copy, and the caller keeps it. */
     public function thirteenDigitsOnly(): static
     {
         return $this->with(['thirteenOnly' => true]);
     }
 
-    protected function parse(mixed $value): ?Isbn\Value
+    /** Which questions a rule may ask. An ISBN has text and no order. */
+    public function when(): Matcher\Text
     {
-        if (!is_string($value)) {
-            return null;
+        return new Matcher\Text(ValueScope::of($this->name));
+    }
+
+    protected function parse(mixed $value): Value
+    {
+        if ($value instanceof Value) {
+            return $value;
         }
 
-        $digits = preg_replace('/[\s-]/', '', $value);
+        if (!is_string($value)) {
+            throw MalformedValue::of(Value::class, 'an ISBN is submitted as a string');
+        }
 
-        return preg_match('/^\d{9}[\dX]$|^\d{13}$/', $digits) === 1 ? new Isbn\Value($digits) : null;
+        return new Value($value);
     }
 
     protected function defineConstraints(): Constraint\Set
     {
         return new Constraint\Set(
+            // Returning null from a check means "nothing was asked", so it reports Skipped
+            // rather than passing vacuously.
             new Constraint(
                 'isbn13',
-                fn(Isbn\Value $v): ?bool => $this->thirteenOnly ? strlen($v->isbn) === 13 : null,
+                fn(Value $v): ?bool => $this->thirteenOnly ? strlen($v->isbn) === 13 : null,
                 $this->thirteenOnly,
             ),
         );
@@ -63,7 +78,7 @@ final readonly class Isbn extends AtomicField
 and its value:
 
 ```php
-namespace Acme\Fields\Isbn;
+namespace Acme\Isbn;
 
 use Meraki\Schema\Comparison\Equality;
 use Meraki\Schema\Field\ParsedValue;

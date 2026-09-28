@@ -248,8 +248,8 @@ final class Facade
 	 *
 	 *     $schema->addRule(
 	 *         $schema->when($hasLogBook)->equals(true)
-	 *             ->thenRequire($logBookTime)
-	 *             ->elseMakeOptional($logBookTime)
+	 *             ->then($logBookTime->makeRequired())
+	 *             ->else($logBookTime->makeOptional())
 	 *     );
 	 */
 	public function when(Field|FieldName|Scope|string $subject): Rule\Matcher\OrderedText
@@ -270,7 +270,7 @@ final class Facade
 	 *     $schema->allOf(
 	 *         $schema->when($whoFor)->equals('someone_else'),
 	 *         $schema->when($whoManages)->equals('participant'),
-	 *     )->thenRequire($email)
+	 *     )->then($email->makeRequired())
 	 */
 	public function allOf(Rule\Draft|Rule\Condition ...$conditions): Rule\Draft
 	{

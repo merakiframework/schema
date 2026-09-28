@@ -16,8 +16,11 @@ use Brick\DateTime\Clock;
  * ```php
  * $schema = new \Meraki\Schema\Facade('signup');
  *
- * $schema->add($schema->createTextField('username')->minLengthOf(3));
- * $schema->addRule($schema->when($username)->equals('admin')->thenRequire($nickname));
+ * $username = $schema->createTextField('username')->minLengthOf(3);
+ * $nickname = $schema->createTextField('nickname')->makeOptional();
+ *
+ * $schema->add($username, $nickname);
+ * $schema->addRule($username->when()->equals('admin')->then($nickname->makeRequired()));
  * ```
  *
  * This replaced a separate `Field\Factory` object. Two entry points for one job is what
