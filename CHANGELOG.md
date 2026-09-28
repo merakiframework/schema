@@ -8,7 +8,11 @@ Entries are not sorted into "Added / Changed / Fixed". That classification lives
 head at commit time, and a script inferring it from a verb produces confident nonsense. Each entry
 is a commit subject, with the body kept because the body is where the reasoning is.
 
-## Unreleased
+## v2.0.0-alpha.2 — 2026-09-28
+
+### Update history
+
+`11e33426` · 2026-09-28
 
 ### Give the changelog check the history it reads
 
@@ -27,8 +31,6 @@ than on anything it was checking.
 
 Verified both ways against the pushed remote: a --depth 1 clone reports the
 changelog out of date, a full clone reports it current.
-
-## v2.0.0-alpha.2 — 2026-09-28
 
 ### Update history
 
