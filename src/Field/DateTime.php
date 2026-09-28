@@ -25,6 +25,22 @@ use Brick\Math\BigInteger;
  * A point in time rather than a quantity, so it is bounded by `from`/`until` and recurs at an
  * *interval*. {@see Duration}, which is a length of time, takes value bounds and steps.
  *
+ * ### This field shares no abstraction with its neighbours, deliberately
+ *
+ * {@see Date}, {@see Time} and {@see DateTime} are close to identical once the type names
+ * are normalised, and they stay that way. A shared base or trait was considered and
+ * declined: each is its own type and answers for itself, and the coupling would cost more
+ * than the repetition saves. Brick offers no common supertype for `LocalDate`, `LocalTime`
+ * and `LocalDateTime` either — they share only `Stringable` and `JsonSerializable`, not one
+ * comparison method — so sharing would mean either loosening the bound types to `mixed` or
+ * inventing a wrapper, and both are worse than two files that read straightforwardly.
+ *
+ * What the duplication actually risked was drift, and it drifted once: `until` was inclusive
+ * on {@see Time} and exclusive on the other two, while all three reported under the one
+ * constraint name. That is guarded now by
+ * `tests/Api/TemporalBoundsTest.php`, which runs every bounds case against all three from one
+ * provider. Copy a change to the siblings by hand, and let that test tell you if you miss one.
+ *
  * @extends AtomicField<string|null>
  */
 final readonly class DateTime extends AtomicField
