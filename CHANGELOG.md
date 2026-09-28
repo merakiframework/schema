@@ -8,7 +8,14 @@ Entries are not sorted into "Added / Changed / Fixed". That classification lives
 head at commit time, and a script inferring it from a verb produces confident nonsense. Each entry
 is a commit subject, with the body kept because the body is where the reasoning is.
 
-## v2.0.0-alpha.2 — 2026-09-28
+## Unreleased
+
+### Update history
+
+`7cf04e4c` · 2026-09-28
+
+The v2.0.0-alpha.2 tag moved to the commit whose CI run is green, so the
+release now covers the changelog-check fix and this file's own regeneration.
 
 ### Update history
 
@@ -31,6 +38,8 @@ than on anything it was checking.
 
 Verified both ways against the pushed remote: a --depth 1 clone reports the
 changelog out of date, a full clone reports it current.
+
+## v2.0.0-alpha.2 — 2026-09-28
 
 ### Update history
 
