@@ -24,7 +24,7 @@ final readonly class OrderedText implements Matcher
 	public function __construct(
 		public Scope $scope,
 		/** Set when this asks about every row of a collection rather than about one value. */
-		protected ?Quantifier $quantifier = null,
+		public ?Quantifier $quantifier = null,
 	) {
 	}
 }

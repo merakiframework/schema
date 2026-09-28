@@ -443,10 +443,12 @@ final readonly class Collection implements Field
 		$name = $field instanceof FieldName ? $field : new FieldName($field);
 		$matcher = $this->templateField($name)->when();
 
-		return new ($matcher::class)(
-			new ValueScope(new Scope\Column($this->name, $name)),
-			$how,
-		);
+		// A declared method, not `new ($matcher::class)($scope, $how)`. That reconstruction
+		// relied on a two-argument constructor {@see Matcher} never required: PHP passes extra
+		// arguments to a user-defined constructor without complaint, so a third-party matcher
+		// taking only a scope silently dropped the quantifier and produced a rule that passed
+		// every check and could never fire.
+		return $matcher->quantifiedAt(new ValueScope(new Scope\Column($this->name, $name)), $how);
 	}
 
 	/**

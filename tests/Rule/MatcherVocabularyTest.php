@@ -389,9 +389,15 @@ final class MatcherVocabularyTest extends TestCase
 	{
 		// Both directions. Missing a verb is the obvious failure; carrying one it should not have is
 		// the quiet one, and it is the whole reason there are four of these rather than one.
+		//
+		// `quantifiedAt()` is excluded for the same reason `__construct` is: it is not a question
+		// a rule can ask, it is how a matcher is rebound to a column of a collection. It is on the
+		// Matcher interface, so every matcher has it and none of them offers it as a verb.
+		$structural = ['__construct', 'quantifiedAt'];
+
 		$offered = array_values(array_filter(
 			get_class_methods($matcher),
-			static fn(string $m): bool => $m !== '__construct',
+			static fn(string $m): bool => !in_array($m, $structural, true),
 		));
 
 		sort($offered);

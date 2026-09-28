@@ -3,10 +3,13 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Rule;
 
+use Meraki\Schema\AtomicField;
 use Meraki\Schema\Facade;
 use Meraki\Schema\Field;
+use Meraki\Schema\FieldName;
 use Meraki\Schema\Rule\Condition\Quantified;
 use Meraki\Schema\Scope;
+use Meraki\Schema\ValueScope;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Group;
@@ -159,5 +162,91 @@ final class QuantifiedTest extends TestCase
 		$this->expectException(InvalidArgumentException::class);
 
 		new Quantified(Quantifier::Any, new Condition\Equals(Scope::parse('#/fields/lines/value'), 'x'));
+	}
+
+	/**
+	 * A matcher this library has never heard of is quantifiable too.
+	 *
+	 * Its docblock claimed as much and it was not true. `acrossRows()` rebuilt the matcher with
+	 * `new ($matcher::class)($scope, $how)`, relying on a two-argument constructor the
+	 * {@see Matcher} interface never required. PHP passes extra arguments to a user-defined
+	 * constructor without complaint, so a third-party matcher taking only a scope dropped the
+	 * quantifier, built an unquantified condition against a column, and produced a rule that
+	 * passed every authoring check and could never fire.
+	 *
+	 * The contract is on the interface now — `$quantifier` and `quantifiedAt()` — so a matcher
+	 * missing either fails to compile rather than failing on a request.
+	 */
+	#[Test]
+	public function a_matcher_from_outside_this_library_quantifies(): void
+	{
+		$schema = new Facade('order');
+		$flag = $schema->createTextField('flag')->makeOptional();
+
+		$lines = $schema->createCollectionField('lines', self::fieldWithItsOwnMatcher(), $flag);
+		$matcher = $lines->whereAny('sku');
+
+		// The template field's own matcher came back, not one of the four built-ins.
+		$this->assertNotInstanceOf(Matcher\Basic::class, $matcher);
+		$this->assertSame(Quantifier::Any, $matcher->quantifier);
+
+		// And the verb it offers produces a *quantified* condition, which is the part that
+		// silently did not happen: the quantifier used to be dropped on the way through, so this
+		// was a bare Equals comparing a list of every row's value against one string.
+		$condition = $matcher->equals('HAZMAT')->condition;
+
+		$this->assertInstanceOf(Quantified::class, $condition);
+		$this->assertSame(Quantifier::Any, $condition->quantifier);
+		$this->assertSame('#/fields/lines/value/*/sku/value', (string) $condition->of->scope);
+	}
+
+	/**
+	 * A field of somebody else's, answering `when()` with a matcher of somebody else's.
+	 *
+	 * Written the way {@see \Meraki\Schema\Rule\Matcher} says to write one, and nothing here is
+	 * a built-in class beyond the trait it composes.
+	 */
+	private static function fieldWithItsOwnMatcher(): Field
+	{
+		return new readonly class(new FieldName('sku')) extends AtomicField {
+			public function __construct(public FieldName $name)
+			{
+				parent::__construct();
+
+				$this->constraints = $this->defineConstraints();
+			}
+
+			public function when(): Matcher
+			{
+				return new readonly class(ValueScope::of($this->name)) implements Matcher {
+					use Matcher\BuildsDrafts;
+					use Matcher\AsksAnything;
+
+					public function __construct(
+						public Scope $scope,
+						public ?Quantifier $quantifier = null,
+					) {
+					}
+				};
+			}
+
+			protected function parse(mixed $value): Field\Text\Value
+			{
+				if ($value instanceof Field\Text\Value) {
+					return $value;
+				}
+
+				if (!is_string($value)) {
+					throw Field\MalformedValue::of(Field\Text\Value::class, 'a sku is a string');
+				}
+
+				return new Field\Text\Value($value);
+			}
+
+			protected function defineConstraints(): Field\Constraint\Set
+			{
+				return new Field\Constraint\Set();
+			}
+		};
 	}
 }

@@ -54,4 +54,39 @@ interface Matcher
 {
 	/** What the rule is asking about. */
 	public Scope $scope { get; }
+
+	/**
+	 * Set when this matcher asks about every row of a collection rather than about one value;
+	 * `null` for an ordinary one.
+	 *
+	 * Declared here so the type checker enforces it. {@see Matcher\BuildsDrafts} reads it to
+	 * decide whether to wrap a condition in {@see Condition\Quantified}, and it used to be an
+	 * unwritten convention that every matcher happened to have one — a matcher of somebody
+	 * else's without it emitted `Undefined property` and produced a rule that never fired.
+	 * A class that does not declare it now fails to compile.
+	 */
+	public ?Quantifier $quantifier { get; }
+
+	/**
+	 * The same matcher, asking about a *column* of a collection instead of about one value, and
+	 * folding the rows with the given quantifier.
+	 *
+	 * What {@see \Meraki\Schema\Field\Collection::whereAny()} and `whereEvery()` are built on.
+	 * It is declared here because it is a contract, and it used to be a convention:
+	 * `acrossRows()` reconstructed the matcher by calling `new ($matcher::class)($scope, $how)`,
+	 * relying on a two-argument constructor this interface never mentioned. All four built-in
+	 * matchers happen to have one, so it worked — and PHP passes extra arguments to a
+	 * user-defined constructor without complaint, so a matcher of somebody else's that declared
+	 * only `__construct(Scope $scope)` did not fail. It dropped the quantifier, built an
+	 * unquantified condition against a column scope, and produced a rule that was accepted by
+	 * every check and could never fire.
+	 *
+	 * So the claim that "a field type this library has never heard of is quantifiable the moment
+	 * it picks a matcher" is true now, and was not. A matcher that cannot be quantified can also
+	 * say so, by raising here.
+	 *
+	 * {@see Matcher\BuildsDrafts} implements this, so a matcher using that trait — as all four
+	 * built-in ones do — has it already.
+	 */
+	public function quantifiedAt(Scope $scope, Quantifier $how): static;
 }
