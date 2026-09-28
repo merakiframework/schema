@@ -24,6 +24,11 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          # The changelog is rendered from the whole history and grouped by tag, so the check
+          # below needs both. The default checkout is `fetch-depth: 1` with no tags, which
+          # leaves it rendering a one-entry changelog and reporting every real one as stale.
+          fetch-depth: 0
 
       - name: Set up PHP
         uses: shivammathur/setup-php@v2
