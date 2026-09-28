@@ -38,21 +38,6 @@ final class Facade
 		$this->clock = $clock ?? new SystemClock();
 	}
 
-	/**
-	 * Returns the authored default values for every field on this schema, under its name.
-	 * @return array<string, mixed>
-	 */
-	private static function extractDefaultValues(self $schema): array
-	{
-		$data = [];
-
-		foreach ($schema->fields as $field) {
-			$data[(string) $field->name] = $field->defaultValue;
-		}
-
-		return $data;
-	}
-
 	public function add(Field ...$fields): self
 	{
 		$this->fields = $this->fields->add(...$fields);
@@ -232,15 +217,18 @@ final class Facade
 	/**
 	 * Reads a submitted payload as values by field name.
 	 *
+	 * A null payload is an empty one, and says only that nothing was submitted. Every field
+	 * reports absent and settles its own authored default from there, which is where that
+	 * decision belongs: seeding the defaults here instead put them in `$given`, where nothing
+	 * downstream could tell them from something the user sent. A default was reported as
+	 * {@see ValueSource::Submitted}, and a prefill lost to it — inverting the precedence
+	 * {@see self::validate()} promises.
+	 *
 	 * @return array<string, mixed> one entry per field on the schema, under its name
 	 */
 	private function extractData(object|null $data): array
 	{
-		if ($data === null) {
-			return self::extractDefaultValues($this);
-		}
-
-		$publicVars = get_object_vars($data);
+		$publicVars = $data === null ? [] : get_object_vars($data);
 		$extracted = [];
 
 		foreach ($this->fields as $field) {

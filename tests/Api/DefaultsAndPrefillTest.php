@@ -62,6 +62,45 @@ final class DefaultsAndPrefillTest extends TestCase
 		$this->assertSame(ValueSource::Submitted, $resolved->source);
 	}
 
+	/**
+	 * The property the three tests below are really about: "nothing was submitted" has two
+	 * spellings and they have to mean the same thing.
+	 *
+	 * They did not. A null payload was seeded with every authored default, so a default arrived
+	 * in `$given` looking exactly like something the user had typed — reported as `Submitted`,
+	 * and beating the prefill that should have won. An empty object took the other branch and
+	 * behaved correctly, so the two spellings disagreed and only one of them was tested.
+	 */
+	#[Test]
+	public function a_null_payload_says_the_same_as_an_empty_one(): void
+	{
+		$fromNull = $this->schema()->resolve(null)->forField('nickname');
+		$fromEmpty = $this->schema()->resolve((object)[])->forField('nickname');
+
+		$this->assertSame($fromEmpty->value->text, $fromNull->value->text);
+		$this->assertSame($fromEmpty->source, $fromNull->source);
+	}
+
+	#[Test]
+	public function an_authored_default_is_not_reported_as_submitted(): void
+	{
+		$resolved = $this->schema()->resolve(null)->forField('nickname');
+
+		$this->assertSame('anonymous', $resolved->value->text);
+		$this->assertSame(ValueSource::Default, $resolved->source);
+	}
+
+	#[Test]
+	public function a_prefill_beats_the_authored_default_when_nothing_was_submitted(): void
+	{
+		$resolved = $this->schema()
+			->resolve(null, prefilledWith: (object)['nickname' => 'ali'])
+			->forField('nickname');
+
+		$this->assertSame('ali', $resolved->value->text);
+		$this->assertSame(ValueSource::Prefilled, $resolved->source);
+	}
+
 	#[Test]
 	public function a_prefill_is_checked_by_default(): void
 	{
