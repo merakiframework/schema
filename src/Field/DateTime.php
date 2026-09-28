@@ -29,12 +29,22 @@ use Brick\Math\BigInteger;
  */
 final readonly class DateTime extends AtomicField
 {
-	/** Inclusive. */
-	public LocalDateTime $from;
+	/**
+	 * The earliest date-time accepted, inclusive; `null` means no lower bound.
+	 *
+	 * @see \Meraki\Schema\Field\Date::$from for why these are nullable rather than sentinels
+	 */
+	public ?LocalDateTime $from;
 
-	/** Exclusive. */
-	public LocalDateTime $until;
+	/** The first date-time *out* of range, exclusive; `null` means no upper bound. */
+	public ?LocalDateTime $until;
 
+	/**
+	 * How far apart the accepted date-times are, counted from {@see self::$from}.
+	 *
+	 * Meaningless without a lower bound to count from, so the constraint is skipped when `from`
+	 * is unset rather than being measured against an arbitrary origin.
+	 */
 	public Duration $interval;
 
 	public function __construct(
@@ -44,8 +54,8 @@ final readonly class DateTime extends AtomicField
 	) {
 		parent::__construct();
 
-		$this->from = self::initially(LocalDateTime::min());
-		$this->until = self::initially(LocalDateTime::max());
+		$this->from = self::initially(null);
+		$this->until = self::initially(null);
 		$this->interval = match ($precision) {
 			TimePrecision::Minutes => Duration::ofMinutes(1),
 			TimePrecision::Seconds => Duration::ofSeconds(1),
@@ -129,8 +139,8 @@ final readonly class DateTime extends AtomicField
 	protected function defineConstraints(): Constraint\Set
 	{
 		return new Constraint\Set(
-			new Constraint('from', $this->isOnOrAfterFrom(...), (string) $this->from),
-			new Constraint('until', $this->isBeforeUntil(...), (string) $this->until),
+			new Constraint('from', $this->isOnOrAfterFrom(...), $this->from?->__toString()),
+			new Constraint('until', $this->isBeforeUntil(...), $this->until?->__toString()),
 			new Constraint('interval', $this->isOnAnInterval(...), (string) $this->interval),
 			new Constraint('precision', $this->hasAcceptablePrecision(...), $this->precision->value),
 		);
@@ -162,23 +172,28 @@ final readonly class DateTime extends AtomicField
 		return $this->policy->applyTo(LocalDateTime::parse($value), $this->precision);
 	}
 
-	private function isOnOrAfterFrom(Value $parsed): bool
+	private function isOnOrAfterFrom(Value $parsed): ?bool
 	{
 		$dateTime = $parsed->dateTime;
 
-		return $dateTime->isAfterOrEqualTo($this->from);
+		return $this->from === null ? null : $dateTime->isAfterOrEqualTo($this->from);
 	}
 
-	private function isBeforeUntil(Value $parsed): bool
+	private function isBeforeUntil(Value $parsed): ?bool
 	{
 		$dateTime = $parsed->dateTime;
 
-		return $dateTime->isBefore($this->until);
+		return $this->until === null ? null : $dateTime->isBefore($this->until);
 	}
 
-	private function isOnAnInterval(Value $parsed): bool
+	private function isOnAnInterval(Value $parsed): ?bool
 	{
 		$dateTime = $parsed->dateTime;
+
+		// Nothing to count from, so nothing is being asked. See $interval.
+		if ($this->from === null) {
+			return null;
+		}
 
 		// Nanoseconds are computed inline rather than through intermediate helpers, which
 		// coerce to float on large multiplications and lose the low digits.

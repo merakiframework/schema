@@ -21,19 +21,31 @@ use Brick\DateTime\Period;
  */
 final readonly class Date extends AtomicField
 {
-	/** Inclusive. */
-	public LocalDate $from;
+	/**
+	 * The earliest date accepted, inclusive; `null` means no lower bound.
+	 *
+	 * A sentinel — `LocalDate::min()` — stood here before, which made an unset bound report as
+	 * *passed* rather than *skipped*: the field answered a question nobody had asked. Every other
+	 * optional bound in this library is `?T` with `null` meaning no limit, and these are no
+	 * longer the exception.
+	 */
+	public ?LocalDate $from;
 
 	/**
-	 * Exclusive: a date equal to this one is *out* of range.
+	 * The first date *out* of range, exclusive; `null` means no upper bound.
 	 *
-	 * There used to be an inclusive `to()` beside it, and it is gone — both reported under the
-	 * name `until`, so a result could not say which had been declared. Two behaviours sharing one
-	 * constraint name is worse than two names for one behaviour. An inclusive bound is this one
-	 * plus a day, which the author writes.
+	 * There used to be an inclusive `to()` beside it, and it was removed because both reported
+	 * under the name `until`, so a result could not say which had been declared. Two behaviours
+	 * sharing one constraint name is worse than two names for one behaviour.
 	 */
-	public LocalDate $until;
+	public ?LocalDate $until;
 
+	/**
+	 * How far apart the accepted dates are, counted from {@see self::$from}.
+	 *
+	 * Meaningless without a lower bound to count from, so the constraint is skipped when `from`
+	 * is unset rather than being measured against an arbitrary origin.
+	 */
 	public Period $interval;
 
 	public function __construct(
@@ -41,8 +53,8 @@ final readonly class Date extends AtomicField
 	) {
 		parent::__construct();
 
-		$this->from = self::initially(LocalDate::min());
-		$this->until = self::initially(LocalDate::max());
+		$this->from = self::initially(null);
+		$this->until = self::initially(null);
 		$this->interval = self::initially(Period::ofDays(1));
 		$this->constraints = $this->defineConstraints();
 	}
@@ -98,29 +110,34 @@ final readonly class Date extends AtomicField
 	protected function defineConstraints(): Constraint\Set
 	{
 		return new Constraint\Set(
-			new Constraint('from', $this->isOnOrAfterFrom(...), (string) $this->from),
-			new Constraint('until', $this->isBeforeUntil(...), (string) $this->until),
+			new Constraint('from', $this->isOnOrAfterFrom(...), $this->from?->__toString()),
+			new Constraint('until', $this->isBeforeUntil(...), $this->until?->__toString()),
 			new Constraint('interval', $this->isOnAnInterval(...), (string) $this->interval),
 		);
 	}
 
-	private function isOnOrAfterFrom(Value $parsed): bool
+	private function isOnOrAfterFrom(Value $parsed): ?bool
 	{
 		$date = $parsed->date;
 
-		return $date->isAfterOrEqualTo($this->from);
+		return $this->from === null ? null : $date->isAfterOrEqualTo($this->from);
 	}
 
-	private function isBeforeUntil(Value $parsed): bool
+	private function isBeforeUntil(Value $parsed): ?bool
 	{
 		$date = $parsed->date;
 
-		return $date->isBefore($this->until);
+		return $this->until === null ? null : $date->isBefore($this->until);
 	}
 
-	private function isOnAnInterval(Value $parsed): bool
+	private function isOnAnInterval(Value $parsed): ?bool
 	{
 		$date = $parsed->date;
+
+		// Nothing to count from, so nothing is being asked. See $interval.
+		if ($this->from === null) {
+			return null;
+		}
 
 		if ($date->isEqualTo($this->from)) {
 			return true;

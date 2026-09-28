@@ -31,12 +31,33 @@ use Brick\Math\BigInteger;
  */
 final readonly class Time extends AtomicField
 {
-	/** Inclusive. */
-	public LocalTime $from;
+	/**
+	 * The earliest time accepted, inclusive; `null` means no lower bound.
+	 *
+	 * @see \Meraki\Schema\Field\Date::$from for why these are nullable rather than sentinels
+	 */
+	public ?LocalTime $from;
 
-	/** Inclusive. */
-	public LocalTime $until;
+	/**
+	 * The first time *out* of range, exclusive; `null` means no upper bound.
+	 *
+	 * This was inclusive until now, which made it disagree with {@see Date::$until} and
+	 * {@see DateTime::$until} while all three reported under the same constraint name — so one
+	 * sentence in a language pack was right for two fields and wrong for this one.
+	 *
+	 * A sentinel would have been especially wrong here. `LocalTime::max()` is
+	 * `23:59:59.999999999`, a time a field at {@see Precision::Nanoseconds} can genuinely hold,
+	 * so an exclusive bound defaulting to it would have refused the last instant of the day
+	 * while claiming to be unbounded. `LocalDate::max()` is year 999999 and hides the same bug.
+	 */
+	public ?LocalTime $until;
 
+	/**
+	 * How far apart the accepted times are, counted from {@see self::$from}.
+	 *
+	 * Meaningless without a lower bound to count from, so the constraint is skipped when `from`
+	 * is unset rather than being measured against an arbitrary origin.
+	 */
 	public Duration $interval;
 
 	public function __construct(
@@ -46,8 +67,8 @@ final readonly class Time extends AtomicField
 	) {
 		parent::__construct();
 
-		$this->from = self::initially(LocalTime::min());
-		$this->until = self::initially(LocalTime::max());
+		$this->from = self::initially(null);
+		$this->until = self::initially(null);
 		$this->interval = match ($precision) {
 			Precision::Minutes => Duration::ofMinutes(1),
 			Precision::Seconds => Duration::ofSeconds(1),
@@ -67,7 +88,7 @@ final readonly class Time extends AtomicField
 	}
 
 	/**
-	 * This is inclusive of the time provided.
+	 * This is exclusive of the time provided: a time equal to it is out of range.
 	 */
 	public function until(string $value): static
 	{
@@ -131,8 +152,8 @@ final readonly class Time extends AtomicField
 	protected function defineConstraints(): Constraint\Set
 	{
 		return new Constraint\Set(
-			new Constraint('from', $this->isOnOrAfterFrom(...), (string) $this->from),
-			new Constraint('until', $this->isOnOrBeforeUntil(...), (string) $this->until),
+			new Constraint('from', $this->isOnOrAfterFrom(...), $this->from?->__toString()),
+			new Constraint('until', $this->isBeforeUntil(...), $this->until?->__toString()),
 			new Constraint('interval', $this->isOnAnInterval(...), (string) $this->interval),
 			new Constraint('precision', $this->hasAcceptablePrecision(...), $this->precision->value),
 		);
@@ -164,23 +185,28 @@ final readonly class Time extends AtomicField
 		return $this->policy->applyTo(LocalTime::parse($value), $this->precision);
 	}
 
-	private function isOnOrAfterFrom(Value $parsed): bool
+	private function isOnOrAfterFrom(Value $parsed): ?bool
 	{
 		$time = $parsed->time;
 
-		return $time->isAfterOrEqualTo($this->from);
+		return $this->from === null ? null : $time->isAfterOrEqualTo($this->from);
 	}
 
-	private function isOnOrBeforeUntil(Value $parsed): bool
+	private function isBeforeUntil(Value $parsed): ?bool
 	{
 		$time = $parsed->time;
 
-		return $time->isBeforeOrEqualTo($this->until);
+		return $this->until === null ? null : $time->isBefore($this->until);
 	}
 
-	private function isOnAnInterval(Value $parsed): bool
+	private function isOnAnInterval(Value $parsed): ?bool
 	{
 		$time = $parsed->time;
+
+		// Nothing to count from, so nothing is being asked. See $interval.
+		if ($this->from === null) {
+			return null;
+		}
 
 		// Nanoseconds are computed inline rather than through intermediate helpers, which
 		// coerce to float on large multiplications and lose the low digits.
