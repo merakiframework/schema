@@ -74,7 +74,10 @@ final readonly class Value implements ParsedValue, HasParts
 	 * Takes the record a field takes, so there is one answer to "what is an address here".
 	 *
 	 * Total about the *parts*: an absent or non-string part becomes null, and `''` is kept as
-	 * `''` because submitting it was a decision. Nothing is trimmed — that is the port's job.
+	 * `''` because submitting it was a decision — a JSON client sending `"line1": ""` said
+	 * something, and reading that as "no line one" would be guessing at the opposite. A form
+	 * that submits `''` for a box nobody touched is a rendering artefact, and stripping it is
+	 * the port's job. Nothing is trimmed here for the same reason.
 	 *
 	 * Two things it refuses, and both are about whether this is an address at all rather than
 	 * whether it is an acceptable one:
@@ -200,20 +203,6 @@ final readonly class Value implements ParsedValue, HasParts
 		return null;
 	}
 
-	/**
-	 * Reads the snake_cased array a form submits. Unknown keys are ignored, and a part that is
-	 * absent or not a string becomes `null`.
-	 *
-	 * **An empty string is not absence.** `''` is kept as `''`, because submitting it was a
-	 * decision: a JSON client sending `"line1": ""` said something, and treating that as "no line
-	 * one" would be guessing at the opposite. A form that submits `''` for a box nobody touched is
-	 * a rendering artefact, and stripping it is the port's job — see docs/CODING-STYLE.md. Nothing
-	 * is trimmed here for the same reason.
-	 *
-	 * Total: there is no array it refuses, because it runs on untrusted input.
-	 *
-	 * @param array<string, mixed> $parts
-	 */
 	/**
 	 * The snake_cased form, every part present even when null, so a consumer can rely on the
 	 * shape rather than testing for keys.

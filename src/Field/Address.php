@@ -219,14 +219,6 @@ final readonly class Address extends AtomicField
 	}
 
 	/**
-	 * Turns a country given by name into its code, so everything downstream has one shape to read.
-	 *
-	 * A country that is neither a known name nor a known code is left exactly as it came, for
-	 * `allowedCountries` to report — rewriting it would lose what the author actually typed, and
-	 * guessing at a near-miss is not this field's business.
-	 */
-
-	/**
 	 * Four constraints, each naming the part it is about rather than embedding this field's name.
 	 */
 	protected function defineConstraints(): Constraint\Set

@@ -298,18 +298,6 @@ trait Definition
 	}
 
 	/**
-	 * Hands back a copy with the given properties changed — the only way a field is ever
-	 * configured, since writing to one is a fatal.
-	 *
-	 * Every wither goes through here so the authored default is re-checked each time, which is
-	 * what lets it be checked at all: configuration arrives in any order, so a default set before
-	 * the constraint that rejects it has to fail on the *later* call. A wither that clones
-	 * directly skips that and leaves a stale default behind.
-	 *
-	 * @param array<string, mixed> $changes
-	 * @throws InvalidDefault if the change leaves the authored default invalid
-	 */
-	/**
 	 * The same, for a rule outcome to apply.
 	 *
 	 * Public where {@see self::with()} is protected, and the difference is where the values came
@@ -331,6 +319,14 @@ trait Definition
 	}
 
 	/**
+	 * Hands back a copy with the given properties changed — the only way a field is ever
+	 * configured, since writing to one is a fatal.
+	 *
+	 * Every wither goes through here so the authored default is re-checked each time, which is
+	 * what lets it be checked at all: configuration arrives in any order, so a default set before
+	 * the constraint that rejects it has to fail on the *later* call. A wither that clones
+	 * directly skips that and leaves a stale default behind.
+	 *
 	 * @param array<string, mixed> $changes
 	 * @throws InvalidDefault if the change leaves the authored default invalid
 	 */

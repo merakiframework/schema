@@ -38,12 +38,6 @@ use SensitiveParameter;
 final readonly class Value implements ParsedValue, HasParts
 {
 	/**
-	 * @param string|null $number digits only, with any spacing already removed
-	 * @param LocalDate|null $expiry the *last* day of the month the card expires in, since a card
-	 *        is good through the end of its stated month
-	 * @param string|null $securityCode the only optional part
-	 */
-	/**
 	 * The PAN with its grouping removed, or null when none was given.
 	 *
 	 * No `#[SensitiveParameter]`: the attribute targets parameters, and PHP refuses it on a
@@ -58,6 +52,7 @@ final readonly class Value implements ParsedValue, HasParts
 	/** The cardholder's name as printed, or null. */
 	public ?string $name;
 
+	/** The only part a card may legitimately be missing, since it is not always asked for. */
 	public ?string $securityCode;
 
 	/**
@@ -120,15 +115,6 @@ final readonly class Value implements ParsedValue, HasParts
 	}
 
 	/**
-	 * Reads the array a form submits. Total: there is nothing it refuses, because it runs on
-	 * untrusted input and an unreadable part is something to report rather than raise about.
-	 *
-	 * The number has its spacing stripped, because people type cards in groups of four. An expiry
-	 * may arrive as `YYYY-MM` — which is what `<input type="month">` submits — or as a full date.
-	 *
-	 * @param array<string, mixed> $parts
-	 */
-	/**
 	 * The same card: number, expiry and holder.
 	 *
 	 * The security code is deliberately left out. It is not part of what identifies a card — it is
@@ -156,6 +142,10 @@ final readonly class Value implements ParsedValue, HasParts
 	 *
 	 * The last day rather than the first because a card expiring in `2026-09` is good until the end
 	 * of September. Taking the first would reject a valid card for up to thirty days.
+	 *
+	 * Either spelling is read: `YYYY-MM`, which is what `<input type="month">` submits, or a full
+	 * date. Anything else is `null` — unreadable input is something to report rather than raise
+	 * about, because this runs on what a stranger typed.
 	 */
 	private static function readExpiry(?string $expiry): ?LocalDate
 	{
@@ -180,9 +170,6 @@ final readonly class Value implements ParsedValue, HasParts
 
 
 	/**
-	 * The last four digits, which is the most of a card number anything should ever show.
-	 */
-	/**
 	 * Whether nothing at all was supplied. A card with no parts is not a card, so the field reads
 	 * it as unreadable rather than as a half-filled one — {@see \Meraki\Schema\Field\CreditCard}.
 	 */
@@ -194,6 +181,9 @@ final readonly class Value implements ParsedValue, HasParts
 			&& $this->securityCode === null;
 	}
 
+	/**
+	 * The last four digits, which is the most of a card number anything should ever show.
+	 */
 	public function lastFourDigits(): ?string
 	{
 		return ($this->number === null || strlen($this->number) < 4) ? null : substr($this->number, -4);

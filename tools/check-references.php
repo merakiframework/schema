@@ -2,14 +2,19 @@
 declare(strict_types=1);
 
 /**
- * Every {@see ...} in src/, checked against what actually exists.
+ * Two kinds of docblock rot in src/, both of which nothing else notices.
  *
- * This is the rot that keeps appearing, because nothing notices it: an IDE renders a dead link
- * silently, and a test suite has no opinion about comments. Five had accumulated by the time this
- * was written.
+ * **Dead references.** Every {@see ...} checked against what actually exists. Five had
+ * accumulated by the time this was written.
  *
- * The comments in this library carry the reasoning, which is the expensive part to reconstruct. A
- * dead link erodes trust in all of them, so this runs in CI.
+ * **Stranded docblocks.** PHP binds only the *last* docblock before a declaration, so when a
+ * member is inserted between an existing block and the method it described, that block stops
+ * documenting anything. It is invisible to PHPStan, to the risky-rule report and to an IDE, and
+ * it survives every sweep that looks at code. Eight had accumulated.
+ *
+ * The comments in this library carry the reasoning, which is the expensive part to reconstruct.
+ * A dead link erodes trust in all of them, and a block filed under the wrong member is worse
+ * than no block — so both run in CI.
  */
 
 require __DIR__ . '/../vendor/autoload.php';
@@ -23,9 +28,39 @@ $files = array_merge(
 );
 
 $bad = [];
+$stranded = [];
 
 foreach ($files as $path) {
 	$source = file_get_contents($path);
+
+	// A docblock closed, then another opened before any declaration came between them. Blank
+	// lines in the gap change nothing: PHP still binds only the last block, so the first one
+	// documents nothing. There is no legitimate form of this in src/ — a file-level docblock
+	// above a class one would be, but this codebase does not use them.
+	$lines = explode("\n", $source);
+	$closedAt = null;
+
+	foreach ($lines as $i => $line) {
+		if (preg_match('~^[ \t]*\*/[ \t]*$~', $line) === 1) {
+			$closedAt = $i + 1;
+			continue;
+		}
+
+		if ($closedAt !== null && trim($line) === '') {
+			continue;
+		}
+
+		if ($closedAt !== null && preg_match('~^[ \t]*/\*\*~', $line) === 1) {
+			$stranded[] = sprintf(
+				'%s:%d: this docblock is followed by another before any declaration, so it '
+					. 'documents nothing',
+				$path,
+				$closedAt,
+			);
+		}
+
+		$closedAt = null;
+	}
 
 	// The file's own namespace and imports, so a relative reference can be resolved.
 	preg_match('/^namespace\s+([^;]+);/m', $source, $ns);
@@ -101,16 +136,26 @@ foreach ($files as $path) {
 	}
 }
 
-if ($bad === []) {
-	echo "  every {@see} in src/ resolves\n";
+if ($bad === [] && $stranded === []) {
+	echo "  every {@see} in src/ resolves, and every docblock documents something\n";
 
 	exit(0);
 }
 
-echo '  ' . count($bad) . " dead reference(s):\n";
+if ($bad !== []) {
+	echo '  ' . count($bad) . " dead reference(s):\n";
 
-foreach ($bad as $line) {
-	echo '    ' . $line . "\n";
+	foreach ($bad as $line) {
+		echo '    ' . $line . "\n";
+	}
+}
+
+if ($stranded !== []) {
+	echo '  ' . count($stranded) . " stranded docblock(s):\n";
+
+	foreach ($stranded as $line) {
+		echo '    ' . $line . "\n";
+	}
 }
 
 exit(1);

@@ -97,21 +97,6 @@ final readonly class PhoneNumber extends AtomicField
 	}
 
 	/**
-	 * Whether this is a telephone number at all.
-	 *
-	 * True for a number that is valid for *some* country this field allows, even when which one
-	 * cannot be settled — that is the `unambiguous` constraint's business, and failing the shape
-	 * check here would report the wrong problem.
-	 */
-
-
-	/**
-	 * The resolved number, or `null` when no country can be settled without guessing.
-	 *
-	 * Null rather than an exception because this runs mid-validation: the ambiguity is something
-	 * to report, not to raise.
-	 */
-	/**
 	 * What a rule may ask about this field: a number is matched by prefix or pattern, never ranked.
 	 *
 	 * @see \Meraki\Schema\Rule\Matcher for the four sets and why a field declares one
