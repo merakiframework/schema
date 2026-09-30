@@ -157,7 +157,8 @@ final readonly class Address extends AtomicField
 	 *
 	 * @return array<string, Requirements>
 	 * @throws InvalidConfiguration if a country is not one ISO 3166-1 knows, if it is outside
-	 *         this field's allow-list, or if no countries are given and the field allows any
+	 *         this field's allow-list, if the same country is asked about twice under any
+	 *         spelling, or if no countries are given and the field allows any
 	 */
 	public function requirementsFor(string ...$countries): array
 	{
@@ -170,6 +171,7 @@ final readonly class Address extends AtomicField
 		}
 
 		$requirements = [];
+		$asked = [];
 
 		// Resolved in full before any is returned: a partial map invites a silent gap where a
 		// lookup quietly missed, which is worse than losing the answers that did resolve.
@@ -184,6 +186,15 @@ final readonly class Address extends AtomicField
 				throw InvalidConfiguration::countryIsNotAllowedHere($spelling, $this->allowedCountries);
 			}
 
+			// Both outcomes of asking twice hide the mistake. One spelling repeated collapses to
+			// a single entry, so the result is quietly shorter than the question. Two spellings
+			// of one country give two keys holding the same answer, so a caller looping over
+			// them does the work twice with nothing to show that it has.
+			if (isset($asked[$code])) {
+				throw InvalidConfiguration::countryAskedForTwice($code, [$asked[$code], $spelling]);
+			}
+
+			$asked[$code] = $spelling;
 			$requirements[$spelling] = Requirements::forCountry($code, $this->precision);
 		}
 

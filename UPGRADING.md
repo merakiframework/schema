@@ -321,6 +321,12 @@ Countries resolve through the same code path a submitted address takes, so the s
 about is exactly the set the field accepts. It throws for a country outside the allow-list, for
 one ISO 3166-1 does not know, and — on a field that allows any — for no arguments at all.
 
+It also throws if you ask about one country twice under any spelling, so
+`requirementsFor('au', 'AUS')` is refused rather than answered. Both outcomes of allowing it
+would hide the mistake: one spelling repeated collapses to a single entry, making the result
+quietly shorter than the question, and two spellings of one country give two keys holding the
+same answer, so a loop over them does the work twice with nothing to show that it has.
+
 **One honest limit.** The subdivision data is postal-address data, not the ISO 3166-2 register.
 It stores the suffix, and for the United States carries 62 entries against ISO's 57 — adding
 `AA`, `AE` and `AP`, which are military postal regions rather than ISO subdivisions, and

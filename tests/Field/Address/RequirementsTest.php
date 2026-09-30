@@ -275,6 +275,61 @@ final class RequirementsTest extends TestCase
 		$this->assertSame('JP', $this->freeForm()->requirementsFor('JP')['JP']->country);
 	}
 
+	/** @return array<string, array{list<string>}> */
+	public static function theSameCountryTwice(): array
+	{
+		return [
+			'the same spelling' => [['AU', 'AU']],
+			'two codes' => [['au', 'AUS']],
+			'a code and a name' => [['AU', 'Australia']],
+			'buried among others' => [['NZ', 'AUS', 'JP', 'australia']],
+		];
+	}
+
+	#[Test]
+	#[DataProvider('theSameCountryTwice')]
+	public function it_refuses_to_answer_about_one_country_twice(array $countries): void
+	{
+		// Asking twice is a caller bug either way, and both outcomes hide it. The same spelling
+		// collapses to one entry, so the result is quietly shorter than the question. Two
+		// spellings of one country give two keys holding identical answers, so a caller looping
+		// over them does the same work twice and cannot tell.
+		$this->expectException(InvalidConfiguration::class);
+
+		$this->freeForm()->requirementsFor(...$countries);
+	}
+
+	#[Test]
+	public function the_refusal_names_the_country_and_both_spellings(): void
+	{
+		try {
+			$this->freeForm()->requirementsFor('au', 'AUS');
+			$this->fail('expected the call to be refused');
+		} catch (InvalidConfiguration $e) {
+			$this->assertStringContainsString('AU', $e->getMessage());
+			$this->assertStringContainsString('au', $e->getMessage());
+			$this->assertStringContainsString('AUS', $e->getMessage());
+		}
+	}
+
+	#[Test]
+	public function asking_about_different_countries_is_not_a_duplicate(): void
+	{
+		$requirements = $this->freeForm()->requirementsFor('AUS', 'NZL', 'japan');
+
+		$this->assertSame(['AUS', 'NZL', 'japan'], array_keys($requirements));
+	}
+
+	#[Test]
+	public function no_arguments_cannot_produce_a_duplicate(): void
+	{
+		// The allow-list is canonicalised and de-duplicated when it is built, so the no-argument
+		// form has nothing to collide with — `allowCountries('AU', 'aus')` is one country.
+		$field = $this->freeForm()->allowCountries('AU', 'aus', 'Australia', 'NZ');
+
+		$this->assertSame(['AU', 'NZ'], array_keys($field->requirementsFor()));
+	}
+
 	#[Test]
 	public function two_floors_asking_about_one_country_get_different_answers(): void
 	{

@@ -328,6 +328,18 @@ final class InvalidConfiguration extends InvalidArgumentException implements Exc
 		));
 	}
 
+	/**
+	 * @param list<string> $spellings the two ways it was written, in the order they were given
+	 */
+	public static function countryAskedForTwice(string $code, array $spellings): self
+	{
+		return new self(sprintf(
+			"Country '%s' was asked about twice, as '%s'. Ask once per country.",
+			$code,
+			implode("' and '", $spellings),
+		));
+	}
+
 	public static function requirementsNeedACountry(): self
 	{
 		return new self(
