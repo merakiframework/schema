@@ -10,6 +10,145 @@ is a commit subject, with the body kept because the body is where the reasoning 
 
 ## Unreleased
 
+### Document the address rebuild, and the rule it forced out
+
+`096f9bc5` · 2026-09-30
+
+UPGRADING gets the section a rename of this size needs: what now fails that
+used to pass, the API and part tables, and the three changes that alter
+stored data rather than calls — line1/line2 joining into a street list,
+QLD becoming AU-QLD, organization moving out of the address entirely.
+
+It also states the obligation ports now carry, because it is easy to miss
+and expensive to get wrong: omit a part you have no value for, never post
+`''`. A form that sends empty strings for untouched inputs makes every such
+address unreadable, and the submitter is told the address cannot be read
+rather than which part is missing.
+
+FIELD-API said "a constraint's name is its property's name", which turns out
+to be one case of three. Rebuilding Address forced the others out: a bound
+derived from reference data cannot be a property, because it depends on the
+submitted value and is unanswerable most of the time, and a constraint with
+nothing to configure has neither. The doc now says all three.
+
+examples/addresses.php runs every case, including the ones worth seeing
+rather than being told: the same unconfigured field judged by Japanese,
+Panamanian and British rules, and Cardiff NSW 2285 — where the suburb IS
+the locality, and Newcastle is not part of the address at all.
+
+ROADMAP records where coordinates go, and why Address will not derive them.
+
+### Teach emptiness about a part held as a list
+
+`03b7c6c6` · 2026-09-30
+
+isEmpty() matched on null, Countable and Stringable|string, then fell to a
+default of "not empty". A plain PHP array is none of those — it is countable
+by count() but does not implement the interface — so an array-valued part
+reported as not empty however little it held.
+
+Nothing had an array-valued part until `Address\Value::$street`, where an
+absent street spells itself `[]`. So `when(...'street')->isEmpty()` answered
+false for an address with no street at all, which is the one case it exists
+to catch.
+
+The hole was always there; street is only the first part to stand in it.
+
+### Read the country's own rules instead of guessing at them
+
+`c397cab5` · 2026-09-30
+
+Address never asked libaddressinput what a country requires. Four of its
+five constraints skipped on a bare `{street, country}`, so an Australian
+address with no suburb, state or postcode was valid. Three more defects
+sat beside it, each found by reproducing rather than reading:
+
+  - An unrecognised country was kept verbatim and every country-driven
+    check skipped, so spelling one in ISO 3166-1 alpha-3 silently turned
+    off postcode and subdivision validation on a free-form field — which
+    is the default.
+  - The PO-box pattern was anchored to the start of the subject and read
+    line one only, so a box written on the second line slipped past a
+    field that had asked for somewhere visitable.
+  - Nothing tested a part for emptiness, so `'   '` satisfied a
+    requiredness check. `country` was inconsistent with itself: `''` was
+    unreadable and `'   '` was not.
+
+Type spanned two independent axes at once — how deep an address is
+specified, and whether it names a place a person can attend. That is why
+`Postal` had nothing to do at request time, and why no third case sat
+comfortably beside the other two. It came from HL7 FHIR, where those
+words describe an address someone already holds rather than demand
+anything of a submitter, so it was behaving exactly as designed, in the
+wrong job. Two dials replace it, and every combination is legal — the
+guard refusing "mailable and no street" is gone, along with a claim that
+was wrong anyway, since a PO box names no street and is perfectly postal.
+
+Requiredness is now the country's, filtered by the field's floor. Only 75
+of 206 countries require a postcode and 44 a subdivision; Japan, Hong Kong
+and the Emirates do not require a locality. A check for a part the
+submitted country does not ask for skips rather than quietly passing.
+
+The value object gets the renames and the refusals. Parts drop from eight
+to six: `line1`/`line2` become one `street` holding a list of lines, which
+is what WHATWG's `street-address` token describes and what keeps equality
+honest now that nothing normalises — a delimited string would carry a
+separator whose spelling HTML and JSON disagree on. `organization` goes
+the way `givenName` already had: an address identifies a place, not who is
+at it. `administrative_area` becomes `subdivision`, holding the full ISO
+3166-2 code, which is the vocabulary the SubdivisionRepository underneath
+it was already using.
+
+An unresolvable subdivision is unreadable only where the country requires
+one. That covers exactly the cases where it is undecidable: 36 of 1548
+subdivisions carry their own postcode pattern, in CN and CO, and both
+require one. Elsewhere it stays a reportable constraint failure.
+
+requirementsFor() is how a port asks before a request. Every
+country-driven bound is unanswerable while more than one country is
+allowed, so the fields that most need the answer could not get it — which
+is why schema-html re-implemented isUsedByAny() and postalCodePatternFor()
+against the same data and drifted while doing it. It is the one read path:
+no `postalCodeRequired` property beside it, because a fact with two
+accessors is a fact that can disagree with itself.
+
+### Add the Precision ladder that replaces Address\Type
+
+`e9817de2` · 2026-09-30
+
+Type tried to span two independent axes in one closed set of "kinds": how
+deep an address is specified, and whether it names a place a person can
+attend. That is why Postal had nothing to do at request time, and why no
+third case sat comfortably beside the other two — "Area" answers the first
+question while "Postal" and "Location" answer the second.
+
+Depth is ordered, so it gets a ladder: Country < Subdivision < Locality <
+Street. A field's floor filters the country's own required parts rather
+than inventing any, which keeps it monotone — a shallower floor still
+accepts a deeper value, so "an address or an area" stays one field and
+needs no union type.
+
+A postcode is not a rung. It names a delivery zone rather than a tier
+between locality and street, and "Emerald QLD 4720" is one answer, so it
+travels with the locality.
+
+covers() throws rather than answering false for a part it does not know.
+Nothing a submitter sends can reach it — an unknown key fails the shape
+first — so it only fires on a typo in our own map, where the quiet answer
+would leave that part unchecked.
+
+### Update history
+
+`74f43c68` · 2026-09-28
+
+The v2.0.0-alpha.2 tag is back on 66defeb, which is the commit Packagist
+published and froze. Packagist versions are immutable, so the reference it
+recorded cannot be changed by moving the tag -- git and the published package
+had come to disagree about what alpha.2 is, and this puts them back in step.
+
+Nothing under src/ differs between that commit and here: the three commits
+since are a CI workflow fix and two regenerations of this file.
+
 ### Update history
 
 `7cf04e4c` · 2026-09-28
