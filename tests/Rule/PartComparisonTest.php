@@ -129,6 +129,30 @@ final class PartComparisonTest extends TestCase
 		$this->assertTrue($this->fired($schema, self::AU, self::AU));
 	}
 
+	/**
+	 * A part whose emptiness is a list rather than a string.
+	 *
+	 * `street` is the first part held as a list, and emptiness was decided by a match on `null`,
+	 * `Countable` and `Stringable|string` — a plain PHP array is none of those, so it fell to
+	 * the default and an absent street reported as *not* empty. A latent hole for any
+	 * array-valued part, which `street` is simply the first to stand in.
+	 */
+	#[Test]
+	public function an_absent_street_is_empty(): void
+	{
+		$schema = $this->schema();
+		$schema->addRule(
+			$schema->when(ValueScope::of('billing', 'street'))
+				->isEmpty()
+				->then($schema->fields->getByName('note')->makeRequired()),
+		);
+
+		$withoutStreet = array_diff_key(self::AU, ['street' => null]);
+
+		$this->assertTrue($this->fired($schema, $withoutStreet, self::AU));
+		$this->assertFalse($this->fired($schema, self::AU, self::AU));
+	}
+
 	#[Test]
 	public function a_part_may_be_compared_against_a_literal(): void
 	{

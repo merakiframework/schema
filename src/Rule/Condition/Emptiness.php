@@ -28,6 +28,7 @@ use Stringable;
  * | --- | --- |
  * | `null` | always — nothing was submitted, or nothing readable was |
  * | a {@see \Countable} value, such as a collection | it holds no rows |
+ * | an array, such as a part held as a list | it holds nothing |
  * | a {@see \Stringable} value, or a part that resolved to a string | the string is `''` |
  *
  * Anything else is not empty. A boolean `false` is a submitted answer, not an absent one, and a
@@ -60,6 +61,10 @@ abstract class Emptiness implements Condition, Scoped
 		return match (true) {
 			$value === null => true,
 			$value instanceof Countable => count($value) === 0,
+			// A plain array is not the Countable *interface*, so it reached the default and
+			// reported as not empty. `Address\Value::$street` is the first part held as a list,
+			// and an absent one spells itself `[]`.
+			is_array($value) => $value === [],
 			$value instanceof Stringable, is_string($value) => (string) $value === '',
 			default => false,
 		};
