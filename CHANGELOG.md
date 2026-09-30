@@ -10,6 +10,28 @@ is a commit subject, with the body kept because the body is where the reasoning 
 
 ## Unreleased
 
+### Refuse to answer about one country twice
+
+`f2f17430` · 2026-10-01
+
+requirementsFor('AU', 'AU') returned a single entry, so the result was
+quietly shorter than the question. requirementsFor('au', 'AUS') returned
+two keys holding identical answers, so a caller looping over them did the
+same work twice with nothing to show that it had.
+
+Both hide a caller bug, and the second hides it better — the map looks
+right and only the contents repeat. So neither is answered now: any two
+arguments resolving to the same country are refused, naming the country
+and both spellings that produced it.
+
+The no-argument form cannot trip on this. `allowCountries('AU', 'aus')` is
+already one country by the time the allow-list is built, so the list it
+falls back to is unique by construction.
+
+### Update history
+
+`9554a52f` · 2026-09-30
+
 ### Accept every subdivision this library publishes
 
 `3f500933` · 2026-09-30
