@@ -10,6 +10,60 @@ is a commit subject, with the body kept because the body is where the reasoning 
 
 ## Unreleased
 
+### Accept every subdivision this library publishes
+
+`3f500933` · 2026-09-30
+
+Two defects, both hidden by the same blind spot: every subdivision test
+used Australia or Ireland, and both are uppercase-coded and string-keyed.
+The countries that are neither were where the failures lived.
+
+A subdivision submitted by *name* threw a TypeError out of validate().
+`SubdivisionRepository::getList()` is annotated `array<string,string>`, but
+PHP converts a numeric-string key to an int on the way into an array, so
+returning it from a `?string` method is fatal — not a MalformedValue a
+caller can catch, a hard error escaping the validation boundary entirely.
+19 countries code numerically; 398 subdivision names hit it. `Tokyo`,
+`Seoul` and `Bangkok` all killed the request.
+
+Five countries — CV, HK, KY, RU and TV — code their subdivisions by name,
+so the ISO 3166-2 form published for them is `HK-Kowloon`. The lookup
+uppercased the candidate before an exact-key match, which cannot match a
+key that is a name, and the name scan compared against the un-stripped
+original. So the library refused the exact value `requirementsFor()` had
+handed a port to render its options. Hong Kong, Cape Verde and the Caymans
+were unusable through the documented path.
+
+Both are gone: one case-insensitive pass over code and name, against a
+candidate whose prefix has already come off, with the key cast back to the
+string it was written as.
+
+The test that would have caught it now exists and is the one worth
+keeping — every subdivision of every country, round-tripped from what
+`requirementsFor()` publishes back through `Value`. 1548 of them.
+
+Also here, from the same review:
+
+- `toArray()` emitted `[]` for an absent street, which the constructor
+  refuses, so a value could not be read back from its own serialisation.
+  Any persist-and-reload path hit it. `parts()` keeps the raw list, because
+  a scope asking whether a street is empty wants the property.
+- `Requirements::forCountry()` is memoised on country *and* floor. A field
+  asks it ~15 times per request — once per constraint, again for each
+  `boundFor` — and it was rebuilding a 62-element subdivision list each
+  time. US validation: 155us to 22us.
+- The four test blocks the plan specified and the branch skipped: the four
+  countries that require nothing below themselves, HK and US in the
+  cross-country table, the twelve countries that accept a dependent
+  locality, and CN for the subdivisions-carry-postcodes case.
+- MESSAGES.md documented a pack containing `part.organization`, which the
+  vocabulary no longer asks for and PackValidator now refuses. A reader
+  copying it got a hard error.
+
+### Update history
+
+`4a3f3a02` · 2026-09-30
+
 ### Document the address rebuild, and the rule it forced out
 
 `096f9bc5` · 2026-09-30
