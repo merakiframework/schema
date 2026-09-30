@@ -104,7 +104,7 @@ final class MalformedCompositeInputTest extends TestCase
 	{
 		$result = $this->schema()->validate((object)[
 			'price'   => (object)['amount' => '99.95', 'currency' => 'AUD'],
-			'billing' => (object)['line1' => '1 Queen St', 'locality' => 'Brisbane', 'administrative_area' => 'QLD', 'postal_code' => '4000', 'country' => 'AU'],
+			'billing' => (object)['street' => ['1 Queen St'], 'locality' => 'Brisbane', 'subdivision' => 'QLD', 'postal_code' => '4000', 'country' => 'AU'],
 			'card'    => (object)['name' => 'Jane Doe', 'number' => '4111111111111111', 'expiry' => '2030-01', 'security_code' => '123'],
 			'items'   => ['only' => (object)['sku' => 'ABC']],
 		]);

@@ -372,7 +372,7 @@ final class CollectionTest extends TestCase
 			new Address(new FieldName('site'), ['AU']),
 		);
 
-		$parts = ['line1' => '1 Denham St', 'locality' => 'Rockhampton', 'postal_code' => '4700'];
+		$parts = ['street' => ['1 Denham St'], 'locality' => 'Rockhampton', 'postal_code' => '4700'];
 
 		$this->assertConstraintFailed('unique', $sites->validate([
 			'by_code' => (object)['site' => (object) ($parts + ['country' => 'AU'])],

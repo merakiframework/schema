@@ -37,8 +37,8 @@ function workshopSchema(): Facade
 
 		// A workshop happens somewhere you can walk into, so a PO box is not an answer.
 		// Restrictions narrow rather than replace: an address names a street by default, and
-		// allowOnlyPhysical() adds "and it must be visitable" on top.
-		$schema->createAddressField('venue')->allowOnlyPhysical(),
+		// mustBeVisitable() adds "and it must be somewhere you can go" on top.
+		$schema->createAddressField('venue')->mustBeVisitable(),
 
 		// The collection. Its *template* is the fields one item is made of, handed over like any
 		// other argument — so a booking comes back as
@@ -90,9 +90,9 @@ function goodBooking(): object
 		'organiser' => 'Alice Brennan',
 		'contact_email' => 'alice@example.test',
 		'venue' => (object) [
-			'line1' => '12 Quay Street',
+			'street' => ['12 Quay Street'],
 			'locality' => 'Rockhampton',
-			'administrative_area' => 'QLD',
+			'subdivision' => 'QLD',
 			'postal_code' => '4700',
 			'country' => 'Australia',            // a name or a code; both resolve to AU
 		],
@@ -114,7 +114,7 @@ function badBooking(): object
 	$booking = goodBooking();
 
 	$booking->contact_email = 'not-an-address';
-	$booking->venue->line1 = 'PO Box 42';                        // not somewhere you can go
+	$booking->venue->street = ['PO Box 42'];                     // not somewhere you can go
 	$booking->attendees = [
 		'first' => (object) ['name' => 'Bilal Haddad', 'email' => 'bilal@example.test', 'dietary' => ''],
 		'second' => (object) ['name' => 'Bilal Haddad', 'email' => 'bilal@example.test', 'dietary' => ''], // the same person
@@ -143,7 +143,7 @@ if (!$result->anyFailed()) {
 	$deposit = $result->forField('deposit')->value;
 	$attendees = $result->forField('attendees');
 
-	printf("  Venue        %s, %s %s (%s)\n", $venue->line1, $venue->locality, $venue->postalCode, $venue->countryCode);
+	printf("  Venue        %s, %s %s (%s)\n", implode(', ', $venue->street), $venue->locality, $venue->postalCode, $venue->countryCode);
 	printf("  Deposit      %s %s\n", $deposit->currency, $deposit->amount);
 	printf("  Attendees    %d\n", count($attendees->items));
 
@@ -157,8 +157,8 @@ if (!$result->anyFailed()) {
 }
 
 // A failure names the constraint that failed and, for a structured value, the part it was about.
-// No string-splitting: `venue` reports `line1Visitable` with part `line1`, never
-// `venue.line1.visitable`.
+// No string-splitting: `venue` reports `streetVisitable` with part `street`, never
+// `venue.street.visitable`.
 foreach ($result->getFailed() as $fieldResult) {
 	printf("  %s\n", (string) $fieldResult->field->name);
 

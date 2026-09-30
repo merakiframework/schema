@@ -29,11 +29,11 @@ file_put_contents($pack . '/en.mfr', <<<'MFR'
 	kind.Password = password
 
 	part.postal_code = postal code
-	part.administrative_area = state or region
+	part.subdivision = state or region
 
 	minLength = Use at least {$bound} characters.
 	postalCodeFormat = That is not a valid {$part} for the country you chose.
-	administrativeArea = That is not a {$part} we recognise for the country you chose.
+	knownSubdivision = That is not a {$part} we recognise for the country you chose.
 
 	# The ladder: a more specific key wins, so "at least 12 characters" can become better advice
 	# for a password without changing what every other field says.
@@ -46,7 +46,7 @@ file_put_contents($pack . '/en_AU.mfr', <<<'MFR'
 	@locale = en_AU
 
 	part.postal_code = postcode
-	part.administrative_area = state
+	part.subdivision = state
 	MFR);
 
 // The provider is a source, registered once, holding every language it can serve — like the clock.
@@ -62,9 +62,9 @@ $submitted = (object) [
 	'email' => 'not-an-email',
 	'secret' => 'hunter2',
 	'billing' => (object) [
-		'line1' => '12 Denham Street',
+		'street' => ['12 Denham Street'],
 		'locality' => 'Rockhampton',
-		'administrative_area' => 'ZZ',
+		'subdivision' => 'ZZ',
 		'postal_code' => '99',
 		'country' => 'AU',
 	],

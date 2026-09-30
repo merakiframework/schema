@@ -88,7 +88,13 @@ final class ConstraintNameTest extends TestCase
 			// a constraint concerns is carried on the result as `part` rather than spelled into
 			// the name, which is what let the dotted names go.
 			'Money' => ['allowedCurrencies', 'minAmount', 'maxAmount', 'scale'],
-			'Address' => ['allowedCountries', 'postalCodeFormat', 'administrativeArea', 'line1Visitable', 'specific'],
+			'Address' => [
+				'allowedCountries', 'usedParts',
+				'streetRequired', 'streetLineLimit', 'streetVisitable',
+				'localityRequired',
+				'subdivisionRequired', 'knownSubdivision',
+				'postalCodeRequired', 'postalCodeFormat',
+			],
 			'CreditCard' => [
 				'numberFormat', 'numberChecksum',
 				'expiryFormat', 'expiryInFuture', 'expiryWithinReach',
@@ -164,18 +170,19 @@ final class ConstraintNameTest extends TestCase
 		// both made the address unreadable, so every constraint came back *skipped* — and a skipped
 		// one reports the declared bound, which for this constraint is null. The assertions passed
 		// without the constraint ever having run.
-		$address = (new Field\Address(new FieldName('billing'), ['AU']))->allowOnlyPhysical();
+		$address = (new Field\Address(new FieldName('billing'), ['AU']))->mustBeVisitable();
 
 		$failed = $address->validate((object) [
-			'line1' => 'PO Box 42',
+			'street' => ['PO Box 42'],
 			'locality' => 'Rockhampton',
+			'subdivision' => 'QLD',
 			'postal_code' => '4700',
 			'country' => 'AU',
-		])->forConstraint('line1Visitable');
+		])->forConstraint('streetVisitable');
 
 		$this->assertTrue($failed->failed());
 		$this->assertNull($failed->bound);
-		$this->assertSame('line1', $failed->part);
+		$this->assertSame('street', $failed->part);
 	}
 
 	private static function build(string $fqcn): Field

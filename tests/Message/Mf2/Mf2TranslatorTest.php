@@ -201,8 +201,8 @@ final class Mf2TranslatorTest extends TestCase
 		// Rather than raising. The message asking for a bound that does not exist is a pack bug,
 		// and the place to catch it is the pack's build, not somebody's form.
 		$field = new Field\Address(new FieldName('billing'), ['AU']);
-		$result = $field->validate(self::rockhampton(area: 'ZZ'))->forConstraint('administrativeArea');
-		$translator = self::translator('administrativeArea = Not recognised.{$bound}');
+		$result = $field->validate(self::rockhampton(area: 'ZZ'))->forConstraint('knownSubdivision');
+		$translator = self::translator('knownSubdivision = Not recognised.{$bound}');
 
 		$this->assertSame('Not recognised.', $translator->forConstraint($field, $result));
 	}
@@ -221,14 +221,14 @@ final class Mf2TranslatorTest extends TestCase
 	private static function rockhampton(string $postcode = '4700', ?string $area = null): object
 	{
 		$address = [
-			'line1' => '12 Denham Street',
+			'street' => ['12 Denham Street'],
 			'locality' => 'Rockhampton',
 			'postal_code' => $postcode,
 			'country' => 'AU',
 		];
 
 		if ($area !== null) {
-			$address['administrative_area'] = $area;
+			$address['subdivision'] = $area;
 		}
 
 		return (object) $address;

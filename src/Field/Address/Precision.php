@@ -8,7 +8,7 @@ use Meraki\Schema\Exception\UnknownAddressPart;
 /**
  * How much of the address hierarchy a field demands.
  *
- * Replaces {@see Type}, which tried to span two independent axes at once — how deep an address
+ * Replaces the `Address\Type` enum, which tried to span two independent axes at once — how deep an address
  * is specified, and whether it names a place a person can attend — in one closed set of "kinds".
  * That is why `Postal` had nothing to do at request time and why no third name sat comfortably
  * beside the other two. Depth is ordered, and lives here; attendability is a separate opt-in on

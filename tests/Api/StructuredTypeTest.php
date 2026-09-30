@@ -28,9 +28,9 @@ final class StructuredTypeTest extends TestCase
 	private static function auAddress(array $overrides = []): object
 	{
 		return (object) ($overrides + [
-			'line1' => '1 Denham St',
+			'street' => ['1 Denham St'],
 			'locality' => 'Rockhampton',
-			'administrative_area' => 'QLD',
+			'subdivision' => 'QLD',
 			'postal_code' => '4700',
 			'country' => 'AU',
 		]);
@@ -38,13 +38,13 @@ final class StructuredTypeTest extends TestCase
 
 	/**
 	 * The same address with no street — an area rather than a place. It still names a country,
-	 * because that is never optional; what makes this an area is the missing `line1`.
+	 * because that is never optional; what makes this an area is the missing street.
 	 */
 	private static function area(): object
 	{
 		return (object) [
 			'locality' => 'Rockhampton',
-			'administrative_area' => 'QLD',
+			'subdivision' => 'QLD',
 			'postal_code' => '4700',
 			'country' => 'AU',
 		];
@@ -58,7 +58,7 @@ final class StructuredTypeTest extends TestCase
 		$resolved = $address->resolve(self::auAddress());
 
 		$this->assertInstanceOf(Field\Address\Value::class, $resolved->value);
-		$this->assertSame('1 Denham St', $resolved->value->line1);
+		$this->assertSame(['1 Denham St'], $resolved->value->street);
 	}
 
 	/**
@@ -69,7 +69,7 @@ final class StructuredTypeTest extends TestCase
 	{
 		$address = new Field\Address(new FieldName('billing'), ['AU']);
 
-		$this->assertTrue($address->validate(['line1' => '1 Denham St'])->shape->wasUnreadable());
+		$this->assertTrue($address->validate(['street' => ['1 Denham St']])->shape->wasUnreadable());
 	}
 
 	#[Test]
@@ -77,9 +77,9 @@ final class StructuredTypeTest extends TestCase
 	{
 		$address = new Field\Address(new FieldName('billing'), ['AU']);
 		$value = Field\Address\Value::of(
-			line1: '1 Denham St',
+			street: ['1 Denham St'],
 			locality: 'Rockhampton',
-			administrativeArea: 'QLD',
+			subdivision: 'QLD',
 			postalCode: '4700',
 			country: 'AU',
 		);
@@ -103,13 +103,13 @@ final class StructuredTypeTest extends TestCase
 		// `billing` to `invoice_address` changed every constraint it emitted and every
 		// message provider matching on them.
 		$schema = new Facade('checkout');
-		$schema->add($schema->createAddressField('invoice_address', ['AU'])->allowOnlyPhysical());
+		$schema->add($schema->createAddressField('invoice_address', ['AU'])->mustBeVisitable());
 
 		$failed = $schema->validate((object) [
-			'invoice_address' => self::auAddress(['line1' => 'PO Box 42']),
+			'invoice_address' => self::auAddress(['street' => ['PO Box 42']]),
 		])->forField('invoice_address');
 
-		$this->assertNotNull($failed->forConstraint('line1Visitable'));
+		$this->assertNotNull($failed->forConstraint('streetVisitable'));
 		$this->assertStringNotContainsString('invoice_address', implode(',', $failed->constraintNames));
 	}
 
@@ -187,18 +187,18 @@ final class StructuredTypeTest extends TestCase
 	 *
 	 * This used to read the other way round — not specific by default, with `mustBeSpecific()` to
 	 * tighten it. The baseline rule settled it: a field with no configuration is already correct
-	 * and configuration narrows from there, so the default is the stricter reading and
-	 * `allowWithoutStreet()` is what widens it.
+	 * and configuration narrows from there, so the default is the deepest rung of the ladder and
+	 * `minPrecisionOf()` is what widens it.
 	 */
 	#[Test]
 	public function an_address_requires_a_street_by_default(): void
 	{
 		$address = new Field\Address(new FieldName('billing'), ['AU']);
 
-		$failed = $address->validate(self::area())->forConstraint('specific');
+		$failed = $address->validate(self::area())->forConstraint('streetRequired');
 
 		$this->assertTrue($failed->failed());
-		$this->assertSame('line1', $failed->part);
+		$this->assertSame('street', $failed->part);
 	}
 
 	#[Test]
@@ -206,7 +206,8 @@ final class StructuredTypeTest extends TestCase
 	{
 		// For a service area or a catchment, where the region *is* the answer rather than an
 		// incomplete version of one.
-		$address = (new Field\Address(new FieldName('service_area'), ['AU']))->allowWithoutStreet();
+		$address = (new Field\Address(new FieldName('service_area'), ['AU']))
+			->minPrecisionOf(Field\Address\Precision::Locality);
 
 		$this->assertFalse($address->validate(self::area())->anyFailed());
 	}
@@ -216,36 +217,48 @@ final class StructuredTypeTest extends TestCase
 	{
 		// Two dials, not one enum. What the address is *for* is separate from how much of it
 		// is required: a PO box is a perfectly specific address you cannot visit.
-		$visitable = (new Field\Address(new FieldName('pickup'), ['AU']))->allowOnlyPhysical();
+		$visitable = (new Field\Address(new FieldName('pickup'), ['AU']))->mustBeVisitable();
 
-		$failed = $visitable->validate(self::auAddress(['line1' => 'PO Box 42']));
+		$failed = $visitable->validate(self::auAddress(['street' => ['PO Box 42']]));
 
-		$this->assertTrue($failed->forConstraint('line1Visitable')->failed());
-		$this->assertFalse($failed->forConstraint('specific')->failed());
+		$this->assertTrue($failed->forConstraint('streetVisitable')->failed());
+		$this->assertFalse($failed->forConstraint('streetRequired')->failed());
 	}
 
 	#[Test]
-	public function a_mailable_address_that_needs_no_street_is_rejected_where_it_is_declared(): void
+	public function no_combination_of_the_two_dials_contradicts_itself(): void
 	{
-		// You cannot post to a suburb. A combination with no meaning is refused at definition
-		// time, as the baseline floors are — there is no input that could satisfy it, so there
-		// is nothing to report per request.
-		$this->expectException(\InvalidArgumentException::class);
+		// There used to be a pair of tests here asserting that "mailable" and "no street
+		// required" threw at definition time. The contradiction was an artefact of one enum
+		// spanning two questions — and the claim it rested on was wrong anyway, since a PO box
+		// names no street and is perfectly postal. With the dials separated there is nothing
+		// left to refuse.
+		foreach (Field\Address\Precision::cases() as $floor) {
+			foreach ([true, false] as $visitable) {
+				$address = (new Field\Address(new FieldName('billing'), ['AU']))->minPrecisionOf($floor);
+				$address = $visitable ? $address->mustBeVisitable() : $address;
 
-		(new Field\Address(new FieldName('billing'), ['AU']))
-			->allowWithoutStreet()
-			->allowOnlyMailable();
+				$this->assertSame($floor, $address->precision);
+				$this->assertSame($visitable, $address->streetVisitable);
+			}
+		}
 	}
 
 	#[Test]
-	public function the_same_contradiction_is_caught_from_the_other_side(): void
+	public function an_area_may_still_refuse_a_post_office_box(): void
 	{
-		// Either call can be the second, so the guard is on both withers rather than one.
-		$this->expectException(\InvalidArgumentException::class);
+		// The fourth combination, which a three-case enum could not say: the street is not
+		// required, but if one is given it must name somewhere you can go.
+		$address = (new Field\Address(new FieldName('whereabouts'), ['AU']))
+			->minPrecisionOf(Field\Address\Precision::Locality)
+			->mustBeVisitable();
 
-		(new Field\Address(new FieldName('billing'), ['AU']))
-			->allowOnlyMailable()
-			->allowWithoutStreet();
+		$this->assertFalse($address->validate(self::area())->anyFailed());
+
+		$withBox = $address->validate(self::auAddress(['street' => ['PO Box 42']]));
+
+		$this->assertTrue($withBox->forConstraint('streetVisitable')->failed());
+		$this->assertTrue($withBox->forConstraint('streetRequired')->skipped());
 	}
 
 	/**
@@ -265,9 +278,9 @@ final class StructuredTypeTest extends TestCase
 		$address = new Field\Address(new FieldName('billing'), ['AU']);
 
 		$resolved = $address->validate((object) [
-			'line1' => '1 Denham St',
+			'street' => ['1 Denham St'],
 			'locality' => 'Rockhampton',
-			'administrative_area' => 'QLD',
+			'subdivision' => 'QLD',
 			'postal_code' => '4700',
 		]);
 

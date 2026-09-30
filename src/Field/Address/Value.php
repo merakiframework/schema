@@ -7,26 +7,41 @@ use Meraki\Schema\Comparison\Equality;
 use Meraki\Schema\Field\HasParts;
 use Meraki\Schema\Field\MalformedValue;
 use Meraki\Schema\Field\ParsedValue;
+use CommerceGuys\Addressing\AddressFormat\AddressFormatRepository;
 use CommerceGuys\Addressing\Country\CountryRepository;
+use CommerceGuys\Addressing\Subdivision\SubdivisionRepository;
 
 /**
  * One postal or street address, held whole.
  *
- * Every part is optional, and deliberately so: this object holds whatever was submitted, including
- * a half-filled form on its way to being reported as invalid. How much of it is *required* is the
- * field's business — see `Address::allowWithoutStreet()` — not this object's.
+ * Six parts, and every one but the country is optional here: this object holds whatever was
+ * submitted, including a half-filled form on its way to being reported as invalid. *How much*
+ * of it is required is the field's business — see {@see Precision} — not this object's.
  *
- * The part names follow Google's libaddressinput, because that is where the per-country rules
- * come from, with two exceptions: the street lines are `line1`/`line2` rather than upstream's
- * `addressLine1`/`addressLine2`, so they read as `line1` rather than stuttering as
- * `address_line1`; and `countryCode` has no upstream counterpart, because it is what *selects*
- * the format rather than being part of it.
+ * The names come from three places, and each earns its keep:
+ *
+ *  - `street` is one part holding a list of lines, which is what WHATWG's `street-address`
+ *    autofill token describes: "a street address … can be multiple lines of text … should not
+ *    include the city name, ZIP or postal code, or country name". A list rather than delimited
+ *    text because nothing here normalises, so a delimited string would carry a separator whose
+ *    spelling nobody agrees on — HTML submits CRLF, JSON sends LF, and {@see self::equals()} is
+ *    exact.
+ *  - `subdivision` is ISO 3166-2's word, and the codes it holds are ISO 3166-2's codes.
+ *  - the rest follow Google's libaddressinput, because that is where the per-country rules come
+ *    from.
+ *
+ * The addressee is not here. `organization`, `given_name` and `family_name` identify who is at
+ * a place rather than the place, and an address is the place.
  *
  * Properties are camelCase and array keys are snake_case, which is the convention a form sends
  * and a database column uses. The constructor and {@see self::toArray()} are the seam.
  *
- * This is the field's *internal* representation — what arrived, cleaned up so that everything
- * downstream reads one shape: blanks become nulls, and a country given by name becomes its code.
+ * Nothing is trimmed, collapsed or repaired. Unlike E.164 or the WHATWG email grammar there is
+ * no standard normal form for an address line to normalise towards, so any rule would be a
+ * presentation decision — the port's to make. The one thing canonicalised is a value drawn from
+ * a registered list: the country and the subdivision, which have codes precisely so that two
+ * spellings of one place become one.
+ *
  * There is deliberately no `__toString()`, because the order and punctuation an address takes is
  * per-country (libaddressinput's business) and rendering is the UI's. {@see self::toArray()} is
  * how you get at the parts.
@@ -36,166 +51,231 @@ final readonly class Value implements ParsedValue, HasParts
 	/**
 	 * Part names as they appear in submitted data, mapped to the property holding them.
 	 *
+	 * The one source of truth: {@see self::partNames()}, {@see self::parts()},
+	 * {@see self::toArray()} and {@see self::isEmpty()} all read it rather than repeating it.
+	 *
 	 * @var array<string, string>
 	 */
 	public const PARTS = [
-		'organization' => 'organization',
-		'line1' => 'line1',
-		'line2' => 'line2',
+		'street' => 'street',
 		'dependent_locality' => 'dependentLocality',
 		'locality' => 'locality',
-		'administrative_area' => 'administrativeArea',
+		'subdivision' => 'subdivision',
 		'postal_code' => 'postalCode',
-		// `country` rather than `country_code`, because either a code or a name may be submitted —
-		// `Address::process()` canonicalises it to the code this property holds.
+		// `country` rather than `country_code`, because a code or a name may be submitted and
+		// the constructor canonicalises it to the code this property holds.
 		'country' => 'countryCode',
 	];
 
 	/**
-	 * @param string|null $administrativeArea a state, province or region
-	 * @param string|null $locality a city, town or suburb
-	 * @param string|null $dependentLocality a neighbourhood or dependent locality, where a
-	 *        country uses one
-	 * @param string|null $countryCode ISO 3166-1 alpha-2 once `Address::process()` has canonicalised
-	 *        it, but as submitted — possibly a full country name — before that
+	 * The lines below the locality, in the order they were written.
+	 *
+	 * Empty means the part was not submitted. A submitted empty list is refused, so a value that
+	 * exists and holds `[]` can only mean "absent" — which is what lets a requiredness check ask
+	 * one question instead of two.
+	 *
+	 * @var list<string>
 	 */
-	public ?string $organization;
-	public ?string $line1;
-	public ?string $line2;
+	public array $street;
+
+	/** A neighbourhood or townland, where a country uses one. */
 	public ?string $dependentLocality;
+
+	/** The place the post routes to: a city, town, suburb or post town. */
 	public ?string $locality;
-	public ?string $administrativeArea;
+
+	/** The full ISO 3166-2 code — `AU-QLD`, not `QLD` — once canonicalised. */
+	public ?string $subdivision;
+
 	public ?string $postalCode;
 
-	/** The ISO 3166-1 alpha-2 code, whether a code or a country's name was submitted. */
+	/** The ISO 3166-1 alpha-2 code, whichever spelling was submitted. */
 	public ?string $countryCode;
 
 	/**
 	 * Takes the record a field takes, so there is one answer to "what is an address here".
 	 *
-	 * Total about the *parts*: an absent or non-string part becomes null, and `''` is kept as
-	 * `''` because submitting it was a decision — a JSON client sending `"line1": ""` said
-	 * something, and reading that as "no line one" would be guessing at the opposite. A form
-	 * that submits `''` for a box nobody touched is a rendering artefact, and stripping it is
-	 * the port's job. Nothing is trimmed here for the same reason.
+	 * Three things it refuses, and all three are about whether this is an address at all rather
+	 * than whether it is an acceptable one. A constraint judges an address that could be read;
+	 * these are the cases where there is nothing left to judge.
 	 *
-	 * Two things it refuses, and both are about whether this is an address at all rather than
-	 * whether it is an acceptable one:
-	 *
-	 * - **Nothing in it.** An address with no parts is not a vague address; it is not an
-	 *   address.
-	 * - **No country.** A postcode means nothing without one — `4700` is Rockhampton in
-	 *   Australia and something else elsewhere — so an address without a country never
-	 *   described a place. The same pairing money makes with a currency.
-	 *
-	 * A country that is *present but unrecognised* is kept and passes: `allowedCountries` is
-	 * the constraint that reports it, and it can name the list it should have been from, which
-	 * is more use than refusing here.
+	 * - **A part that was sent and holds nothing.** `''` and `'   '` are not "no locality" —
+	 *   they were provided, so the part is not missing; it simply cannot be read. Answering
+	 *   "absent" would let whitespace satisfy a requiredness check, and answering "present"
+	 *   would let it satisfy one too. A port with no value for a part omits it.
+	 * - **A country that names no country.** A postcode means nothing without one — `4700` is
+	 *   Rockhampton in Australia and something else elsewhere — and the postcode pattern, the
+	 *   subdivision list and the required set are all selected *by* the country. Keeping an
+	 *   unrecognised one and letting every check skip is how an alpha-3 code used to pass
+	 *   entirely unvalidated.
+	 * - **A subdivision the country requires and does not have.** ISO 3166-2 is a closed list,
+	 *   so a value outside it is not a subdivision of that country. It is also undecidable:
+	 *   subdivisions may carry their own postcode pattern, overriding the country's. Where a
+	 *   country uses a subdivision without requiring one, an unrecognised value is kept for
+	 *   `knownSubdivision` to report, because nothing downstream depends on it there.
 	 *
 	 * @param object $address with any of the keys in {@see self::PARTS}
-	 * @throws MalformedValue if it is empty, or names no country
+	 * @throws MalformedValue if a part was sent empty, if it names no usable country, or if a
+	 *         required subdivision cannot be resolved
 	 */
 	public function __construct(object $address)
 	{
 		$parts = get_object_vars($address);
+		$unknown = array_diff(array_keys($parts), array_keys(self::PARTS));
 
+		// Named rather than ignored, because the parts were renamed: a port still sending
+		// `line1` or `administrative_area` would otherwise build an address missing the part it
+		// thought it had supplied, and be told "street is required" — which names the symptom
+		// and hides the stale key that caused it.
+		if ($unknown !== []) {
+			throw MalformedValue::of(self::class, sprintf(
+				'"%s" is not a part of an address. The parts are: "%s"',
+				implode('", "', $unknown),
+				implode('", "', array_keys(self::PARTS)),
+			));
+		}
+
+		// Total about the *type* of the optional parts, as it always was: a non-string is read
+		// as absent rather than refused. `street` is the exception, because a list is the whole
+		// point of it — silently reading a delimited string as "no street" would lose an
+		// address the submitter did give.
 		$read = static function (string $key) use ($parts): ?string {
 			$value = $parts[$key] ?? null;
 
-			return is_string($value) ? $value : null;
+			if (!is_string($value)) {
+				return null;
+			}
+
+			if (trim($value) === '') {
+				throw MalformedValue::of(self::class, "its {$key} was given but holds nothing");
+			}
+
+			return $value;
 		};
 
-		$this->organization = $read('organization');
-		$this->line1 = $read('line1');
-		$this->line2 = $read('line2');
-		$this->dependentLocality = $read('dependent_locality');
-		$this->locality = $read('locality');
-		$this->administrativeArea = $read('administrative_area');
-		$this->postalCode = $read('postal_code');
-
-		// The one thing canonicalised: a code and a country's name are two spellings of one
-		// country, and ISO 3166-1 says which of them is the code. An unrecognised string is
-		// left exactly as it came, for `allowedCountries` to report.
+		$street = self::readStreet($parts);
+		$dependentLocality = $read('dependent_locality');
+		$locality = $read('locality');
+		$postalCode = $read('postal_code');
+		$subdivision = $read('subdivision');
 		$country = $read('country');
-		$this->countryCode = $country === null ? null : (self::codeFor($country) ?? $country);
 
-		if ($this->isEmpty()) {
+		if ($street === [] && $dependentLocality === null && $locality === null
+			&& $postalCode === null && $subdivision === null && $country === null) {
 			throw MalformedValue::of(self::class, 'it has no parts at all');
 		}
 
-		if ($this->countryCode === null || $this->countryCode === '') {
+		if ($country === null) {
 			throw MalformedValue::of(self::class, 'it names no country, and an address without one describes no place');
 		}
+
+		$countryCode = self::codeFor($country);
+
+		if ($countryCode === null) {
+			throw MalformedValue::of(self::class, sprintf('"%s" is not a country ISO 3166-1 knows', $country));
+		}
+
+		$this->street = $street;
+		$this->dependentLocality = $dependentLocality;
+		$this->locality = $locality;
+		$this->postalCode = $postalCode;
+		$this->countryCode = $countryCode;
+		$this->subdivision = self::resolveSubdivision($countryCode, $subdivision);
 	}
 
 	/**
-	 * The readable way to write one by hand — a rule's bound, a test.
+	 * The street lines, or `[]` when the part was not submitted.
 	 *
-	 * A convenience over the constructor rather than a second way in: it builds the record a
-	 * form would submit and hands it over, so the invariant is enforced in one place.
-	 *
-	 * @throws MalformedValue if it is empty, or names no country
+	 * @param array<string, mixed> $parts
+	 * @return list<string>
+	 * @throws MalformedValue if it is not a list of lines, or holds a line with nothing in it
 	 */
-	public static function of(
-		?string $line1 = null,
-		?string $locality = null,
-		?string $administrativeArea = null,
-		?string $postalCode = null,
-		?string $country = null,
-		?string $organization = null,
-		?string $line2 = null,
-		?string $dependentLocality = null,
-	): self {
-		return new self((object) [
-			'organization' => $organization,
-			'line1' => $line1,
-			'line2' => $line2,
-			'dependent_locality' => $dependentLocality,
-			'locality' => $locality,
-			'administrative_area' => $administrativeArea,
-			'postal_code' => $postalCode,
-			'country' => $country,
-		]);
-	}
-
-	/**
-	 * Exact on every part, because both sides are already canonical: the country is a code by
-	 * the time it gets here, whichever spelling was submitted.
-	 *
-	 * What it does *not* do is decide that two differently-written street lines are the same
-	 * place. That is an address-normalisation problem, it is locale-specific and genuinely hard,
-	 * and guessing at it would silently merge two distinct addresses.
-	 */
-	public function equals(Equality $other): bool
+	private static function readStreet(array $parts): array
 	{
-		return $other instanceof self
-			&& $this->organization === $other->organization
-			&& $this->line1 === $other->line1
-			&& $this->line2 === $other->line2
-			&& $this->dependentLocality === $other->dependentLocality
-			&& $this->locality === $other->locality
-			&& $this->administrativeArea === $other->administrativeArea
-			&& $this->postalCode === $other->postalCode
-			&& $this->countryCode === $other->countryCode;
+		$street = $parts['street'] ?? null;
+
+		if ($street === null) {
+			return [];
+		}
+
+		if (!is_array($street) || !array_is_list($street)) {
+			throw MalformedValue::of(self::class, 'its street is not a list of lines');
+		}
+
+		if ($street === []) {
+			throw MalformedValue::of(self::class, 'its street was given as an empty list; leave the part out instead');
+		}
+
+		foreach ($street as $line) {
+			if (!is_string($line)) {
+				throw MalformedValue::of(self::class, 'its street holds a line that is not text');
+			}
+
+			if (trim($line) === '') {
+				throw MalformedValue::of(self::class, 'its street holds a line with nothing in it');
+			}
+		}
+
+		return $street;
 	}
 
 	/**
-	 * The ISO 3166-1 code for a country written as a code or as a name, or null for neither.
+	 * The subdivision as ISO 3166-2 writes it, or the value verbatim where it cannot be checked.
 	 *
-	 * Public because the *field* needs the same answer when it checks an author's allow-list,
-	 * and two implementations of "is this a country" would eventually disagree.
+	 * @throws MalformedValue if the country requires a subdivision and this is not one of its
 	 */
-	public static function codeFor(string $country): ?string
+	private static function resolveSubdivision(string $countryCode, ?string $subdivision): ?string
 	{
-		static $repository = null;
-		$known = ($repository ??= new CountryRepository())->getList();
+		if ($subdivision === null) {
+			return null;
+		}
 
-		if (isset($known[strtoupper($country)])) {
-			return strtoupper($country);
+		$known = self::subdivisions()->getList([$countryCode]);
+
+		// A country with none on file constrains nothing, whatever its format says it uses.
+		// Eight countries are in that position, and guessing at them would be worse.
+		if ($known === []) {
+			return $subdivision;
+		}
+
+		$code = self::subdivisionCodeFor($countryCode, $subdivision, $known);
+
+		if ($code !== null) {
+			return "{$countryCode}-{$code}";
+		}
+
+		if (self::requiresSubdivision($countryCode)) {
+			throw MalformedValue::of(self::class, sprintf('"%s" is not a subdivision of %s', $subdivision, $countryCode));
+		}
+
+		return $subdivision;
+	}
+
+	/**
+	 * The bare ISO 3166-2 code for a subdivision written as a code, a full code or a name.
+	 *
+	 * Generous in the same way the country is, and safely so: across every country with
+	 * subdivisions on file no two share a name, and no name collides with another's code.
+	 *
+	 * @param array<string, string> $known code => name
+	 */
+	private static function subdivisionCodeFor(string $countryCode, string $subdivision, array $known): ?string
+	{
+		$candidate = strtoupper(trim($subdivision));
+		$prefix = $countryCode . '-';
+
+		// Only *this* country's prefix comes off: `US-CA` on an Australian address names
+		// nothing, and should not quietly become `AU-CA`.
+		if (str_starts_with($candidate, $prefix)) {
+			$candidate = substr($candidate, strlen($prefix));
+		}
+
+		if (isset($known[$candidate])) {
+			return $candidate;
 		}
 
 		foreach ($known as $code => $name) {
-			if (mb_strtolower($name) === mb_strtolower($country)) {
+			if (mb_strtolower($name) === mb_strtolower(trim($subdivision))) {
 				return $code;
 			}
 		}
@@ -204,10 +284,147 @@ final readonly class Value implements ParsedValue, HasParts
 	}
 
 	/**
-	 * The snake_cased form, every part present even when null, so a consumer can rely on the
+	 * Whether a country's own format says an address there needs a subdivision.
+	 *
+	 * The country's requirement, not the field's: whether a subdivision carries its own postcode
+	 * pattern is a fact about the country, and does not change because an author asked for less
+	 * depth.
+	 */
+	private static function requiresSubdivision(string $countryCode): bool
+	{
+		return in_array('administrativeArea', self::formats()->get($countryCode)->getRequiredFields(), true);
+	}
+
+	/**
+	 * The readable way to write one by hand — a rule's bound, a test.
+	 *
+	 * A convenience over the constructor rather than a second way in: it builds the record a
+	 * form would submit and hands it over, so the invariant is enforced in one place. A null
+	 * part is left out rather than sent as null, which is the same thing the ports are asked to
+	 * do.
+	 *
+	 * @param list<string>|null $street
+	 * @throws MalformedValue on the same three refusals the constructor makes
+	 */
+	public static function of(
+		?array $street = null,
+		?string $locality = null,
+		?string $subdivision = null,
+		?string $postalCode = null,
+		?string $country = null,
+		?string $dependentLocality = null,
+	): self {
+		$parts = [
+			'street' => $street,
+			'dependent_locality' => $dependentLocality,
+			'locality' => $locality,
+			'subdivision' => $subdivision,
+			'postal_code' => $postalCode,
+			'country' => $country,
+		];
+
+		return new self((object) array_filter($parts, static fn(mixed $part): bool => $part !== null));
+	}
+
+	/**
+	 * Exact on every part, because both sides are already canonical: the country is a code by
+	 * the time it gets here, and so is the subdivision, whichever spelling was submitted.
+	 *
+	 * Street lines compare in order, because order is the only thing distinguishing
+	 * "Level 3, 7 Cunningham St" from an address that is not that.
+	 *
+	 * What it does *not* do is decide that two differently-written street lines are the same
+	 * place. That is an address-normalisation problem, it is locale-specific and genuinely hard,
+	 * and guessing at it would silently merge two distinct addresses.
+	 */
+	public function equals(Equality $other): bool
+	{
+		return $other instanceof self
+			&& $this->street === $other->street
+			&& $this->dependentLocality === $other->dependentLocality
+			&& $this->locality === $other->locality
+			&& $this->subdivision === $other->subdivision
+			&& $this->postalCode === $other->postalCode
+			&& $this->countryCode === $other->countryCode;
+	}
+
+	/**
+	 * The ISO 3166-1 code for a country written as an alpha-2 code, an alpha-3 code or a name.
+	 *
+	 * Public because the *field* needs the same answer when it checks an author's allow-list and
+	 * when it answers `requirementsFor()`, and two implementations of "is this a country" would
+	 * eventually disagree. That shared answer is the guarantee that a country a port may ask
+	 * about is exactly a country this value will accept.
+	 *
+	 * Numeric-3 is deliberately absent. It is rare in addresses, and its leading zeros do not
+	 * survive a JSON producer that sends `036` as a number.
+	 */
+	public static function codeFor(string $country): ?string
+	{
+		$candidate = strtoupper(trim($country));
+
+		if ($candidate === '') {
+			return null;
+		}
+
+		return self::countryIndex()[$candidate] ?? null;
+	}
+
+	/**
+	 * Every spelling of every country, upper-cased, mapped to its alpha-2 code.
+	 *
+	 * Built once. Measured across the 256 territories CLDR knows: 254 carry an alpha-3 (`IC` and
+	 * `EA` are exceptional reservations that have none) and no two share one, so the map is
+	 * unambiguous.
+	 *
+	 * @return array<string, string>
+	 */
+	private static function countryIndex(): array
+	{
+		static $index = null;
+
+		if ($index !== null) {
+			return $index;
+		}
+
+		$index = [];
+
+		foreach ((new CountryRepository())->getAll() as $code => $country) {
+			$index[strtoupper($code)] = $code;
+
+			$threeLetter = $country->getThreeLetterCode();
+
+			if ($threeLetter !== null && $threeLetter !== '') {
+				$index[strtoupper($threeLetter)] = $code;
+			}
+
+			$index[mb_strtoupper($country->getName())] = $code;
+		}
+
+		return $index;
+	}
+
+	/** Memoised: building the format list is not free and it never changes within a request. */
+	private static function formats(): AddressFormatRepository
+	{
+		static $repository = null;
+
+		return $repository ??= new AddressFormatRepository();
+	}
+
+	/** @see self::formats() */
+	private static function subdivisions(): SubdivisionRepository
+	{
+		static $repository = null;
+
+		return $repository ??= new SubdivisionRepository();
+	}
+
+	/**
+	 * The snake_cased form, every part present even when absent, so a consumer can rely on the
 	 * shape rather than testing for keys.
 	 *
-	 * @return array<string, string|null>
+	 * @return array<string, string|list<string>|null>
 	 */
 	public function toArray(): array
 	{
@@ -227,7 +444,9 @@ final readonly class Value implements ParsedValue, HasParts
 	public function isEmpty(): bool
 	{
 		foreach (self::PARTS as $property) {
-			if ($this->{$property} !== null) {
+			$part = $this->{$property};
+
+			if ($part !== null && $part !== []) {
 				return false;
 			}
 		}
@@ -236,29 +455,14 @@ final readonly class Value implements ParsedValue, HasParts
 	}
 
 	/**
-	 * A copy with the country replaced by its canonical code.
-	 */
-	public function withCountryCode(string $countryCode): self
-	{
-		return self::of(
-			line1: $this->line1,
-			locality: $this->locality,
-			administrativeArea: $this->administrativeArea,
-			postalCode: $this->postalCode,
-			country: $countryCode,
-			organization: $this->organization,
-			line2: $this->line2,
-			dependentLocality: $this->dependentLocality,
-		);
-	}
-
-	/**
-	 * A part by the name submitted data uses — `administrative_area`, not `administrativeArea`.
+	 * A part by the name submitted data uses — `postal_code`, not `postalCode`.
 	 *
 	 * Which is what the constraints address parts by, so a failure can say *which* part it was
 	 * about in the same vocabulary the author wrote.
+	 *
+	 * @return string|list<string>|null
 	 */
-	public function partNamed(string $key): ?string
+	public function partNamed(string $key): string|array|null
 	{
 		$property = self::PARTS[$key] ?? null;
 
@@ -266,15 +470,14 @@ final readonly class Value implements ParsedValue, HasParts
 	}
 
 	/**
-	 * The eight lines libaddressinput models, named as they arrive. `country` rather than
-	 * `countryCode`, because that is the key submitted input uses and the name the
-	 * `allowedCountries` constraint reports its part under.
+	 * The six parts, named as they arrive. `country` rather than `countryCode`, because that is
+	 * the key submitted input uses and the name the `allowedCountries` constraint reports under.
 	 *
 	 * @return list<string>
 	 */
 	public static function partNames(): array
 	{
-		return ['organization', 'line1', 'line2', 'dependent_locality', 'locality', 'administrative_area', 'postal_code', 'country'];
+		return array_keys(self::PARTS);
 	}
 
 	/**
@@ -282,15 +485,6 @@ final readonly class Value implements ParsedValue, HasParts
 	 */
 	public function parts(): array
 	{
-		return [
-			'organization' => $this->organization,
-			'line1' => $this->line1,
-			'line2' => $this->line2,
-			'dependent_locality' => $this->dependentLocality,
-			'locality' => $this->locality,
-			'administrative_area' => $this->administrativeArea,
-			'postal_code' => $this->postalCode,
-			'country' => $this->countryCode,
-		];
+		return $this->toArray();
 	}
 }
