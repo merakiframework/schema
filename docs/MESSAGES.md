@@ -117,7 +117,7 @@ The whole of `en_AU.mfr` in the English pack is five lines:
 @locale = en_AU
 
 part.postal_code = postcode
-part.administrative_area = state
+part.subdivision = state
 part.locality = suburb
 part.dependent_locality = locality
 part.organization = organisation

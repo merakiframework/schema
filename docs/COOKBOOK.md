@@ -170,7 +170,7 @@ $schema->add($schema->createAddressField('billing', ['AU']));
 
 $schema->validate((object) [
     'billing' => (object) [
-        'line1' => '1 Denham St',
+        'street' => ['1 Denham St'],
         'locality' => 'Rockhampton',
         'postal_code' => '4700',
         'country' => 'AU',

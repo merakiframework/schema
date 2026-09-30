@@ -236,6 +236,98 @@ believed a rule was producing.
 names and value type for all nineteen fields — and is the reference to check a specific call
 against.
 
+### `Address` was rebuilt — new parts, new names, and data you may need to migrate
+
+`Address` never asked the addressing library what a country requires, so four of its five
+constraints skipped on a bare `{line1, country}` and an Australian address with no suburb,
+state or postcode was **valid**. Fixing that meant renaming most of the field.
+
+**What now fails that used to pass.** Each of these is a defect closed rather than a rule
+added, so expect data you previously accepted to be rejected:
+
+- An address missing a part its country requires — a suburb, state or postcode in Australia.
+- Any part sent as `''` or as whitespace. It was provided, so it is not missing; it simply
+  cannot be read, and treating it as absent let whitespace satisfy a requiredness check.
+- A post-office box on the second line of a field that asked for somewhere visitable. The
+  pattern read the first line only.
+- A part the submitted country's format has no place for — a state for a country with none.
+- A street of more than three lines. Every one of the 206 countries uses exactly three.
+- An unrecognised country, and an unrecognised subdivision where the country requires one.
+  Both are now *unreadable* rather than silently unvalidated: spelling a country in ISO 3166-1
+  alpha-3 used to turn off postcode and subdivision checking altogether.
+
+**The API.**
+
+| Was | Now |
+| --- | --- |
+| `Address\Type` | Removed. It spanned two independent questions at once, which is why `Postal` had nothing to do at request time. |
+| `allowOnlyMailable()` | Removed — it was inert. The default already accepts anything deliverable. |
+| `allowOnlyPhysical()` | `mustBeVisitable()` |
+| `allowWithoutStreet()` | `minPrecisionOf(Precision::Locality)` |
+| `$field->type`, `$field->mustBeSpecific` | `$field->precision`, `$field->streetVisitable` |
+| `constraints->named('x')->bound` | `$field->requirementsFor($country)[$country]->x` for anything a country decides; `$field->x` for configuration you set. |
+
+**The parts**, which drop from eight to six:
+
+| Was | Now |
+| --- | --- |
+| `line1`, `line2` | One part, `street`, holding a **list of strings**. This is what WHATWG's `street-address` token describes, and a list rather than delimited text because nothing here normalises — a separator would have to be either CRLF or LF, and HTML and JSON disagree. |
+| `administrative_area` | `subdivision`, holding the **full ISO 3166-2 code**: `AU-QLD`, not `QLD`. `QLD`, `qld`, `AU-QLD` and `Queensland` are all accepted and all stored the same way. |
+| `organization` | Removed. It identifies who is at a place rather than the place, which is why `givenName` and `familyName` were already absent. |
+
+A key that is not a part is now refused by name. That is deliberate: a caller still sending
+`line1` would otherwise build an address with no street at all and be told "street is
+required", which names the symptom and hides the stale key.
+
+**Constraints.** `specific` → `streetRequired`, `line1Visitable` → `streetVisitable`,
+`administrativeArea` → `knownSubdivision`. New: `usedParts`, `streetLineLimit`,
+`localityRequired`, `subdivisionRequired`, `postalCodeRequired`. The generated message-key list
+changes with them — `vendor/bin/schema-lang keys` prints the new set, and your `.mf2` packs
+need updating. None are bundled here.
+
+**Migrating stored addresses.** Three of these change persisted values, not just calls:
+
+- `line1` and `line2` become the elements of a `street` list, dropping any that were empty.
+- `administrative_area: 'QLD'` becomes `subdivision: 'AU-QLD'`.
+- `organization` moves out of the address.
+
+**If you write a port, you now have an obligation**: omit a part you have no value for, and
+never submit `''`. An HTML form that posts empty strings for untouched inputs will make every
+such address unreadable, and the requiredness constraints will never fire — the submitter gets
+"this address cannot be read" instead of "suburb is required". Normalising request input was
+already a port's job; this makes it a requirement. Since the core no longer normalises
+anything, tidying is yours too: trimming, collapsing blank lines, and splitting a textarea into
+the list. There is no standard normal form for an address line, so any rule you choose is a
+presentation decision.
+
+**Reading a country's rules before a request.** Every country-driven bound is unanswerable
+while more than one country is allowed, and allowing any is the default, so a form with a
+country selector cannot mark inputs required from the field alone:
+
+```php
+$field = $schema->createAddressField('shipping')->allowCountries('AU', 'NZ');
+
+$rules = $field->requirementsFor('AUS');   // keyed by the spelling you asked with
+$rules['AUS']->country;                    // 'AU' — the canonical code
+$rules['AUS']->requiredParts;              // ['street', 'locality', 'subdivision', 'postal_code']
+$rules['AUS']->subdivisions;               // ['AU-ACT', 'AU-NSW', …]
+$rules['AUS']->postalCodeFormat;           // '\d{4}'
+$rules['AUS']->streetLineLimit;            // 3
+
+$field->requirementsFor();                 // every country the field allows
+```
+
+Countries resolve through the same code path a submitted address takes, so the set you may ask
+about is exactly the set the field accepts. It throws for a country outside the allow-list, for
+one ISO 3166-1 does not know, and — on a field that allows any — for no arguments at all.
+
+**One honest limit.** The subdivision data is postal-address data, not the ISO 3166-2 register.
+It stores the suffix, and for the United States carries 62 entries against ISO's 57 — adding
+`AA`, `AE` and `AP`, which are military postal regions rather than ISO subdivisions, and
+`MH`, `FM` and `PW`, which are sovereign states the USPS serves — while omitting `UM`. It
+approximates ISO 3166-2 and deviates where postal delivery does.
+
+[examples/addresses.php](examples/addresses.php) runs all of this.
 ### `Time::until()` changed meaning — check any time range you wrote
 
 **This one does not break your build.** The call still compiles and still takes the same

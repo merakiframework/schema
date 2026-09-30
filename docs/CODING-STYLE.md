@@ -215,7 +215,7 @@ So every `Field\*\Value` object — all of them readonly — uses methods for de
 the names carry the question:
 
 ```php
-$address->partNamed('administrative_area')   // not part()
+$address->partNamed('subdivision')   // not part()
 $card->lastFourDigits()                      // not lastFour()
 Strength::Strong->asBits()                   // not bits()
 $card->determineToday()                      // not today()
@@ -252,7 +252,7 @@ is where the authored default is re-checked. A wither that clones directly silen
 and can leave a stale default behind.
 
 Name them for what the author is saying, not for the property being set: `minLengthOf(3)`,
-`allowOnlyPhysical()`, `allowCountries('AU')`, `allowDuplicates()`.
+`mustBeVisitable()`, `allowCountries('AU')`, `allowDuplicates()`.
 
 ---
 
