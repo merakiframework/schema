@@ -205,7 +205,7 @@ final class ValueTest extends TestCase
 	public function a_key_that_is_not_a_part_cannot_be_read(): void
 	{
 		// The renames make this earn its keep: a port still sending `line1` would otherwise
-		// build an address with no street at all and be told "street is required", which names
+		// build an address with no street at all and be told 'street is required', which names
 		// the symptom rather than the stale key that caused it.
 		$this->expectException(MalformedValue::class);
 
@@ -309,6 +309,98 @@ final class ValueTest extends TestCase
 	public function it_stores_the_full_iso_3166_2_code_whatever_spelling_arrives(string $spelling): void
 	{
 		$this->assertSame('AU-QLD', self::address(['subdivision' => $spelling])->subdivision);
+	}
+
+	/** @return array<string, array{string, string, string}> */
+	public static function subdivisionsByName(): array
+	{
+		// Every one of these countries keys its subdivisions with a numeric string, which PHP
+		// turns into an `int` the moment it becomes an array key. Resolving by name returned
+		// that key, and an `int` from a `?string` method is a TypeError — a fatal that escapes
+		// validate() entirely rather than arriving as a MalformedValue a caller can catch.
+		return [
+			'Japan, prefecture 13' => ['JP', 'Tokyo', 'JP-13'],
+			'Japan, prefecture 01' => ['JP', 'Hokkaido', 'JP-01'],
+			'Korea' => ['KR', 'Seoul', 'KR-11'],
+			'Thailand' => ['TH', 'Bangkok', 'TH-10'],
+			'Ukraine' => ['UA', 'Kyiv', 'UA-30'],
+		];
+	}
+
+	#[Test]
+	#[DataProvider('subdivisionsByName')]
+	public function a_subdivision_named_in_a_numerically_keyed_country_resolves(
+		string $country,
+		string $name,
+		string $expected,
+	): void {
+		$address = new Value((object) [
+			'street' => ['1 Main St'],
+			'locality' => 'Somewhere',
+			'subdivision' => $name,
+			'postal_code' => $country === 'JP' ? '100-0001' : null,
+			'country' => $country,
+		]);
+
+		$this->assertSame($expected, $address->subdivision);
+	}
+
+	/** @return array<string, array{string, string, string}> */
+	public static function subdivisionsKeyedByTheirOwnName(): array
+	{
+		// Five countries store a name where the rest store a code, so the ISO 3166-2 form this
+		// library publishes for them — `HK-Kowloon` — is a name behind a prefix. Uppercasing the
+		// candidate before the lookup meant the library refused the exact value it had handed a
+		// port to render, which made Hong Kong, Cape Verde and the Caymans unusable outright.
+		return [
+			'Hong Kong' => ['HK', 'HK-Kowloon', 'HK-Kowloon'],
+			'Hong Kong, lowercased' => ['HK', 'hk-kowloon', 'HK-Kowloon'],
+			'Hong Kong, bare name' => ['HK', 'Kowloon', 'HK-Kowloon'],
+			'Cape Verde' => ['CV', 'CV-Boa Vista', 'CV-Boa Vista'],
+			'Cayman Islands' => ['KY', 'KY-Grand Cayman', 'KY-Grand Cayman'],
+		];
+	}
+
+	#[Test]
+	#[DataProvider('subdivisionsKeyedByTheirOwnName')]
+	public function a_subdivision_this_library_published_is_accepted_back(
+		string $country,
+		string $submitted,
+		string $expected,
+	): void {
+		$address = new Value((object) [
+			'street' => ['1 Main St'],
+			'locality' => 'Somewhere',
+			'subdivision' => $submitted,
+			'country' => $country,
+		]);
+
+		$this->assertSame($expected, $address->subdivision);
+	}
+
+	#[Test]
+	public function an_absent_street_survives_a_round_trip_through_toArray(): void
+	{
+		// `toArray()` is the serialisation seam, and a submitted empty list is refused — so
+		// emitting `[]` for an absent street made a value this library produced unreadable to
+		// itself. Anything that persists and reloads an address, schema-json included, goes
+		// through here.
+		$area = Value::of(locality: 'Emerald', subdivision: 'QLD', postalCode: '4720', country: 'AU');
+
+		$reloaded = new Value((object) $area->toArray());
+
+		$this->assertSame([], $reloaded->street);
+		$this->assertTrue($area->equals($reloaded));
+	}
+
+	#[Test]
+	public function a_complete_address_survives_a_round_trip_through_json(): void
+	{
+		$original = self::address(['street' => ['Level 3', '7 Cunningham St']]);
+
+		$reloaded = new Value(json_decode((string) json_encode($original->toArray()), false));
+
+		$this->assertTrue($original->equals($reloaded));
 	}
 
 	#[Test]

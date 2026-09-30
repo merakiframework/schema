@@ -327,6 +327,12 @@ It stores the suffix, and for the United States carries 62 entries against ISO's
 `MH`, `FM` and `PW`, which are sovereign states the USPS serves — while omitting `UM`. It
 approximates ISO 3166-2 and deviates where postal delivery does.
 
+Five countries also code their subdivisions by *name* rather than by an abbreviation, so
+what `subdivision` holds for them is `HK-Kowloon`, `CV-Boa Vista` or `KY-Grand Cayman` —
+the same `CC-XX` shape, but not an ISO 3166-2 code. `CV`, `HK`, `KY`, `RU` and `TV`.
+Whatever `requirementsFor()->subdivisions` publishes is accepted back verbatim, which is
+the property a port actually needs.
+
 [examples/addresses.php](examples/addresses.php) runs all of this.
 ### `Time::until()` changed meaning — check any time range you wrote
 

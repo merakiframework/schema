@@ -109,8 +109,12 @@ final readonly class Value implements ParsedValue, HasParts
 	 *   unrecognised one and letting every check skip is how an alpha-3 code used to pass
 	 *   entirely unvalidated.
 	 * - **A subdivision the country requires and does not have.** ISO 3166-2 is a closed list,
-	 *   so a value outside it is not a subdivision of that country. It is also undecidable:
-	 *   subdivisions may carry their own postcode pattern, overriding the country's. Where a
+	 *   so a value outside it is not a subdivision of that country. It is also the part the
+	 *   rest of the address leans on: 36 subdivisions across CN and CO carry their own
+	 *   postcode pattern, overriding the country's, and both countries require a
+	 *   subdivision. (Those patterns are not read yet — the postcode is still judged
+	 *   against the country's — so today this is the rule the data warrants rather than
+	 *   one the code has come to depend on.) Where a
 	 *   country uses a subdivision without requiring one, an unrecognised value is kept for
 	 *   `knownSubdivision` to report, because nothing downstream depends on it there.
 	 *
@@ -257,25 +261,32 @@ final readonly class Value implements ParsedValue, HasParts
 	 * Generous in the same way the country is, and safely so: across every country with
 	 * subdivisions on file no two share a name, and no name collides with another's code.
 	 *
-	 * @param array<string, string> $known code => name
+	 * @param array<string|int, string> $known code => name. The key is an `int` wherever a
+	 *        country codes its subdivisions numerically — Japan's prefectures are `01` to `47`
+	 *        — because PHP converts a numeric string on its way into an array.
 	 */
 	private static function subdivisionCodeFor(string $countryCode, string $subdivision, array $known): ?string
 	{
-		$candidate = strtoupper(trim($subdivision));
+		$candidate = trim($subdivision);
 		$prefix = $countryCode . '-';
 
 		// Only *this* country's prefix comes off: `US-CA` on an Australian address names
-		// nothing, and should not quietly become `AU-CA`.
-		if (str_starts_with($candidate, $prefix)) {
-			$candidate = substr($candidate, strlen($prefix));
+		// nothing, and should not quietly become `AU-CA`. Case-insensitively, because five
+		// countries — CV, HK, KY, RU and TV — code their subdivisions by name, so the ISO
+		// 3166-2 form this library publishes for them is `HK-Kowloon` rather than `HK-KLN`.
+		if (mb_strtolower(mb_substr($candidate, 0, mb_strlen($prefix))) === mb_strtolower($prefix)) {
+			$candidate = mb_substr($candidate, mb_strlen($prefix));
 		}
 
-		if (isset($known[$candidate])) {
-			return $candidate;
-		}
+		$folded = mb_strtolower($candidate);
 
+		// One pass over both spellings rather than an exact-key lookup and then a name scan.
+		// The lookup could not match a key that is a name with its own capitalisation, which
+		// meant refusing the very code `requirementsFor()` had handed a port to render.
 		foreach ($known as $code => $name) {
-			if (mb_strtolower($name) === mb_strtolower(trim($subdivision))) {
+			$code = (string) $code;
+
+			if (mb_strtolower($code) === $folded || mb_strtolower($name) === $folded) {
 				return $code;
 			}
 		}
@@ -424,6 +435,12 @@ final readonly class Value implements ParsedValue, HasParts
 	 * The snake_cased form, every part present even when absent, so a consumer can rely on the
 	 * shape rather than testing for keys.
 	 *
+	 * An absent street is `null` here rather than `[]`, so that what this emits is something
+	 * the constructor accepts: a *submitted* empty list is refused, and a value that could not
+	 * be read back from its own serialisation would break every persist-and-reload path.
+	 * {@see self::parts()} keeps the raw list, because a scope asking whether a street is empty
+	 * wants the property, not its wire form.
+	 *
 	 * @return array<string, string|list<string>|null>
 	 */
 	public function toArray(): array
@@ -431,7 +448,8 @@ final readonly class Value implements ParsedValue, HasParts
 		$parts = [];
 
 		foreach (self::PARTS as $key => $property) {
-			$parts[$key] = $this->{$property};
+			$part = $this->{$property};
+			$parts[$key] = $part === [] ? null : $part;
 		}
 
 		return $parts;
@@ -481,10 +499,21 @@ final readonly class Value implements ParsedValue, HasParts
 	}
 
 	/**
+	 * The parts as they are held, for a scope to resolve against.
+	 *
+	 * Unlike {@see self::toArray()} an absent street stays `[]`, because that is what the
+	 * property holds and a rule asking `isEmpty()` of it should see the real value.
+	 *
 	 * @return array<string, mixed>
 	 */
 	public function parts(): array
 	{
-		return $this->toArray();
+		$parts = [];
+
+		foreach (self::PARTS as $key => $property) {
+			$parts[$key] = $this->{$property};
+		}
+
+		return $parts;
 	}
 }

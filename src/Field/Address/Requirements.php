@@ -71,10 +71,23 @@ final readonly class Requirements
 	 */
 	public static function forCountry(string $countryCode, Precision $floor): self
 	{
+		// Keyed on the floor as well as the country: the two are what the answer depends on,
+		// and a cache on the country alone would hand one field another's requiredness. Worth
+		// having rather than leaving to the repositories — a field asks this roughly fifteen
+		// times per request, once per constraint plus again for each `boundFor`, and the
+		// subdivision list it rebuilds runs to sixty-odd entries for the United States.
+		static $cache = [];
+
+		$key = "{$countryCode}:{$floor->value}";
+
+		if (isset($cache[$key])) {
+			return $cache[$key];
+		}
+
 		$format = self::formats()->get($countryCode);
 		$used = self::translate($format->getUsedFields());
 
-		return new self(
+		return $cache[$key] = new self(
 			$countryCode,
 			// The floor only ever declines to inherit a requirement; it never adds one. So a
 			// Locality floor in Panama leaves `postal_code` in reach and Panama asks for no
@@ -131,7 +144,10 @@ final readonly class Requirements
 	{
 		$codes = array_keys(self::subdivisions()->getList([$countryCode]));
 
-		return array_map(static fn(string $code): string => "{$countryCode}-{$code}", $codes);
+		// `string|int` because a numeric subdivision code is an int by the time it is an
+		// array key. Declaring it keeps this honest rather than leaning on weak-mode
+		// coercion in an internal function's callback.
+		return array_map(static fn(string|int $code): string => "{$countryCode}-{$code}", $codes);
 	}
 
 	/**

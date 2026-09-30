@@ -175,7 +175,86 @@ final class AddressTest extends FieldTestCase
 				['streetRequired', 'subdivisionRequired'],
 				['localityRequired', 'postalCodeRequired'],
 			],
+			// Hong Kong codes its subdivisions by *name*, so its canonical ISO 3166-2 form is
+			// `HK-Kowloon`. Leaving it out of this table is how the library came to reject the
+			// very code it publishes for Hong Kong.
+			'Hong Kong addresses by area, with no postcode' => [
+				'HK',
+				['street' => ['1 Queen\'s Rd'], 'subdivision' => 'HK-Kowloon', 'country' => 'HK'],
+				['streetRequired', 'subdivisionRequired'],
+				['postalCodeRequired'],
+			],
+			'the United States require all four' => [
+				'US',
+				['street' => ['1600 Pennsylvania Ave NW'], 'locality' => 'Washington', 'subdivision' => 'US-DC', 'postal_code' => '20500', 'country' => 'US'],
+				['streetRequired', 'localityRequired', 'subdivisionRequired', 'postalCodeRequired'],
+				[],
+			],
 		];
+	}
+
+	#[Test]
+	public function a_country_may_ask_for_nothing_below_itself(): void
+	{
+		// Four of the 206 require only an address line, so dropping the street tier empties
+		// their required set entirely. That is honest rather than degenerate: Antigua's format
+		// genuinely has nothing between the country and the street.
+		$field = $this->createField()->minPrecisionOf(Precision::Locality);
+
+		foreach (['AG', 'GI', 'MO', 'VG'] as $country) {
+			$result = $field->validate((object) ['country' => $country]);
+
+			$this->assertFalse($result->anyFailed(), "{$country} should require nothing but a country");
+		}
+	}
+
+	#[Test]
+	public function the_twelve_countries_with_a_dependent_locality_accept_one(): void
+	{
+		// The counterpart to Australia rejecting one. `usedParts` must not refuse a part a
+		// country genuinely has.
+		$field = $this->createField()->minPrecisionOf(Precision::Country);
+
+		foreach (['BR', 'CN', 'IE', 'IR', 'KR', 'MX', 'MY', 'NG', 'NZ', 'PH', 'TH', 'ZA'] as $country) {
+			$result = $field->validate((object) [
+				'dependent_locality' => 'Somewhere',
+				'country' => $country,
+			]);
+
+			$this->assertTrue(
+				$result->forConstraint('usedParts')->passed(),
+				"{$country} uses a dependent locality and should accept one",
+			);
+		}
+	}
+
+	#[Test]
+	public function a_country_whose_subdivisions_carry_their_own_postcode_pattern(): void
+	{
+		// China and Colombia are the only two, and both require a subdivision — which is
+		// exactly why an unresolvable one there makes the address unreadable rather than
+		// merely failing a constraint. Without the subdivision, the postcode is undecidable.
+		$field = $this->createField();
+
+		$valid = $field->validate((object) [
+			'street' => ['1 Nanjing Rd'],
+			'locality' => 'Shanghai Shi',
+			'subdivision' => 'CN-SH',
+			'postal_code' => '200000',
+			'country' => 'CN',
+		]);
+
+		$this->assertTrue($valid->forConstraint('knownSubdivision')->passed());
+
+		$unreadable = $field->validate((object) [
+			'street' => ['1 Nanjing Rd'],
+			'locality' => 'Shanghai Shi',
+			'subdivision' => 'Banana',
+			'postal_code' => '200000',
+			'country' => 'CN',
+		]);
+
+		$this->assertTrue($unreadable->shape->wasUnreadable());
 	}
 
 	#[Test]

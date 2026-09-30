@@ -6,6 +6,7 @@ namespace Meraki\Schema\Field\Address;
 use Meraki\Schema\Exception\InvalidConfiguration;
 use Meraki\Schema\Field\Address;
 use Meraki\Schema\FieldName;
+use CommerceGuys\Addressing\AddressFormat\AddressFormatRepository;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Group;
@@ -272,5 +273,66 @@ final class RequirementsTest extends TestCase
 	public function a_free_form_field_answers_for_any_country_it_is_given(): void
 	{
 		$this->assertSame('JP', $this->freeForm()->requirementsFor('JP')['JP']->country);
+	}
+
+	#[Test]
+	public function two_floors_asking_about_one_country_get_different_answers(): void
+	{
+		// A guard on the memoisation: the answer depends on the floor as well as the country,
+		// so a cache keyed on the country alone would hand one field the other's requiredness.
+		// Cheap to get wrong and silent when you do — the country is the obvious key.
+		$street = $this->freeForm()->minPrecisionOf(Precision::Street);
+		$locality = $this->freeForm()->minPrecisionOf(Precision::Locality);
+
+		$this->assertSame(['street', 'locality', 'subdivision', 'postal_code'], $street->requirementsFor('AU')['AU']->requiredParts);
+		$this->assertSame(['locality', 'subdivision', 'postal_code'], $locality->requirementsFor('AU')['AU']->requiredParts);
+
+		// And again in the other order, in case the first answer is the one that sticks.
+		$this->assertSame(['street', 'locality', 'subdivision', 'postal_code'], $street->requirementsFor('AU')['AU']->requiredParts);
+	}
+
+	/**
+	 * What this method publishes, the value object accepts.
+	 *
+	 * The contract a port relies on: `subdivisions` is what it renders as options, and the
+	 * option the user picks comes straight back. Nothing else guarantees the two agree, and
+	 * they did not — five countries key their subdivisions by name, so `HK-Kowloon` was
+	 * published and then refused, making Hong Kong unusable through the documented path.
+	 *
+	 * Every subdivision of every country, because the failures clustered exactly where the
+	 * hand-picked examples were not: AU and IE are both uppercase-coded and string-keyed.
+	 */
+	#[Test]
+	public function every_subdivision_it_publishes_is_one_a_value_accepts(): void
+	{
+		$field = $this->freeForm();
+		$rejected = [];
+		$checked = 0;
+
+		foreach (array_keys((new AddressFormatRepository())->getAll()) as $country) {
+			$requirements = $field->requirementsFor($country)[$country];
+
+			foreach ($requirements->subdivisions as $code) {
+				++$checked;
+
+				try {
+					$address = new Value((object) [
+						'street' => ['1 Main St'],
+						'locality' => 'Somewhere',
+						'subdivision' => $code,
+						'country' => $country,
+					]);
+
+					if ($address->subdivision !== $code) {
+						$rejected[] = "{$code} became {$address->subdivision}";
+					}
+				} catch (\Throwable $e) {
+					$rejected[] = "{$code}: " . $e->getMessage();
+				}
+			}
+		}
+
+		$this->assertGreaterThan(1500, $checked, 'expected the whole subdivision dataset');
+		$this->assertSame([], $rejected, 'every published subdivision code must round-trip');
 	}
 }
