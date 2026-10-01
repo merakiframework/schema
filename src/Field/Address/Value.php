@@ -468,4 +468,44 @@ final readonly class Value implements ParsedValue, HasParts
 
 		return $parts;
 	}
+
+	/**
+	 * The two parts this canonicalises, resolved the way a submitted address would be.
+	 *
+	 * `country` and `subdivision` are stored as codes whichever spelling arrived — `AU` for
+	 * `Australia`, `AU-QLD` for any of `QLD`, `qld`, `AU-QLD` or `Queensland`. A rule compares
+	 * against what was *stored*, so an expectation written in a spelling the field happily
+	 * accepts as input was false for every request there would ever be: accepted at authoring,
+	 * silently dead, and indistinguishable from a condition that simply never held.
+	 *
+	 * Resolved here rather than by the comparison because a subdivision needs its country, and
+	 * this value is the only thing that has one.
+	 *
+	 * Anything unresolvable is returned unchanged, so it still fails to match — reporting *why*
+	 * belongs to `knownSubdivision` and `allowedCountries`, which say it better.
+	 */
+	public function canonicalPartValue(string $part, mixed $expected): mixed
+	{
+		if (!is_string($expected)) {
+			return $expected;
+		}
+
+		// The country is always there to resolve a subdivision against: the constructor refuses
+		// an address without one, for the reason it gives — a postcode, a subdivision list and a
+		// required set are all selected *by* the country.
+		return match ($part) {
+			'country' => self::codeFor($expected) ?? $expected,
+			'subdivision' => Requirements::subdivisionCodeIn($this->countryCode, $expected) ?? $expected,
+			default => $expected,
+		};
+	}
+
+	/**
+	 * An address line is one of up to three, and nothing here joins them into delimited text —
+	 * a separator would have to be either CRLF or LF, and HTML and JSON disagree.
+	 */
+	public static function listParts(): array
+	{
+		return ['street'];
+	}
 }

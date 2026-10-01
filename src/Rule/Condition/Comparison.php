@@ -6,6 +6,7 @@ namespace Meraki\Schema\Rule\Condition;
 use Meraki\Schema\Comparison\Values;
 use Meraki\Schema\Field;
 use Meraki\Schema\FieldResult;
+use Meraki\Schema\PartScope;
 use Meraki\Schema\Rule\Condition;
 use Meraki\Schema\Rule\Scoped;
 use Meraki\Schema\Scope;
@@ -92,10 +93,66 @@ abstract class Comparison implements Condition, Scoped
 	{
 		$resolver = new ScopeResolver($fields, $data);
 
-		return Values::same(
-			$resolver->resolve($this->scope),
-			$this->readExpectation($this->expected, $fields, $resolver),
-		);
+		return $this->pointsAt($this->expected, $resolver->resolve($this->scope), $fields, $resolver);
+	}
+
+	/**
+	 * Whether what the scope resolved to is this one candidate, both sides read the same way.
+	 *
+	 * Separate from {@see self::pointsAtTheExpectedValue()} because {@see IsIn} asks it of each
+	 * of several candidates against one resolved value. Everything that makes a comparison
+	 * correct — the parse, the canonicalisation, the list fold — lives here, so a subclass
+	 * looping over operands cannot accidentally get a simpler comparison than `equals` does.
+	 * That is how `isIn` came to miss both fixes that `equals` had.
+	 *
+	 * @param mixed $resolved what the scope points at, already resolved once by the caller
+	 */
+	final protected function pointsAt(mixed $candidate, mixed $resolved, Field\Set $fields, ScopeResolver $resolver): bool
+	{
+		$expected = $this->expectationAgainst($candidate, $fields, $resolver);
+
+		// A part held as a list asks the question of each entry — the same "any" fold
+		// {@see Textual::textLinesAt()} makes, for the same reason.
+		if (is_array($resolved)) {
+			foreach ($resolved as $one) {
+				if (Values::same($one, $expected)) {
+					return true;
+				}
+			}
+
+			return false;
+		}
+
+		return Values::same($resolved, $expected);
+	}
+
+	/**
+	 * The expectation, read the way the thing it is being compared against was read.
+	 *
+	 * A value canonicalises what it is given: an address stores `AU-QLD` whichever of `QLD`,
+	 * `qld`, `AU-QLD` or `Queensland` was submitted, and `AU` for `Australia`. The *stored* side
+	 * went through that and the *expectation* did not, so `equals('QLD')` compared `AU-QLD`
+	 * against `QLD` and was false for every request there would ever be — accepted at authoring,
+	 * silently dead, and written in the very spelling the field accepts as input.
+	 *
+	 * Asked of the value rather than resolved here, because only the value knows what it did:
+	 * a subdivision needs its country to resolve, and the submitted value is the only thing that
+	 * has one. That is also why this happens at match time rather than when the rule is written —
+	 * with several countries allowed there is no single subdivision list to resolve against.
+	 */
+	private function expectationAgainst(mixed $candidate, Field\Set $fields, ScopeResolver $resolver): mixed
+	{
+		$expected = $this->readExpectation($candidate, $fields, $resolver);
+
+		if (!$this->scope instanceof PartScope) {
+			return $expected;
+		}
+
+		$owner = $resolver->resolve(new ValueScope($this->scope->in));
+
+		return $owner instanceof Field\HasParts
+			? $owner->canonicalPartValue($this->scope->part, $expected)
+			: $expected;
 	}
 
 	/**

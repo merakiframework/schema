@@ -7,6 +7,7 @@ use Meraki\Schema\Comparison\Comparable;
 use Meraki\Schema\Comparison\Order;
 use Meraki\Schema\Facade;
 use Meraki\Schema\Field;
+use Meraki\Schema\PartScope;
 use Meraki\Schema\ScopeResolver;
 use Meraki\Schema\ValueScope;
 
@@ -48,8 +49,11 @@ use Meraki\Schema\ValueScope;
  * {@see Field\ValueClass} — that is caught by {@see self::whyItCouldNeverHold()} at
  * {@see Facade::addRule()} rather than by nothing at all.
  *
- * Only for a {@see ValueScope}. A part of a structured value resolves to whatever the value put in
- * it, which the field's own class says nothing about.
+ * For a {@see \Meraki\Schema\PartScope} the field's own class says nothing — a part resolves to
+ * whatever the value put in it — with one exception the value *does* declare: a part held as a
+ * **list** has no order either, and {@see Field\HasParts::listParts()} names those without needing
+ * a request. So `isAtLeast(3)` against an address's `street` is refused there too, and the message
+ * points at the verbs a list does answer.
  */
 abstract class Ordered extends Comparison
 {
@@ -88,6 +92,25 @@ abstract class Ordered extends Comparison
 
 	public function whyItCouldNeverHold(Field\Set $fields): ?string
 	{
+		// A part held as a list has no order either, and the reason is sharper: there is no one
+		// value to rank. `Address\Value::$street` is up to three lines, so "is it at least 3"
+		// has nothing to be asked of. The textual verbs fold over the entries instead, so the
+		// message names them rather than leaving an author to guess what a list does answer.
+		if ($this->scope instanceof PartScope) {
+			$field = (new ScopeResolver($fields))->fieldFor($this->scope);
+
+			if ($field !== null && in_array($this->scope->part, Field\ValueClass::listPartsOf($field), true)) {
+				return sprintf(
+					'The rule asks where "%s" sits relative to %s, but that part holds a list of '
+					. 'entries, which has no order — so the comparison could never be true and the '
+					. 'rule would never fire. Ask contains(), matches(), equals(), isIn() or '
+					. 'isEmpty() of a list instead.',
+					(string) $this->scope,
+					self::describe($this->expected),
+				);
+			}
+		}
+
 		if ($this->scope instanceof ValueScope) {
 			$field = (new ScopeResolver($fields))->fieldFor($this->scope);
 			$valueClass = $field === null ? null : Field\ValueClass::of($field);

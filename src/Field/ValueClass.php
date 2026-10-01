@@ -66,6 +66,22 @@ final class ValueClass
 		return ($class !== null && is_a($class, HasParts::class, true)) ? $class::partNames() : [];
 	}
 
+	/**
+	 * The parts the field's value holds as a *list* rather than as one string.
+	 *
+	 * Asked where a rule is written, so it has to be answerable without a value — which is why
+	 * {@see HasParts::listParts()} is static. A list has no order, so an ordered comparison
+	 * against one is refused there rather than quietly never firing.
+	 *
+	 * @return list<string>
+	 */
+	public static function listPartsOf(Field $field): array
+	{
+		$class = self::of($field);
+
+		return ($class !== null && is_a($class, HasParts::class, true)) ? $class::listParts() : [];
+	}
+
 	/** @return class-string|null */
 	private static function read(Field $field): ?string
 	{

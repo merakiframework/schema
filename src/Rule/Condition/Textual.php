@@ -71,6 +71,41 @@ abstract class Textual implements Condition, Scoped
 	}
 
 	/**
+	 * What the scope points at, as the lines of text it holds — none, one, or several.
+	 *
+	 * A part may be a *list*: `Address\Value::$street` is the first, because an address line is
+	 * one of up to three and nothing here normalises them into delimited text. Asking a textual
+	 * question of one used to resolve the list, fail to read it as a string, and answer `null` —
+	 * so `contains('PO Box')` was accepted at authoring and then never fired, which is the
+	 * dead-rule failure this library spends most of its guards avoiding.
+	 *
+	 * The fold is **any line**. That is the only reading of "does the street contain a PO box"
+	 * that is both useful and unambiguous, and it is what an author writing it meant.
+	 *
+	 * Not {@see \Meraki\Schema\Rule\Condition\Quantified}, which asserts its scope's locator is a
+	 * `Scope\Column` and folds over `ScopeResolver::rowNamesIn()`. That is collection machinery:
+	 * it answers "how many rows match", where this answers "does any line".
+	 *
+	 * @param array<string, mixed> $data
+	 * @return list<string>
+	 */
+	final protected function textLinesAt(array $data, Field\Set $fields): array
+	{
+		$value = (new ScopeResolver($fields, $data))->resolve($this->scope);
+		$lines = [];
+
+		foreach (is_array($value) ? $value : [$value] as $one) {
+			if (is_string($one)) {
+				$lines[] = $one;
+			} elseif ($one instanceof Stringable) {
+				$lines[] = (string) $one;
+			}
+		}
+
+		return $lines;
+	}
+
+	/**
 	 * @return list<Scope>
 	 */
 	public function getScopes(): array

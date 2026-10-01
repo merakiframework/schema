@@ -4,10 +4,12 @@ declare(strict_types=1);
 namespace Meraki\Schema\Rule;
 
 use Meraki\Schema\Facade;
+use Meraki\Schema\FieldName;
 use Meraki\Schema\PartScope;
 use Meraki\Schema\Rule\Condition\Comparison;
 use Meraki\Schema\ValueScope;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
@@ -217,5 +219,123 @@ final class PartComparisonTest extends TestCase
 
 		$this->assertFalse($this->fired($schema, self::AU, self::AU));
 		$this->assertTrue($this->fired($schema, self::AU, self::NZ));
+	}
+
+	// ── a part the value canonicalised ─────────────────────────────────────────────────────
+
+	/**
+	 * A rule is written in the spelling a submitter uses, and must still match.
+	 *
+	 * An address stores `AU-QLD` whichever of `QLD`, `qld`, `AU-QLD` or `Queensland` arrived, and
+	 * `AU` for `Australia`. The stored side went through that and the expectation did not, so
+	 * `equals('QLD')` compared `AU-QLD` against `QLD` — false for every request there would ever
+	 * be. Accepted at authoring, silently dead, and written in the very spelling the field
+	 * accepts as input, which is what made it so easy to write.
+	 *
+	 * @param list<string> $spellings every way of naming the thing the address actually holds
+	 */
+	#[Test]
+	#[DataProvider('spellingsOfOnePlace')]
+	public function a_rule_matches_whichever_spelling_it_was_written_with(string $part, array $spellings): void
+	{
+		foreach ($spellings as $spelling) {
+			$schema = $this->schema();
+			$note = $schema->fields->getByName(new FieldName('note'));
+
+			$schema->addRule(
+				$schema->when(PartScope::of('billing', $part))->equals($spelling)->then($note->makeOptional()),
+			);
+
+			$this->assertTrue($this->fired($schema, self::AU, self::AU), "{$part} = {$spelling}");
+		}
+	}
+
+	/** @return iterable<string, array{string, list<string>}> */
+	public static function spellingsOfOnePlace(): iterable
+	{
+		yield 'a subdivision' => ['subdivision', ['QLD', 'qld', 'AU-QLD', 'au-qld', 'Queensland']];
+		yield 'a country' => ['country', ['AU', 'au', 'Australia']];
+	}
+
+	#[Test]
+	public function canonicalising_the_expectation_does_not_make_everything_match(): void
+	{
+		// The fix must not turn the comparison into "resolves to something" — a different place
+		// still has to answer no.
+		$schema = $this->schema();
+		$note = $schema->fields->getByName(new FieldName('note'));
+
+		$schema->addRule(
+			$schema->when(PartScope::of('billing', 'subdivision'))->equals('NSW')->then($note->makeOptional()),
+		);
+
+		$this->assertFalse($this->fired($schema, self::AU, self::AU));
+	}
+
+	// ── a part held as a list ──────────────────────────────────────────────────────────────
+
+	/**
+	 * A textual question of a list asks it of each entry.
+	 *
+	 * `street` is up to three lines, so resolving it gave an array, and every scalar verb
+	 * compared an array against a string and answered no. Six of the seven verbs were dead; only
+	 * `isEmpty` worked, and only because it had been taught about lists already.
+	 */
+	#[Test]
+	#[DataProvider('questionsAboutAList')]
+	public function a_question_about_a_list_part_is_asked_of_each_entry(string $verb, mixed $argument, bool $expected): void
+	{
+		$schema = $this->schema();
+		$note = $schema->fields->getByName(new FieldName('note'));
+		$twoLines = ['street' => ['Level 3', 'PO Box 42']] + self::AU;
+
+		$schema->addRule(
+			$schema->when(PartScope::of('billing', 'street'))->{$verb}($argument)->then($note->makeOptional()),
+		);
+
+		$this->assertSame($expected, $this->fired($schema, $twoLines, self::AU));
+	}
+
+	/** @return iterable<string, array{string, mixed, bool}> */
+	public static function questionsAboutAList(): iterable
+	{
+		yield 'matches the second line' => ['matches', '/^PO Box/i', true];
+		yield 'matches no line' => ['matches', '/^Unit/', false];
+		yield 'contains, in the second line' => ['contains', 'PO Box', true];
+		yield 'contains, in no line' => ['contains', 'Penthouse', false];
+		yield 'equals the first line' => ['equals', 'Level 3', true];
+		yield 'equals no line' => ['equals', 'Level 4', false];
+		yield 'isIn, one candidate matching' => ['isIn', ['Level 3', 'nowhere'], true];
+		yield 'isIn, none matching' => ['isIn', ['nowhere', 'nothing'], false];
+	}
+
+	#[Test]
+	public function an_ordered_question_about_a_list_part_is_refused_where_it_is_written(): void
+	{
+		// A list has no order, so there is nothing for isAtLeast to rank. Refused rather than
+		// left to never fire, and the message names the verbs a list does answer.
+		$schema = $this->schema();
+		$note = $schema->fields->getByName(new FieldName('note'));
+
+		$this->expectException(InvalidArgumentException::class);
+		$this->expectExceptionMessageMatches('/holds a list of entries, which has no order/');
+
+		$schema->addRule(
+			$schema->when(PartScope::of('billing', 'street'))->isAtLeast(3)->then($note->makeOptional()),
+		);
+	}
+
+	#[Test]
+	public function an_ordered_question_about_an_ordinary_part_is_still_allowed(): void
+	{
+		// The refusal is about the list, not about parts. A postcode is one string.
+		$schema = $this->schema();
+		$note = $schema->fields->getByName(new FieldName('note'));
+
+		$schema->addRule(
+			$schema->when(PartScope::of('billing', 'postal_code'))->isAtLeast('1000')->then($note->makeOptional()),
+		);
+
+		$this->assertCount(1, $schema->rules);
 	}
 }

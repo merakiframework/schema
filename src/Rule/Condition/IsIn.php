@@ -3,7 +3,6 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Rule\Condition;
 
-use Meraki\Schema\Comparison\Values;
 use Meraki\Schema\Exception\InvalidRule;
 use Meraki\Schema\Field;
 use Meraki\Schema\Scope;
@@ -70,7 +69,7 @@ final class IsIn extends Comparison
 		$value = $resolver->resolve($this->scope);
 
 		foreach ($this->candidates as $candidate) {
-			if (Values::same($value, $this->readExpectation($candidate, $fields, $resolver))) {
+			if ($this->pointsAt($candidate, $value, $fields, $resolver)) {
 				return true;
 			}
 		}

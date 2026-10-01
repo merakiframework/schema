@@ -51,8 +51,12 @@ final class Matches extends Textual
 	 */
 	public function matches(array $data, Field\Set $fields): bool
 	{
-		$text = $this->textAt($data, $fields);
+		foreach ($this->textLinesAt($data, $fields) as $line) {
+			if (preg_match($this->pattern, $line) === 1) {
+				return true;
+			}
+		}
 
-		return $text !== null && preg_match($this->pattern, $text) === 1;
+		return false;
 	}
 }

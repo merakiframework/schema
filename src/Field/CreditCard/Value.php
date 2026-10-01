@@ -225,4 +225,20 @@ final readonly class Value implements ParsedValue, HasParts
 			'security_code' => $this->securityCode,
 		];
 	}
+
+	/**
+	 * Nothing here is canonicalised, so a rule compares against exactly what it was written
+	 * with. {@see \Meraki\Schema\Field\Address\Value::canonicalPartValue()} is the one that
+	 * has work to do.
+	 */
+	public function canonicalPartValue(string $part, mixed $expected): mixed
+	{
+		return $expected;
+	}
+
+	/** Every part here is one string. @see HasParts::listParts() */
+	public static function listParts(): array
+	{
+		return [];
+	}
 }

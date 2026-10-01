@@ -51,8 +51,12 @@ final class Contains extends Textual
 	 */
 	public function matches(array $data, Field\Set $fields): bool
 	{
-		$text = $this->textAt($data, $fields);
+		foreach ($this->textLinesAt($data, $fields) as $line) {
+			if (str_contains($line, $this->needle)) {
+				return true;
+			}
+		}
 
-		return $text !== null && str_contains($text, $this->needle);
+		return false;
 	}
 }
