@@ -10,6 +10,51 @@ is a commit subject, with the body kept because the body is where the reasoning 
 
 ## Unreleased
 
+### Report an unusable part against the part itself
+
+`553ea19c` · 2026-10-01
+
+`usedParts` was one constraint covering four questions, and because which
+part offends varies per request it could not name one. So `part` was null,
+which meant a form had no input to mark and a message pack got a single
+sentence for every variant — and with two offending parts it reported one
+failure, leaving the second invisible until the submitter fixed the first
+and tried again.
+
+Four constraints now, one per part that a country can lack:
+`localityUsed`, `dependentLocalityUsed`, `subdivisionUsed`,
+`postalCodeUsed`. Each skips unless that part was submitted and the
+country has no place for it. There is no `streetUsed` — all 206 countries
+use a street.
+
+Each carries its own part, so a GB address with both a county and a
+dependent locality reports two failures a form can attach to two inputs,
+with no intersecting of submitted parts against a bound and no knowing to
+exclude `country` by hand.
+
+It also completes the trio per part, which are three different questions:
+
+    subdivisionRequired   must you give one?
+    subdivisionUsed       may you give one?
+    knownSubdivision      is the one you gave real?
+
+Thirteen constraints on one field is a lot, and it is the same trade
+already made for the four `*Required` checks rather than one carrying a
+list. An address is a complex domain; the alternative was a caller
+special-casing one constraint's bound.
+
+Recorded on the roadmap rather than built: widening `Constraint` to carry
+several parts would collapse these four into one, and **cross-field
+constraints** need the same shape — `confirm_password === password` is a
+rule about two fields, not one part — so the two want designing together.
+Doing it for one field today would have cost `ConstraintValidationResult`,
+the message key ladder, `PartedSet`'s grouping, every port, and the
+tri-state check that is the simplest thing in the library.
+
+### Update history
+
+`46846449` · 2026-10-01
+
 ### Judge a postcode against the subdivision's own pattern
 
 `19d081f3` · 2026-10-01
