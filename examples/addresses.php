@@ -125,8 +125,9 @@ $show('GB: no subdivision to give', $billing, (object) [
 	'country' => 'GB',
 ]);
 
-// A part the country's format has no place for is reported rather than ignored, because
-// accepting it would mean accepting data this library cannot check.
+// A part the country's format has no place for is reported against *that part*, so a form
+// knows which input to mark. Accepting it would mean accepting data this library cannot
+// check — and a form that hides an input when the country changes still posts what was in it.
 $show('GB: a county it has no place for', $billing, (object) [
 	'street' => ['10 Downing St'],
 	'locality' => 'London',

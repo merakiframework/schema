@@ -280,8 +280,10 @@ A key that is not a part is now refused by name. That is deliberate: a caller st
 required", which names the symptom and hides the stale key.
 
 **Constraints.** `specific` → `streetRequired`, `line1Visitable` → `streetVisitable`,
-`administrativeArea` → `knownSubdivision`. New: `usedParts`, `streetLineLimit`,
-`localityRequired`, `subdivisionRequired`, `postalCodeRequired`. The generated message-key list
+`administrativeArea` → `knownSubdivision`. New: `streetLineLimit`, `localityRequired`,
+`subdivisionRequired`, `postalCodeRequired`, and four that report a part the submitted
+country has no place for — `localityUsed`, `dependentLocalityUsed`, `subdivisionUsed`,
+`postalCodeUsed`. There is no `streetUsed`: all 206 countries use a street. The generated message-key list
 changes with them — `vendor/bin/schema-lang keys` prints the new set, and your `.mf2` packs
 need updating. None are bundled here.
 

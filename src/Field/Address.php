@@ -237,7 +237,7 @@ final readonly class Address extends AtomicField
 	}
 
 	/**
-	 * Ten constraints, each naming the part it is about rather than embedding this field's name.
+	 * Thirteen constraints, each naming the part it is about rather than embedding this field's name.
 	 *
 	 * Every country-driven one reads {@see Requirements}, the same answer
 	 * {@see self::requirementsFor()} gives a port, so what a port renders and what this judges
@@ -253,15 +253,7 @@ final readonly class Address extends AtomicField
 
 		return new Constraint\Set(
 			new Constraint('allowedCountries', $this->isAnAllowedCountry(...), $this->allowedCountries, 'country'),
-			// No part: which part offends varies per request, and the bound names the whole set
-			// a country has so a port can work out the rest.
-			new Constraint(
-				'usedParts',
-				$this->onlyUsesPartsTheCountryHas(...),
-				$declared?->usedParts,
-				null,
-				fn(Value $address): ?array => $this->rulesFor($address)?->usedParts,
-			),
+
 			new Constraint(
 				'streetRequired',
 				$this->requires('street'),
@@ -286,11 +278,32 @@ final readonly class Address extends AtomicField
 				$this->appliedRequirement('locality'),
 			),
 			new Constraint(
+				'localityUsed',
+				$this->uses('locality'),
+				$this->declaredUse($declared, 'locality'),
+				'locality',
+				$this->appliedUse('locality'),
+			),
+			new Constraint(
+				'dependentLocalityUsed',
+				$this->uses('dependent_locality'),
+				$this->declaredUse($declared, 'dependent_locality'),
+				'dependent_locality',
+				$this->appliedUse('dependent_locality'),
+			),
+			new Constraint(
 				'subdivisionRequired',
 				$this->requires('subdivision'),
 				$this->declaredRequirement($declared, 'subdivision'),
 				'subdivision',
 				$this->appliedRequirement('subdivision'),
+			),
+			new Constraint(
+				'subdivisionUsed',
+				$this->uses('subdivision'),
+				$this->declaredUse($declared, 'subdivision'),
+				'subdivision',
+				$this->appliedUse('subdivision'),
 			),
 			// No bound: a country's subdivision list runs to sixty-odd entries for the United
 			// States, which no message wants interpolated into it. A port that wants the list
@@ -302,6 +315,13 @@ final readonly class Address extends AtomicField
 				$this->declaredRequirement($declared, 'postal_code'),
 				'postal_code',
 				$this->appliedRequirement('postal_code'),
+			),
+			new Constraint(
+				'postalCodeUsed',
+				$this->uses('postal_code'),
+				$this->declaredUse($declared, 'postal_code'),
+				'postal_code',
+				$this->appliedUse('postal_code'),
 			),
 			new Constraint(
 				'postalCodeFormat',
@@ -402,35 +422,51 @@ final readonly class Address extends AtomicField
 	}
 
 	/**
-	 * Whether every part the address carries is one this country's format has.
+	 * Whether the part the address carries is one this country's format has a place for.
 	 *
 	 * A state typed for a country with no states is a mistake worth reporting rather than data
-	 * to quietly ignore — and ignoring it would mean accepting input this library cannot check.
+	 * to quietly ignore — ignoring it would mean accepting input this library cannot check, and
+	 * a form that hides an input when the country changes still posts whatever was in it.
+	 *
+	 * The mirror of {@see self::requires()}, and one per part rather than one for all of them,
+	 * because a failure has to name the part a form should mark. There is no `streetUsed`: all
+	 * 206 countries use a street.
+	 *
+	 * @return Closure(Value): ?bool
 	 */
-	private function onlyUsesPartsTheCountryHas(Value $address): ?bool
+	private function uses(string $part): Closure
 	{
-		$requirements = $this->rulesFor($address);
+		return function (Value $address) use ($part): ?bool {
+			$value = $address->partNamed($part);
 
-		if ($requirements === null) {
-			return null;
-		}
-
-		foreach ($address->parts() as $part => $value) {
-			// Always used, and not something a country's format lists.
-			if ($part === 'country') {
-				continue;
-			}
-
+			// Nothing submitted, so nothing to judge. Skipped rather than passed: "you did not
+			// send one" is not a verdict on whether this country has one.
 			if ($value === null || $value === []) {
-				continue;
+				return null;
 			}
 
-			if (!in_array($part, $requirements->usedParts, true)) {
-				return false;
-			}
-		}
+			$requirements = $this->rulesFor($address);
 
-		return true;
+			return $requirements === null ? null : in_array($part, $requirements->usedParts, true);
+		};
+	}
+
+	/**
+	 * Whether the part is one the country has, when that is knowable before a request.
+	 */
+	private function declaredUse(?Requirements $declared, string $part): ?bool
+	{
+		return $declared === null ? null : in_array($part, $declared->usedParts, true);
+	}
+
+	/** @return Closure(Value): ?bool */
+	private function appliedUse(string $part): Closure
+	{
+		return function (Value $address) use ($part): ?bool {
+			$requirements = $this->rulesFor($address);
+
+			return $requirements === null ? null : in_array($part, $requirements->usedParts, true);
+		};
 	}
 
 	private function withinTheLineLimit(Value $address): ?bool

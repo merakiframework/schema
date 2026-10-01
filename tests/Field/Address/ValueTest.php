@@ -454,7 +454,7 @@ final class ValueTest extends TestCase
 	public function a_subdivision_is_kept_verbatim_where_the_country_has_none_on_file(): void
 	{
 		// Great Britain's format has no subdivision at all, so there is no list to canonicalise
-		// against. The `usedParts` constraint is what reports it; the value just carries it.
+		// against. The `subdivisionUsed` constraint is what reports it; the value just carries it.
 		$address = new Value((object) [
 			'street' => ['1 Main St'],
 			'locality' => 'London',

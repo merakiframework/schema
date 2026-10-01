@@ -95,14 +95,17 @@ final class AddressTest extends FieldTestCase
 	{
 		$expected = [
 			'allowedCountries' => 'country',
-			'usedParts' => null,
 			'streetRequired' => 'street',
 			'streetLineLimit' => 'street',
 			'streetVisitable' => 'street',
 			'localityRequired' => 'locality',
+			'localityUsed' => 'locality',
+			'dependentLocalityUsed' => 'dependent_locality',
 			'subdivisionRequired' => 'subdivision',
+			'subdivisionUsed' => 'subdivision',
 			'knownSubdivision' => 'subdivision',
 			'postalCodeRequired' => 'postal_code',
+			'postalCodeUsed' => 'postal_code',
 			'postalCodeFormat' => 'postal_code',
 		];
 
@@ -211,8 +214,8 @@ final class AddressTest extends FieldTestCase
 	#[Test]
 	public function the_twelve_countries_with_a_dependent_locality_accept_one(): void
 	{
-		// The counterpart to Australia rejecting one. `usedParts` must not refuse a part a
-		// country genuinely has.
+		// The counterpart to Australia rejecting one. `dependentLocalityUsed` must not refuse
+		// a part a country genuinely has.
 		$field = $this->createField()->minPrecisionOf(Precision::Country);
 
 		foreach (['BR', 'CN', 'IE', 'IR', 'KR', 'MX', 'MY', 'NG', 'NZ', 'PH', 'TH', 'ZA'] as $country) {
@@ -222,7 +225,7 @@ final class AddressTest extends FieldTestCase
 			]);
 
 			$this->assertTrue(
-				$result->forConstraint('usedParts')->passed(),
+				$result->forConstraint('dependentLocalityUsed')->passed(),
 				"{$country} uses a dependent locality and should accept one",
 			);
 		}
@@ -442,37 +445,117 @@ final class AddressTest extends FieldTestCase
 
 	// ── parts a country does not have ──────────────────────────────────────────────────────
 
-	#[Test]
-	public function a_part_the_country_does_not_use_is_reported(): void
+	/**
+	 * A part the submitted country's format has no place for is reported against *that part*.
+	 *
+	 * There used to be one `usedParts` constraint for all of these, and because which part
+	 * offends varies per request it could not name one — so a form had no input to attach the
+	 * error to, and a message pack got one sentence for every variant. Four constraints, one per
+	 * part that can be unused, each carrying its own `part`. Street is absent from the list
+	 * because all 206 countries use it.
+	 *
+	 * @return array<string, array{string, string, array<string, mixed>}>
+	 */
+	public static function partsACountryMayNotHave(): array
 	{
-		// Great Britain has no subdivision in its format at all, so a county here is data this
-		// library cannot check — and accepting it would be accepting input it cannot judge.
+		return [
+			'Great Britain has no subdivision' => [
+				'GB',
+				'subdivisionUsed',
+				['street' => ['10 Downing St'], 'locality' => 'London', 'subdivision' => 'Greater London', 'postal_code' => 'SW1A 2AA', 'country' => 'GB'],
+			],
+			// The Australian trap: a "suburb" here is the locality. Cardiff NSW 2285 has no
+			// dependent locality, and Newcastle — the city it sits in — is not in the address.
+			'Australia has no dependent locality' => [
+				'AU',
+				'dependentLocalityUsed',
+				['street' => ['12 Macquarie Rd'], 'locality' => 'Cardiff', 'dependent_locality' => 'Newcastle', 'subdivision' => 'NSW', 'postal_code' => '2285', 'country' => 'AU'],
+			],
+			'the Emirates have no locality' => [
+				'AE',
+				'localityUsed',
+				['street' => ['Sheikh Zayed Rd'], 'locality' => 'Dubai', 'subdivision' => 'AE-DU', 'country' => 'AE'],
+			],
+			'the Emirates have no postcode' => [
+				'AE',
+				'postalCodeUsed',
+				['street' => ['Sheikh Zayed Rd'], 'subdivision' => 'AE-DU', 'postal_code' => '00000', 'country' => 'AE'],
+			],
+			'Panama has no postcode' => [
+				'PA',
+				'postalCodeUsed',
+				['street' => ['Calle 50'], 'locality' => 'Ciudad de Panama', 'postal_code' => '00000', 'country' => 'PA'],
+			],
+		];
+	}
+
+	#[Test]
+	#[DataProvider('partsACountryMayNotHave')]
+	public function a_part_the_country_does_not_use_is_reported_against_that_part(
+		string $country,
+		string $constraint,
+		array $address,
+	): void {
+		$failed = (new Address(new FieldName('billing'), [$country]))
+			->validate((object) $address)
+			->forConstraint($constraint);
+
+		$this->assertTrue($failed->failed(), $constraint);
+
+		// The whole point: a form knows which input to mark.
+		$this->assertSame(
+			['subdivisionUsed' => 'subdivision', 'dependentLocalityUsed' => 'dependent_locality', 'localityUsed' => 'locality', 'postalCodeUsed' => 'postal_code'][$constraint],
+			$failed->part,
+		);
+	}
+
+	#[Test]
+	public function two_parts_a_country_does_not_have_are_two_failures(): void
+	{
+		// One constraint could only ever report one of these, so the second was invisible until
+		// the submitter fixed the first and tried again.
 		$result = (new Address(new FieldName('billing'), ['GB']))->validate((object) [
 			'street' => ['10 Downing St'],
 			'locality' => 'London',
 			'subdivision' => 'Greater London',
+			'dependent_locality' => 'Whitehall',
 			'postal_code' => 'SW1A 2AA',
 			'country' => 'GB',
 		]);
 
-		$this->assertTrue($result->forConstraint('usedParts')->failed());
+		$this->assertTrue($result->forConstraint('subdivisionUsed')->failed());
+		$this->assertTrue($result->forConstraint('dependentLocalityUsed')->failed());
 	}
 
 	#[Test]
-	public function australia_has_no_dependent_locality(): void
+	public function a_part_the_country_does_use_passes(): void
 	{
-		// The trap worth a test: a "suburb" in Australia is the locality. Cardiff NSW 2285 has
-		// no dependent locality, and Newcastle — the city it sits in — is not in the address.
-		$result = $this->australian()->validate((object) [
-			'street' => ['12 Macquarie Rd'],
-			'locality' => 'Cardiff',
-			'dependent_locality' => 'Newcastle',
-			'subdivision' => 'NSW',
-			'postal_code' => '2285',
-			'country' => 'AU',
-		]);
+		$result = $this->australian()->validate(self::au());
 
-		$this->assertTrue($result->forConstraint('usedParts')->failed());
+		$this->assertTrue($result->forConstraint('subdivisionUsed')->passed());
+		$this->assertTrue($result->forConstraint('localityUsed')->passed());
+		$this->assertTrue($result->forConstraint('postalCodeUsed')->passed());
+	}
+
+	#[Test]
+	public function a_part_nobody_submitted_is_not_asked_about(): void
+	{
+		// Skipped rather than passed: "you did not send a dependent locality" is not a verdict
+		// on whether Australia has one.
+		$result = $this->australian()->validate(self::au());
+
+		$this->assertTrue($result->forConstraint('dependentLocalityUsed')->skipped());
+	}
+
+	#[Test]
+	public function whether_a_country_uses_a_part_is_declarable_for_one_country(): void
+	{
+		$au = new Address(new FieldName('billing'), ['AU']);
+		$free = $this->createField();
+
+		$this->assertTrue($au->constraints->named('subdivisionUsed')->bound);
+		$this->assertFalse($au->constraints->named('dependentLocalityUsed')->bound);
+		$this->assertNull($free->constraints->named('subdivisionUsed')->bound);
 	}
 
 	#[Test]
@@ -742,7 +825,8 @@ final class AddressTest extends FieldTestCase
 			'postalCodeRequired' => ['postalCodeRequired'],
 			'postalCodeFormat' => ['postalCodeFormat'],
 			'streetLineLimit' => ['streetLineLimit'],
-			'usedParts' => ['usedParts'],
+			'localityUsed' => ['localityUsed'],
+			'subdivisionUsed' => ['subdivisionUsed'],
 		];
 	}
 

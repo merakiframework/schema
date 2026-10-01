@@ -257,7 +257,7 @@ Worth knowing before you reach for the wrong part. `locality` is the place the p
 'locality'    => 'Cardiff',      // the suburb IS the locality
 'subdivision' => 'AU-NSW',
 'postal_code' => '2285',
-// dependent_locality is absent, and submitting one fails `usedParts`
+// dependent_locality is absent, and submitting one fails `dependentLocalityUsed`
 ```
 
 Newcastle — the city Cardiff sits in — is not part of an Australian address at all. The trap is

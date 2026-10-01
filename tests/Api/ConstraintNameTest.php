@@ -89,11 +89,11 @@ final class ConstraintNameTest extends TestCase
 			// the name, which is what let the dotted names go.
 			'Money' => ['allowedCurrencies', 'minAmount', 'maxAmount', 'scale'],
 			'Address' => [
-				'allowedCountries', 'usedParts',
+				'allowedCountries',
 				'streetRequired', 'streetLineLimit', 'streetVisitable',
-				'localityRequired',
-				'subdivisionRequired', 'knownSubdivision',
-				'postalCodeRequired', 'postalCodeFormat',
+				'localityRequired', 'localityUsed', 'dependentLocalityUsed',
+				'subdivisionRequired', 'subdivisionUsed', 'knownSubdivision',
+				'postalCodeRequired', 'postalCodeUsed', 'postalCodeFormat',
 			],
 			'CreditCard' => [
 				'numberFormat', 'numberChecksum',
