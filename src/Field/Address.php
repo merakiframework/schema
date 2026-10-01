@@ -265,7 +265,7 @@ final readonly class Address extends AtomicField
 			new Constraint(
 				'streetRequired',
 				$this->requires('street'),
-				$this->declaredRequirement('street'),
+				$this->declaredRequirement($declared, 'street'),
 				'street',
 				$this->appliedRequirement('street'),
 			),
@@ -281,14 +281,14 @@ final readonly class Address extends AtomicField
 			new Constraint(
 				'localityRequired',
 				$this->requires('locality'),
-				$this->declaredRequirement('locality'),
+				$this->declaredRequirement($declared, 'locality'),
 				'locality',
 				$this->appliedRequirement('locality'),
 			),
 			new Constraint(
 				'subdivisionRequired',
 				$this->requires('subdivision'),
-				$this->declaredRequirement('subdivision'),
+				$this->declaredRequirement($declared, 'subdivision'),
 				'subdivision',
 				$this->appliedRequirement('subdivision'),
 			),
@@ -299,7 +299,7 @@ final readonly class Address extends AtomicField
 			new Constraint(
 				'postalCodeRequired',
 				$this->requires('postal_code'),
-				$this->declaredRequirement('postal_code'),
+				$this->declaredRequirement($declared, 'postal_code'),
 				'postal_code',
 				$this->appliedRequirement('postal_code'),
 			),
@@ -343,10 +343,14 @@ final readonly class Address extends AtomicField
 			: null;
 	}
 
-	private function declaredRequirement(string $part): ?bool
+	/**
+	 * Whether the part is required, when that is knowable before a request.
+	 *
+	 * Takes the resolved rules rather than fetching them, because `defineConstraints()` has
+	 * already asked and every wither re-runs it.
+	 */
+	private function declaredRequirement(?Requirements $declared, string $part): ?bool
 	{
-		$declared = $this->declaredRequirements();
-
 		return $declared === null ? null : in_array($part, $declared->requiredParts, true);
 	}
 
