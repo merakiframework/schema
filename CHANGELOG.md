@@ -10,6 +10,53 @@ is a commit subject, with the body kept because the body is where the reasoning 
 
 ## Unreleased
 
+### Judge a postcode against the subdivision's own pattern
+
+`19d081f3` · 2026-10-01
+
+36 of 1548 subdivisions publish their own postcode pattern, across China and
+Colombia alone, and the country's was being used for all of them. That let
+wrong postcodes through — any six digits passed as a Macau code, whose only
+valid value is 999078 — but worse, it *rejected right ones*: Taiwan's
+pattern admits three to six digits where China's admits exactly six, so a
+valid three-digit Taiwanese postcode was refused. An override replaces its
+country's pattern rather than narrowing it, which is why it cannot be
+treated as an extra check layered on top.
+
+The reported bound improves with it. A failure now names the rule that
+actually applied — `11\d{4}` for Bogota rather than Colombia's `\d{6}` —
+so a message can quote something true.
+
+Requirements carries both halves as public properties rather than hiding
+the lookup behind postalCodeFormatFor(). The method is sugar; the data has
+to serialise, because a reader in another language must be able to apply
+`overrides[subdivision] ?? postalCodeFormat` from the document alone. A
+map on its own would not do: 133 of 206 countries have a postcode pattern
+and no subdivisions at all, so there would be nowhere to put Germany's.
+
+`subdivisions` now maps each code to its name. The name is a matching key
+as much as a label — an address may name its state in full — so the
+mapping to the canonical code is the library's to publish rather than
+something each port rebuilds against the same data. `subdivisionCodeFor()`
+exposes it, and `postalCodeFormatFor()` accepts a bare code, a full ISO
+code or a name, in any case.
+
+That also leaves one subdivision resolver instead of two. Value had its own
+copy; it now calls the one in Requirements, where the rest of the
+per-country data already lived.
+
+Recorded on the roadmap, not solved here: a document carries configuration
+and never the standards data its rules are read from, so a reader in
+another language needs its own copy and nothing says whether the two
+agree. Embedding is not the fix — a free-form address field would carry
+206 formats — so what is wanted is a way to name the dataset and version a
+document assumes. Same problem as "Baselines across languages", one layer
+out.
+
+### Update history
+
+`403c4337` · 2026-10-01
+
 ### Repair the cookbook's address snippet, and teach it the two dials
 
 `90f5a2c2` · 2026-10-01
