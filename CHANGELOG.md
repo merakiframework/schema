@@ -10,6 +10,37 @@ is a commit subject, with the body kept because the body is where the reasoning 
 
 ## Unreleased
 
+### Repair the cookbook's address snippet, and teach it the two dials
+
+`90f5a2c2` · 2026-10-01
+
+The snippet was invalid as written. It built an Australian field and then
+submitted a street, a locality, a postcode and a country — no state — so it
+failed `subdivisionRequired`. A documented example that does not run is
+worse than none, and this one was broken by the same sweep that renamed
+`line1` to `street` inside it: the keys were updated and what surrounded
+them was not.
+
+Nothing executes the cookbook, which is why it rotted while the suite and
+`examples/*.php` stayed green. Worth fixing properly at some point; for now
+every address snippet in the file has been run by hand.
+
+While in there, the cookbook now covers what the rewrite introduced and it
+had nothing on: the Precision ladder, `mustBeVisitable()`, and
+`requirementsFor()` — which is the only way a port can mark an input
+required before a request, and so the thing a reader most needs. Also the
+`locality` versus `dependent_locality` trap, with Cardiff NSW 2285: the
+suburb IS the locality, Australia has no dependent locality, and "suburb"
+sounding subordinate is exactly what makes it a trap.
+
+Separately, `declaredRequirement()` now takes the resolved rules rather
+than re-deriving them. `defineConstraints()` had already asked, and the
+four calls each asked again.
+
+### Update history
+
+`471de0ea` · 2026-10-01
+
 ### Refuse to answer about one country twice
 
 `f2f17430` · 2026-10-01
