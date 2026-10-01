@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Field;
 
+use Meraki\Schema\Exception\DuplicateFieldName;
 use Meraki\Schema\Exception\UnknownField;
 use Meraki\Schema\FieldName;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -255,5 +256,35 @@ final class SetTest extends TestCase
 		$set = new Set(new Text(new FieldName('one')));
 
 		$this->assertTrue($set->remove('one')->isEmpty());
+	}
+
+	/**
+	 * Two names that differ only by case cannot share a schema.
+	 *
+	 * `FieldName::equals()` is exact, because a name is a wire key and every lookup that reads
+	 * one is exact. This is the guarantee that used to ride on equality folding case, kept and
+	 * asked where it belongs: once, when the schema is written, rather than on every comparison
+	 * in the library.
+	 *
+	 * What it prevents is a reader having to guess. A message or a scope path naming `email` on
+	 * a schema that also holds `Email` says nothing about which one it meant.
+	 */
+	#[Test]
+	public function two_names_that_differ_only_by_case_cannot_share_a_schema(): void
+	{
+		$this->expectException(DuplicateFieldName::class);
+		$this->expectExceptionMessage('A field named "Email" already exists.');
+
+		new Set(new Text(new FieldName('email')), new Text(new FieldName('Email')));
+	}
+
+	#[Test]
+	public function names_that_differ_by_more_than_case_may_share_a_schema(): void
+	{
+		// The guard is about ambiguity, not about similarity: `email` and `e_mail` are two names
+		// a reader can tell apart, so nothing here objects to them.
+		$set = new Set(new Text(new FieldName('email')), new Text(new FieldName('e_mail')));
+
+		$this->assertCount(2, $set);
 	}
 }

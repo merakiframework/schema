@@ -40,7 +40,38 @@ final readonly class FieldName implements Stringable
 		return preg_match(self::PATTERN, $value) === 1;
 	}
 
+	/**
+	 * Whether this is the same name, spelled the same way.
+	 *
+	 * **Exact**, because a name is a wire key. It is what a payload is keyed by, what a scope
+	 * path spells, and what `forField()` is given — and every one of those lookups is an exact
+	 * string comparison. This used to fold case, which made it the only part of the system that
+	 * did, and the disagreement was silent in both directions: a collection template holding
+	 * `Name` and `name` built without complaint and then threw `DuplicateFieldName` on every
+	 * request, and `thenIgnore('Detail')` against a field called `detail` passed every authoring
+	 * check and then never applied.
+	 *
+	 * What folding case was *for* has not gone away — see {@see self::collidesWith()}.
+	 */
 	public function equals(self $other): bool
+	{
+		return $this->value === $other->value;
+	}
+
+	/**
+	 * Whether two names are too alike to live on one schema.
+	 *
+	 * The job {@see self::equals()} used to do by folding case, kept and given its own name. A
+	 * schema holding both `email` and `Email` leaves a reader guessing which one a message or a
+	 * scope path meant, so it is refused where the fields are added — at authoring time, by
+	 * {@see Field\Set} and {@see Field\Collection}, rather than by making the two names *equal*
+	 * and leaving every exact-match lookup in the library to disagree with that.
+	 *
+	 * So the two questions are separate now because they always were: "is this the same field"
+	 * is asked on every request, and "could these be confused" is asked once, when the schema is
+	 * written.
+	 */
+	public function collidesWith(self $other): bool
 	{
 		return strcasecmp($this->value, $other->value) === 0;
 	}

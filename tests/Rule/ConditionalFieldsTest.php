@@ -288,4 +288,31 @@ final class ConditionalFieldsTest extends TestCase
 			$schema->when('username')->equals('admin')->else($schema->fields->getByName('nickname')->makeRequired()),
 		);
 	}
+
+	/**
+	 * An outcome naming a field by the wrong case is refused, not quietly ignored.
+	 *
+	 * `thenIgnore('Detail')` against a field called `detail` used to pass every authoring check
+	 * and then do nothing: `Guards` resolved the scope through `getByName()`, which folded case,
+	 * while `Facade::against()` keyed the outcomes by the scope's spelling and looked them up by
+	 * the field's. Two spellings, one field, and the bucket never matched.
+	 *
+	 * Now that a name is identified exactly, the scope simply does not resolve and the rule is
+	 * refused where it is written.
+	 */
+	#[Test]
+	public function an_outcome_naming_a_field_by_the_wrong_case_is_refused(): void
+	{
+		$schema = new Facade('order');
+		$flag = $schema->createTextField('flag');
+		$detail = $schema->createTextField('detail')->makeOptional();
+		$schema->add($flag, $detail);
+
+		$this->expectException(InvalidArgumentException::class);
+		$this->expectExceptionMessageMatches('/cannot address/');
+
+		$schema->addRule(
+			$schema->when($flag)->equals('hide')->thenIgnore($schema->createTextField('Detail')),
+		);
+	}
 }

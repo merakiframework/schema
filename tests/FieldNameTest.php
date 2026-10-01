@@ -69,13 +69,34 @@ final class FieldNameTest extends TestCase
 		$this->assertFalse((new FieldName('username'))->equals(new FieldName('user_name')));
 	}
 
+	/**
+	 * A name is a wire key, so identity is exact.
+	 *
+	 * This used to fold case, and the intent was sound — a schema holding both `email` and
+	 * `Email` leaves a reader guessing which one a message or a scope path meant. What made it
+	 * wrong was that nothing else folded: a payload is keyed exactly, `forField()` matches
+	 * exactly, and the outcome bucket in `Facade::against()` is keyed exactly. One comparison
+	 * disagreeing with all of them was silent in both directions — a collection template holding
+	 * `Name` and `name` built fine and threw on every request, and `thenIgnore('Detail')`
+	 * against `detail` passed every check and never applied.
+	 *
+	 * The intent did not go away; it moved to {@see FieldName::collidesWith()}, which is asked
+	 * once where a schema is written. See `two_names_that_differ_only_by_case_cannot_share_a_schema`.
+	 */
 	#[Test]
-	public function case_does_not_distinguish_two_names(): void
+	public function case_distinguishes_two_names(): void
 	{
-		// So a schema cannot hold both `email` and `Email` and leave a reader guessing which a
-		// message or a scope path meant.
-		$this->assertTrue((new FieldName('email'))->equals(new FieldName('EMAIL')));
+		$this->assertFalse((new FieldName('email'))->equals(new FieldName('EMAIL')));
 		$this->assertTrue((new FieldName('phoneNumber'))->equals(new FieldName('phoneNumber')));
+	}
+
+	#[Test]
+	public function two_names_differing_only_by_case_collide(): void
+	{
+		// Not the same name, but too alike to sit on one schema.
+		$this->assertTrue((new FieldName('email'))->collidesWith(new FieldName('EMAIL')));
+		$this->assertTrue((new FieldName('email'))->collidesWith(new FieldName('email')));
+		$this->assertFalse((new FieldName('email'))->collidesWith(new FieldName('e_mail')));
 	}
 
 	#[Test]

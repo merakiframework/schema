@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Field;
 
+use Meraki\Schema\Facade;
 use Meraki\Schema\Field\Collection\Item;
 use Meraki\Schema\Field\Collection\Result;
 use Meraki\Schema\Field\Collection\Value as CollectionValue;
@@ -619,5 +620,28 @@ final class CollectionTest extends TestCase
 	private function assertConstraintSkipped(string $name, Result $result): void
 	{
 		$this->assertSame(ValidationStatus::Skipped, $result->forConstraint($name)->status, $name);
+	}
+
+	/**
+	 * A template is held to the same naming rule as a schema, and held to it at build time.
+	 *
+	 * It was not. The duplicate check here keyed an array by the name as written, where
+	 * `Field\Set` collided case-insensitively — so a template holding `Name` and `name` was
+	 * accepted, and then `eachItem()` built a `Set` from it and threw `DuplicateFieldName` on
+	 * *every request*. An authoring mistake that waited for a user to find it.
+	 */
+	#[Test]
+	public function a_template_cannot_hold_two_names_differing_only_by_case(): void
+	{
+		$schema = new Facade('order');
+
+		$this->expectException(InvalidArgumentException::class);
+		$this->expectExceptionMessage("The template already has a field named 'name'.");
+
+		$schema->createCollectionField(
+			'lines',
+			$schema->createTextField('Name'),
+			$schema->createTextField('name'),
+		);
 	}
 }

@@ -96,12 +96,30 @@ class Set implements IteratorAggregate, Countable
 			// Names identify fields, so a second one under an existing name is a mistake
 			// in the schema definition. Silently discarding it loses the definition and
 			// gives no clue where it went.
-			if ($this->exists($field)) {
+			//
+			// Collision rather than equality, so `email` and `Email` are refused together:
+			// a reader of a message or a scope path could not tell which was meant. That check
+			// belongs *here*, once, where a schema is written — `FieldName::equals()` is exact
+			// because every lookup in the library is exact, and making two spellings equal
+			// there would put this one guarantee at odds with all of them.
+			if ($this->collidesWith($field->name)) {
 				throw DuplicateFieldName::named((string) $field->name);
 			}
 
 			$this->fields[] = $field;
 		}
+	}
+
+	/** Whether any field already here is named too much like this one. */
+	private function collidesWith(FieldName $name): bool
+	{
+		foreach ($this->fields as $field) {
+			if ($field->name->collidesWith($name)) {
+				return true;
+			}
+		}
+
+		return false;
 	}
 
 

@@ -126,16 +126,21 @@ final readonly class Collection implements Field
 			throw InvalidConfiguration::templateIsEmpty();
 		}
 
+		// The same rule a schema's own fields are held to, asked the same way. This used to key
+		// an array by the name as written, which is exact where `Field\Set` collided
+		// case-insensitively — so a template holding `Name` and `name` was accepted here and
+		// then threw `DuplicateFieldName` on every request, when `eachItem()` built a `Set` from
+		// it. An authoring mistake that waited for a user to find.
 		$seen = [];
 
 		foreach ($template as $field) {
-			$local = (string) $field->name;
-
-			if (isset($seen[$local])) {
-				throw InvalidConfiguration::templateAlreadyHasAField($local);
+			foreach ($seen as $already) {
+				if ($already->collidesWith($field->name)) {
+					throw InvalidConfiguration::templateAlreadyHasAField((string) $field->name);
+				}
 			}
 
-			$seen[$local] = true;
+			$seen[] = $field->name;
 		}
 
 		$this->template = array_values($template);
