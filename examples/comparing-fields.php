@@ -38,17 +38,17 @@ $schema->addRule(
 );
 
 $rockhampton = [
-	'line1' => '1 Denham St',
+	'street' => ['1 Denham St'],
 	'locality' => 'Rockhampton',
-	'administrative_area' => 'QLD',
+	'subdivision' => 'QLD',
 	'postal_code' => '4700',
 	'country' => 'AU',
 ];
 
 $auckland = [
-	'line1' => '1 Queen St',
+	'street' => ['1 Queen St'],
 	'locality' => 'Auckland',
-	'administrative_area' => 'AUK',
+	'subdivision' => 'AUK',
 	'postal_code' => '1010',
 	'country' => 'NZ',
 ];
@@ -71,7 +71,7 @@ $report = static function (Facade $schema, string $label, array $billing, array 
 echo 'Comparing two addresses:' . PHP_EOL;
 
 $report($schema, 'the very same address', $rockhampton, $rockhampton);
-$report($schema, 'same country, different street', $rockhampton, ['line1' => '2 Denham St'] + $rockhampton);
+$report($schema, 'same country, different street', $rockhampton, ['street' => ['2 Denham St']] + $rockhampton);
 $report($schema, 'a different country', $rockhampton, $auckland);
 
 // Nothing requires the two sides to be the same part, or even the same kind of field — the

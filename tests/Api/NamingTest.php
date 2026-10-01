@@ -71,7 +71,7 @@ final class NamingTest extends TestCase
 			],
 
 			// Structured types: one field, one value object.
-			'Address' => ['allowCountries', 'clearAllowedCountries', 'allowOnlyMailable', 'allowOnlyPhysical', 'allowWithoutStreet'],
+			'Address' => ['allowCountries', 'clearAllowedCountries', 'minPrecisionOf', 'mustBeVisitable'],
 			'Money' => ['allowCurrencies', 'minAmountOf', 'maxAmountOf'],
 			'CreditCard' => ['mustExpireInFuture'],
 		];
@@ -116,7 +116,7 @@ final class NamingTest extends TestCase
 				'minLength', 'maxLength', 'minStrength',
 				'minUppercaseChars', 'minLowercaseChars', 'minDigits', 'minSymbols',
 			],
-			'Address' => ['allowedCountries', 'type', 'mustBeSpecific'],
+			'Address' => ['allowedCountries', 'precision', 'streetVisitable'],
 			'Money' => ['allowedCurrencies'],
 			'CreditCard' => ['mustExpireInFuture'],
 		];

@@ -28,17 +28,17 @@ use InvalidArgumentException;
 final class PartComparisonTest extends TestCase
 {
 	private const AU = [
-		'line1' => '1 Denham St',
+		'street' => ['1 Denham St'],
 		'locality' => 'Rockhampton',
-		'administrative_area' => 'QLD',
+		'subdivision' => 'QLD',
 		'postal_code' => '4700',
 		'country' => 'AU',
 	];
 
 	private const NZ = [
-		'line1' => '1 Queen St',
+		'street' => ['1 Queen St'],
 		'locality' => 'Auckland',
-		'administrative_area' => 'AUK',
+		'subdivision' => 'AUK',
 		'postal_code' => '1010',
 		'country' => 'NZ',
 	];
@@ -72,7 +72,7 @@ final class PartComparisonTest extends TestCase
 		);
 
 		$this->assertTrue($this->fired($schema, self::AU, self::AU));
-		$this->assertFalse($this->fired($schema, self::AU, ['line1' => '2 Denham St'] + self::AU));
+		$this->assertFalse($this->fired($schema, self::AU, ['street' => ['2 Denham St']] + self::AU));
 		$this->assertFalse($this->fired($schema, self::AU, self::NZ));
 	}
 
@@ -90,7 +90,7 @@ final class PartComparisonTest extends TestCase
 
 		// The weaker question, and the point of having it: a different street in the same country
 		// is a different address and the same country.
-		$this->assertTrue($this->fired($schema, self::AU, ['line1' => '2 Denham St'] + self::AU));
+		$this->assertTrue($this->fired($schema, self::AU, ['street' => ['2 Denham St']] + self::AU));
 		$this->assertFalse($this->fired($schema, self::AU, self::NZ));
 	}
 
@@ -104,12 +104,12 @@ final class PartComparisonTest extends TestCase
 		$schema = $this->schema();
 		$schema->addRule(
 			$schema->when(ValueScope::of('shipping', 'postal_code'))
-				->equals(ValueScope::of('billing', 'line1'))
+				->equals(ValueScope::of('billing', 'locality'))
 				->then($schema->fields->getByName('note')->makeRequired()),
 		);
 
 		$this->assertFalse($this->fired($schema, self::AU, self::AU));
-		$this->assertTrue($this->fired($schema, ['line1' => '4700'] + self::AU, self::AU));
+		$this->assertTrue($this->fired($schema, ['locality' => '4700'] + self::AU, self::AU));
 	}
 
 	/**
@@ -121,12 +121,36 @@ final class PartComparisonTest extends TestCase
 	{
 		$schema = $this->schema();
 		$schema->addRule(
-			$schema->when(ValueScope::of('shipping', 'organization'))
-				->equals(ValueScope::of('billing', 'organization'))
+			$schema->when(ValueScope::of('shipping', 'dependent_locality'))
+				->equals(ValueScope::of('billing', 'dependent_locality'))
 				->then($schema->fields->getByName('note')->makeRequired()),
 		);
 
 		$this->assertTrue($this->fired($schema, self::AU, self::AU));
+	}
+
+	/**
+	 * A part whose emptiness is a list rather than a string.
+	 *
+	 * `street` is the first part held as a list, and emptiness was decided by a match on `null`,
+	 * `Countable` and `Stringable|string` — a plain PHP array is none of those, so it fell to
+	 * the default and an absent street reported as *not* empty. A latent hole for any
+	 * array-valued part, which `street` is simply the first to stand in.
+	 */
+	#[Test]
+	public function an_absent_street_is_empty(): void
+	{
+		$schema = $this->schema();
+		$schema->addRule(
+			$schema->when(ValueScope::of('billing', 'street'))
+				->isEmpty()
+				->then($schema->fields->getByName('note')->makeRequired()),
+		);
+
+		$withoutStreet = array_diff_key(self::AU, ['street' => null]);
+
+		$this->assertTrue($this->fired($schema, $withoutStreet, self::AU));
+		$this->assertFalse($this->fired($schema, self::AU, self::AU));
 	}
 
 	#[Test]

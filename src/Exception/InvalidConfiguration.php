@@ -316,8 +316,35 @@ final class InvalidConfiguration extends InvalidArgumentException implements Exc
 		));
 	}
 
-	public static function addressTypeMustNameAStreet(string $type): self
+	/**
+	 * @param list<string> $allowed
+	 */
+	public static function countryIsNotAllowedHere(string $country, array $allowed): self
 	{
-		return new self("A {$type} address must name a street, so it cannot also be allowed without one.");
+		return new self(sprintf(
+			"Country '%s' is not one this field accepts. It allows: %s.",
+			$country,
+			implode(', ', $allowed),
+		));
+	}
+
+	/**
+	 * @param list<string> $spellings the two ways it was written, in the order they were given
+	 */
+	public static function countryAskedForTwice(string $code, array $spellings): self
+	{
+		return new self(sprintf(
+			"Country '%s' was asked about twice, as '%s'. Ask once per country.",
+			$code,
+			implode("' and '", $spellings),
+		));
+	}
+
+	public static function requirementsNeedACountry(): self
+	{
+		return new self(
+			'This field accepts any country, so there is no set of rules to return. '
+			. 'Name the countries you want the rules for.'
+		);
 	}
 }

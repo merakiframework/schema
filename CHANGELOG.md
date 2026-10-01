@@ -10,6 +10,344 @@ is a commit subject, with the body kept because the body is where the reasoning 
 
 ## Unreleased
 
+### Report an unusable part against the part itself
+
+`553ea19c` · 2026-10-01
+
+`usedParts` was one constraint covering four questions, and because which
+part offends varies per request it could not name one. So `part` was null,
+which meant a form had no input to mark and a message pack got a single
+sentence for every variant — and with two offending parts it reported one
+failure, leaving the second invisible until the submitter fixed the first
+and tried again.
+
+Four constraints now, one per part that a country can lack:
+`localityUsed`, `dependentLocalityUsed`, `subdivisionUsed`,
+`postalCodeUsed`. Each skips unless that part was submitted and the
+country has no place for it. There is no `streetUsed` — all 206 countries
+use a street.
+
+Each carries its own part, so a GB address with both a county and a
+dependent locality reports two failures a form can attach to two inputs,
+with no intersecting of submitted parts against a bound and no knowing to
+exclude `country` by hand.
+
+It also completes the trio per part, which are three different questions:
+
+    subdivisionRequired   must you give one?
+    subdivisionUsed       may you give one?
+    knownSubdivision      is the one you gave real?
+
+Thirteen constraints on one field is a lot, and it is the same trade
+already made for the four `*Required` checks rather than one carrying a
+list. An address is a complex domain; the alternative was a caller
+special-casing one constraint's bound.
+
+Recorded on the roadmap rather than built: widening `Constraint` to carry
+several parts would collapse these four into one, and **cross-field
+constraints** need the same shape — `confirm_password === password` is a
+rule about two fields, not one part — so the two want designing together.
+Doing it for one field today would have cost `ConstraintValidationResult`,
+the message key ladder, `PartedSet`'s grouping, every port, and the
+tri-state check that is the simplest thing in the library.
+
+### Update history
+
+`46846449` · 2026-10-01
+
+### Judge a postcode against the subdivision's own pattern
+
+`19d081f3` · 2026-10-01
+
+36 of 1548 subdivisions publish their own postcode pattern, across China and
+Colombia alone, and the country's was being used for all of them. That let
+wrong postcodes through — any six digits passed as a Macau code, whose only
+valid value is 999078 — but worse, it *rejected right ones*: Taiwan's
+pattern admits three to six digits where China's admits exactly six, so a
+valid three-digit Taiwanese postcode was refused. An override replaces its
+country's pattern rather than narrowing it, which is why it cannot be
+treated as an extra check layered on top.
+
+The reported bound improves with it. A failure now names the rule that
+actually applied — `11\d{4}` for Bogota rather than Colombia's `\d{6}` —
+so a message can quote something true.
+
+Requirements carries both halves as public properties rather than hiding
+the lookup behind postalCodeFormatFor(). The method is sugar; the data has
+to serialise, because a reader in another language must be able to apply
+`overrides[subdivision] ?? postalCodeFormat` from the document alone. A
+map on its own would not do: 133 of 206 countries have a postcode pattern
+and no subdivisions at all, so there would be nowhere to put Germany's.
+
+`subdivisions` now maps each code to its name. The name is a matching key
+as much as a label — an address may name its state in full — so the
+mapping to the canonical code is the library's to publish rather than
+something each port rebuilds against the same data. `subdivisionCodeFor()`
+exposes it, and `postalCodeFormatFor()` accepts a bare code, a full ISO
+code or a name, in any case.
+
+That also leaves one subdivision resolver instead of two. Value had its own
+copy; it now calls the one in Requirements, where the rest of the
+per-country data already lived.
+
+Recorded on the roadmap, not solved here: a document carries configuration
+and never the standards data its rules are read from, so a reader in
+another language needs its own copy and nothing says whether the two
+agree. Embedding is not the fix — a free-form address field would carry
+206 formats — so what is wanted is a way to name the dataset and version a
+document assumes. Same problem as "Baselines across languages", one layer
+out.
+
+### Update history
+
+`403c4337` · 2026-10-01
+
+### Repair the cookbook's address snippet, and teach it the two dials
+
+`90f5a2c2` · 2026-10-01
+
+The snippet was invalid as written. It built an Australian field and then
+submitted a street, a locality, a postcode and a country — no state — so it
+failed `subdivisionRequired`. A documented example that does not run is
+worse than none, and this one was broken by the same sweep that renamed
+`line1` to `street` inside it: the keys were updated and what surrounded
+them was not.
+
+Nothing executes the cookbook, which is why it rotted while the suite and
+`examples/*.php` stayed green. Worth fixing properly at some point; for now
+every address snippet in the file has been run by hand.
+
+While in there, the cookbook now covers what the rewrite introduced and it
+had nothing on: the Precision ladder, `mustBeVisitable()`, and
+`requirementsFor()` — which is the only way a port can mark an input
+required before a request, and so the thing a reader most needs. Also the
+`locality` versus `dependent_locality` trap, with Cardiff NSW 2285: the
+suburb IS the locality, Australia has no dependent locality, and "suburb"
+sounding subordinate is exactly what makes it a trap.
+
+Separately, `declaredRequirement()` now takes the resolved rules rather
+than re-deriving them. `defineConstraints()` had already asked, and the
+four calls each asked again.
+
+### Update history
+
+`471de0ea` · 2026-10-01
+
+### Refuse to answer about one country twice
+
+`f2f17430` · 2026-10-01
+
+requirementsFor('AU', 'AU') returned a single entry, so the result was
+quietly shorter than the question. requirementsFor('au', 'AUS') returned
+two keys holding identical answers, so a caller looping over them did the
+same work twice with nothing to show that it had.
+
+Both hide a caller bug, and the second hides it better — the map looks
+right and only the contents repeat. So neither is answered now: any two
+arguments resolving to the same country are refused, naming the country
+and both spellings that produced it.
+
+The no-argument form cannot trip on this. `allowCountries('AU', 'aus')` is
+already one country by the time the allow-list is built, so the list it
+falls back to is unique by construction.
+
+### Update history
+
+`9554a52f` · 2026-09-30
+
+### Accept every subdivision this library publishes
+
+`3f500933` · 2026-09-30
+
+Two defects, both hidden by the same blind spot: every subdivision test
+used Australia or Ireland, and both are uppercase-coded and string-keyed.
+The countries that are neither were where the failures lived.
+
+A subdivision submitted by *name* threw a TypeError out of validate().
+`SubdivisionRepository::getList()` is annotated `array<string,string>`, but
+PHP converts a numeric-string key to an int on the way into an array, so
+returning it from a `?string` method is fatal — not a MalformedValue a
+caller can catch, a hard error escaping the validation boundary entirely.
+19 countries code numerically; 398 subdivision names hit it. `Tokyo`,
+`Seoul` and `Bangkok` all killed the request.
+
+Five countries — CV, HK, KY, RU and TV — code their subdivisions by name,
+so the ISO 3166-2 form published for them is `HK-Kowloon`. The lookup
+uppercased the candidate before an exact-key match, which cannot match a
+key that is a name, and the name scan compared against the un-stripped
+original. So the library refused the exact value `requirementsFor()` had
+handed a port to render its options. Hong Kong, Cape Verde and the Caymans
+were unusable through the documented path.
+
+Both are gone: one case-insensitive pass over code and name, against a
+candidate whose prefix has already come off, with the key cast back to the
+string it was written as.
+
+The test that would have caught it now exists and is the one worth
+keeping — every subdivision of every country, round-tripped from what
+`requirementsFor()` publishes back through `Value`. 1548 of them.
+
+Also here, from the same review:
+
+- `toArray()` emitted `[]` for an absent street, which the constructor
+  refuses, so a value could not be read back from its own serialisation.
+  Any persist-and-reload path hit it. `parts()` keeps the raw list, because
+  a scope asking whether a street is empty wants the property.
+- `Requirements::forCountry()` is memoised on country *and* floor. A field
+  asks it ~15 times per request — once per constraint, again for each
+  `boundFor` — and it was rebuilding a 62-element subdivision list each
+  time. US validation: 155us to 22us.
+- The four test blocks the plan specified and the branch skipped: the four
+  countries that require nothing below themselves, HK and US in the
+  cross-country table, the twelve countries that accept a dependent
+  locality, and CN for the subdivisions-carry-postcodes case.
+- MESSAGES.md documented a pack containing `part.organization`, which the
+  vocabulary no longer asks for and PackValidator now refuses. A reader
+  copying it got a hard error.
+
+### Update history
+
+`4a3f3a02` · 2026-09-30
+
+### Document the address rebuild, and the rule it forced out
+
+`096f9bc5` · 2026-09-30
+
+UPGRADING gets the section a rename of this size needs: what now fails that
+used to pass, the API and part tables, and the three changes that alter
+stored data rather than calls — line1/line2 joining into a street list,
+QLD becoming AU-QLD, organization moving out of the address entirely.
+
+It also states the obligation ports now carry, because it is easy to miss
+and expensive to get wrong: omit a part you have no value for, never post
+`''`. A form that sends empty strings for untouched inputs makes every such
+address unreadable, and the submitter is told the address cannot be read
+rather than which part is missing.
+
+FIELD-API said "a constraint's name is its property's name", which turns out
+to be one case of three. Rebuilding Address forced the others out: a bound
+derived from reference data cannot be a property, because it depends on the
+submitted value and is unanswerable most of the time, and a constraint with
+nothing to configure has neither. The doc now says all three.
+
+examples/addresses.php runs every case, including the ones worth seeing
+rather than being told: the same unconfigured field judged by Japanese,
+Panamanian and British rules, and Cardiff NSW 2285 — where the suburb IS
+the locality, and Newcastle is not part of the address at all.
+
+ROADMAP records where coordinates go, and why Address will not derive them.
+
+### Teach emptiness about a part held as a list
+
+`03b7c6c6` · 2026-09-30
+
+isEmpty() matched on null, Countable and Stringable|string, then fell to a
+default of "not empty". A plain PHP array is none of those — it is countable
+by count() but does not implement the interface — so an array-valued part
+reported as not empty however little it held.
+
+Nothing had an array-valued part until `Address\Value::$street`, where an
+absent street spells itself `[]`. So `when(...'street')->isEmpty()` answered
+false for an address with no street at all, which is the one case it exists
+to catch.
+
+The hole was always there; street is only the first part to stand in it.
+
+### Read the country's own rules instead of guessing at them
+
+`c397cab5` · 2026-09-30
+
+Address never asked libaddressinput what a country requires. Four of its
+five constraints skipped on a bare `{street, country}`, so an Australian
+address with no suburb, state or postcode was valid. Three more defects
+sat beside it, each found by reproducing rather than reading:
+
+  - An unrecognised country was kept verbatim and every country-driven
+    check skipped, so spelling one in ISO 3166-1 alpha-3 silently turned
+    off postcode and subdivision validation on a free-form field — which
+    is the default.
+  - The PO-box pattern was anchored to the start of the subject and read
+    line one only, so a box written on the second line slipped past a
+    field that had asked for somewhere visitable.
+  - Nothing tested a part for emptiness, so `'   '` satisfied a
+    requiredness check. `country` was inconsistent with itself: `''` was
+    unreadable and `'   '` was not.
+
+Type spanned two independent axes at once — how deep an address is
+specified, and whether it names a place a person can attend. That is why
+`Postal` had nothing to do at request time, and why no third case sat
+comfortably beside the other two. It came from HL7 FHIR, where those
+words describe an address someone already holds rather than demand
+anything of a submitter, so it was behaving exactly as designed, in the
+wrong job. Two dials replace it, and every combination is legal — the
+guard refusing "mailable and no street" is gone, along with a claim that
+was wrong anyway, since a PO box names no street and is perfectly postal.
+
+Requiredness is now the country's, filtered by the field's floor. Only 75
+of 206 countries require a postcode and 44 a subdivision; Japan, Hong Kong
+and the Emirates do not require a locality. A check for a part the
+submitted country does not ask for skips rather than quietly passing.
+
+The value object gets the renames and the refusals. Parts drop from eight
+to six: `line1`/`line2` become one `street` holding a list of lines, which
+is what WHATWG's `street-address` token describes and what keeps equality
+honest now that nothing normalises — a delimited string would carry a
+separator whose spelling HTML and JSON disagree on. `organization` goes
+the way `givenName` already had: an address identifies a place, not who is
+at it. `administrative_area` becomes `subdivision`, holding the full ISO
+3166-2 code, which is the vocabulary the SubdivisionRepository underneath
+it was already using.
+
+An unresolvable subdivision is unreadable only where the country requires
+one. That covers exactly the cases where it is undecidable: 36 of 1548
+subdivisions carry their own postcode pattern, in CN and CO, and both
+require one. Elsewhere it stays a reportable constraint failure.
+
+requirementsFor() is how a port asks before a request. Every
+country-driven bound is unanswerable while more than one country is
+allowed, so the fields that most need the answer could not get it — which
+is why schema-html re-implemented isUsedByAny() and postalCodePatternFor()
+against the same data and drifted while doing it. It is the one read path:
+no `postalCodeRequired` property beside it, because a fact with two
+accessors is a fact that can disagree with itself.
+
+### Add the Precision ladder that replaces Address\Type
+
+`e9817de2` · 2026-09-30
+
+Type tried to span two independent axes in one closed set of "kinds": how
+deep an address is specified, and whether it names a place a person can
+attend. That is why Postal had nothing to do at request time, and why no
+third case sat comfortably beside the other two — "Area" answers the first
+question while "Postal" and "Location" answer the second.
+
+Depth is ordered, so it gets a ladder: Country < Subdivision < Locality <
+Street. A field's floor filters the country's own required parts rather
+than inventing any, which keeps it monotone — a shallower floor still
+accepts a deeper value, so "an address or an area" stays one field and
+needs no union type.
+
+A postcode is not a rung. It names a delivery zone rather than a tier
+between locality and street, and "Emerald QLD 4720" is one answer, so it
+travels with the locality.
+
+covers() throws rather than answering false for a part it does not know.
+Nothing a submitter sends can reach it — an unknown key fails the shape
+first — so it only fires on a typo in our own map, where the quiet answer
+would leave that part unchecked.
+
+### Update history
+
+`74f43c68` · 2026-09-28
+
+The v2.0.0-alpha.2 tag is back on 66defeb, which is the commit Packagist
+published and froze. Packagist versions are immutable, so the reference it
+recorded cannot be changed by moving the tag -- git and the published package
+had come to disagree about what alpha.2 is, and this puts them back in step.
+
+Nothing under src/ differs between that commit and here: the three commits
+since are a CI workflow fix and two regenerations of this file.
+
 ### Update history
 
 `7cf04e4c` · 2026-09-28

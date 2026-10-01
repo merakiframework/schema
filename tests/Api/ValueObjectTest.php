@@ -50,7 +50,7 @@ final class ValueObjectTest extends TestCase
 	 */
 	public static function fieldsAndAValueTheyAccept(): iterable
 	{
-		yield 'Address' => [Field\Address::class, (object) ['line1' => '1 Test St', 'locality' => 'Sydney', 'administrative_area' => 'NSW', 'postal_code' => '2000', 'country' => 'AU']];
+		yield 'Address' => [Field\Address::class, (object) ['street' => ['1 Test St'], 'locality' => 'Sydney', 'subdivision' => 'NSW', 'postal_code' => '2000', 'country' => 'AU']];
 		yield 'Boolean' => [Field\Boolean::class, true];
 		yield 'Collection' => [Field\Collection::class, ['only' => (object) ['item' => 'a']]];
 		yield 'CreditCard' => [Field\CreditCard::class, (object) ['number' => '4014 1828 2909 8807', 'expiry' => '2029-07', 'name' => 'K Miller', 'security_code' => '936']];

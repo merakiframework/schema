@@ -57,8 +57,9 @@ final class SetTest extends TestCase
 		// would break on the request that failed the other way.
 		$field = new Field\Address(new FieldName('billing'), ['AU']);
 		$passing = $field->validate((object) [
-			'line1' => '12 Denham Street',
+			'street' => ['12 Denham Street'],
 			'locality' => 'Rockhampton',
+			'subdivision' => 'QLD',
 			'postal_code' => '4700',
 			'country' => 'AU',
 		]);
@@ -107,22 +108,26 @@ final class SetTest extends TestCase
 	{
 		// Not in the order the constraints happened to run, which is not something a reader should
 		// be able to notice.
-		$field = new Field\Address(new FieldName('billing'), ['AU']);
+		// Ireland rather than Australia: a bad Australian state makes the whole address
+		// unreadable, because AU requires one and ISO 3166-2 is a closed list. Ireland
+		// uses a county without requiring one, so a wrong county is reportable and two
+		// parts can fail at once — which is what this test is about.
+		$field = new Field\Address(new FieldName('billing'), ['IE']);
 		$result = $field->validate((object) [
-			'line1' => '12 Denham Street',
-			'locality' => 'Rockhampton',
-			'administrative_area' => 'ZZ',
+			'street' => ['12 Denham Street'],
+			'locality' => 'Carlow',
+			'subdivision' => 'ZZ',
 			'postal_code' => '99',
-			'country' => 'AU',
+			'country' => 'IE',
 		])->withMessagesFrom(self::translator(
 			"postalCodeFormat = bad postcode\n"
-			. 'administrativeArea = bad state',
+			. 'knownSubdivision = bad state',
 		));
 
 		$messages = $result->messages;
 
 		$this->assertInstanceOf(PartedSet::class, $messages);
-		$this->assertSame(['administrative_area', 'postal_code'], $messages->parts);
+		$this->assertSame(['subdivision', 'postal_code'], $messages->parts);
 		$this->assertSame(['bad state', 'bad postcode'], $messages->all);
 	}
 
@@ -131,7 +136,7 @@ final class SetTest extends TestCase
 	{
 		$field = new Field\Address(new FieldName('billing'), ['AU']);
 		$result = $field->validate((object) [
-			'line1' => '12 Denham Street',
+			'street' => ['12 Denham Street'],
 			'locality' => 'Rockhampton',
 			'postal_code' => '99',
 			'country' => 'AU',

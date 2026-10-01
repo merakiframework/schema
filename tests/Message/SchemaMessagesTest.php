@@ -44,7 +44,7 @@ final class SchemaMessagesTest extends TestCase
 		return (object) [
 			'username' => $username,
 			'billing' => (object) [
-				'line1' => '12 Denham Street',
+				'street' => ['12 Denham Street'],
 				'locality' => 'Rockhampton',
 				'postal_code' => $postcode,
 				'country' => 'AU',

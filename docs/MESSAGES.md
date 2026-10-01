@@ -111,17 +111,21 @@ file that named its own parent would be free to disagree with its name.
 Tags are matched case-insensitively and `-` and `_` are interchangeable, because a request carries
 `en-AU` from `Accept-Language` and a file is conventionally named `en_AU.mfr`.
 
-The whole of `en_AU.mfr` in the English pack is five lines:
+The whole of `en_AU.mfr` in the English pack is four lines:
 
 ```
 @locale = en_AU
 
 part.postal_code = postcode
-part.administrative_area = state
+part.subdivision = state
 part.locality = suburb
 part.dependent_locality = locality
-part.organization = organisation
 ```
+
+`part.subdivision` is the interesting one: ISO 3166-2's word for it is neutral across
+every country, which is exactly why the library uses it — and exactly why an Australian
+reader wants "state" instead. A pack may only name parts the vocabulary asks for, so
+`vendor/bin/schema-lang keys` is the list to write against.
 
 Nothing restates `postalCodeFormat`, because that message reads *"That is not a valid {$part} for
 the country you chose"* and `{$part}` is resolved through the entries above. A variant that stays

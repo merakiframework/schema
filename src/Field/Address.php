@@ -5,52 +5,40 @@ namespace Meraki\Schema\Field;
 
 use Meraki\Schema\AtomicField;
 use Meraki\Schema\Exception\InvalidConfiguration;
-use Meraki\Schema\Field\Address\Type;
+use Meraki\Schema\Field\Address\Precision;
+use Meraki\Schema\Field\Address\Requirements;
 use Meraki\Schema\Field\Address\Value;
 use Meraki\Schema\FieldName;
 use Meraki\Schema\Rule\Matcher;
 use Meraki\Schema\ValueScope;
-use CommerceGuys\Addressing\AddressFormat\AddressFormat;
-use CommerceGuys\Addressing\AddressFormat\AddressFormatRepository;
-use CommerceGuys\Addressing\Subdivision\SubdivisionRepository;
+use Closure;
 
 /**
  * A postal or street address, held as one {@see Value} — the way {@see File} holds a
  * `File\Value`.
  *
- * It used to be a bag of eight sub-fields registered in the schema's namespace, which meant every
- * constraint it emitted was named by joining strings: renaming `billing` to `invoice_address`
- * changed `billing.postal_code.format` into `invoice_address.postal_code.format` and broke every
- * message provider matching on it. Now the field owns its whole value, the constraint names are
- * fixed, and each failure names the *part* it was about separately.
+ * Two dials, and they are independent:
  *
- * Validation is of *shape*, not existence. A postcode matching `\d{4}` is a well-formed Australian
- * postcode, not necessarily a real one, and a postcode never implies a state — Queensland is 4xxx
- * *and* 9xxx, and the ACT's 2600-2618 sits inside New South Wales' 2xxx. Confirming an address
- * exists needs a licensed service.
+ * - {@see self::minPrecisionOf()} says how far down the address hierarchy the field demands.
+ *   The floor filters the *country's* own required parts, so the field never invents a
+ *   requirement — it only declines to inherit one. Because a shallower floor still accepts a
+ *   deeper value, "an address or an area" is one field rather than a union.
+ * - {@see self::mustBeVisitable()} says the address must name a place a person can attend,
+ *   which rules out a post-office box. A content question about one part, not a depth one.
  *
- * ### The country is always submitted
+ * They replaced a four-case `Type` enum borrowed from HL7 FHIR, where `postal | physical | both`
+ * is descriptive metadata about an address someone already holds rather than a demand on a
+ * submitter — which is why `Postal` had nothing to do at request time, and why no third case sat
+ * comfortably beside the other two. Mailable, physical, both and either were four words for one
+ * bit.
  *
- * The same pairing {@see Money} makes between an amount and its currency, for the same reason: a
- * postcode means nothing on its own. An address without a country is a shape failure, not a vague
- * address.
+ * What a country requires is read from its own published format, not guessed: 206 countries, of
+ * which only 75 require a postcode and only 44 a subdivision, and 11 — Japan and Hong Kong among
+ * them — do not require a locality. A check for a part the submitted country does not ask for
+ * *skips*; it does not quietly pass.
  *
- * It may be written as a name or a code, in any case — `AU`, `au` and `Australia` are one country
- * — and is stored as the code. Requiring it deleted the rule that filled the country in when the
- * allow-list happened to hold exactly one, which was a rule that changed shape depending on how
- * many countries were listed.
- *
- * ### Two dials, not one enum
- *
- * What an address is *for* and how much of it is required are separate questions, and conflating
- * them was the mistake. Both start unrestricted and are narrowed:
- *
- * - {@see self::allowOnlyMailable()} and {@see self::allowOnlyPhysical()} say what it must be
- *   capable of. Neither called means either purpose is acceptable; both called means it must manage
- *   both. A PO box is mailable and not visitable; a service area covering a suburb is visitable and
- *   not mailable.
- * - {@see self::allowWithoutStreet()} drops the street requirement. An address names a street by
- *   default — anything less is the exception, and the author says so.
+ * Everything country-driven is unanswerable until a country is submitted, and a field allows any
+ * of them by default, so {@see self::requirementsFor()} is how a port asks in advance.
  *
  * @extends AtomicField<array<string, mixed>|Value|null>
  */
@@ -58,31 +46,37 @@ final readonly class Address extends AtomicField
 {
 	/**
 	 * Post-office boxes and bag services: mailable, but not places you can go. Anchored to the
-	 * start of the line, and the rural forms require a number so a street genuinely named
-	 * "Rrunway" or similar cannot trip them.
+	 * start of a line, with `/m` so every line of a street is tested rather than only the first
+	 * — putting the box on the second line used to slip past. The rural forms require a number
+	 * so a street genuinely named "Rrunway" or similar cannot trip them.
 	 */
-	private const PO_BOX_PATTERN = '/^\s*(?:p\.?\s*o\.?\s*box|post\s+office\s+box|g\.?p\.?o\.?\s*box|locked\s+bag|private\s+bag|(?:rsd|rmb|hc|rr)\s*\d)/i';
+	private const PO_BOX_PATTERN = '/^\s*(?:p\.?\s*o\.?\s*box|post\s+office\s+box|g\.?p\.?o\.?\s*box|locked\s+bag|private\s+bag|(?:rsd|rmb|hc|rr)\s*\d)/im';
 
 	/**
-	 * Allowed countries as ISO 3166-1 alpha-2 codes, upper-cased. Empty means free-form: any input
-	 * is accepted, and no country's rules are applied.
+	 * Allowed countries as ISO 3166-1 alpha-2 codes, upper-cased. Empty means free-form: any
+	 * country is accepted, and the submitted one's rules are applied.
 	 *
 	 * @var list<string>
 	 */
 	public array $allowedCountries;
 
-	public Type $type;
+	/**
+	 * How much of the address hierarchy this field demands. **Street by default**: it preserves
+	 * the behaviour a field had before the ladder existed, and it fails closed — a shallower
+	 * default would quietly stop asking for things.
+	 */
+	public Precision $precision;
 
 	/**
-	 * Whether the address must name a street rather than just an area. **True by default**: an
-	 * address is a place, and a suburb with a postcode is a region that contains places. A field
-	 * that genuinely wants the region says so with {@see self::allowWithoutStreet()}.
+	 * Whether the street must name somewhere a person can attend. **False by default**: a PO box
+	 * is a perfectly good billing address, so refusing one is the narrower claim and the author
+	 * makes it.
 	 */
-	public bool $mustBeSpecific;
+	public bool $streetVisitable;
 
 	/**
 	 * @param list<string> $allowedCountries
-	 * @throws InvalidConfiguration if a country is not one libaddressinput knows
+	 * @throws InvalidConfiguration if a country is not one ISO 3166-1 knows
 	 */
 	public function __construct(
 		public FieldName $name,
@@ -90,8 +84,8 @@ final readonly class Address extends AtomicField
 	) {
 		parent::__construct();
 
-		$this->type = self::initially(Type::Either);
-		$this->mustBeSpecific = self::initially(true);
+		$this->precision = self::initially(Precision::Street);
+		$this->streetVisitable = self::initially(false);
 		$this->allowedCountries = self::initially(self::supported([], $allowedCountries));
 
 		// Last: every property it reads must already be set.
@@ -99,14 +93,14 @@ final readonly class Address extends AtomicField
 	}
 
 	/**
-	 * Restricts the address to the given countries, named or coded — `'AU'`, `'au'` and
+	 * Restricts the address to the given countries, named or coded — `'AU'`, `'au'`, `'AUS'` and
 	 * `'Australia'` are the same country. Accumulates, like every other `allow*()`.
 	 *
-	 * Once one country is allowed, that country's rules apply — its postcode pattern in
-	 * particular. With several, a postcode rule only applies once the submitted country says which
-	 * of them it is.
+	 * Once one country is allowed, that country's rules become declarable up front. With
+	 * several, they only settle once the submitted country says which of them it is —
+	 * {@see self::requirementsFor()} is how to ask about each in the meantime.
 	 *
-	 * @throws InvalidConfiguration if a country is not one libaddressinput knows
+	 * @throws InvalidConfiguration if a country is not one ISO 3166-1 knows
 	 */
 	public function allowCountries(string $country, string ...$countries): static
 	{
@@ -114,7 +108,8 @@ final readonly class Address extends AtomicField
 	}
 
 	/**
-	 * Accepts any country again, which also stops any country's postcode rule being applied.
+	 * Accepts any country again. The submitted country's rules still apply; what stops is any
+	 * rule being knowable before a request.
 	 */
 	public function clearAllowedCountries(): static
 	{
@@ -122,63 +117,93 @@ final readonly class Address extends AtomicField
 	}
 
 	/**
-	 * Requires somewhere the post can reach. Narrows rather than replaces, so asking for this and
-	 * for {@see self::allowOnlyPhysical()} leaves an address that must manage both.
+	 * Demands the address be specified at least this far down.
 	 *
-	 * @throws InvalidConfiguration if the field has been told to accept an address without a
-	 *         street, since you cannot post to a suburb
+	 * A service area asks for {@see Precision::Locality}; a tax jurisdiction for
+	 * {@see Precision::Subdivision}; "where are you based" for {@see Precision::Country}. Each
+	 * still requires whatever that country asks for at or above the floor, so the rule stays the
+	 * country's and the floor only decides how much of it to inherit.
 	 */
-	public function allowOnlyMailable(): static
+	public function minPrecisionOf(Precision $precision): static
 	{
-		$this->assertStreetAndPostAgree(Type::Postal, $this->mustBeSpecific);
-
-		return $this->with(['type' => $this->type->narrowedToMailable()]);
+		return $this->with(['precision' => $precision]);
 	}
 
 	/**
-	 * Requires somewhere you can physically go, which rules out a PO box. Narrows rather than
-	 * replaces.
+	 * Demands somewhere a person can physically attend, which rules out a post-office box.
+	 *
+	 * Independent of depth, so a field may ask for locality precision and still refuse a PO box
+	 * if a street is given — a combination the old enum could not express.
 	 */
-	public function allowOnlyPhysical(): static
+	public function mustBeVisitable(): static
 	{
-		return $this->with(['type' => $this->type->narrowedToPhysical()]);
+		return $this->with(['streetVisitable' => true]);
 	}
 
 	/**
-	 * Accepts an address that names only an area — a suburb with a state and a postcode.
+	 * What each of the given countries asks of an address, keyed by the spelling you asked with.
 	 *
-	 * For a service area or a catchment, where the region *is* the answer rather than an incomplete
-	 * version of one.
+	 * The one way to read a country-driven bound. There is deliberately no `postalCodeRequired`
+	 * property beside it: a fact with two accessors is a fact that can disagree with itself, and
+	 * every one of these is unanswerable while more than one country is allowed.
 	 *
-	 * @throws InvalidConfiguration if the address must be mailable, since you cannot post to a
-	 *         suburb
+	 * Spellings resolve through {@see Value::codeFor()}, the same resolver a submitted address
+	 * goes through — so the countries you may *ask* about are exactly the countries this field
+	 * will *accept*, and it refuses precisely the spellings that would make a value unreadable.
+	 * The key is your own string and {@see Requirements::$country} is the canonical code, so one
+	 * call also hands back the canonicalisation table a port would otherwise build itself.
+	 *
+	 * With no arguments it answers for every country the field allows.
+	 *
+	 * @return array<string, Requirements>
+	 * @throws InvalidConfiguration if a country is not one ISO 3166-1 knows, if it is outside
+	 *         this field's allow-list, if the same country is asked about twice under any
+	 *         spelling, or if no countries are given and the field allows any
 	 */
-	public function allowWithoutStreet(): static
+	public function requirementsFor(string ...$countries): array
 	{
-		$this->assertStreetAndPostAgree($this->type, false);
+		if ($countries === []) {
+			if ($this->allowedCountries === []) {
+				throw InvalidConfiguration::requirementsNeedACountry();
+			}
 
-		return $this->with(['mustBeSpecific' => false]);
-	}
-
-	/**
-	 * Refuses a mailable address that does not require a street.
-	 *
-	 * Guarded on both withers rather than one, because either call can be the second: narrowing to
-	 * mailable after allowing no street reaches the same incoherent pair from the other side.
-	 *
-	 * Raised where the definition is written rather than reported per request, because it is a
-	 * combination with no meaning rather than a value that happens to be wrong — there is no input
-	 * that could satisfy it, so there is nothing to report.
-	 */
-	private function assertStreetAndPostAgree(Type $type, bool $mustBeSpecific): void
-	{
-		if ($type->requiresDeliverability() && !$mustBeSpecific) {
-			throw InvalidConfiguration::addressTypeMustNameAStreet($type->value);
+			$countries = $this->allowedCountries;
 		}
+
+		$requirements = [];
+		$asked = [];
+
+		// Resolved in full before any is returned: a partial map invites a silent gap where a
+		// lookup quietly missed, which is worse than losing the answers that did resolve.
+		foreach ($countries as $spelling) {
+			$code = Value::codeFor($spelling);
+
+			if ($code === null) {
+				throw InvalidConfiguration::regionIsNotSupported($spelling);
+			}
+
+			if ($this->allowedCountries !== [] && !in_array($code, $this->allowedCountries, true)) {
+				throw InvalidConfiguration::countryIsNotAllowedHere($spelling, $this->allowedCountries);
+			}
+
+			// Both outcomes of asking twice hide the mistake. One spelling repeated collapses to
+			// a single entry, so the result is quietly shorter than the question. Two spellings
+			// of one country give two keys holding the same answer, so a caller looping over
+			// them does the work twice with nothing to show that it has.
+			if (isset($asked[$code])) {
+				throw InvalidConfiguration::countryAskedForTwice($code, [$asked[$code], $spelling]);
+			}
+
+			$asked[$code] = $spelling;
+			$requirements[$spelling] = Requirements::forCountry($code, $this->precision);
+		}
+
+		return $requirements;
 	}
 
 	/**
-	 * What a rule may ask about this field: an address is neither ranked nor read as one string; its parts are, through PartScope.
+	 * What a rule may ask about this field: an address is neither ranked nor read as one string;
+	 * its parts are, through PartScope.
 	 *
 	 * @see \Meraki\Schema\Rule\Matcher for the four sets and why a field declares one
 	 */
@@ -190,13 +215,9 @@ final readonly class Address extends AtomicField
 	/**
 	 * Turns what was submitted into a {@see Value}.
 	 *
-	 * A country is upper-cased, and **never filled in**. It used to be supplied when the allow-list
-	 * happened to hold exactly one country, which made the rule change shape depending on how many
-	 * were listed — an address was complete or incomplete according to a detail of the field's
-	 * configuration rather than according to what was submitted. A country is now always the
-	 * submitter's to give, the same pairing {@see Money} makes with a currency.
-	 *
-	 * See `Field\AddressTest::an_address_without_a_country_never_described_a_place`.
+	 * Emptiness, the country pairing, the code-or-name canonicalising and the subdivision are all
+	 * the value's. Each is a fact about an address rather than about this field: no configuration
+	 * makes an address with no country describe a place.
 	 *
 	 * @param array<string, mixed>|Value $value
 	 */
@@ -212,36 +233,158 @@ final readonly class Address extends AtomicField
 			throw MalformedValue::of(Value::class, 'an address is submitted as a record of its parts');
 		}
 
-		// Emptiness, the country pairing and the code-or-name canonicalising are all the value's
-		// now. Each is a fact about an address rather than about this field: no configuration
-		// makes an address with no country describe a place.
 		return new Value($value);
 	}
 
 	/**
-	 * Four constraints, each naming the part it is about rather than embedding this field's name.
+	 * Thirteen constraints, each naming the part it is about rather than embedding this field's name.
+	 *
+	 * Every country-driven one reads {@see Requirements}, the same answer
+	 * {@see self::requirementsFor()} gives a port, so what a port renders and what this judges
+	 * cannot drift apart.
+	 *
+	 * The declared `bound` on each is only knowable when exactly one country is allowed —
+	 * mirroring the postcode pattern, which has always worked this way — and `boundFor` supplies
+	 * the one that actually applied.
 	 */
 	protected function defineConstraints(): Constraint\Set
 	{
+		$declared = $this->declaredRequirements();
+
 		return new Constraint\Set(
 			new Constraint('allowedCountries', $this->isAnAllowedCountry(...), $this->allowedCountries, 'country'),
-			// The pattern depends on which country was submitted, so the declared bound is only
-			// knowable when one country is allowed; `boundFor` supplies the one that applied.
+
+			new Constraint(
+				'streetRequired',
+				$this->requires('street'),
+				$this->declaredRequirement($declared, 'street'),
+				'street',
+				$this->appliedRequirement('street'),
+			),
+			new Constraint(
+				'streetLineLimit',
+				$this->withinTheLineLimit(...),
+				$declared === null ? Requirements::genericStreetLineLimit() : $declared->streetLineLimit,
+				'street',
+				fn(Value $address): ?int => $this->rulesFor($address)?->streetLineLimit,
+			),
+			// No bound: "this must be somewhere you can go" has nothing to interpolate.
+			new Constraint('streetVisitable', $this->isVisitable(...), null, 'street'),
+			new Constraint(
+				'localityRequired',
+				$this->requires('locality'),
+				$this->declaredRequirement($declared, 'locality'),
+				'locality',
+				$this->appliedRequirement('locality'),
+			),
+			new Constraint(
+				'localityUsed',
+				$this->uses('locality'),
+				$this->declaredUse($declared, 'locality'),
+				'locality',
+				$this->appliedUse('locality'),
+			),
+			new Constraint(
+				'dependentLocalityUsed',
+				$this->uses('dependent_locality'),
+				$this->declaredUse($declared, 'dependent_locality'),
+				'dependent_locality',
+				$this->appliedUse('dependent_locality'),
+			),
+			new Constraint(
+				'subdivisionRequired',
+				$this->requires('subdivision'),
+				$this->declaredRequirement($declared, 'subdivision'),
+				'subdivision',
+				$this->appliedRequirement('subdivision'),
+			),
+			new Constraint(
+				'subdivisionUsed',
+				$this->uses('subdivision'),
+				$this->declaredUse($declared, 'subdivision'),
+				'subdivision',
+				$this->appliedUse('subdivision'),
+			),
+			// No bound: a country's subdivision list runs to sixty-odd entries for the United
+			// States, which no message wants interpolated into it. A port that wants the list
+			// reads it off `requirementsFor()`, which is where it lives.
+			new Constraint('knownSubdivision', $this->isAKnownSubdivision(...), null, 'subdivision'),
+			new Constraint(
+				'postalCodeRequired',
+				$this->requires('postal_code'),
+				$this->declaredRequirement($declared, 'postal_code'),
+				'postal_code',
+				$this->appliedRequirement('postal_code'),
+			),
+			new Constraint(
+				'postalCodeUsed',
+				$this->uses('postal_code'),
+				$this->declaredUse($declared, 'postal_code'),
+				'postal_code',
+				$this->appliedUse('postal_code'),
+			),
 			new Constraint(
 				'postalCodeFormat',
 				$this->matchesPostalCodeFormat(...),
-				$this->postalCodePattern(),
+				$declared?->postalCodeFormat,
 				'postal_code',
-				fn(Value $address): ?string => $this->postalCodePatternFor($address),
+				fn(Value $address): ?string => $this->rulesFor($address)?->postalCodeFormatFor($address->subdivision),
 			),
-			// No bound: a country's subdivision list runs to fifty-odd entries for the United
-			// States, which no message wants interpolated into it.
-			new Constraint('administrativeArea', $this->isAKnownSubdivision(...), null, 'administrative_area'),
-			// No bound: "this must be somewhere you can go" has nothing to interpolate.
-			new Constraint('line1Visitable', $this->isVisitable(...), null, 'line1'),
-			new Constraint('specific', $this->namesAStreet(...), null, 'line1'),
 		);
 	}
+
+	// ── reading the country's rules ────────────────────────────────────────────────────────
+
+	/**
+	 * What the submitted country asks, or null when this field does not accept that country.
+	 *
+	 * Null rather than an answer, because `allowedCountries` already reports it and deriving a
+	 * second failure from the same mistake turns one error into several.
+	 *
+	 * The country is always present and always recognised by the time a value exists — the value
+	 * refuses anything else — so there is no third case here.
+	 */
+	private function rulesFor(Value $address): ?Requirements
+	{
+		$country = $address->countryCode;
+
+		if ($this->allowedCountries !== [] && !in_array($country, $this->allowedCountries, true)) {
+			return null;
+		}
+
+		return Requirements::forCountry($country, $this->precision);
+	}
+
+	/** The rules that are knowable before a request: only when one country is allowed. */
+	private function declaredRequirements(): ?Requirements
+	{
+		return count($this->allowedCountries) === 1
+			? Requirements::forCountry($this->allowedCountries[0], $this->precision)
+			: null;
+	}
+
+	/**
+	 * Whether the part is required, when that is knowable before a request.
+	 *
+	 * Takes the resolved rules rather than fetching them, because `defineConstraints()` has
+	 * already asked and every wither re-runs it.
+	 */
+	private function declaredRequirement(?Requirements $declared, string $part): ?bool
+	{
+		return $declared === null ? null : in_array($part, $declared->requiredParts, true);
+	}
+
+	/** @return Closure(Value): ?bool */
+	private function appliedRequirement(string $part): Closure
+	{
+		return function (Value $address) use ($part): ?bool {
+			$requirements = $this->rulesFor($address);
+
+			return $requirements === null ? null : in_array($part, $requirements->requiredParts, true);
+		};
+	}
+
+	// ── the checks ─────────────────────────────────────────────────────────────────────────
 
 	private function isAnAllowedCountry(Value $address): ?bool
 	{
@@ -249,106 +392,151 @@ final readonly class Address extends AtomicField
 			return null;
 		}
 
-		// Nothing to judge. Whether a country is *required* is a separate question, and not one
-		// this field asks by default.
-		if ($address->countryCode === null) {
+		return in_array($address->countryCode, $this->allowedCountries, true);
+	}
+
+	/**
+	 * Whether the part the submitted country asks for is there.
+	 *
+	 * Three answers, and the skip is the important one: a country that does not ask for a
+	 * postcode should leave `postalCodeRequired` unanswered rather than passing it, so a message
+	 * pack never has to explain a check that was never relevant.
+	 *
+	 * @return Closure(Value): ?bool
+	 */
+	private function requires(string $part): Closure
+	{
+		return function (Value $address) use ($part): ?bool {
+			$requirements = $this->rulesFor($address);
+
+			if ($requirements === null || !in_array($part, $requirements->requiredParts, true)) {
+				return null;
+			}
+
+			$value = $address->partNamed($part);
+
+			// A part that was sent and holds nothing never reaches here — the value refuses it —
+			// so absent is the only way to fail, and `[]` is how an absent street spells it.
+			return $value !== null && $value !== [];
+		};
+	}
+
+	/**
+	 * Whether the part the address carries is one this country's format has a place for.
+	 *
+	 * A state typed for a country with no states is a mistake worth reporting rather than data
+	 * to quietly ignore — ignoring it would mean accepting input this library cannot check, and
+	 * a form that hides an input when the country changes still posts whatever was in it.
+	 *
+	 * The mirror of {@see self::requires()}, and one per part rather than one for all of them,
+	 * because a failure has to name the part a form should mark. There is no `streetUsed`: all
+	 * 206 countries use a street.
+	 *
+	 * @return Closure(Value): ?bool
+	 */
+	private function uses(string $part): Closure
+	{
+		return function (Value $address) use ($part): ?bool {
+			$value = $address->partNamed($part);
+
+			// Nothing submitted, so nothing to judge. Skipped rather than passed: "you did not
+			// send one" is not a verdict on whether this country has one.
+			if ($value === null || $value === []) {
+				return null;
+			}
+
+			$requirements = $this->rulesFor($address);
+
+			return $requirements === null ? null : in_array($part, $requirements->usedParts, true);
+		};
+	}
+
+	/**
+	 * Whether the part is one the country has, when that is knowable before a request.
+	 */
+	private function declaredUse(?Requirements $declared, string $part): ?bool
+	{
+		return $declared === null ? null : in_array($part, $declared->usedParts, true);
+	}
+
+	/** @return Closure(Value): ?bool */
+	private function appliedUse(string $part): Closure
+	{
+		return function (Value $address) use ($part): ?bool {
+			$requirements = $this->rulesFor($address);
+
+			return $requirements === null ? null : in_array($part, $requirements->usedParts, true);
+		};
+	}
+
+	private function withinTheLineLimit(Value $address): ?bool
+	{
+		if ($address->street === []) {
 			return null;
 		}
 
-		return in_array($address->countryCode, $this->allowedCountries, true);
+		$requirements = $this->rulesFor($address);
+
+		return $requirements === null ? null : count($address->street) <= $requirements->streetLineLimit;
+	}
+
+	/**
+	 * Whether the street names a place a person can attend.
+	 *
+	 * Every line is tested, not just the first: a PO box written on the second line is still a
+	 * PO box, and reading only line one is how that used to pass.
+	 */
+	private function isVisitable(Value $address): ?bool
+	{
+		if (!$this->streetVisitable || $address->street === []) {
+			return null;
+		}
+
+		foreach ($address->street as $line) {
+			if (preg_match(self::PO_BOX_PATTERN, $line) === 1) {
+				return false;
+			}
+		}
+
+		return true;
+	}
+
+	/**
+	 * Whether the subdivision is one the country actually has.
+	 *
+	 * Only ever fails where a country uses a subdivision without requiring one. Where it is
+	 * required, the value refuses an unresolvable subdivision outright — ISO 3166-2 is a closed
+	 * list, and a subdivision may carry its own postcode pattern, so there the rest of the
+	 * address stops being decidable.
+	 *
+	 * Shape rather than existence, like the postcode: `AU-QLD` is a well-formed Queensland, and
+	 * whether the street within it exists is a licensed service's question.
+	 */
+	private function isAKnownSubdivision(Value $address): ?bool
+	{
+		$requirements = $this->rulesFor($address);
+
+		if ($requirements === null || $address->subdivision === null) {
+			return null;
+		}
+
+		// A country with none on file constrains nothing — eight use a subdivision without
+		// publishing a list, and guessing at them would be worse than saying nothing.
+		return $requirements->subdivisions === []
+			? null
+			: isset($requirements->subdivisions[$address->subdivision]);
 	}
 
 	private function matchesPostalCodeFormat(Value $address): ?bool
 	{
-		$pattern = $this->postalCodePatternFor($address);
+		$requirements = $this->rulesFor($address);
+		$pattern = $requirements?->postalCodeFormatFor($address->subdivision);
 
 		if ($pattern === null || $address->postalCode === null) {
 			return null;
 		}
 
 		return preg_match('~^(?:' . $pattern . ')$~', $address->postalCode) === 1;
-	}
-
-	/**
-	 * Whether the state, province or region is one the country actually has.
-	 *
-	 * Shape rather than existence, like the postcode: `QLD` is a well-formed Queensland, and
-	 * whether the street within it exists is a licensed service's question.
-	 */
-	private function isAKnownSubdivision(Value $address): ?bool
-	{
-		$country = $this->resolvedCountry($address);
-
-		if ($country === null || $address->administrativeArea === null) {
-			return null;
-		}
-
-		$subdivisions = self::subdivisions()->getList([$country]);
-
-		// A country with none on file — Singapore, say — constrains nothing.
-		return $subdivisions === [] ? null : isset($subdivisions[$address->administrativeArea]);
-	}
-
-	private function isVisitable(Value $address): ?bool
-	{
-		if (!$this->type->requiresVisitableLocation() || $address->line1 === null) {
-			return null;
-		}
-
-		return preg_match(self::PO_BOX_PATTERN, $address->line1) !== 1;
-	}
-
-	private function namesAStreet(Value $address): ?bool
-	{
-		// `''` counts as no street. It is a *submitted* empty string rather than an absent part —
-		// see Value::fromInput() — and either way it does not name a street.
-		return $this->mustBeSpecific ? ($address->line1 !== null && $address->line1 !== '') : null;
-	}
-
-
-	/**
-	 * The pattern a message can interpolate — only knowable when one country is allowed, since
-	 * with several it depends on which the submitted address turns out to be.
-	 */
-	private function postalCodePattern(): ?string
-	{
-		return count($this->allowedCountries) === 1
-			? self::formats()->get($this->allowedCountries[0])->getPostalCodePattern()
-			: null;
-	}
-
-	private function postalCodePatternFor(Value $address): ?string
-	{
-		return $this->formatFor($address)?->getPostalCodePattern();
-	}
-
-	private function formatFor(Value $address): ?AddressFormat
-	{
-		$country = $this->resolvedCountry($address);
-
-		return $country === null ? null : self::formats()->get($country);
-	}
-
-	/**
-	 * Which country's rules apply, or null when it cannot be pinned down — which makes the
-	 * country-specific constraints skip rather than guess.
-	 */
-	private function resolvedCountry(Value $address): ?string
-	{
-		// Always present once parse() has accepted the address, so there is nothing to infer. Note
-		// this now works for an *unrestricted* field too: the submitter said which country, so
-		// checking their postcode against it is reading what they wrote rather than guessing. That
-		// used to be impossible, and a free-form address got no postcode check at all.
-		$country = $address->countryCode;
-
-		// Already reported by `allowedCountries`. Deriving a postcode rule from it as well would
-		// turn one mistake into two failures.
-		if ($this->allowedCountries !== [] && !in_array($country, $this->allowedCountries, true)) {
-			return null;
-		}
-
-		// Present but not a region libaddressinput knows, so there is no format to look up.
-		return Value::codeFor($country) === null ? null : $country;
 	}
 
 	/**
@@ -360,8 +548,8 @@ final readonly class Address extends AtomicField
 	private static function supported(array $existing, array $additional): array
 	{
 		foreach ($additional as $country) {
-			// Trimmed here and not in codeFor(), because this is the *author's* string written in
-			// their own source. A submitted country is untrusted input and is left as it came.
+			// Trimmed here and not in codeFor(), because this is the *author's* string written
+			// in their own source. A submitted country is untrusted input and is left as it came.
 			$code = Value::codeFor(trim($country));
 
 			if ($code === null) {
@@ -374,26 +562,5 @@ final readonly class Address extends AtomicField
 		}
 
 		return $existing;
-	}
-
-	/**
-	 * The ISO code for a country given either way round, or `null` if it is neither.
-	 *
-	 * Unambiguous: libaddressinput lists 256 countries, no two share a name, and no name collides
-	 * with a code — so accepting both costs nothing in clarity. Accepting only the code would mean
-	 * a form offering a country dropdown had to map it back before submitting.
-	 */
-	private static function formats(): AddressFormatRepository
-	{
-		static $repository = null;
-
-		return $repository ??= new AddressFormatRepository();
-	}
-
-	private static function subdivisions(): SubdivisionRepository
-	{
-		static $repository = null;
-
-		return $repository ??= new SubdivisionRepository();
 	}
 }

@@ -80,9 +80,9 @@ $booking = (object) [
 	'full_name' => 'Jane Doe',
 	'licence_number' => 'QLD-1234567',
 	'pickup_location' => (object) [
-		'line1' => '1 Queen St',
+		'street' => ['1 Queen St'],
 		'locality' => 'Brisbane',
-		'administrative_area' => 'QLD',
+		'subdivision' => 'QLD',
 		'postal_code' => '4000',
 		'country' => 'AU',
 	],

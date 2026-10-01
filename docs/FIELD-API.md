@@ -272,15 +272,25 @@ new Constraint(
 );
 ```
 
-**A constraint's name is its property's name.** `minLength` the constraint is `$minLength` the
-property. That is what lets a consumer read the configured limit without a lookup table, and it is
-checked for every field by `Api\ConstraintNameTest`.
+**A constraint's name says where to read its bound**, and there are three cases:
+
+- **Configuration you set** is a property of the same name. `minLength` the constraint is
+  `$minLength` the property, and `allowedCountries` is both. A consumer reads the configured
+  limit without a lookup table.
+- **A bound derived from reference data** is not duplicated as a property, because it depends on
+  the submitted value and would be unanswerable most of the time. `Address` reads its from
+  `requirementsFor($country)`: which parts a country requires, its postcode pattern, its
+  subdivisions. A fact with two accessors is a fact that can disagree with itself.
+- **A constraint with nothing to configure** has no bound and no property. A card number passes
+  Luhn or it does not, so `numberChecksum` has nothing to interpolate.
+
+`Api\ConstraintNameTest` checks the names every field reports.
 
 **A check returns `?bool`.** `true` passed, `false` failed, and **`null` means skipped** — there
 was nothing to ask. A constraint nobody configured skips rather than passing, so "not asked" and
 "asked and fine" stay distinct in the result.
 
-**`part`** names which piece of a structured value a constraint is about — `line1`, `amount` —
+**`part`** names which piece of a structured value a constraint is about — `street`, `amount` —
 rather than encoding it in the name. Names carry no field name and no path: it is `postalCodeFormat`
 with part `postal_code`, never `venue.postal_code.format`.
 

@@ -290,7 +290,7 @@ Scope::parse('#/fields/addr/a/b/c');    // InvalidScope — too many segments
 ```
 
 One part is enough for the case that motivated this — "when the address is in AU, require the
-state" works, using the part names a structured type reports (`country`, `administrative_area`,
+state" works, using the part names a structured type reports (`country`, `subdivision`,
 `postal_code`, …), not the camelCase spellings. What is **not** expressible is a part *of* a part.
 
 Collection rows, which this entry also used to rule out, are addressable now: a row key is a name

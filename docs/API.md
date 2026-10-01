@@ -88,7 +88,7 @@ and the euro spans twenty.
 
 | Field | Configuration | Constraint names | Value |
 | --- | --- | --- | --- |
-| `Address` | `allowCountries()`, `allowOnlyMailable()`, `allowOnlyPhysical()`, `allowWithoutStreet()`, `clearAllowedCountries()` | `allowedCountries`, `postalCodeFormat`, `administrativeArea`, `line1Visitable`, `specific` | `Address\Value` |
+| `Address` | `allowCountries()`, `clearAllowedCountries()`, `minPrecisionOf()`, `mustBeVisitable()` | `allowedCountries`, `streetRequired`, `streetLineLimit`, `streetVisitable`, `localityRequired`, `localityUsed`, `dependentLocalityUsed`, `subdivisionRequired`, `subdivisionUsed`, `knownSubdivision`, `postalCodeRequired`, `postalCodeUsed`, `postalCodeFormat` | `Address\Value` |
 | `Boolean` | `mustBeAccepted()` | `accepted` | `Boolean\Value` |
 | `Collection` | `allowDuplicates()`, `maxCountOf()`, `minCountOf()` | `minCount`, `maxCount`, `unique` | `Collection\Value` |
 | `CreditCard` | `mustExpireInFuture()` | `numberFormat`, `numberChecksum`, `expiryFormat`, `expiryInFuture`, `expiryWithinReach`, `namePresent`, `securityCodeFormat` | `CreditCard\Value` |

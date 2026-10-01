@@ -207,7 +207,7 @@ The domain types are the point: an `Address` validates against Google's libaddre
 
 ```php
 $schema->add(
-    $schema->createAddressField('billing', ['AU'])->allowOnlyPhysical(),
+    $schema->createAddressField('billing', ['AU'])->mustBeVisitable(),
     $schema->createMoneyField('price', ['AUD' => 2])->minAmountOf('AUD', '10.00'),
 );
 ```

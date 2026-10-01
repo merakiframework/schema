@@ -170,13 +170,100 @@ $schema->add($schema->createAddressField('billing', ['AU']));
 
 $schema->validate((object) [
     'billing' => (object) [
-        'line1' => '1 Denham St',
+        // One part, holding a list of lines.
+        'street' => ['1 Denham St'],
         'locality' => 'Rockhampton',
+        // ISO 3166-2, stored as `AU-QLD`. `QLD`, `qld` and `Queensland` all resolve.
+        'subdivision' => 'QLD',
         'postal_code' => '4700',
         'country' => 'AU',
     ],
 ]);
 ```
+
+Every part here is required *because Australia requires it*. Nothing about the field says so —
+`getRequiredFields()` does. Japan asks for a prefecture and no locality, Panama has no postcode
+at all, and Great Britain has no state, so the same field accepts all three without being
+configured per country. A check for a part the submitted country does not ask for **skips**; it
+does not quietly pass.
+
+### How much of an address to demand
+
+`Precision` is an ordered ladder, and a field's floor filters what the country asks for — it
+never adds a requirement of its own:
+
+```php
+use Meraki\Schema\Field\Address\Precision;
+
+// The default. A street is required; a PO box is a fine answer.
+$schema->createAddressField('billing');
+
+// Somewhere a person can actually go, which rules out a PO box.
+$schema->createAddressField('pickup')->mustBeVisitable();
+
+// A service area: the region *is* the answer, not an incomplete version of one.
+$schema->createAddressField('service_area')->minPrecisionOf(Precision::Locality);
+
+// A tax jurisdiction, and then "where are you based".
+$schema->createAddressField('jurisdiction')->minPrecisionOf(Precision::Subdivision);
+$schema->createAddressField('based_in')->minPrecisionOf(Precision::Country);
+```
+
+The two dials are independent, so a field can take an area *and* refuse a PO box if a street is
+given. Because a shallower floor still accepts a deeper value, "an address or an area" is one
+field rather than a union.
+
+### Asking what a country needs, before anyone submits anything
+
+Every country-driven rule is unanswerable while more than one country is allowed — and allowing
+any is the default — so a form with a country selector cannot mark its inputs required from the
+field alone. One method answers, keyed by whatever spelling you hold:
+
+```php
+$shipping = $schema->createAddressField('shipping')->allowCountries('AU', 'NZ');
+
+$rules = $shipping->requirementsFor('AUS');
+$rules['AUS']->country;            // 'AU' — so this is also a canonicalisation table
+$rules['AUS']->requiredParts;      // ['street', 'locality', 'subdivision', 'postal_code']
+$rules['AUS']->usedParts;          // what an address there may have at all
+$rules['AUS']->subdivisions;       // ['AU-ACT' => 'Australian Capital Territory', …]
+$rules['AUS']->postalCodeFormat;   // '\d{4}'
+$rules['AUS']->streetLineLimit;    // 3
+
+// A subdivision may override its country's postcode pattern — 36 do, in China and Colombia.
+// Ask for the one that applies rather than reading the country's and hoping.
+$cn = $shipping->requirementsFor('CN')['CN'];
+$cn->postalCodeFormatFor();            // '\d{6}' — nothing chosen yet
+$cn->postalCodeFormatFor('CN-MO');     // '999078' — Macau's own
+$cn->postalCodeFormatFor('Macau');     // the same, by name
+$cn->subdivisionCodeFor('macau');      // 'CN-MO' — the mapping, since a name is valid input
+
+$shipping->requirementsFor();      // every country the field allows
+```
+
+It refuses a country outside the allow-list, one ISO 3166-1 does not know, the same country
+twice under any spelling, and — on a field that allows any — no arguments at all.
+
+### `locality` is the suburb; `dependent_locality` usually is not
+
+Worth knowing before you reach for the wrong part. `locality` is the place the post routes to.
+`dependent_locality` is a finer named place *below* it, and only 12 countries use one:
+`BR CN IE IR KR MX MY NG NZ PH TH ZA`.
+
+**Australia is not among them.** So Cardiff NSW 2285 is:
+
+```php
+'street'      => ['12 Macquarie Rd'],
+'locality'    => 'Cardiff',      // the suburb IS the locality
+'subdivision' => 'AU-NSW',
+'postal_code' => '2285',
+// dependent_locality is absent, and submitting one fails `dependentLocalityUsed`
+```
+
+Newcastle — the city Cardiff sits in — is not part of an Australian address at all. The trap is
+that "suburb" *sounds* subordinate, so it reads as though Newcastle should be the locality and
+Cardiff the dependent one. Ireland is a real use: `locality` is the post town,
+`dependent_locality` the townland.
 
 A structured value arrives as **one record**, not as separate fields, and its failures say which
 part they concern:
