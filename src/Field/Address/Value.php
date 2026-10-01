@@ -9,7 +9,6 @@ use Meraki\Schema\Field\MalformedValue;
 use Meraki\Schema\Field\ParsedValue;
 use CommerceGuys\Addressing\AddressFormat\AddressFormatRepository;
 use CommerceGuys\Addressing\Country\CountryRepository;
-use CommerceGuys\Addressing\Subdivision\SubdivisionRepository;
 
 /**
  * One postal or street address, held whole.
@@ -234,18 +233,18 @@ final readonly class Value implements ParsedValue, HasParts
 			return null;
 		}
 
-		$known = self::subdivisions()->getList([$countryCode]);
-
 		// A country with none on file constrains nothing, whatever its format says it uses.
 		// Eight countries are in that position, and guessing at them would be worse.
-		if ($known === []) {
+		if (Requirements::subdivisionsIn($countryCode) === []) {
 			return $subdivision;
 		}
 
-		$code = self::subdivisionCodeFor($countryCode, $subdivision, $known);
+		// One resolver, shared with Requirements: two answers to "which subdivision is this"
+		// would eventually disagree, and the port reads its options from the same place.
+		$code = Requirements::subdivisionCodeIn($countryCode, $subdivision);
 
 		if ($code !== null) {
-			return "{$countryCode}-{$code}";
+			return $code;
 		}
 
 		if (self::requiresSubdivision($countryCode)) {
@@ -253,45 +252,6 @@ final readonly class Value implements ParsedValue, HasParts
 		}
 
 		return $subdivision;
-	}
-
-	/**
-	 * The bare ISO 3166-2 code for a subdivision written as a code, a full code or a name.
-	 *
-	 * Generous in the same way the country is, and safely so: across every country with
-	 * subdivisions on file no two share a name, and no name collides with another's code.
-	 *
-	 * @param array<string|int, string> $known code => name. The key is an `int` wherever a
-	 *        country codes its subdivisions numerically — Japan's prefectures are `01` to `47`
-	 *        — because PHP converts a numeric string on its way into an array.
-	 */
-	private static function subdivisionCodeFor(string $countryCode, string $subdivision, array $known): ?string
-	{
-		$candidate = trim($subdivision);
-		$prefix = $countryCode . '-';
-
-		// Only *this* country's prefix comes off: `US-CA` on an Australian address names
-		// nothing, and should not quietly become `AU-CA`. Case-insensitively, because five
-		// countries — CV, HK, KY, RU and TV — code their subdivisions by name, so the ISO
-		// 3166-2 form this library publishes for them is `HK-Kowloon` rather than `HK-KLN`.
-		if (mb_strtolower(mb_substr($candidate, 0, mb_strlen($prefix))) === mb_strtolower($prefix)) {
-			$candidate = mb_substr($candidate, mb_strlen($prefix));
-		}
-
-		$folded = mb_strtolower($candidate);
-
-		// One pass over both spellings rather than an exact-key lookup and then a name scan.
-		// The lookup could not match a key that is a name with its own capitalisation, which
-		// meant refusing the very code `requirementsFor()` had handed a port to render.
-		foreach ($known as $code => $name) {
-			$code = (string) $code;
-
-			if (mb_strtolower($code) === $folded || mb_strtolower($name) === $folded) {
-				return $code;
-			}
-		}
-
-		return null;
 	}
 
 	/**
@@ -421,14 +381,6 @@ final readonly class Value implements ParsedValue, HasParts
 		static $repository = null;
 
 		return $repository ??= new AddressFormatRepository();
-	}
-
-	/** @see self::formats() */
-	private static function subdivisions(): SubdivisionRepository
-	{
-		static $repository = null;
-
-		return $repository ??= new SubdivisionRepository();
 	}
 
 	/**

@@ -308,7 +308,7 @@ final readonly class Address extends AtomicField
 				$this->matchesPostalCodeFormat(...),
 				$declared?->postalCodeFormat,
 				'postal_code',
-				fn(Value $address): ?string => $this->rulesFor($address)?->postalCodeFormat,
+				fn(Value $address): ?string => $this->rulesFor($address)?->postalCodeFormatFor($address->subdivision),
 			),
 		);
 	}
@@ -488,13 +488,13 @@ final readonly class Address extends AtomicField
 		// publishing a list, and guessing at them would be worse than saying nothing.
 		return $requirements->subdivisions === []
 			? null
-			: in_array($address->subdivision, $requirements->subdivisions, true);
+			: isset($requirements->subdivisions[$address->subdivision]);
 	}
 
 	private function matchesPostalCodeFormat(Value $address): ?bool
 	{
 		$requirements = $this->rulesFor($address);
-		$pattern = $requirements?->postalCodeFormat;
+		$pattern = $requirements?->postalCodeFormatFor($address->subdivision);
 
 		if ($pattern === null || $address->postalCode === null) {
 			return null;

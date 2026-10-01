@@ -226,9 +226,17 @@ $rules = $shipping->requirementsFor('AUS');
 $rules['AUS']->country;            // 'AU' — so this is also a canonicalisation table
 $rules['AUS']->requiredParts;      // ['street', 'locality', 'subdivision', 'postal_code']
 $rules['AUS']->usedParts;          // what an address there may have at all
-$rules['AUS']->subdivisions;       // ['AU-ACT', 'AU-NSW', …] — your <select> options
+$rules['AUS']->subdivisions;       // ['AU-ACT' => 'Australian Capital Territory', …]
 $rules['AUS']->postalCodeFormat;   // '\d{4}'
 $rules['AUS']->streetLineLimit;    // 3
+
+// A subdivision may override its country's postcode pattern — 36 do, in China and Colombia.
+// Ask for the one that applies rather than reading the country's and hoping.
+$cn = $shipping->requirementsFor('CN')['CN'];
+$cn->postalCodeFormatFor();            // '\d{6}' — nothing chosen yet
+$cn->postalCodeFormatFor('CN-MO');     // '999078' — Macau's own
+$cn->postalCodeFormatFor('Macau');     // the same, by name
+$cn->subdivisionCodeFor('macau');      // 'CN-MO' — the mapping, since a name is valid input
 
 $shipping->requirementsFor();      // every country the field allows
 ```

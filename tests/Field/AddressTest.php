@@ -603,6 +603,70 @@ final class AddressTest extends FieldTestCase
 		$this->assertTrue($result->forConstraint('knownSubdivision')->failed());
 	}
 
+	/**
+	 * A subdivision's own postcode pattern replaces its country's, rather than narrowing it.
+	 *
+	 * @return array<string, array{string, string, string, bool, string}>
+	 */
+	public static function subdivisionPostcodes(): array
+	{
+		return [
+			// Taiwan's pattern admits 3 to 6 digits; China's admits exactly 6. So these were
+			// *rejected* while being perfectly valid — a wrong answer a submitter sees.
+			'a 3-digit Taiwan postcode' => ['CN', 'CN-TW', '100', true, '\d{3}(\d{2,3})?'],
+			'a 5-digit Taiwan postcode' => ['CN', 'CN-TW', '10041', true, '\d{3}(\d{2,3})?'],
+			'a 6-digit Taiwan postcode' => ['CN', 'CN-TW', '100412', true, '\d{3}(\d{2,3})?'],
+			'a 2-digit Taiwan postcode' => ['CN', 'CN-TW', '10', false, '\d{3}(\d{2,3})?'],
+
+			// Macau is a single code. Any other six digits passed against China's pattern.
+			'the Macau postcode' => ['CN', 'CN-MO', '999078', true, '999078'],
+			'a Shanghai postcode, in Macau' => ['CN', 'CN-MO', '200000', false, '999078'],
+
+			// A subdivision with no override still answers to its country.
+			'Shanghai, which overrides nothing' => ['CN', 'CN-SH', '200000', true, '\d{6}'],
+
+			// Colombia overrides for every department.
+			'a Bogota postcode' => ['CO', 'CO-DC', '110111', true, '11\d{4}'],
+			'an Antioquia postcode, in Bogota' => ['CO', 'CO-DC', '059999', false, '11\d{4}'],
+		];
+	}
+
+	#[Test]
+	#[DataProvider('subdivisionPostcodes')]
+	public function a_postcode_is_judged_against_the_subdivisions_own_pattern(
+		string $country,
+		string $subdivision,
+		string $postcode,
+		bool $valid,
+		string $pattern,
+	): void {
+		$result = $this->createField()->validate((object) [
+			'street' => ['1 Main St'],
+			'locality' => 'Somewhere',
+			'subdivision' => $subdivision,
+			'postal_code' => $postcode,
+			'country' => $country,
+		]);
+
+		$check = $result->forConstraint('postalCodeFormat');
+
+		$this->assertSame($valid, $check->passed(), "{$subdivision} {$postcode}");
+
+		// And the reported bound names the rule that actually applied, not the country's.
+		$this->assertSame($pattern, $check->bound);
+	}
+
+	#[Test]
+	public function a_postcode_falls_back_to_the_country_when_no_subdivision_is_given(): void
+	{
+		// China requires one, so this is unreadable rather than a constraint failure — but the
+		// declared bound on a China-only field is still the country's pattern, because no
+		// subdivision is known when the field is built.
+		$field = new Address(new FieldName('billing'), ['CN']);
+
+		$this->assertSame('\d{6}', $field->constraints->named('postalCodeFormat')->bound);
+	}
+
 	#[Test]
 	public function a_known_subdivision_passes(): void
 	{

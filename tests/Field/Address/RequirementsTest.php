@@ -160,14 +160,133 @@ final class RequirementsTest extends TestCase
 	{
 		$this->assertSame(
 			['AU-ACT', 'AU-NSW', 'AU-NT', 'AU-QLD', 'AU-SA', 'AU-TAS', 'AU-VIC', 'AU-WA'],
-			$this->freeForm()->requirementsFor('AU')['AU']->subdivisions,
+			array_keys($this->freeForm()->requirementsFor('AU')['AU']->subdivisions),
 		);
+	}
+
+	#[Test]
+	public function it_carries_the_name_each_code_stands_for(): void
+	{
+		// The name is the matching key for submitted input as much as it is a label — an address
+		// may name its state in full — so the mapping to the canonical code has to be published
+		// rather than left for a port to rebuild against the same data.
+		$subdivisions = $this->freeForm()->requirementsFor('AU')['AU']->subdivisions;
+
+		$this->assertSame('Queensland', $subdivisions['AU-QLD']);
+		$this->assertSame('New South Wales', $subdivisions['AU-NSW']);
 	}
 
 	#[Test]
 	public function a_country_with_no_subdivisions_carries_an_empty_list(): void
 	{
 		$this->assertSame([], $this->freeForm()->requirementsFor('GB')['GB']->subdivisions);
+	}
+
+	// ── postcode patterns, and the subdivisions that override them ─────────────────────────
+
+	#[Test]
+	public function most_countries_override_no_postcode_pattern(): void
+	{
+		foreach (['AU', 'GB', 'JP', 'DE'] as $country) {
+			$rules = $this->freeForm()->requirementsFor($country)[$country];
+
+			$this->assertSame([], $rules->postalCodeFormatOverrides, $country);
+		}
+	}
+
+	#[Test]
+	public function a_subdivision_may_carry_its_own_postcode_pattern(): void
+	{
+		// 36 of 1548 do, across exactly two countries. Macau and Hong Kong are single codes
+		// rather than patterns, and Taiwan's is *wider* than China's — which is why an override
+		// replaces the country's rather than narrowing it.
+		$cn = $this->freeForm()->requirementsFor('CN')['CN'];
+
+		$this->assertSame('\d{6}', $cn->postalCodeFormat);
+		$this->assertSame('999078', $cn->postalCodeFormatOverrides['CN-MO']);
+		$this->assertSame('999077', $cn->postalCodeFormatOverrides['CN-HK']);
+		$this->assertSame('\d{3}(\d{2,3})?', $cn->postalCodeFormatOverrides['CN-TW']);
+	}
+
+	#[Test]
+	public function colombia_overrides_a_pattern_for_every_department(): void
+	{
+		$co = $this->freeForm()->requirementsFor('CO')['CO'];
+
+		$this->assertSame('11\d{4}', $co->postalCodeFormatOverrides['CO-DC']);
+		$this->assertCount(33, $co->postalCodeFormatOverrides);
+	}
+
+	/** @return array<string, array{?string, string}> */
+	public static function spellingsOfASubdivision(): array
+	{
+		return [
+			'nothing chosen yet' => [null, '\d{6}'],
+			'full iso code' => ['CN-MO', '999078'],
+			'full iso code, lowercased' => ['cn-mo', '999078'],
+			'bare code' => ['MO', '999078'],
+			'bare code, lowercased' => ['mo', '999078'],
+			'by name' => ['Macau', '999078'],
+			'by name, lowercased' => ['macau', '999078'],
+			'a subdivision with no override' => ['CN-SH', '\d{6}'],
+			'one this country does not have' => ['AU-QLD', '\d{6}'],
+		];
+	}
+
+	#[Test]
+	#[DataProvider('spellingsOfASubdivision')]
+	public function the_pattern_that_applies_is_asked_for_once(?string $subdivision, string $expected): void
+	{
+		$cn = $this->freeForm()->requirementsFor('CN')['CN'];
+
+		$this->assertSame($expected, $cn->postalCodeFormatFor($subdivision));
+	}
+
+	#[Test]
+	public function a_country_with_no_postcode_has_none_to_apply(): void
+	{
+		$pa = $this->freeForm()->requirementsFor('PA')['PA'];
+
+		$this->assertNull($pa->postalCodeFormatFor());
+		$this->assertNull($pa->postalCodeFormatFor('PA-1'));
+	}
+
+	#[Test]
+	public function a_country_with_no_subdivisions_still_has_a_pattern(): void
+	{
+		// 133 of 206 countries are in this position: a postcode pattern and nothing below the
+		// country to vary it. A per-subdivision map alone would have nowhere to put theirs.
+		$de = $this->freeForm()->requirementsFor('DE')['DE'];
+
+		$this->assertSame('\d{5}', $de->postalCodeFormat);
+		$this->assertSame('\d{5}', $de->postalCodeFormatFor());
+	}
+
+	#[Test]
+	public function it_canonicalises_a_subdivision_spelling_on_its_own(): void
+	{
+		$au = $this->freeForm()->requirementsFor('AU')['AU'];
+
+		$this->assertSame('AU-QLD', $au->subdivisionCodeFor('queensland'));
+		$this->assertSame('AU-QLD', $au->subdivisionCodeFor('QLD'));
+		$this->assertSame('AU-QLD', $au->subdivisionCodeFor('au-qld'));
+		$this->assertNull($au->subdivisionCodeFor('Banana'));
+	}
+
+	#[Test]
+	public function everything_a_consumer_needs_survives_json(): void
+	{
+		// The rule has to be applicable from the document alone — `overrides[subdivision] ??
+		// postalCodeFormat` is one line in any language — so none of it may hide behind a method.
+		$cn = $this->freeForm()->requirementsFor('CN')['CN'];
+
+		$encoded = json_decode((string) json_encode($cn), true);
+
+		$this->assertSame('\d{6}', $encoded['postalCodeFormat']);
+		$this->assertSame('999078', $encoded['postalCodeFormatOverrides']['CN-MO']);
+		$this->assertSame('Macau', $encoded['subdivisions']['CN-MO']);
+		$this->assertSame(['street', 'locality', 'subdivision', 'postal_code'], $encoded['requiredParts']);
+		$this->assertSame(3, $encoded['streetLineLimit']);
 	}
 
 	#[Test]
@@ -367,7 +486,7 @@ final class RequirementsTest extends TestCase
 		foreach (array_keys((new AddressFormatRepository())->getAll()) as $country) {
 			$requirements = $field->requirementsFor($country)[$country];
 
-			foreach ($requirements->subdivisions as $code) {
+			foreach (array_keys($requirements->subdivisions) as $code) {
 				++$checked;
 
 				try {

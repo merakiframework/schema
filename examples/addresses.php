@@ -182,7 +182,8 @@ $au = $serviceArea->requirementsFor('AU')['AU'];
 
 printf("\n  service_area in AU -> required: %s\n", implode(', ', $au->requiredParts));
 printf("                        used:     %s\n", implode(', ', $au->usedParts));
-printf("                        states:   %s\n", implode(', ', $au->subdivisions));
+printf("                        states:   %s\n", implode(', ', array_keys($au->subdivisions)));
+printf("                        QLD is:   %s\n", $au->subdivisions['AU-QLD']);
 
 // A field restricted to one country need not repeat it.
 $delivery = (new Facade('shipping'))->createAddressField('delivery', ['AU']);

@@ -310,8 +310,10 @@ $field = $schema->createAddressField('shipping')->allowCountries('AU', 'NZ');
 $rules = $field->requirementsFor('AUS');   // keyed by the spelling you asked with
 $rules['AUS']->country;                    // 'AU' — the canonical code
 $rules['AUS']->requiredParts;              // ['street', 'locality', 'subdivision', 'postal_code']
-$rules['AUS']->subdivisions;               // ['AU-ACT', 'AU-NSW', …]
+$rules['AUS']->subdivisions;               // ['AU-ACT' => 'Australian Capital Territory', …]
 $rules['AUS']->postalCodeFormat;           // '\d{4}'
+$rules['AUS']->postalCodeFormatOverrides;  // [] — subdivisions whose own pattern differs
+$rules['AUS']->postalCodeFormatFor('QLD'); // '\d{4}' — the one that applies
 $rules['AUS']->streetLineLimit;            // 3
 
 $field->requirementsFor();                 // every country the field allows
@@ -332,6 +334,14 @@ It stores the suffix, and for the United States carries 62 entries against ISO's
 `AA`, `AE` and `AP`, which are military postal regions rather than ISO subdivisions, and
 `MH`, `FM` and `PW`, which are sovereign states the USPS serves — while omitting `UM`. It
 approximates ISO 3166-2 and deviates where postal delivery does.
+
+**A subdivision may have its own postcode pattern**, and it *replaces* its country's rather
+than narrowing it. 36 of 1548 do, across China and Colombia alone — `CN-MO` is the single code
+`999078`, and `CN-TW` admits three to six digits where China admits exactly six. So a valid
+three-digit Taiwanese postcode used to be rejected against `\d{6}`. Ask
+`postalCodeFormatFor($subdivision)` for the pattern that applies; the two public properties it
+reads are there so a consumer in another language can do the same with
+`overrides[subdivision] ?? postalCodeFormat`.
 
 Five countries also code their subdivisions by *name* rather than by an abbreviation, so
 what `subdivision` holds for them is `HK-Kowloon`, `CV-Boa Vista` or `KY-Grand Cayman` —

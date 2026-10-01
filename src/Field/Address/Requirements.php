@@ -19,6 +19,12 @@ use CommerceGuys\Addressing\Subdivision\SubdivisionRepository;
  * re-implementing `isUsedByAny()` and `postalCodePatternFor()` against the same data, and
  * drifting from this library while it did.
  *
+ * **Every property is public, and deliberately.** This object is meant to survive `json_encode`
+ * so a consumer in another language can apply the same rules: anything hidden behind a method
+ * would be a rule only PHP could follow. {@see self::postalCodeFormatFor()} is sugar over public
+ * data, never the only way in — `overrides[subdivision] ?? postalCodeFormat` is one line in any
+ * language.
+ *
  * The constraints read the same answer, so the lookup and the checks cannot disagree.
  */
 final readonly class Requirements
@@ -48,10 +54,17 @@ final readonly class Requirements
 	 *        one, and the value refuses one without it, so it is a fact about the shape rather
 	 *        than something a country asks for.
 	 * @param list<string> $usedParts what an address here may have at all, floor or no floor
-	 * @param list<string> $subdivisions ISO 3166-2 codes, written in full — `AU-QLD`, not `QLD`.
-	 *        Empty where a country has none on file, which includes eight that use one without
-	 *        publishing a list.
-	 * @param string|null $postalCodeFormat null where a country has no postcode
+	 * @param array<string, string> $subdivisions full ISO 3166-2 code => name. Empty where a
+	 *        country has none on file, which includes eight that use one without publishing a
+	 *        list. The name is carried because it is a *matching key* as much as a label — an
+	 *        address may name its state in full — so the mapping to the canonical code has to
+	 *        be published rather than left for each consumer to rebuild.
+	 * @param string|null $postalCodeFormat the pattern that applies, or null where a country has
+	 *        no postcode at all
+	 * @param array<string, string> $postalCodeFormatOverrides subdivisions whose own pattern
+	 *        *replaces* the country's, keyed by full ISO 3166-2 code. Usually empty: 36 of 1548
+	 *        subdivisions carry one, across China and Colombia alone. It replaces rather than
+	 *        narrows, because `CN-TW` admits three to six digits where China admits exactly six.
 	 * @param int $streetLineLimit how many lines a street may run to
 	 */
 	public function __construct(
@@ -60,6 +73,7 @@ final readonly class Requirements
 		public array $usedParts,
 		public array $subdivisions,
 		public ?string $postalCodeFormat,
+		public array $postalCodeFormatOverrides,
 		public int $streetLineLimit,
 	) {
 	}
@@ -97,10 +111,129 @@ final readonly class Requirements
 				static fn(string $part): bool => $floor->covers($part),
 			)),
 			$used,
-			self::subdivisionsOf($countryCode),
+			self::subdivisionsIn($countryCode),
 			$format->getPostalCodePattern(),
+			self::postalCodeOverridesIn($countryCode),
 			self::lineLimitOf($format->getUsedFields()),
 		);
+	}
+
+	/**
+	 * The postcode pattern that applies, given what is known about the subdivision.
+	 *
+	 * Pass nothing while no subdivision has been chosen — a form that has not reached that field
+	 * yet — and the country's pattern comes back. Pass one in any spelling it would accept as
+	 * input, and its own pattern comes back where it has one.
+	 *
+	 * Sugar over {@see self::$postalCodeFormat} and {@see self::$postalCodeFormatOverrides},
+	 * which are public precisely so a consumer that cannot call this can still apply the rule.
+	 */
+	public function postalCodeFormatFor(?string $subdivision = null): ?string
+	{
+		if ($subdivision === null) {
+			return $this->postalCodeFormat;
+		}
+
+		$code = $this->subdivisionCodeFor($subdivision);
+
+		// A subdivision this country does not have answers to the country's pattern rather than
+		// to nothing: `knownSubdivision` is what reports the subdivision itself.
+		if ($code === null) {
+			return $this->postalCodeFormat;
+		}
+
+		return $this->postalCodeFormatOverrides[$code] ?? $this->postalCodeFormat;
+	}
+
+	/**
+	 * The full ISO 3166-2 code for a subdivision written any way this country accepts it — a
+	 * bare code, the full code, or its name, in any case.
+	 *
+	 * Published rather than kept private because the library accepts a full name as input, so a
+	 * consumer holding one needs the same mapping to reach anything keyed by code.
+	 */
+	public function subdivisionCodeFor(string $subdivision): ?string
+	{
+		return self::subdivisionCodeIn($this->country, $subdivision);
+	}
+
+	/**
+	 * @see self::subdivisionCodeFor() — the static form, for a caller with no instance in hand
+	 */
+	public static function subdivisionCodeIn(string $countryCode, string $subdivision): ?string
+	{
+		$prefix = "{$countryCode}-";
+		$candidate = trim($subdivision);
+
+		// Only *this* country's prefix comes off: `US-CA` on an Australian address names
+		// nothing, and should not quietly become `AU-CA`. Case-insensitively, because five
+		// countries — CV, HK, KY, RU and TV — code their subdivisions by name, so the code
+		// behind the prefix carries its own capitalisation.
+		if (mb_strtolower(mb_substr($candidate, 0, mb_strlen($prefix))) === mb_strtolower($prefix)) {
+			$candidate = mb_substr($candidate, mb_strlen($prefix));
+		}
+
+		$folded = mb_strtolower($candidate);
+
+		// One pass over both spellings. An exact-key lookup cannot match a key that is a name
+		// with its own capitalisation, which is how the library came to refuse the very codes it
+		// publishes for Hong Kong.
+		foreach (self::subdivisionsIn($countryCode) as $code => $name) {
+			$bare = mb_substr($code, mb_strlen($prefix));
+
+			if (mb_strtolower($bare) === $folded || mb_strtolower($name) === $folded) {
+				return $code;
+			}
+		}
+
+		return null;
+	}
+
+	/**
+	 * A country's subdivisions, as ISO 3166-2 writes them, mapped to their names.
+	 *
+	 * The addressing data stores the suffix alone — `QLD` — because the country is implied by
+	 * the lookup. Written out in full here so the value is unambiguous on its own, which matters
+	 * when a rule compares this part across fields or a consumer reads it without the country
+	 * beside it.
+	 *
+	 * @return array<string, string>
+	 */
+	public static function subdivisionsIn(string $countryCode): array
+	{
+		static $cache = [];
+
+		if (isset($cache[$countryCode])) {
+			return $cache[$countryCode];
+		}
+
+		$subdivisions = [];
+
+		foreach (self::subdivisions()->getList([$countryCode]) as $code => $name) {
+			$subdivisions["{$countryCode}-{$code}"] = $name;
+		}
+
+		return $cache[$countryCode] = $subdivisions;
+	}
+
+	/**
+	 * The subdivisions of a country whose own postcode pattern replaces its country's.
+	 *
+	 * @return array<string, string>
+	 */
+	private static function postalCodeOverridesIn(string $countryCode): array
+	{
+		$overrides = [];
+
+		foreach (self::subdivisions()->getAll([$countryCode]) as $code => $subdivision) {
+			$pattern = $subdivision->getPostalCodePattern();
+
+			if ($pattern !== null) {
+				$overrides["{$countryCode}-{$code}"] = $pattern;
+			}
+		}
+
+		return $overrides;
 	}
 
 	/**
@@ -128,26 +261,6 @@ final readonly class Requirements
 		}
 
 		return $parts;
-	}
-
-	/**
-	 * The country's subdivisions as ISO 3166-2 writes them.
-	 *
-	 * The addressing data stores the suffix alone — `QLD` — because the country is implied by
-	 * the lookup. Written out in full here so the value is unambiguous on its own, which matters
-	 * when a rule compares this part across fields or a consumer reads it without the country
-	 * beside it.
-	 *
-	 * @return list<string>
-	 */
-	private static function subdivisionsOf(string $countryCode): array
-	{
-		$codes = array_keys(self::subdivisions()->getList([$countryCode]));
-
-		// `string|int` because a numeric subdivision code is an int by the time it is an
-		// array key. Declaring it keeps this honest rather than leaning on weak-mode
-		// coercion in an internal function's callback.
-		return array_map(static fn(string|int $code): string => "{$countryCode}-{$code}", $codes);
 	}
 
 	/**
