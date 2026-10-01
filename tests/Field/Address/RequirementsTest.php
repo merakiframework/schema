@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace Meraki\Schema\Field\Address;
 
 use Meraki\Schema\Exception\InvalidConfiguration;
+use Meraki\Schema\Exception\UnreadableAddressFormat;
 use Meraki\Schema\Field\Address;
 use Meraki\Schema\FieldName;
 use CommerceGuys\Addressing\AddressFormat\AddressFormatRepository;
@@ -509,4 +510,79 @@ final class RequirementsTest extends TestCase
 		$this->assertGreaterThan(1500, $checked, 'expected the whole subdivision dataset');
 		$this->assertSame([], $rejected, 'every published subdivision code must round-trip');
 	}
+
+	/**
+	 * The addressing library still describes its fields as strings.
+	 *
+	 * Its own docblocks say `AddressField` objects. Everything here reads whichever shape
+	 * arrives, so a change would not break us — but it is worth knowing when it happens, because
+	 * the direction of that failure used to be silent: comparing strictly against strings and
+	 * being handed objects emptied `requiredParts`, and an address was never incomplete again.
+	 *
+	 * `composer.json` allows `^2.0`, so this is reachable by an update inside the permitted
+	 * range. If this test goes red, nothing is broken — read {@see Requirements::nameEach()} and
+	 * move this assertion to the new shape.
+	 */
+	#[Test]
+	public function the_addressing_library_still_describes_its_fields_as_strings(): void
+	{
+		$format = (new AddressFormatRepository())->get('AU');
+
+		$this->assertContainsOnly('string', $format->getRequiredFields());
+		$this->assertContainsOnly('string', $format->getUsedFields());
+		$this->assertContains('addressLine1', $format->getRequiredFields());
+	}
+
+	/**
+	 * And whichever shape it uses, the names come back the same.
+	 *
+	 * The three shapes `nameEach()` accepts, exercised directly because no version of the
+	 * upstream library produces more than one of them at a time — which is exactly why the
+	 * defensive read needs its own test rather than riding on the data.
+	 */
+	#[Test]
+	#[DataProvider('fieldShapes')]
+	public function a_field_name_is_read_whatever_shape_it_arrives_in(array $fields, array $expected): void
+	{
+		$nameEach = new \ReflectionMethod(Requirements::class, 'nameEach');
+
+		$this->assertSame($expected, $nameEach->invoke(null, $fields));
+	}
+
+	/** @return iterable<string, array{array<int, mixed>, list<string>}> */
+	public static function fieldShapes(): iterable
+	{
+		yield 'strings, as today' => [['addressLine1', 'locality'], ['addressLine1', 'locality']];
+
+		yield 'a backed enum, as the docblocks claim' => [
+			[AddressFieldShape::AddressLine1, AddressFieldShape::Locality],
+			['addressLine1', 'locality'],
+		];
+
+		yield 'a Stringable' => [
+			[new class() implements \Stringable {
+				public function __toString(): string
+				{
+					return 'postalCode';
+				}
+			}],
+			['postalCode'],
+		];
+	}
+
+	#[Test]
+	public function a_field_it_cannot_read_raises_rather_than_contributing_nothing(): void
+	{
+		// The whole point: an unreadable field must not quietly drop out of requiredParts.
+		$this->expectException(UnreadableAddressFormat::class);
+
+		(new \ReflectionMethod(Requirements::class, 'nameEach'))->invoke(null, [123]);
+	}
+}
+
+/** Stands in for the shape the upstream docblocks describe. @see RequirementsTest::fieldShapes() */
+enum AddressFieldShape: string
+{
+	case AddressLine1 = 'addressLine1';
+	case Locality = 'locality';
 }

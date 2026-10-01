@@ -3,8 +3,11 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Field\Address;
 
+use Meraki\Schema\Exception\UnreadableAddressFormat;
 use CommerceGuys\Addressing\AddressFormat\AddressFormatRepository;
 use CommerceGuys\Addressing\Subdivision\SubdivisionRepository;
+use BackedEnum;
+use Stringable;
 
 /**
  * What one country asks of an address, as one field would judge it.
@@ -252,15 +255,56 @@ final readonly class Requirements
 	 */
 	private static function translate(array $fields): array
 	{
+		$names = self::nameEach($fields);
 		$parts = [];
 
 		foreach (self::PARTS as $field => $part) {
-			if (in_array($field, $fields, true) && !in_array($part, $parts, true)) {
+			if (in_array($field, $names, true) && !in_array($part, $parts, true)) {
 				$parts[] = $part;
 			}
 		}
 
 		return $parts;
+	}
+
+	/**
+	 * The addressing library's field names, read as strings whatever shape they arrive in.
+	 *
+	 * Its docblocks say these are `AddressField` objects; at runtime they are the strings those
+	 * objects' constants hold. Comparing strictly against one shape and being handed the other
+	 * fails silently in the direction that matters — `requiredParts` empties, every requiredness
+	 * check skips, and an address is never incomplete again. `composer.json` allows `^2.0`, so an
+	 * update inside the permitted range could do it and nothing would go red.
+	 *
+	 * So the shape is read rather than assumed, and anything unreadable raises instead of quietly
+	 * contributing nothing.
+	 *
+	 * @param array<int, mixed> $fields
+	 * @return list<string>
+	 * @throws UnreadableAddressFormat if a field is none of the shapes this can read
+	 */
+	private static function nameEach(array $fields): array
+	{
+		return array_values(array_map(
+			static function (mixed $field): string {
+				if (is_string($field)) {
+					return $field;
+				}
+
+				// A backed enum is the shape the upstream docblocks describe, and the likeliest
+				// thing a future major would switch to.
+				if ($field instanceof BackedEnum) {
+					return (string) $field->value;
+				}
+
+				if ($field instanceof Stringable) {
+					return (string) $field;
+				}
+
+				throw UnreadableAddressFormat::fieldIsNotReadable($field);
+			},
+			$fields,
+		));
 	}
 
 	/**
@@ -274,10 +318,11 @@ final readonly class Requirements
 	 */
 	private static function lineLimitOf(array $usedFields): int
 	{
+		$names = self::nameEach($usedFields);
 		$lines = 0;
 
 		foreach (['addressLine1', 'addressLine2', 'addressLine3'] as $line) {
-			if (in_array($line, $usedFields, true)) {
+			if (in_array($line, $names, true)) {
 				++$lines;
 			}
 		}
