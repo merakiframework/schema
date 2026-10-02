@@ -27,6 +27,7 @@ schema, and reading a result.
 
 | | |
 | --- | --- |
+| [DEVELOPER.md](DEVELOPER.md) | **Start here.** The map of the codebase, the invariants it holds to, where a change belongs, and what the tests are for |
 | [CODING-STYLE.md](CODING-STYLE.md) | The conventions, and why each exists |
 | [../CHANGELOG.md](../CHANGELOG.md) | Generated from the commit history by `php tools/changelog.php` |
 

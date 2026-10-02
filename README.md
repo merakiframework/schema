@@ -320,7 +320,8 @@ $schema->validate($submitted, prefilledWith: $knownAboutThisUser);
 - [EXTENDING.md](docs/EXTENDING.md) — writing your own field type
 - [COMPARISON.md](docs/COMPARISON.md) — the alternatives, fairly
 - [LIMITATIONS.md](docs/LIMITATIONS.md) — what is still wrong
-- [examples/](examples/) — ten runnable examples, one aspect each
+- [DEVELOPER.md](docs/DEVELOPER.md) — contributing to the core itself
+- [examples/](examples/) — fourteen runnable examples, one aspect each
 
 ## Testing
 
