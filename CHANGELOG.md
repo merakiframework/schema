@@ -10,6 +10,73 @@ is a commit subject, with the body kept because the body is where the reasoning 
 
 ## Unreleased
 
+### Facade is now Definition
+
+`56df5cd9` · 2026-10-02
+
+A straight rename of the class you build a schema with. Same constructor,
+same methods, same behaviour, no alias -- 2.0 is breaking already and a
+shim would only let the old name survive into code written after it was
+wrong.
+
+`Facade` named a pattern rather than a thing, and not even accurately: a
+facade simplifies a subsystem you could still use directly, and there is no
+schema underneath this one. It *is* the schema.
+
+The codebase had already voted and nobody had counted. Every port wrote
+`Facade $schema` -- eight occurrences across two files, the type saying one
+thing and the variable another every single time. The result class was
+SchemaValidationResult, never FacadeValidationResult. NothingToValidate
+says theSchemaHasNoFields. The docs say "schema" 445 times and "facade" 35.
+And this was the only major class in src/ with no class docblock, which is
+the tell: a pattern name leaves nothing to explain.
+
+Definition names the distinction the whole library turns on. A definition
+is what the author wrote; a result is what one request produced; nothing
+per-request may touch the first. Every invariant in docs/DEVELOPER.md is
+that sentence applied somewhere, and the class now says which side of the
+line it sits on. It also reads correctly at the call site, where a
+definition judging data against itself is exactly what happens.
+
+Schema was the other candidate and would have stuttered --
+Meraki\Schema\Schema. The convention here is already a structural class
+name with a domain variable, as in `Field\Set $fields` and
+`Rule\Set $rules`, so `Definition $schema` is the shape this codebase
+already uses rather than a compromise.
+
+It does collide with Field\Definition, the trait holding a field's
+configuration half, and that is worth being precise about rather than
+waving away. The trait is used by exactly two files, AtomicField and
+Field\Collection, and neither mentions the schema. Measured rather than
+assumed: the overlap is zero, and structurally it stays zero, because one
+is for field implementations and the other is the thing that holds them.
+
+There was exactly one place it genuinely bit, and the blanket rename found
+it: BuildsFields had a sentence reading "a trait rather than methods
+written directly on the Definition, for the same reason {@see Definition}
+is one" -- two different classes, one sentence. It now qualifies the first
+and says outright that the bare name means the trait inside this namespace.
+Field\Set had a comment with the same ambiguity and now says "the schema".
+
+What is deliberately NOT renamed: every reference to the class as it was.
+The 1.x reproducers in LIMITATIONS, the removed `Facade::whenAllMatch()`
+and `Facade::traverse()` in ROADMAP, the before-halves of the UPGRADING
+examples, and the B8 write-up. Those describe code that really was called
+Facade, and rewriting them would make the history wrong to make the
+present tidy. The blanket pass caught all eleven and they were put back by
+hand.
+
+The new class finally has a docblock, including why it is not the other
+Definition.
+
+Tests renamed with it: SchemaFacadeTest -> SchemaDefinitionTest,
+FacadeValidateInputTest -> DefinitionInputTest, and the `facade` PHPUnit
+group -> `definition`.
+
+### Update history
+
+`c79b9cc0` · 2026-10-02
+
 ### A guide for working on the core, not with it
 
 `8d4b91e8` · 2026-10-02
