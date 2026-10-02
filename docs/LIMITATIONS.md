@@ -255,18 +255,28 @@ $schema->validate((object) ['price' => (object) ['amount' => '1500', 'currency' 
 $schema->validate((object) ['price.amount' => '1500']);                                       // ignored
 ```
 
-Inside the record, what happens to a key the value does not know is **not uniform**, and this is
-the part that will surprise you:
+Inside the record, a key the value does not know is **refused**. The whole value reads as
+unreadable rather than being built without it, across all five record-shaped fields.
 
-| | an unknown part |
-| --- | --- |
-| `Address` | **refused** — the whole value is unreadable, and the message names the key |
-| `Money`, `CreditCard`, `PhoneNumber`, `File` | ignored |
+```php
+$schema->validate((object) ['price' => (object) ['currency' => 'AUD', 'ammount' => '15.00']]);
+// price is unreadable — not "enter an amount"
+```
 
-So `securty_code` on a card leaves the security code absent and reports whatever that absence
-fails, rather than reporting the typo. `Address` is strict because its parts were renamed in 2.0
-and a port still sending `line1` would otherwise build an address quietly missing a street; the
-others have not been tightened to match.
+This is the loud direction on purpose. Ignoring the key means reporting whatever its absence
+breaks, so a typo in `securty_code` is reported as a missing security code and the one key that
+was actually wrong is the only thing nobody is told — with the data somebody meant to send gone
+without a word.
+
+A `File` is the apparent exception and is not one: an upload is accepted with `tmp_name`,
+`error` and `full_path` beside its three parts, because that is the shape `$_FILES` hands a port
+and stripping them first should not be anybody's job. Those are *declared and ignored*, which is
+a different thing from a key nobody declared.
+
+What the refusal does **not** currently do is tell you which key it was. The verdict is
+`unreadable`; the message naming the stray key is on the exception, and the request path absorbs
+it. `$resolved->given` still holds exactly what was submitted, so it is recoverable, but it is
+not handed to you.
 
 ---
 

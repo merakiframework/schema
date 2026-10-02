@@ -67,6 +67,18 @@ final readonly class Value implements ParsedValue, HasParts
 		}
 
 		$parts = get_object_vars($number);
+		$unknown = array_diff(array_keys($parts), self::partNames());
+
+		// Named rather than ignored, the rule every record-shaped value here follows. A port
+		// still sending `e164` — which was a part until it stopped being one — would otherwise
+		// be told its number is missing, which names the symptom and hides the stale key.
+		if ($unknown !== []) {
+			throw MalformedValue::of(self::class, sprintf(
+				'"%s" is not a part of a phone number. The parts are: "%s"',
+				implode('", "', $unknown),
+				implode('", "', self::partNames()),
+			));
+		}
 
 		// A part that was sent and holds nothing is unreadable, not absent — the rule every
 		// record-shaped value here follows. `''` was a decision somebody made.

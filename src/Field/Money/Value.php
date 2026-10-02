@@ -60,6 +60,19 @@ final readonly class Value implements ParsedValue, HasParts, Comparable
 	public function __construct(object $money)
 	{
 		$parts = get_object_vars($money);
+		$unknown = array_diff(array_keys($parts), self::partNames());
+
+		// Named rather than ignored. A key this does not know is data somebody meant to send,
+		// and dropping it reports whatever its absence breaks — "enter an amount" for a payload
+		// that said `ammount` — which names the symptom and hides the typo that caused it.
+		// {@see \Meraki\Schema\Field\Address\Value} has done this since the parts were renamed.
+		if ($unknown !== []) {
+			throw MalformedValue::of(self::class, sprintf(
+				'"%s" is not a part of an amount of money. The parts are: "%s"',
+				implode('", "', $unknown),
+				implode('", "', self::partNames()),
+			));
+		}
 
 		// A part that was *sent* and holds nothing is unreadable, not absent — the same rule
 		// {@see \Meraki\Schema\Field\Address\Value} applies. `''` was a decision somebody made,

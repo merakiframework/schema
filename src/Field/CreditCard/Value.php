@@ -69,6 +69,20 @@ final readonly class Value implements ParsedValue, HasParts
 	public function __construct(#[SensitiveParameter] object $card)
 	{
 		$parts = get_object_vars($card);
+		$unknown = array_diff(array_keys($parts), self::partNames());
+
+		// Named rather than ignored, the rule every record-shaped value here follows. A card is
+		// where it matters most: `securty_code` would otherwise leave the security code absent
+		// and report that absence, so the one key that was wrong is the one thing nobody is
+		// told. Only the names are repeated back — never a value, on a type where a value is a
+		// card number.
+		if ($unknown !== []) {
+			throw MalformedValue::of(self::class, sprintf(
+				'"%s" is not a part of a card. The parts are: "%s"',
+				implode('", "', $unknown),
+				implode('", "', self::partNames()),
+			));
+		}
 
 		// Absent or not a string is null. A part that was *sent* and holds nothing is unreadable
 		// rather than absent — the rule every record-shaped value here follows — because `''` was

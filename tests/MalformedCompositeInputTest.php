@@ -18,7 +18,9 @@ use PHPUnit\Framework\TestCase;
 #[CoversClass(Field\Address::class)]
 #[CoversClass(Field\Collection::class)]
 #[CoversClass(Field\CreditCard::class)]
+#[CoversClass(Field\File::class)]
 #[CoversClass(Field\Money::class)]
+#[CoversClass(Field\PhoneNumber::class)]
 final class MalformedCompositeInputTest extends TestCase
 {
 	/** @return array<string, array{mixed}> */
@@ -243,5 +245,97 @@ final class MalformedCompositeInputTest extends TestCase
 		foreach ([(object) [], (object) ['f' => null]] as $payload) {
 			$this->assertTrue($schema->validate($payload)->forField('f')->shape->skipped());
 		}
+	}
+	/**
+	 * A key the value does not know is **refused**, never dropped.
+	 *
+	 * Dropping it reports whatever its absence breaks. A payload saying `ammount` was told to
+	 * enter an amount; `securty_code` left the security code absent and reported *that*. In both
+	 * the one key that was wrong is the only thing nobody is told, and the data somebody meant
+	 * to send is gone without a word.
+	 *
+	 * `Address` has refused since its parts were renamed, because a port still sending `line1`
+	 * would otherwise build an address quietly missing a street. The other four ignored, which
+	 * is the same bug waiting on a rename that has already happened once — `e164` and
+	 * `local_part` stopped being parts in this same batch.
+	 *
+	 * Both halves are asserted, so this cannot pass by refusing everything.
+	 *
+	 * @param array<string, mixed> $complete
+	 */
+	#[Test]
+	#[DataProvider('recordsWithAStrayKey')]
+	public function a_key_the_value_does_not_know_is_refused(callable $make, array $complete, string $stray): void
+	{
+		$schema = new Facade('s');
+		$schema->add($make($schema));
+
+		$clean = $schema->validate((object) ['f' => (object) $complete])->forField('f');
+		$strayed = $schema->validate((object) ['f' => (object) ([$stray => 'x'] + $complete)])->forField('f');
+
+		$this->assertTrue($clean->shape->passed(), 'the payload without the stray key should read');
+		$this->assertTrue($strayed->wasUnreadable(), "\"{$stray}\" should be refused");
+	}
+
+	/** @return iterable<string, array{callable, array<string, mixed>, string}> */
+	public static function recordsWithAStrayKey(): iterable
+	{
+		// The stray keys are the mistakes that actually happen: a typo, and a part that was
+		// renamed out from under a port.
+		yield 'Money' => [
+			static fn(Facade $s): Field => $s->createMoneyField('f', ['AUD' => 2]),
+			['currency' => 'AUD', 'amount' => '10.00'],
+			'ammount',
+		];
+
+		yield 'Address' => [
+			static fn(Facade $s): Field => $s->createAddressField('f', ['AU']),
+			['street' => ['1 Main St'], 'locality' => 'Bne', 'subdivision' => 'QLD', 'postal_code' => '4000', 'country' => 'AU'],
+			'line1',
+		];
+
+		yield 'CreditCard' => [
+			static fn(Facade $s): Field => $s->createCreditCardField('f'),
+			['number' => '4111111111111111', 'expiry' => '2030-01', 'name' => 'A B'],
+			'securty_code',
+		];
+
+		yield 'PhoneNumber' => [
+			static fn(Facade $s): Field => $s->createPhoneNumberField('f', ['AU']),
+			['number' => '0411222333', 'country' => 'AU'],
+			'e164',
+		];
+
+		yield 'File' => [
+			static fn(Facade $s): Field => $s->createFileField('f'),
+			['name' => 'cv.pdf', 'type' => 'application/pdf', 'size' => 1024],
+			'mime_type',
+		];
+	}
+
+	/**
+	 * The one exception, and it is not one: an upload carries more than its parts.
+	 *
+	 * `$_FILES` holds a temporary path, an error code and — since PHP 8.1 — the client's full
+	 * path, beside the three this library reads. A port handing an entry straight over should
+	 * not have to strip them first, so they are accepted and ignored. Accepted-and-ignored is a
+	 * different thing from a key nobody declared, and only the second is refused.
+	 */
+	#[Test]
+	public function an_upload_may_carry_the_keys_php_puts_on_it(): void
+	{
+		$schema = new Facade('s');
+		$schema->add($schema->createFileField('f'));
+
+		$result = $schema->validate((object) ['f' => (object) [
+			'name' => 'cv.pdf',
+			'full_path' => 'documents/cv.pdf',
+			'type' => 'application/pdf',
+			'tmp_name' => '/tmp/php1234',
+			'error' => 0,
+			'size' => 1024,
+		]])->forField('f');
+
+		$this->assertTrue($result->shape->passed());
 	}
 }

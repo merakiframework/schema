@@ -235,6 +235,29 @@ no country is. The number is the half that reports.
 three inputs a form renders — no page has a "file type" box to mark — so `*Required` constraints
 there would have added three names nothing can act on.
 
+### A record refuses a key it does not know
+
+`Money`, `CreditCard`, `PhoneNumber` and `File` ignored an unrecognised key inside the record.
+They now refuse it, as `Address` already did, and the whole value reads as unreadable.
+
+```php
+$schema->validate((object) ['price' => (object) ['currency' => 'AUD', 'ammount' => '15.00']]);
+// alpha.2 — amountRequired fails: "enter an amount"
+// now     — price is unreadable
+```
+
+Ignoring the key meant reporting whatever its absence broke, so the one key that was wrong was
+the only thing nobody was told, and data somebody meant to send disappeared without a word. It
+had already bitten once: `e164` and `local_part` stopped being parts in this same release, and a
+port still sending them would have been told its number or address was incomplete.
+
+**If you send extra keys, strip them.** The likely cases are a payload built from a wider
+internal record, and a part renamed in 2.0 that a port still sends.
+
+A `File` is the apparent exception and is not one: `tmp_name`, `error` and `full_path` are
+accepted beside the three parts, because that is the shape `$_FILES` hands a port. They are
+declared and ignored rather than unknown.
+
 ### A value reports the parts it is submitted with
 
 | | parts before | parts now |
