@@ -56,6 +56,12 @@ jobs:
       - name: Check {@see} references
         run: php tools/check-references.php
 
+      # PHPUnit says nothing when a #[CoversClass] names a type that does not exist: it
+      # attributes nothing and carries on, so the class reads as untested and the attribute
+      # reads as proof that it is not.
+      - name: Check coverage metadata
+        run: php tools/check-coverage-metadata.php
+
       - name: Check CHANGELOG is current
         run: php tools/changelog.php --check
 

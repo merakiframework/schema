@@ -21,6 +21,7 @@ use InvalidArgumentException;
  */
 #[Group('scope')]
 #[CoversClass(Definition::class)]
+#[CoversClass(Guards::class)]
 final class ScopeValidationTest extends TestCase
 {
 	private function schema(): Definition

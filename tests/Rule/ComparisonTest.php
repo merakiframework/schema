@@ -37,6 +37,7 @@ use InvalidArgumentException;
 #[CoversClass(Comparison::class)]
 #[CoversClass(Equals::class)]
 #[CoversClass(NotEquals::class)]
+#[CoversClass(\Meraki\Schema\Comparison\Values::class)]
 #[CoversClass(Definition::class)]
 final class ComparisonTest extends TestCase
 {

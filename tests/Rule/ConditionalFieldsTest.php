@@ -39,6 +39,9 @@ use LogicException;
 #[CoversClass(Rule::class)]
 #[CoversClass(Condition\Equals::class)]
 #[CoversClass(Condition\NotEquals::class)]
+#[CoversClass(Condition\AllOf::class)]
+#[CoversClass(Condition\AnyOf::class)]
+#[CoversClass(AppliedOutcome::class)]
 #[CoversClass(Ignore::class)]
 #[CoversClass(Reconfigure::class)]
 final class ConditionalFieldsTest extends TestCase

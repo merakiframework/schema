@@ -14,6 +14,7 @@ use InvalidArgumentException;
 
 #[Group('field')]
 #[CoversClass(Number::class)]
+#[CoversClass(Number\Value::class)]
 final class NumberTest extends FieldTestCase
 {
 	public function createField(): Number

@@ -15,6 +15,7 @@ use InvalidArgumentException;
 
 #[Group('field')]
 #[CoversClass(PhoneNumber::class)]
+#[CoversClass(PhoneNumber\Value::class)]
 #[CoversClass(Type::class)]
 final class PhoneNumberTest extends FieldTestCase
 {

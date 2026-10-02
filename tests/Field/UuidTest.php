@@ -13,6 +13,7 @@ use PHPUnit\Framework\Attributes\Test;
 
 #[Group('field')]
 #[CoversClass(Uuid::class)]
+#[CoversClass(Uuid\Value::class)]
 final class UuidTest extends FieldTestCase
 {
 	public function createSubject(): Uuid

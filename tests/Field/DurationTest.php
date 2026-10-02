@@ -14,6 +14,7 @@ use PHPUnit\Framework\Attributes\Test;
 
 #[Group('field')]
 #[CoversClass(Duration::class)]
+#[CoversClass(Duration\Value::class)]
 final class DurationTest extends FieldTestCase
 {
 	public function createField(): Duration

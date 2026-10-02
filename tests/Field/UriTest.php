@@ -12,6 +12,7 @@ use PHPUnit\Framework\Attributes\Test;
 
 #[Group('field')]
 #[CoversClass(Uri::class)]
+#[CoversClass(Uri\Value::class)]
 final class UriTest extends FieldTestCase
 {
 	public function createSubject(): Uri

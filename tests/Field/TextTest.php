@@ -12,6 +12,7 @@ use PHPUnit\Framework\Attributes\Test;
 
 #[Group('field')]
 #[CoversClass(Text::class)]
+#[CoversClass(Text\Value::class)]
 final class TextTest extends FieldTestCase
 {
 	public function createField(): Text

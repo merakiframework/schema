@@ -14,6 +14,9 @@ use PHPUnit\Framework\Attributes\Test;
 
 #[Group('field')]
 #[CoversClass(Time::class)]
+#[CoversClass(Time\Value::class)]
+#[CoversClass(Time\Precision::class)]
+#[CoversClass(Time\PrecisionPolicy::class)]
 final class TimeTest extends FieldTestCase
 {
 	public function createField(): Time

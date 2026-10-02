@@ -12,6 +12,7 @@ use PHPUnit\Framework\Attributes\Test;
 
 #[Group('field')]
 #[CoversClass(Enum::class)]
+#[CoversClass(Enum\Value::class)]
 final class EnumTest extends FieldTestCase
 {
 	public function createField(): Enum

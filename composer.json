@@ -77,6 +77,7 @@
             "@test:coverage",
             "@test:examples",
             "@test:references",
+            "@test:coverage-metadata",
             "@test:changelog"
         ],
         "style": "php-cs-fixer fix",
@@ -90,7 +91,8 @@
         "test:examples": "php tools/check-examples.php",
         "changelog": "php tools/changelog.php",
         "test:changelog": "php tools/changelog.php --check",
-        "test:references": "php tools/check-references.php"
+        "test:references": "php tools/check-references.php",
+        "test:coverage-metadata": "php tools/check-coverage-metadata.php"
     },
     "extra": {
         "branch-alias": {
@@ -109,6 +111,7 @@
         "test:examples": "Run every example and fail if any exits non-zero.",
         "changelog": "Regenerate CHANGELOG.md from the commit history.",
         "test:changelog": "Fail if CHANGELOG.md is out of date.",
-        "test:references": "Fail if any {@see} in src/ points at something that does not exist."
+        "test:references": "Fail if any {@see} in src/ points at something that does not exist.",
+        "test:coverage-metadata": "Fail if any #[CoversClass] in tests/ names a type that does not exist."
     }
 }

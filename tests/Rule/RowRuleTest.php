@@ -26,6 +26,9 @@ use InvalidArgumentException;
 #[Group('rule')]
 #[CoversClass(Application::class)]
 #[CoversClass(Field\Collection::class)]
+#[CoversClass(\Meraki\Schema\Scope\Column::class)]
+#[CoversClass(\Meraki\Schema\Scope\Row::class)]
+#[CoversClass(\Meraki\Schema\Scope\Template::class)]
 final class RowRuleTest extends TestCase
 {
 	/** @return array{Definition, Field\Collection} */

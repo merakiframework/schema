@@ -12,6 +12,7 @@ use PHPUnit\Framework\Attributes\Test;
 
 #[Group('field')]
 #[CoversClass(Boolean::class)]
+#[CoversClass(Boolean\Value::class)]
 final class BooleanTest extends FieldTestCase
 {
 	public function createField(): Boolean

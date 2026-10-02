@@ -15,6 +15,9 @@ use PHPUnit\Framework\Attributes\Test;
 
 #[Group('field')]
 #[CoversClass(DateTime::class)]
+#[CoversClass(DateTime\Value::class)]
+#[CoversClass(DateTime\TimePrecision::class)]
+#[CoversClass(DateTime\PrecisionPolicy::class)]
 final class DateTimeTest extends FieldTestCase
 {
 	public function createField(): DateTime

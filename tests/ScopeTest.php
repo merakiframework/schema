@@ -21,6 +21,7 @@ use InvalidArgumentException;
 #[CoversClass(ValueScope::class)]
 #[CoversClass(PropertyScope::class)]
 #[CoversClass(PartScope::class)]
+#[CoversClass(Scope\SchemaField::class)]
 final class ScopeTest extends TestCase
 {
 	#[Test]

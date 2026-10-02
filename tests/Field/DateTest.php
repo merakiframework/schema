@@ -12,6 +12,7 @@ use PHPUnit\Framework\Attributes\Test;
 
 #[Group('field')]
 #[CoversClass(Date::class)]
+#[CoversClass(Date\Value::class)]
 final class DateTest extends FieldTestCase
 {
 	public function createField(): Date

@@ -16,6 +16,7 @@ use ReflectionProperty;
 
 #[Group('field')]
 #[CoversClass(Password::class)]
+#[CoversClass(Password\Value::class)]
 #[CoversClass(Strength::class)]
 #[CoversClass(Password\Result::class)]
 final class PasswordTest extends FieldTestCase
