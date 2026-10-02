@@ -10,6 +10,77 @@ is a commit subject, with the body kept because the body is where the reasoning 
 
 ## Unreleased
 
+### A key nobody declared is a broken contract, not a verdict
+
+`727062c5` · 2026-10-02
+
+Two commits ago these were ignored; one commit ago they became an
+unreadable value. Both were wrong in the same way, and the second only
+less so: a verdict is a judgement about a request, and this is not one.
+
+Keys are vocabulary, not data. In every protocol something maps a payload
+onto them -- a form handler, a JSON client, a producer on a queue -- and
+there is no submitter action anywhere that produces `ammount`. It is a
+line of code that is wrong on every request, for every submitter, until
+somebody edits it. `unreadable` tells the only person who can fix it
+nothing and tells everybody else something untrue.
+
+And a verdict already decides an audience: it says *this is reportable to
+whoever submitted*. This library cannot see whether that is a person, a
+peer implementation or a deploy that went out wrong -- one wants a 500,
+one a 400 naming the key, one an alert. Returning a verdict would be
+answering a question it cannot see, which is the kind of answer a core has
+no business giving. BrokenInputContract escapes instead, carrying
+$unknownKeys and $valueClass so a port answers in its own protocol without
+parsing English.
+
+Where the line sits, and why not further: a declared key holding something
+unusable stays a MalformedValue, absorbed and rendered from a message
+pack. The temptation is to extend this to types -- nobody *types* an array
+either -- but that is attribution, not severity. A JSON client chooses the
+type of what it sends; a form port receives strings and chooses the type
+itself. Which of them got it wrong depends on the protocol, and this
+library does not know the protocol. Where the mistake can be pinned on the
+builder without knowing the port, it raises; where it cannot, it reports.
+Keys can; types cannot.
+
+File stops accepting a $_FILES entry. Its tmp_name, error and full_path
+were tolerated last commit on the grounds that a port should not have to
+strip them, which had it backwards: a temporary path is where one
+language's web SAPI put the bytes and an error code is that SAPI's verdict
+on the transfer, so a schema accepting them would describe a PHP web
+request rather than a file. A port in another language has none of them.
+Taking the three out of an upload is exactly a port's job.
+
+The constructors now document their records as object shapes, which is
+worth having and does not finish the job. PHPStan catches a missing
+required key and a declared key of the wrong type, at the call site. It
+does not catch a stray key: an object shape is a floor and not a ceiling,
+so object{currency: string, ammount: string} satisfies
+object{currency?: string, amount?: string}. There is no sealed-object
+syntax, and @param object would trade the two checks that work for the one
+that cannot. So the runtime check is the only strap, not a second one.
+
+Fixture changes that are not cosmetic. Several providers held bare scalars
+and the test cast them -- `(object) 12.50` is `{scalar: 12.50}`, a shape
+nothing sends, which would now raise for its key rather than fail for not
+being money. They say what arrives instead, so the assertion is about the
+library rather than about the cast.
+
+docs/API.md's "What raises, and what does not" said every raising mistake
+is found at boot. This is the first that cannot be: there is no record to
+inspect until a request carries one. The section says so rather than
+quietly acquiring an exception.
+
+docs/EXTENDING.md gains the obligation this puts on a port, stated once
+for every protocol: map, do not forward. Handing over a decoded body makes
+a remote party the co-author of your key vocabulary, and then its typo is
+your exception -- which is the bug being pointed at, not the typo.
+
+### Update history
+
+`b4629c7d` · 2026-10-02
+
 ### A record refuses a key it does not know
 
 `a7753d82` · 2026-10-02
