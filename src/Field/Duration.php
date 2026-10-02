@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace Meraki\Schema\Field;
 
 use Meraki\Schema\AtomicField;
+use Meraki\Schema\Exception\InvalidConfiguration;
 use Meraki\Schema\Field\Duration\Value;
 use Meraki\Schema\FieldName;
 use Meraki\Schema\Rule\Matcher;
@@ -67,9 +68,35 @@ final readonly class Duration extends AtomicField
 		return $this->with(['maxValue' => $this->mustParse($value)]);
 	}
 
+	/**
+	 * @throws InvalidConfiguration if the step is zero or negative
+	 */
 	public function inIncrementsOf(string $value): static
 	{
-		return $this->with(['step' => $this->mustParse($value)]);
+		$step = $this->mustParse($value);
+
+		// Refused here rather than reported per request, and `Number` now refuses the same
+		// thing the same way. A zero step failed every value here and meant "no stepping"
+		// there; a negative one passed everything here, by an accident of the modulus, and
+		// failed everything there.
+		if (!$step->isPositive()) {
+			throw InvalidConfiguration::stepIsNotPositive((string) $step);
+		}
+
+		return $this->with(['step' => $step]);
+	}
+
+	/**
+	 * Accepts any duration, whatever its increment.
+	 *
+	 * Unlike `Number`, this *widens* past the default: an unconfigured duration steps by the
+	 * minute and refuses `PT30S`. That is not a departure from "configuration narrows" so much
+	 * as the end of a dial that already turns both ways — `inIncrementsOf('PT1S')` admits
+	 * `PT30S` just as surely, and this is only its limit.
+	 */
+	public function clearStep(): static
+	{
+		return $this->with(['step' => null]);
 	}
 
 	protected function parse(mixed $value): Value
@@ -125,12 +152,6 @@ final readonly class Duration extends AtomicField
 			return null;
 		}
 
-		// A zero step is a configuration error rather than a value problem, but it has always
-		// been reported as a failure here — Number treats the same case as "no stepping".
-		// The inconsistency is recorded in the API review; preserved for now.
-		if ($this->step->isZero()) {
-			return false;
-		}
 
 		// Steps are counted from the minimum when there is one, so a field starting at 5
 		// minutes in steps of 10 accepts 5, 15, 25 rather than 10, 20, 30.

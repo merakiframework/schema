@@ -35,6 +35,34 @@ So the mechanical rule for the whole upgrade is:
 > `validate()`**. Anything you used to **read back off** a field after validating is now on the
 > **result**.
 
+### A step must be positive, and `clearStep()` is how you remove one
+
+`inIncrementsOf()` on `Number` and `Duration` now throws `InvalidConfiguration` for a step of
+zero or less. Both used to accept it and report it per request — differently, and none of the
+four combinations usefully:
+
+| | before | now |
+| --- | --- | --- |
+| `Number::inIncrementsOf(0)` | `step` skipped forever — the call silently did nothing | refused |
+| `Number::inIncrementsOf(-5)` | `step` failed every value forever | refused |
+| `Duration::inIncrementsOf('PT0S')` | `step` failed every value forever | refused |
+| `Duration::inIncrementsOf('-PT5M')` | *passed* — an accident of the modulus | refused |
+
+A step at or below zero is a definition nothing can satisfy, or a check that quietly does not
+run. Every other bound in this library refuses the unsatisfiable where it is written rather than
+reporting it on somebody's request, and these two were the exception.
+
+**`clearStep()` is new on both**, and on `Number` it is now the only way back to "any value" —
+`inIncrementsOf(0)` was the undocumented spelling for that, and it is refused.
+
+```php
+$quantity->inIncrementsOf(5)->clearStep();   // accepts any number again
+```
+
+On `Duration` it *widens* past the default, which is worth knowing: an unconfigured duration
+steps by the minute and refuses `PT30S`. That is the end of a dial which already turned both
+ways — `inIncrementsOf('PT1S')` admits `PT30S` just as surely — rather than a new exception to
+"configuration narrows".
 ### A field name identifies exactly, and collides case-insensitively
 
 Two jobs that used to be one method, split — and the split is a breaking change in both

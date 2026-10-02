@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Field;
 
+use Meraki\Schema\Exception\InvalidConfiguration;
 use Meraki\Schema\FieldName;
 use Meraki\Schema\FieldTestCase;
 use Meraki\Schema\ValidationStatus;
@@ -194,7 +195,6 @@ final class DurationTest extends FieldTestCase
 	public static function stepConstraintExpectations(): array
 	{
 		return [
-			'zero step' => ['PT1S', 'PT0S', 'PT2S', ValidationStatus::Failed],
 			'min and input are same (seconds)' => ['PT1S', 'PT1S', 'PT1S', ValidationStatus::Passed],
 			'min and input are same (mixed)' => ['P1D', 'PT1H', 'PT24H', ValidationStatus::Passed],
 			'input is not a multiple of step (mixed)' => ['PT0S', 'PT5M', 'PT7M', ValidationStatus::Failed],
@@ -209,5 +209,45 @@ final class DurationTest extends FieldTestCase
 		$field = $this->createField();
 
 		$this->assertNull($field->defaultValue);
+	}
+
+	/**
+	 * The same refusal `Number` makes, for the same reason — and these two used to disagree
+	 * about every case. A zero step failed every value here and silently meant "no stepping"
+	 * there; a negative one passed everything here, by an accident of the modulus, and failed
+	 * everything there.
+	 */
+	#[Test]
+	#[DataProvider('stepsThatAreNotPositive')]
+	public function a_step_that_is_not_positive_is_refused_where_it_is_written(string $step): void
+	{
+		$this->expectException(InvalidConfiguration::class);
+
+		$this->createField()->inIncrementsOf($step);
+	}
+
+	/** @return array<string, array{string}> */
+	public static function stepsThatAreNotPositive(): array
+	{
+		return [
+			'zero' => ['PT0S'],
+			'negative' => ['-PT5M'],
+		];
+	}
+
+	/**
+	 * Clearing widens past the default here, which `Number`'s does not: an unconfigured
+	 * duration steps by the minute. That is the end of a dial that already turns both ways —
+	 * `inIncrementsOf('PT1S')` admits `PT30S` just as surely.
+	 */
+	#[Test]
+	public function a_step_can_be_cleared_again(): void
+	{
+		$this->assertConstraintValidationResultFailed('step', $this->createField()->validate('PT30S'));
+
+		$cleared = $this->createField()->clearStep();
+
+		$this->assertNull($cleared->step);
+		$this->assertConstraintValidationResultSkipped('step', $cleared->validate('PT30S'));
 	}
 }

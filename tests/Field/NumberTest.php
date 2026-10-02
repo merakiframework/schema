@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Field;
 
+use Meraki\Schema\Exception\InvalidConfiguration;
 use Meraki\Schema\FieldName;
 use Meraki\Schema\FieldTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -198,6 +199,45 @@ final class NumberTest extends FieldTestCase
 			'positive float' => ['1.0', '1.1'],
 			'negative float' => ['-1.0', '-0.9'],
 		];
+	}
+
+	/**
+	 * A step of zero or less is refused where it is written.
+	 *
+	 * Both used to be accepted and reported per request, differently and uselessly: zero meant
+	 * "no stepping", so the call silently did nothing, and a negative step failed every value
+	 * forever. `Duration` accepted the same two and answered differently again. Neither can be
+	 * what somebody meant, and every other bound on this field already refuses the
+	 * unsatisfiable where it is declared.
+	 */
+	#[Test]
+	#[DataProvider('stepsThatAreNotPositive')]
+	public function a_step_that_is_not_positive_is_refused_where_it_is_written(mixed $step): void
+	{
+		$this->expectException(InvalidConfiguration::class);
+
+		$this->createField()->inIncrementsOf($step);
+	}
+
+	/** @return array<string, array{mixed}> */
+	public static function stepsThatAreNotPositive(): array
+	{
+		return [
+			'zero' => [0],
+			'zero as a decimal' => ['0.00'],
+			'negative integer' => [-5],
+			'negative decimal' => ['-0.5'],
+		];
+	}
+
+	#[Test]
+	public function a_step_can_be_cleared_again(): void
+	{
+		// The default, and now the only way back to it — zero used to be the undocumented spelling.
+		$field = $this->createField()->inIncrementsOf(3)->clearStep();
+
+		$this->assertNull($field->step);
+		$this->assertConstraintValidationResultSkipped('step', $field->validate(10));
 	}
 
 	#[Test]

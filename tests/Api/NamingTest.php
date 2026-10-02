@@ -47,8 +47,8 @@ final class NamingTest extends TestCase
 			'EmailAddress' => ['minLengthOf', 'maxLengthOf', 'allowDomains', 'disallowDomains'],
 
 			// Value-bounded quantities.
-			'Number' => ['minValueOf', 'maxValueOf', 'inIncrementsOf', 'scaleTo'],
-			'Duration' => ['minValueOf', 'maxValueOf', 'inIncrementsOf'],
+			'Number' => ['minValueOf', 'maxValueOf', 'inIncrementsOf', 'clearStep', 'scaleTo'],
+			'Duration' => ['minValueOf', 'maxValueOf', 'inIncrementsOf', 'clearStep'],
 
 			// Temporal: bounds already correct, stepping unified on intervals.
 			'Date' => ['from', 'until', 'atIntervalsOf'],

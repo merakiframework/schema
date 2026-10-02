@@ -121,6 +121,20 @@ final class InvalidConfiguration extends InvalidArgumentException implements Exc
 		));
 	}
 
+	/**
+	 * A step of zero or less is not a smaller step; it is a field nothing can satisfy, or a
+	 * check that silently does not run. Refused where it is written, like every other bound
+	 * that could never hold.
+	 */
+	public static function stepIsNotPositive(string $step): self
+	{
+		return new self(sprintf(
+			'A step must be greater than zero; "%s" is not. Omit it, or call clearStep(), to '
+				. 'accept any value.',
+			$step,
+		));
+	}
+
 	// ── lists of accepted things ────────────────────────────────────────────
 
 	/**

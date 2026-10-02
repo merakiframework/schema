@@ -118,9 +118,30 @@ final readonly class Number extends AtomicField
 		return $this->with(['maxValue' => $this->mustParse($value)]);
 	}
 
+	/**
+	 * @throws InvalidConfiguration if the step is zero or negative
+	 */
 	public function inIncrementsOf(float|int|string $step): static
 	{
-		return $this->with(['step' => $this->mustParse($step)]);
+		$step = $this->mustParse($step);
+
+		// Refused here rather than reported per request. Zero used to mean "no stepping", which
+		// is a call that silently does nothing; a negative one failed every value forever. Both
+		// are definitions that can never be what somebody meant, and every other bound on this
+		// field already says so where it is written.
+		if (!$step->isPositive()) {
+			throw InvalidConfiguration::stepIsNotPositive((string) $step);
+		}
+
+		return $this->with(['step' => $step]);
+	}
+
+	/**
+	 * Accepts any value again, whatever its increment. The default for this field.
+	 */
+	public function clearStep(): static
+	{
+		return $this->with(['step' => null]);
 	}
 
 	protected function parse(mixed $value): Value
@@ -180,12 +201,9 @@ final readonly class Number extends AtomicField
 	{
 		$value = $value->number;
 
-		if ($this->step === null || $this->step->isZero()) {
+		// Only null is left to guard: inIncrementsOf() refuses anything that is not positive.
+		if ($this->step === null) {
 			return null;
-		}
-
-		if ($this->step->isNegative()) {
-			return false;
 		}
 
 		try {

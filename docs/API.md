@@ -100,7 +100,7 @@ and the euro spans twenty.
 | `File` | `allowDocuments()`, `allowImages()`, `allowTypes()`, `allowVideos()`, `clearAllowedTypes()`, `clearDisallowedTypes()`, `disallowScripts()`, `disallowTypes()`, `maxSizeOf()`, `minSizeOf()` | `minSize`, `maxSize`, `allowedTypes`, `disallowedTypes` | `File\Value` |
 | `Money` | `allowCurrencies()`, `clearAllowedCurrencies()`, `maxAmountOf()`, `minAmountOf()` | `currencyRequired`, `amountRequired`, `allowedCurrencies`, `minAmount`, `maxAmount`, `scale` | `Money\Value` |
 | `Name` | `maxLengthOf()`, `minLengthOf()` | `minLength`, `maxLength` | `Name\Value` |
-| `Number` | `inIncrementsOf()`, `maxPrecisionOf()`, `maxValueOf()`, `minValueOf()`, `scaleTo()` | `minValue`, `maxValue`, `step`, `scale`, `maxPrecision` | `Number\Value` |
+| `Number` | `clearStep()`, `inIncrementsOf()`, `maxPrecisionOf()`, `maxValueOf()`, `minValueOf()`, `scaleTo()` | `minValue`, `maxValue`, `step`, `scale`, `maxPrecision` | `Number\Value` |
 | `Password` | `maxLengthOf()`, `minLengthOf()`, `minNumberOfDigits()`, `minNumberOfLowercaseChars()`, `minNumberOfSymbols()`, `minNumberOfUppercaseChars()`, `minStrengthOf()` | `minLength`, `maxLength`, `minStrength`, `minUppercaseChars`, `minLowercaseChars`, `minDigits`, `minSymbols` | `Password\Value` |
 | `PhoneNumber` | `allowCountries()`, `clearAllowedCountries()`, `ofType()` | `numberRequired`, `allowedCountries`, `numberType` | `PhoneNumber\Value` |
 | `Text` | `maxLengthOf()`, `minLengthOf()`, `mustMatch()` | `minLength`, `maxLength`, `pattern` | `Text\Value` |
