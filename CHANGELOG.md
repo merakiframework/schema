@@ -10,6 +10,59 @@ is a commit subject, with the body kept because the body is where the reasoning 
 
 ## Unreleased
 
+### A guide for working on the core, not with it
+
+`8d4b91e8` · 2026-10-02
+
+The docs covered using this library and writing a field for your own
+project. Nothing covered changing this package, which left a contributor
+reading src/ in whatever order they happened to open it and inferring the
+rules from the code that follows them.
+
+docs/DEVELOPER.md is that missing piece. Four things, in the order somebody
+new needs them:
+
+A map. What each namespace owns, and a "go here when" column, so finding
+where a change belongs does not require having read the whole tree first.
+
+One request, start to finish. Eight numbered steps from Facade::validate()
+to a rendered message, with a schema small enough to paste and run, and a
+table of where to put a breakpoint for each stage. This is the thing most
+worth having in your head and it was nowhere.
+
+The invariants, twelve of them, each written as a plain statement with why
+it exists and the test that catches you breaking it. They were all true
+before today and all discoverable only by tripping over them -- a field
+that writes to itself, a parse() that returns null, a value reporting a
+part nobody can submit. Writing them down also found four citations I had
+to correct: BaselineTest is about defaults being strict rather than about
+shape ordering, and FacadeValidateInputTest is about reading input off
+objects rather than about not raising. Invariant 12, no sideways sharing
+between sibling fields, has no automated check at all, and now says so
+rather than implying one.
+
+A section on things that look like mistakes. Long docblocks, duplicated
+sibling fields, no base class for values, no PHPStan baseline. Each is a
+decision, and each is the kind of thing a well-meant pull request tidies up
+before anybody explains why it is there.
+
+The language is deliberately plainer than the rest of the docs. A glossary
+defines the twelve words this codebase uses precisely -- shape, verdict,
+part, port -- because every one of them is an ordinary English word used in
+a narrow sense here, and guessing wrong about any of them makes the rest
+unreadable.
+
+Every claim in it was checked by running it rather than by remembering.
+The walkthrough's schema runs; the verdict table is its real output,
+including the two different reasons a constraint comes back Skipped, which
+is a better illustration than the one I first wrote and had wrong.
+
+Also: the README said ten examples. There are fourteen.
+
+### Update history
+
+`f731447d` · 2026-10-02
+
 ### A key nobody declared is a broken contract, not a verdict
 
 `727062c5` · 2026-10-02
