@@ -31,20 +31,8 @@ final class SchemaFacadeTest extends TestCase
 		// Api\ClockTest asserts the clock and country defaults survive a clone, and
 		// LongLivedProcessTest asserts a clone's validation leaves the original untouched. Neither
 		// would notice a deep copy. This does.
-		$messages = new class() implements Message\Provider {
-			public function supports(string $locale): bool
-			{
-				return false;
-			}
-
-			public function forLocale(string $locale): Message\Translator
-			{
-				return Message\Silence::for($locale);
-			}
-		};
-
 		// Two fields and a rule, because rules are the only thing that writes to `$fields`.
-		$schema = new Facade('signup', messages: $messages);
+		$schema = new Facade('signup');
 		$schema->add($schema->createTextField('username')->minLengthOf(3));
 		$schema->add($schema->createTextField('nickname')->makeOptional());
 		$schema->addRule(
@@ -59,7 +47,10 @@ final class SchemaFacadeTest extends TestCase
 		$this->assertSame($schema->name, $clone->name);
 		$this->assertSame($schema->fields, $clone->fields);
 		$this->assertSame($schema->rules, $clone->rules);
-		$this->assertSame($schema->messages, $clone->messages);
+
+		// There is no `$messages` to compare: a provider is handed to `validate()` with the
+		// request, so a copy cannot be carrying a different one.
+		$this->assertFalse(property_exists($schema, 'messages'));
 
 		// And the contents of the sets, not merely the sets. `assertSame` on arrays is `===`, which
 		// compares objects by identity, so this is one assertion per field and per rule.

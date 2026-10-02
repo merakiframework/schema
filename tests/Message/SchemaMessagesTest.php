@@ -26,17 +26,19 @@ final class SchemaMessagesTest extends TestCase
 {
 	private const PACK = __DIR__ . '/../fixtures/lang/basic';
 
-	private function schema(bool $withMessages = true): Facade
+	private function schema(): Facade
 	{
-		$schema = new Facade(
-			'signup',
-			messages: $withMessages ? Mf2Provider::fromDirectory(self::PACK) : null,
-		);
+		$schema = new Facade('signup');
 
 		return $schema->add(
 			$schema->createTextField('username')->minLengthOf(3),
 			$schema->createAddressField('billing', ['AU']),
 		);
+	}
+
+	private static function pack(): Mf2Provider
+	{
+		return Mf2Provider::fromDirectory(self::PACK);
 	}
 
 	private static function payload(string $username = 'ab', string $postcode = '99'): object
@@ -55,7 +57,7 @@ final class SchemaMessagesTest extends TestCase
 	#[Test]
 	public function a_request_names_its_own_language(): void
 	{
-		$result = $this->schema()->validate(self::payload(), locale: 'en');
+		$result = $this->schema()->validate(self::payload(), locale: 'en', messages: self::pack());
 
 		$this->assertSame('Use at least 3 characters.', $result->forField('username')?->messages->first);
 	}
@@ -67,8 +69,8 @@ final class SchemaMessagesTest extends TestCase
 		// Australian English should not have to define the same form twice.
 		$schema = $this->schema();
 
-		$english = $schema->validate(self::payload(), locale: 'en')->forField('billing');
-		$australian = $schema->validate(self::payload(), locale: 'en-AU')->forField('billing');
+		$english = $schema->validate(self::payload(), locale: 'en', messages: self::pack())->forField('billing');
+		$australian = $schema->validate(self::payload(), locale: 'en-AU', messages: self::pack())->forField('billing');
 
 		$this->assertInstanceOf(PartedSet::class, $english?->messages);
 		$this->assertInstanceOf(PartedSet::class, $australian?->messages);
@@ -99,8 +101,8 @@ final class SchemaMessagesTest extends TestCase
 		// The property everything else rests on. Nothing about wording may change what was decided.
 		$schema = $this->schema();
 
-		$known = $schema->validate(self::payload(), locale: 'en');
-		$unknown = $schema->validate(self::payload(), locale: 'de-AT');
+		$known = $schema->validate(self::payload(), locale: 'en', messages: self::pack());
+		$unknown = $schema->validate(self::payload(), locale: 'de-AT', messages: self::pack());
 
 		$this->assertSame($known->status, $unknown->status);
 		$this->assertSame(
@@ -111,9 +113,9 @@ final class SchemaMessagesTest extends TestCase
 	}
 
 	#[Test]
-	public function a_schema_with_no_provider_works_exactly_as_it_did(): void
+	public function a_request_with_no_provider_works_exactly_as_it_did(): void
 	{
-		$result = $this->schema(withMessages: false)->validate(self::payload(), locale: 'en');
+		$result = $this->schema()->validate(self::payload(), locale: 'en');
 
 		$this->assertTrue($result->anyFailed());
 		$this->assertTrue($result->forField('username')?->messages->isEmpty());
@@ -122,7 +124,7 @@ final class SchemaMessagesTest extends TestCase
 	#[Test]
 	public function asking_for_no_language_asks_for_no_messages(): void
 	{
-		$result = $this->schema()->validate(self::payload());
+		$result = $this->schema()->validate(self::payload(), messages: self::pack());
 
 		$this->assertTrue($result->anyFailed());
 		$this->assertTrue($result->forField('username')?->messages->isEmpty());
@@ -144,13 +146,17 @@ final class SchemaMessagesTest extends TestCase
 	{
 		// The failure this guards against is a form where the outer errors are translated and the
 		// inner ones are blank.
-		$schema = new Facade('order', messages: Mf2Provider::fromDirectory(self::PACK));
+		$schema = new Facade('order');
 		$schema->add($schema->createCollectionField(
 			'lines',
 			$schema->createTextField('sku')->minLengthOf(3),
 		));
 
-		$result = $schema->validate((object) ['lines' => ['too_short' => ['sku' => 'ab'], 'long_enough' => ['sku' => 'abc']]], locale: 'en');
+		$result = $schema->validate(
+			(object) ['lines' => ['too_short' => ['sku' => 'ab'], 'long_enough' => ['sku' => 'abc']]],
+			locale: 'en',
+			messages: self::pack(),
+		);
 		$lines = $result->forField('lines');
 
 		$this->assertInstanceOf(Field\Collection\Result::class, $lines);
@@ -166,13 +172,14 @@ final class SchemaMessagesTest extends TestCase
 	{
 		// Rebuilding the items has to replace the copies held in `$results` too, or the same row
 		// read two ways would carry messages only once.
-		$schema = new Facade('order', messages: Mf2Provider::fromDirectory(self::PACK));
+		$schema = new Facade('order');
 		$schema->add($schema->createCollectionField(
 			'lines',
 			$schema->createTextField('sku')->minLengthOf(3),
 		));
 
-		$lines = $schema->validate((object) ['lines' => [['sku' => 'ab']]], locale: 'en')->forField('lines');
+		$lines = $schema->validate((object) ['lines' => [['sku' => 'ab']]], locale: 'en', messages: self::pack())
+			->forField('lines');
 
 		$this->assertInstanceOf(Field\Collection\Result::class, $lines);
 
@@ -190,7 +197,7 @@ final class SchemaMessagesTest extends TestCase
 	{
 		// What a result says is fixed at the moment it was judged. Two reads cannot disagree
 		// because somebody edited a pack in between.
-		$result = $this->schema()->validate(self::payload(), locale: 'en')->forField('username');
+		$result = $this->schema()->validate(self::payload(), locale: 'en', messages: self::pack())->forField('username');
 
 		$this->assertInstanceOf(FieldResult::class, $result);
 		$this->assertSame($result->messages->all, $result->messages->all);

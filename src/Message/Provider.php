@@ -12,11 +12,14 @@ namespace Meraki\Schema\Message;
  * locale — so a provider is asked only after the judging is done.
  *
  * A provider serves *many* languages, which is why locale is a parameter here rather than
- * something fixed when the provider is built. One provider is registered on the schema and the
- * locale arrives per request:
+ * something fixed when the provider is built. Both arrive with the request:
  *
- *     $schema = new Facade('signup', messages: $provider);
- *     $result = $schema->validate($data, locale: 'en-AU');
+ *     $result = $schema->validate($data, locale: 'en-AU', messages: $provider);
+ *
+ * The provider used to sit on the schema's constructor beside the fields, which made it part of
+ * the definition in every way that mattered — fixed by whatever container built the schema,
+ * dropped on serialisation, and unswappable for one request. Nothing about wording was ever a
+ * fact about the schema.
  *
  * {@see self::forLocale()} resolves once per request, and the {@see Translator} it returns is what
  * every field result is handed. A hundred-field form does one lookup rather than a hundred.

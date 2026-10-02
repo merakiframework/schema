@@ -49,8 +49,11 @@ file_put_contents($pack . '/en_AU.mfr', <<<'MFR'
 	part.subdivision = state
 	MFR);
 
-// The provider is a source, registered once, holding every language it can serve — like the clock.
-$schema = new Facade('signup', messages: Mf2Provider::fromDirectory($pack));
+// A source: built once, holding every language it can serve, safe to share. It is handed to
+// validate() rather than to the schema, because wording is not a fact about a definition.
+$wording = Mf2Provider::fromDirectory($pack);
+
+$schema = new Facade('signup');
 
 $schema->add(
 	$schema->createEmailAddressField('email'),
@@ -75,7 +78,7 @@ $submitted = (object) [
 foreach (['en', 'en-AU', 'de-AT'] as $locale) {
 	printf('%s%s:%s', PHP_EOL, $locale, PHP_EOL);
 
-	foreach ($schema->validate($submitted, locale: $locale) as $field) {
+	foreach ($schema->validate($submitted, locale: $locale, messages: $wording) as $field) {
 		if (!$field->anyFailed()) {
 			continue;
 		}
@@ -91,8 +94,8 @@ foreach (['en', 'en-AU', 'de-AT'] as $locale) {
 		// one value gives a flat list; one whose value has named parts groups by part, so a
 		// renderer can put each sentence beside the input it belongs to.
 		if ($messages instanceof PartedSet) {
-			// `whole` is the half people forget: an email address has parts, but "that is not a
-			// valid email address" is about the address itself and belongs to none of them.
+			// `whole` is the half people forget: an address has parts, but "that is not a
+			// readable address" is about the whole value and belongs to none of them.
 			foreach ($messages->whole as $said) {
 				printf('  %-10s %-20s %s%s', $field->field->name, '(whole)', $said, PHP_EOL);
 			}
@@ -114,7 +117,8 @@ foreach (['en', 'en-AU', 'de-AT'] as $locale) {
 printf(
 	'%sSame verdicts in every language: %s%s',
 	PHP_EOL,
-	$schema->validate($submitted, locale: 'en')->status === $schema->validate($submitted, locale: 'de-AT')->status
+	$schema->validate($submitted, locale: 'en', messages: $wording)->status
+		=== $schema->validate($submitted, locale: 'de-AT', messages: $wording)->status
 		? 'yes'
 		: 'no',
 	PHP_EOL,

@@ -21,16 +21,12 @@ final class Facade
 	 *        source of the instant, never an instant: {@see SystemClock} is stateless and safe to
 	 *        share, whereas reading the time once into a property would start giving one request's
 	 *        answer to the next.
-	 * @param Message\Provider|null $messages where wording comes from, in whatever language a
-	 *        request asks for. Optional, and the schema works exactly as it did without one, every
-	 *        result simply carries an empty {@see Message\Set}.
 	 */
 	public function __construct(
 		string $name,
 		public private(set) Field\Set $fields = new Field\Set(),
 		public private(set) Rule\Set $rules = new Rule\Set(),
 		?Clock $clock = null,
-		public private(set) ?Message\Provider $messages = null,
 	) {
 		$this->name = new FieldName($name);
 		$this->clock = $clock ?? new SystemClock();
@@ -79,35 +75,49 @@ final class Facade
 	 * {@see ResolvedField::$source}, so a form can mark a prefilled field differently from one
 	 * the user typed into.
 	 *
-	 * ### The language is part of the request, not part of the schema
+	 * ### The wording is part of the request, not part of the schema
 	 *
 	 * A definition is the same in every language — the same data passes or fails identically — so
-	 * the locale arrives here rather than being fixed when the schema is built:
+	 * both halves of the wording arrive here rather than being fixed when the schema is built:
 	 *
-	 *     $result = $schema->validate($data, locale: 'en-AU');
+	 *     $result = $schema->validate($data, locale: 'en-AU', messages: $provider);
 	 *     $result->forField('billing')->messages->forPart('postal_code')->first;
 	 *
-	 * Which means one schema serves every reader. It also means a missing language can never change
-	 * an outcome: an unsupported tag, or none at all, leaves every result carrying an empty
-	 * {@see Message\Set} and every verdict exactly as it was.
+	 * The locale always worked this way; the **provider** did not, and sat on the constructor
+	 * beside the fields. That made it part of the definition in every way that mattered: a schema
+	 * built in a service container was stuck with whichever pack that container had, serialising
+	 * dropped it silently, and a caller holding a schema could not swap the wording for one
+	 * request without rebuilding the whole thing. Nothing about it was ever a fact about the
+	 * *schema*, which is the test this library applies to anything on a definition.
+	 *
+	 * Which means one schema serves every reader. It also means missing wording can never change
+	 * an outcome: no provider, an unsupported tag, or no tag at all leaves every result carrying
+	 * an empty {@see Message\Set} and every verdict exactly as it was.
+	 *
+	 * {@see self::resolve()} takes neither, because it reaches no verdict and only a failure has
+	 * anything to say.
 	 *
 	 * @throws NothingToValidate If there are no fields on this schema
 	 * @param object|null $prefilledWith values looked up for this one user
 	 * @param PrefillPolicy $policy whether a surviving prefill still has to satisfy its field
-	 * @param string|null $locale what language to report failures in, as a BCP 47 tag. Ignored when
-	 *        the schema was built without a {@see Message\Provider}.
+	 * @param string|null $locale what language to report failures in, as a BCP 47 tag. Ignored
+	 *        without a provider to ask.
+	 * @param Message\Provider|null $messages where that wording comes from. Optional: without one
+	 *        every result carries an empty {@see Message\Set} and every verdict is unchanged.
 	 */
 	public function validate(
 		?object $data = null,
 		?object $prefilledWith = null,
 		PrefillPolicy $policy = PrefillPolicy::Checked,
 		?string $locale = null,
+		?Message\Provider $messages = null,
 	): SchemaValidationResult {
 		return $this->against(
 			$data,
 			$prefilledWith,
 			static fn(Field $f, mixed $v, array $o, ValueSource $s): AggregatedValidationResult => $f->validate($v, $o, $s, $policy),
 			$locale,
+			$messages,
 		);
 	}
 
@@ -117,12 +127,14 @@ final class Facade
 	 * @throws NothingToValidate If there are no fields on this schema
 	 * @param callable(Field, mixed, list<AppliedOutcome>, ValueSource): AggregatedValidationResult $each
 	 * @param string|null $locale the language to report failures in, or null for none
+	 * @param Message\Provider|null $messages where that wording comes from, or null for none
 	 */
 	private function against(
 		?object $data,
 		?object $prefilledWith,
 		callable $each,
 		?string $locale = null,
+		?Message\Provider $messages = null,
 	): SchemaValidationResult {
 		if ($this->fields->isEmpty()) {
 			throw NothingToValidate::theSchemaHasNoFields((string) $this->name);
@@ -144,7 +156,7 @@ final class Facade
 		}
 
 		// prevent N lookups in the loop below and make sure field messages get same translator wording
-		$translator = ($locale === null || $this->messages === null) ? null : $this->messages->forLocale($locale);
+		$translator = ($locale === null || $messages === null) ? null : $messages->forLocale($locale);
 		$results = [];
 
 		foreach ($working->fields as $field) {
@@ -242,7 +254,7 @@ final class Facade
 	 *
 	 * A field is read as the value it was given (`#/fields/x/value`), which is what a rule
 	 * almost always means. To ask about the definition instead — "when this field's minimum is
-	 * 18" — pass the scope outright: `when(PropertyScope::of('age', 'min'))`.
+	 * 18" — pass the scope outright: `when(PropertyScope::of('age', 'minValue'))`.
 	 *
 	 *     $schema->addRule(
 	 *         $schema->when($hasLogBook)->equals(true)

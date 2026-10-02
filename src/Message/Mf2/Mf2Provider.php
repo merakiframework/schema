@@ -28,7 +28,7 @@ use Composer\InstalledVersions;
  *     $provider = Mf2Provider::fromPackage('meraki/schema-language-english')
  *         ->withPack(__DIR__ . '/../resources/lang');   // your own wording, laid over the top
  *
- *     $schema = new Facade('signup', messages: $provider);
+ *     $result = $schema->validate($data, locale: 'en-AU', messages: $provider);
  *
  * Because it is only ever a path, a test points it at a fixture folder, which a provider that
  * fetched could not do.
