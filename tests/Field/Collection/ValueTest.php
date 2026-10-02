@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Field\Collection;
 
-use Meraki\Schema\Facade;
+use Meraki\Schema\Definition;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
@@ -22,7 +22,7 @@ final class ValueTest extends TestCase
 {
 	private function rowsFor(array $submitted): Value
 	{
-		$schema = new Facade('invoice');
+		$schema = new Definition('invoice');
 		$schema->add($schema->createCollectionField(
 			'lines',
 			$schema->createTextField('sku'),
@@ -189,7 +189,7 @@ final class ValueTest extends TestCase
 	#[Test]
 	public function it_is_never_equal_to_a_value_of_another_kind(): void
 	{
-		$schema = new Facade('other');
+		$schema = new Definition('other');
 		$text = $schema->createTextField('t')->resolvedValueFor('a');
 
 		$this->assertFalse($this->rowsFor([])->equals($text));

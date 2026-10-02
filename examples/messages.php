@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../vendor/autoload.php';
 
-use Meraki\Schema\Facade;
+use Meraki\Schema\Definition;
 use Meraki\Schema\Message\Mf2\Mf2Provider;
 use Meraki\Schema\Message\PartedSet;
 
@@ -53,7 +53,7 @@ file_put_contents($pack . '/en_AU.mfr', <<<'MFR'
 // validate() rather than to the schema, because wording is not a fact about a definition.
 $wording = Mf2Provider::fromDirectory($pack);
 
-$schema = new Facade('signup');
+$schema = new Definition('signup');
 
 $schema->add(
 	$schema->createEmailAddressField('email'),

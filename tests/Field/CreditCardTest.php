@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Field;
 
-use Meraki\Schema\Facade;
+use Meraki\Schema\Definition;
 use Meraki\Schema\Field\CreditCard\Value;
 use Meraki\Schema\FieldName;
 use Meraki\Schema\FieldTestCase;
@@ -342,7 +342,7 @@ final class CreditCardTest extends FieldTestCase
 	public function a_schema_can_declare_the_clock_instead(): void
 	{
 		// Built once for every field the schema makes, the same shape as `for()`.
-		$schema = new Facade('checkout', clock: self::clockAt(self::TODAY));
+		$schema = new Definition('checkout', clock: self::clockAt(self::TODAY));
 
 		$this->assertSame(self::TODAY, (string) $schema->createCreditCardField('card')->determineToday());
 	}

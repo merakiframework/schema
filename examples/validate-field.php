@@ -6,7 +6,7 @@ require_once __DIR__ . '/../vendor/autoload.php';
 use Meraki\Schema\Field\Text;
 use Meraki\Schema\FieldName;
 
-// A field can be built and validated on its own, without a Facade.
+// A field can be built and validated on its own, without a Definition.
 //
 // Note that every configuration method returns a *new* field rather than changing this one:
 // a field is immutable, so the result has to be kept. Writing

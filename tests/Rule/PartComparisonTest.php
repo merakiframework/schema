@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Rule;
 
-use Meraki\Schema\Facade;
+use Meraki\Schema\Definition;
 use Meraki\Schema\FieldName;
 use Meraki\Schema\PartScope;
 use Meraki\Schema\Rule\Condition\Comparison;
@@ -45,9 +45,9 @@ final class PartComparisonTest extends TestCase
 		'country' => 'NZ',
 	];
 
-	private function schema(): Facade
+	private function schema(): Definition
 	{
-		$schema = new Facade('checkout');
+		$schema = new Definition('checkout');
 		$schema->add(
 			$schema->createAddressField('billing', ['AU', 'NZ']),
 			$schema->createAddressField('shipping', ['AU', 'NZ']),
@@ -57,7 +57,7 @@ final class PartComparisonTest extends TestCase
 		return $schema;
 	}
 
-	private function fired(Facade $schema, array $billing, array $shipping): bool
+	private function fired(Definition $schema, array $billing, array $shipping): bool
 	{
 		return $schema
 			->validate((object) ['billing' => (object) $billing, 'shipping' => (object) $shipping])

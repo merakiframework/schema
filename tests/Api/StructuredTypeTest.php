@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Api;
 
-use Meraki\Schema\Facade;
+use Meraki\Schema\Definition;
 use Meraki\Schema\Field;
 use Meraki\Schema\FieldName;
 use PHPUnit\Framework\Attributes\CoversNothing;
@@ -103,7 +103,7 @@ final class StructuredTypeTest extends TestCase
 		// The important half. A name used to embed the field it came from, so renaming
 		// `billing` to `invoice_address` changed every constraint it emitted and every
 		// message provider matching on them.
-		$schema = new Facade('checkout');
+		$schema = new Definition('checkout');
 		$schema->add($schema->createAddressField('invoice_address', ['AU'])->mustBeVisitable());
 
 		$failed = $schema->validate((object) [
@@ -150,7 +150,7 @@ final class StructuredTypeTest extends TestCase
 		// The template is handed over as fields, not built by a callback. A callback was needed
 		// while a collection prefixed its template's names and so had to build them itself; it
 		// owns its whole value now, exactly as Address and Money do.
-		$schema = new Facade('application');
+		$schema = new Definition('application');
 		$schema->add(
 			$schema->createCollectionField('attachments', $schema->createFileField('file'))
 				->minCountOf(1),
@@ -166,7 +166,7 @@ final class StructuredTypeTest extends TestCase
 	{
 		// What Composite was kept for. Collection holds a template of several fields and
 		// validates each item against all of them.
-		$schema = new Facade('schedule');
+		$schema = new Definition('schedule');
 		$schema->add(
 			$schema->createCollectionField(
 				'sessions',

@@ -10,7 +10,40 @@ use Meraki\Schema\Rule\Condition;
 use Brick\DateTime\Clock;
 use Brick\DateTime\Clock\SystemClock;
 
-final class Facade
+/**
+ * A schema: the fields somebody is being asked for, and the rules between them.
+ *
+ * This is the thing you build once and keep. It holds what the author wrote and nothing else —
+ * no submitted value, no verdict, no language. Judging a request hands back a
+ * {@see SchemaValidationResult} and leaves this exactly as it was, which is what makes one
+ * instance safe to serve every request in a long-running process, concurrently.
+ *
+ *     $schema = new Definition('signup');
+ *     $schema->add($schema->createTextField('username')->minLengthOf(3));
+ *
+ *     $result = $schema->validate((object) ['username' => 'jo']);
+ *
+ * ### Why "Definition"
+ *
+ * It was called `Facade` until this release, which named a pattern rather than a thing — and not
+ * even accurately, since a facade simplifies a subsystem you could still use directly, and there
+ * is no schema underneath this one. The codebase had already voted against the name: every port
+ * wrote `Facade $schema`, the result class was `SchemaValidationResult` rather than
+ * `FacadeValidationResult`, and this was the only class in `src/` with no docblock, because a
+ * pattern name leaves nothing to explain.
+ *
+ * `Definition` is the distinction the whole library turns on: a definition is what the author
+ * wrote, a result is what one request produced, and nothing per-request may touch the first. The
+ * name now says which side of that line this sits on.
+ *
+ * `Schema` would have stuttered — `Meraki\Schema\Schema` — and the convention here is already a
+ * structural class name with a domain variable, as in `Field\Set $fields` and `Rule\Set $rules`.
+ * `Definition $schema` is the same shape.
+ *
+ * Not to be confused with {@see Field\Definition}, which is the trait holding the configuration
+ * half of a *field*. Different namespaces, different jobs; they never appear in the same file.
+ */
+final class Definition
 {
 	use Field\BuildsFields;
 

@@ -15,18 +15,18 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../vendor/autoload.php';
 
-use Meraki\Schema\Facade;
+use Meraki\Schema\Definition;
 use Meraki\Schema\Field;
 
 /**
  * The schema is built once and shared. Nothing per-request is written back to it, so the same
  * object can serve every booking the process handles.
  */
-function workshopSchema(): Facade
+function workshopSchema(): Definition
 {
 	// The schema builds its own fields, the same way it builds its own rules. `for('AU')` says
 	// which countries the region-aware fields accept, so they need not each repeat it.
-	$schema = (new Facade('workshop_booking'))->for('AU');
+	$schema = (new Definition('workshop_booking'))->for('AU');
 
 	$schema->add(
 		$schema->createNameField('organiser')

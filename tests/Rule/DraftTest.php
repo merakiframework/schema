@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Rule;
 
-use Meraki\Schema\Facade;
+use Meraki\Schema\Definition;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
@@ -17,7 +17,7 @@ use LogicException;
  * with opposite meanings sit side by side: a field wither hands back a copy and leaves the original
  * alone, and a draft did not. Nothing in the signatures told them apart.
  *
- * It broke the thing {@see Facade::allOf()} actively invites — holding a condition in a variable and
+ * It broke the thing {@see Definition::allOf()} actively invites — holding a condition in a variable and
  * building more than one rule from it. Both rules came out as the *same object* carrying both sets
  * of outcomes, so requiring one field also required the other.
  */
@@ -25,9 +25,9 @@ use LogicException;
 #[CoversClass(Draft::class)]
 final class DraftTest extends TestCase
 {
-	private function schema(): Facade
+	private function schema(): Definition
 	{
-		$schema = new Facade('drafts');
+		$schema = new Definition('drafts');
 		$schema->add(
 			$schema->createTextField('plan'),
 			$schema->createTextField('first'),

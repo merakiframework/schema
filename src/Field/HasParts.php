@@ -42,7 +42,7 @@ namespace Meraki\Schema\Field;
  *
  * ### Why the names are declarable without a value
  *
- * {@see self::partNames()} is static because {@see \Meraki\Schema\Facade::addRule()} validates a
+ * {@see self::partNames()} is static because {@see \Meraki\Schema\Definition::addRule()} validates a
  * scope when the rule is *written*, where there is no request and so no value to inspect. Without
  * it, `ValueScope::of('billing', 'ctry')` would be accepted at authoring time and silently resolve
  * to `null` on every request afterwards — which is the failure mode this library spends most of

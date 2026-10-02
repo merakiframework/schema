@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Rule;
 
-use Meraki\Schema\Facade;
+use Meraki\Schema\Definition;
 use Meraki\Schema\Rule;
 use Meraki\Schema\Rule\Outcome\Ignore;
 use Meraki\Schema\Rule\Outcome\Reconfigure;
@@ -30,7 +30,7 @@ use LogicException;
  * `pairWith()`'s own precondition and has nothing left to be true of.
  */
 #[Group('rule')]
-#[CoversClass(Facade::class)]
+#[CoversClass(Definition::class)]
 #[CoversClass(Draft::class)]
 #[CoversClass(Matcher\Basic::class)]
 #[CoversClass(Matcher\Ordered::class)]
@@ -51,9 +51,9 @@ final class ConditionalFieldsTest extends TestCase
 	 * Each unchosen branch is made optional *and* ignored: optional alone would still fail on
 	 * a stale value the submitter left behind in a field the form stopped showing.
 	 */
-	private function contactSchema(): Facade
+	private function contactSchema(): Definition
 	{
-		$schema = new Facade('contact');
+		$schema = new Definition('contact');
 
 		$method = $schema->createEnumField('contact_method', ['email', 'phone']);
 		$email = $schema->createEmailAddressField('email_address');
@@ -105,7 +105,7 @@ final class ConditionalFieldsTest extends TestCase
 	public function a_camel_case_field_name_is_targeted_verbatim(): void
 	{
 		// Names are matched exactly, with no case conversion anywhere along the path.
-		$schema = new Facade('contact');
+		$schema = new Definition('contact');
 		$method = $schema->createEnumField('contactMethod', ['email', 'phone']);
 		$email = $schema->createEmailAddressField('emailAddress');
 
@@ -123,7 +123,7 @@ final class ConditionalFieldsTest extends TestCase
 	#[Test]
 	public function every_condition_must_hold_for_an_all_of_rule(): void
 	{
-		$schema = new Facade('booking');
+		$schema = new Definition('booking');
 
 		$whoFor = $schema->createEnumField('who_for', ['myself', 'someone_else']);
 		$whoManages = $schema->createEnumField('who_manages', ['organiser', 'participant'])->makeOptional();
@@ -148,7 +148,7 @@ final class ConditionalFieldsTest extends TestCase
 	#[Test]
 	public function any_condition_holding_is_enough_for_an_any_of_rule(): void
 	{
-		$schema = new Facade('booking');
+		$schema = new Definition('booking');
 
 		$staff = $schema->createBooleanField('is_staff')->makeOptional();
 		$member = $schema->createBooleanField('is_member')->makeOptional();
@@ -173,7 +173,7 @@ final class ConditionalFieldsTest extends TestCase
 	{
 		// There would be no answer to which set of outcomes fires, so it is refused where it
 		// is written rather than resolved by some rule nobody would guess.
-		$schema = new Facade('booking');
+		$schema = new Definition('booking');
 		$a = $schema->createBooleanField('a');
 		$b = $schema->createBooleanField('b');
 
@@ -195,7 +195,7 @@ final class ConditionalFieldsTest extends TestCase
 	{
 		// Written as one rule rather than two with hand-inverted conditions, which is the
 		// whole point: there is one condition here, so the branches cannot drift apart.
-		$schema = new Facade('lesson');
+		$schema = new Definition('lesson');
 
 		$hasLogBook = $schema->createBooleanField('has_log_book');
 		$completed = $schema->createTimeField('log_book_time_completed')->makeOptional();
@@ -216,7 +216,7 @@ final class ConditionalFieldsTest extends TestCase
 	{
 		// A consumer asking why a field is optional needs the answer whichever branch gave it,
 		// so an else-branch outcome is still something the rule did.
-		$schema = new Facade('lesson');
+		$schema = new Definition('lesson');
 
 		$hasLogBook = $schema->createBooleanField('has_log_book');
 		$completed = $schema->createTimeField('log_book_time_completed');
@@ -245,7 +245,7 @@ final class ConditionalFieldsTest extends TestCase
 	{
 		// What the closure-configurator form made impossible: a rule that exists as a value,
 		// so it can be held, passed around, or built somewhere else entirely.
-		$schema = new Facade('signup');
+		$schema = new Definition('signup');
 		$username = $schema->createTextField('username');
 		$nickname = $schema->createTextField('nickname')->makeOptional();
 
@@ -264,7 +264,7 @@ final class ConditionalFieldsTest extends TestCase
 	#[Test]
 	public function a_rule_that_says_nothing_should_happen_is_refused(): void
 	{
-		$schema = new Facade('signup');
+		$schema = new Definition('signup');
 		$schema->add($schema->createTextField('username'));
 
 		$this->expectException(LogicException::class);
@@ -278,7 +278,7 @@ final class ConditionalFieldsTest extends TestCase
 	{
 		// The then-branch was always checked. An else-branch naming a field that does not
 		// exist has to fail in the same place, or the check has a hole in it.
-		$schema = new Facade('signup');
+		$schema = new Definition('signup');
 		$schema->add($schema->createTextField('username'));
 
 		$this->expectException(InvalidArgumentException::class);
@@ -294,7 +294,7 @@ final class ConditionalFieldsTest extends TestCase
 	 *
 	 * `thenIgnore('Detail')` against a field called `detail` used to pass every authoring check
 	 * and then do nothing: `Guards` resolved the scope through `getByName()`, which folded case,
-	 * while `Facade::against()` keyed the outcomes by the scope's spelling and looked them up by
+	 * while `Definition::against()` keyed the outcomes by the scope's spelling and looked them up by
 	 * the field's. Two spellings, one field, and the bucket never matched.
 	 *
 	 * Now that a name is identified exactly, the scope simply does not resolve and the rule is
@@ -303,7 +303,7 @@ final class ConditionalFieldsTest extends TestCase
 	#[Test]
 	public function an_outcome_naming_a_field_by_the_wrong_case_is_refused(): void
 	{
-		$schema = new Facade('order');
+		$schema = new Definition('order');
 		$flag = $schema->createTextField('flag');
 		$detail = $schema->createTextField('detail')->makeOptional();
 		$schema->add($flag, $detail);

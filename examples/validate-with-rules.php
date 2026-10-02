@@ -9,7 +9,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../vendor/autoload.php';
 
-use Meraki\Schema\Facade;
+use Meraki\Schema\Definition;
 use Meraki\Schema\Field\ShapeValidationResult;
 use Meraki\Schema\SchemaValidationResult;
 
@@ -44,7 +44,7 @@ function report(string $label, SchemaValidationResult $result): void
 // carries the same list without repeating it. It says which countries are allowed — the address
 // still has to name the one it is in, the way an amount of money has to name its currency.
 
-$schema = new Facade('booking');
+$schema = new Definition('booking');
 
 $hasLogBook = $schema->createBooleanField('has_log_book')->defaultsTo(true);
 $timeCompleted = $schema->createDurationField('log_book_time_completed')

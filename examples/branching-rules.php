@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../vendor/autoload.php';
 
-use Meraki\Schema\Facade;
+use Meraki\Schema\Definition;
 
 // A rule makes one field's requirements depend on another field's value.
 //
@@ -11,7 +11,7 @@ use Meraki\Schema\Facade;
 // hand-inverted condition means two conditions that are supposed to be opposites, with nothing
 // checking that they stay so — a change to one is silently a change in meaning.
 
-$schema = new Facade('booking');
+$schema = new Definition('booking');
 
 $schema->add(
 	$whoFor = $schema->createEnumField('who_for', ['myself', 'someone_else']),
@@ -26,7 +26,7 @@ $schema->addRule(
 );
 
 /** @param array<string, mixed> $submitted */
-$report = static function (Facade $schema, string $label, array $submitted): void {
+$report = static function (Definition $schema, string $label, array $submitted): void {
 	$result = $schema->validate((object) $submitted);
 
 	echo $label . PHP_EOL;
@@ -76,7 +76,7 @@ echo '  outcomes on the second: ' . count($forSomeoneElse->then($email->makeRequ
 // outcomes attach to the combined result, so there is exactly one set of them.
 echo PHP_EOL . 'Combining conditions:' . PHP_EOL;
 
-$combined = new Facade('combined');
+$combined = new Definition('combined');
 $combined->add(
 	$combined->createEnumField('who_for', ['myself', 'someone_else']),
 	$combined->createEnumField('who_manages', ['organiser', 'participant']),

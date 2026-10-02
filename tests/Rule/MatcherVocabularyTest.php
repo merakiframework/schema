@@ -4,7 +4,7 @@ declare(strict_types=1);
 namespace Meraki\Schema\Rule;
 
 use Meraki\Schema\Comparison\Comparable;
-use Meraki\Schema\Facade;
+use Meraki\Schema\Definition;
 use Meraki\Schema\Field;
 use Meraki\Schema\Message\Vocabulary;
 use Meraki\Schema\Rule\Condition\Contains;
@@ -66,9 +66,9 @@ final class MatcherVocabularyTest extends TestCase
 	 * A schema whose `flag` field is optional until a rule says otherwise, so "did the condition
 	 * hold" is one readable assertion rather than an inspection of applied outcomes.
 	 */
-	private function schema(): Facade
+	private function schema(): Definition
 	{
-		$schema = new Facade('vocabulary');
+		$schema = new Definition('vocabulary');
 
 		return $schema->add(
 			$schema->createNumberField('age')->makeOptional(),
@@ -81,7 +81,7 @@ final class MatcherVocabularyTest extends TestCase
 	}
 
 	/** Whether the rule fired, read off the effective definition it produced. */
-	private function fired(Facade $schema, array $data): bool
+	private function fired(Definition $schema, array $data): bool
 	{
 		return $schema->validate((object) $data)->forField('flag')->field->optional === false;
 	}
@@ -241,7 +241,7 @@ final class MatcherVocabularyTest extends TestCase
 	{
 		// Password and CreditCard have no __toString() on purpose, so a rule cannot read the text
 		// of a secret. The consequence reaching this far is a feature of that decision.
-		$schema = new Facade('secrets');
+		$schema = new Definition('secrets');
 		$schema->add(
 			$schema->createPasswordField('secret')->makeOptional(),
 			$schema->createTextField('flag')->makeOptional(),
@@ -445,7 +445,7 @@ final class MatcherVocabularyTest extends TestCase
 		// The reason EmailAddress\Value gained a string form. Checking a domain is among the
 		// likelier rules to want, and before it had one the field landed in Matcher\Basic and
 		// `matches` was not there to call.
-		$schema = new Facade('signup');
+		$schema = new Definition('signup');
 		$schema->add(
 			$email = $schema->createEmailAddressField('email'),
 			$approval = $schema->createBooleanField('needs_approval')->makeOptional(),
@@ -463,7 +463,7 @@ final class MatcherVocabularyTest extends TestCase
 	#[Test]
 	public function a_field_named_by_string_gets_every_question(): void
 	{
-		// Facade::when() cannot resolve a type, so it answers with all twelve and leans on the
+		// Definition::when() cannot resolve a type, so it answers with all twelve and leans on the
 		// check that runs when the rule is added. That is the trade for by-name authoring.
 		$schema = $this->schema();
 

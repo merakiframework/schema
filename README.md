@@ -22,7 +22,7 @@ Define a form **once** — its fields, their constraints, and the rules that wir
 and validate input against that description. The core knows nothing about HTTP, HTML or JSON.
 
 ```php
-$schema = new Facade('signup');
+$schema = new Definition('signup');
 
 $schema->add(
     $schema->createEmailAddressField('email'),
@@ -73,9 +73,9 @@ composer require meraki/schema
 ## A first schema
 
 ```php
-use Meraki\Schema\Facade;
+use Meraki\Schema\Definition;
 
-$schema = new Facade('contact_form');
+$schema = new Definition('contact_form');
 
 $schema->add(
     $schema->createTextField('username')->minLengthOf(3)->maxLengthOf(20),
@@ -215,7 +215,7 @@ $schema->add(
 Declare a region once and the region-aware fields inherit it:
 
 ```php
-$schema = (new Facade('booking'))->for('AU');
+$schema = (new Definition('booking'))->for('AU');
 $schema->createAddressField('billing');      // restricted to AU
 $schema->createPhoneNumberField('mobile');   // ditto
 ```
@@ -295,7 +295,7 @@ $result->forField('participant_name')->wasAlteredByRule();   // true
 A schema is a definition and nothing per-request touches it, so one instance serves many requests:
 
 ```php
-$schema = new Facade('signup');    // built once, at boot
+$schema = new Definition('signup');    // built once, at boot
 // ...
 $alice = $schema->validate($a);    // two requests, in any order,
 $mallory = $schema->validate($b);  // interleaved or not

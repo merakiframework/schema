@@ -253,7 +253,7 @@ final class ValueObjectTest extends TestCase
 	#[Test]
 	public function a_failing_row_fails_the_collection_and_the_schema(): void
 	{
-		$schema = new \Meraki\Schema\Facade('invoice');
+		$schema = new \Meraki\Schema\Definition('invoice');
 		$schema->add($schema->createCollectionField('lines', $schema->createNumberField('qty')));
 
 		$result = $schema->validate((object) ['lines' => ['only' => (object) ['qty' => 'not a number']]]);

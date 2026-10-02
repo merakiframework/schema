@@ -85,7 +85,7 @@ final class Quantified implements Condition
 
 	/**
 	 * Every scope this mentions — the inner condition's own, including the other half of a
-	 * cross-field comparison, so {@see \Meraki\Schema\Facade::addRule()} still checks them all.
+	 * cross-field comparison, so {@see \Meraki\Schema\Definition::addRule()} still checks them all.
 	 *
 	 * @return list<Scope>
 	 */

@@ -5,7 +5,7 @@ namespace Meraki\Schema\Rule\Condition;
 
 use Meraki\Schema\Comparison\Comparable;
 use Meraki\Schema\Comparison\Order;
-use Meraki\Schema\Facade;
+use Meraki\Schema\Definition;
 use Meraki\Schema\Field;
 use Meraki\Schema\PartScope;
 use Meraki\Schema\ScopeResolver;
@@ -47,7 +47,7 @@ use Meraki\Schema\ValueScope;
  * `when($username)->isAtLeast(3)` reads plausibly and can never hold, because text has no order
  * here. Since a field's value class is knowable without a request — see
  * {@see Field\ValueClass} — that is caught by {@see self::whyItCouldNeverHold()} at
- * {@see Facade::addRule()} rather than by nothing at all.
+ * {@see Definition::addRule()} rather than by nothing at all.
  *
  * For a {@see \Meraki\Schema\PartScope} the field's own class says nothing — a part resolves to
  * whatever the value put in it — with one exception the value *does* declare: a part held as a

@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Rule;
 
-use Meraki\Schema\Facade;
+use Meraki\Schema\Definition;
 use Meraki\Schema\PropertyScope;
 use Meraki\Schema\Rule\Condition\Comparison;
 use Meraki\Schema\Rule\Condition\Equals;
@@ -37,7 +37,7 @@ use InvalidArgumentException;
 #[CoversClass(Comparison::class)]
 #[CoversClass(Equals::class)]
 #[CoversClass(NotEquals::class)]
-#[CoversClass(Facade::class)]
+#[CoversClass(Definition::class)]
 final class ComparisonTest extends TestCase
 {
 	/**
@@ -121,7 +121,7 @@ final class ComparisonTest extends TestCase
 	#[Test]
 	public function a_definition_property_is_compared_as_it_stands(): void
 	{
-		$schema = new Facade('properties');
+		$schema = new Definition('properties');
 		$schema->add($schema->createTextField('nick')->minLengthOf(3), $schema->createTextField('target'));
 		$schema->addRule(
 			$schema->when(PropertyScope::of('nick', 'minLength'))->equals(3)->then($schema->fields->getByName('target')->makeRequired()),
@@ -142,7 +142,7 @@ final class ComparisonTest extends TestCase
 	#[Test]
 	public function null_is_never_read_as_the_fields_default(): void
 	{
-		$schema = new Facade('absence');
+		$schema = new Definition('absence');
 		$schema->add(
 			$schema->createNumberField('qty')->defaultsTo(5),
 			$schema->createTextField('target'),
@@ -159,7 +159,7 @@ final class ComparisonTest extends TestCase
 	#[Test]
 	public function a_comparison_the_field_could_never_satisfy_is_refused_where_it_is_written(): void
 	{
-		$schema = new Facade('dead');
+		$schema = new Definition('dead');
 		$schema->add($schema->createNumberField('age'), $schema->createTextField('licence'));
 
 		$this->expectException(InvalidArgumentException::class);
@@ -171,7 +171,7 @@ final class ComparisonTest extends TestCase
 	#[Test]
 	public function a_dead_comparison_is_found_inside_a_composed_condition(): void
 	{
-		$schema = new Facade('dead-group');
+		$schema = new Definition('dead-group');
 		$schema->add(
 			$schema->createTextField('plan'),
 			$schema->createNumberField('age'),
@@ -196,7 +196,7 @@ final class ComparisonTest extends TestCase
 	#[Test]
 	public function an_expectation_that_will_fail_its_constraints_is_still_allowed(): void
 	{
-		$schema = new Facade('short');
+		$schema = new Definition('short');
 		$schema->add($schema->createTextField('nick')->minLengthOf(3), $schema->createTextField('target'));
 
 		$schema->addRule($schema->when('nick')->equals('xy')->then($schema->fields->getByName('target')->makeRequired()));
@@ -209,9 +209,9 @@ final class ComparisonTest extends TestCase
 	/**
 	 * @param list<mixed> $args
 	 */
-	private static function schemaComparing(string $build, array $args, mixed $expected, bool $equals): Facade
+	private static function schemaComparing(string $build, array $args, mixed $expected, bool $equals): Definition
 	{
-		$schema = new Facade('comparison');
+		$schema = new Definition('comparison');
 		$schema->add($schema->{$build}('subject', ...$args), $schema->createTextField('target'));
 
 		$matcher = $schema->when('subject');

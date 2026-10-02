@@ -3,10 +3,10 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../vendor/autoload.php';
 
-use Meraki\Schema\Facade;
+use Meraki\Schema\Definition;
 use Meraki\Schema\Field\ShapeValidationResult;
 
-$schema = new Facade('contact_form');
+$schema = new Definition('contact_form');
 
 // Fields are built by the factory, configured, then added. Configuring returns a new field each
 // time, so the finished one is what gets added — nothing can be changed after it is in a schema.

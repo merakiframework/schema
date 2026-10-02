@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../vendor/autoload.php';
 
-use Meraki\Schema\Facade;
+use Meraki\Schema\Definition;
 
 // A rule that applies to each row of a collection on its own.
 //
@@ -11,7 +11,7 @@ use Meraki\Schema\Facade;
 // time. A schema rule cannot ask it — naming the collection only ever speaks about the list as a
 // whole — so a collection carries its own rules, applied per row.
 
-$schema = new Facade('workshop');
+$schema = new Definition('workshop');
 
 $age = $schema->createNumberField('age');
 $guardian = $schema->createTextField('guardian')->makeOptional();
@@ -64,7 +64,7 @@ foreach ($rows->items as $name => $row) {
 
 // A column addresses one template field across every row, and needs a quantifier to say how many
 // of them have to match: one is enough for `whereAny`, all of them for `whereEvery`.
-$order = new Facade('order');
+$order = new Definition('order');
 
 $sku = $order->createTextField('sku');
 $declaration = $order->createTextField('declaration')->makeOptional();

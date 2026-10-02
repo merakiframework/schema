@@ -21,9 +21,9 @@ use InvalidArgumentException;
 #[CoversClass(ScopeResolver::class)]
 final class ScopeResolverTest extends TestCase
 {
-	private function schema(): Facade
+	private function schema(): Definition
 	{
-		$schema = new Facade('signup');
+		$schema = new Definition('signup');
 		$schema->add($schema->createTextField('username')->minLengthOf(3));
 		$schema->add($schema->createTextField('nickname')->defaultsTo('anonymous'));
 
@@ -95,7 +95,7 @@ final class ScopeResolverTest extends TestCase
 	#[Test]
 	public function a_field_scope_resolves_to_the_field_itself(): void
 	{
-		$schema = new Facade('signup');
+		$schema = new Definition('signup');
 		$field = $schema->createTextField('username');
 		$schema->add($field);
 
@@ -107,7 +107,7 @@ final class ScopeResolverTest extends TestCase
 	#[Test]
 	public function optionality_is_addressable(): void
 	{
-		$schema = new Facade('signup');
+		$schema = new Definition('signup');
 		$schema->add($schema->createTextField('nickname')->makeOptional());
 
 		$this->assertTrue((new ScopeResolver($schema->fields))->resolve(PropertyScope::of('nickname', 'optional')));
@@ -117,7 +117,7 @@ final class ScopeResolverTest extends TestCase
 	public function a_fields_public_configuration_stays_addressable(): void
 	{
 		// A field's public properties are its API; only the back-reference is excluded.
-		$schema = new Facade('signup');
+		$schema = new Definition('signup');
 		$schema->add($schema->createTextField('username')->minLengthOf(3)->maxLengthOf(20));
 
 		$resolver = new ScopeResolver($schema->fields);
@@ -138,7 +138,7 @@ final class ScopeResolverTest extends TestCase
 		// `#/fields/x/schema` now fails identically to any other unknown property, and a test
 		// spelling `schema` would pass just as well against a typo. Re-adding the
 		// back-reference is what should break, and only this notices that.
-		$field = (new Facade('booking'))->createBooleanField('has_log_book');
+		$field = (new Definition('booking'))->createBooleanField('has_log_book');
 
 		$this->assertFalse(
 			property_exists($field, 'schema'),
@@ -149,7 +149,7 @@ final class ScopeResolverTest extends TestCase
 	#[Test]
 	public function an_unknown_property_is_rejected(): void
 	{
-		$schema = new Facade('signup');
+		$schema = new Definition('signup');
 		$schema->add($schema->createTextField('username'));
 
 		$this->expectException(InvalidArgumentException::class);
@@ -160,7 +160,7 @@ final class ScopeResolverTest extends TestCase
 	#[Test]
 	public function an_unknown_field_is_rejected(): void
 	{
-		$schema = new Facade('signup');
+		$schema = new Definition('signup');
 		$schema->add($schema->createTextField('username'));
 
 		$this->expectException(InvalidArgumentException::class);
@@ -173,7 +173,7 @@ final class ScopeResolverTest extends TestCase
 	{
 		// Rule outcomes build their scope once and resolve it on every validation run. When
 		// a scope was a cursor the second pass started from an exhausted one and threw.
-		$schema = new Facade('signup');
+		$schema = new Definition('signup');
 		$schema->add($schema->createTextField('username')->minLengthOf(3));
 
 		$resolver = new ScopeResolver($schema->fields);
@@ -186,9 +186,9 @@ final class ScopeResolverTest extends TestCase
 
 	// ── reaching into a collection ────────────────────────────────────────────────────────
 
-	private function order(): Facade
+	private function order(): Definition
 	{
-		$schema = new Facade('order');
+		$schema = new Definition('order');
 		$schema->add($schema->createCollectionField(
 			'lines',
 			$schema->createTextField('sku')->minLengthOf(3),
@@ -283,7 +283,7 @@ final class ScopeResolverTest extends TestCase
 	#[Test]
 	public function a_template_field_that_is_not_there_fails_where_the_rule_is_written(): void
 	{
-		// Resolved with no request at all, which is exactly how Facade::addRule() checks a scope.
+		// Resolved with no request at all, which is exactly how Definition::addRule() checks a scope.
 		$schema = $this->order();
 
 		$this->expectException(InvalidArgumentException::class);

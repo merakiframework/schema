@@ -4,7 +4,7 @@ declare(strict_types=1);
 namespace Meraki\Schema\Rule;
 
 use Meraki\Schema\AtomicField;
-use Meraki\Schema\Facade;
+use Meraki\Schema\Definition;
 use Meraki\Schema\Field;
 use Meraki\Schema\FieldName;
 use Meraki\Schema\Rule\Condition\Quantified;
@@ -30,10 +30,10 @@ use InvalidArgumentException;
 #[CoversClass(Quantifier::class)]
 final class QuantifiedTest extends TestCase
 {
-	/** @return array{Facade, Field\Collection, Field} */
+	/** @return array{Definition, Field\Collection, Field} */
 	private function order(): array
 	{
-		$schema = new Facade('order');
+		$schema = new Definition('order');
 		$lines = $schema->createCollectionField(
 			'lines',
 			$schema->createTextField('sku'),
@@ -111,7 +111,7 @@ final class QuantifiedTest extends TestCase
 	{
 		// Nothing about isGreaterThan had to learn what a list is: the inner condition is re-rooted
 		// at each row and asked exactly as it would be of a top-level field.
-		$schema = new Facade('order');
+		$schema = new Definition('order');
 		$lines = $schema->createCollectionField('lines', $schema->createNumberField('qty'));
 		$approval = $schema->createTextField('approval')->makeOptional();
 		$schema->add($lines, $approval);
@@ -180,7 +180,7 @@ final class QuantifiedTest extends TestCase
 	#[Test]
 	public function a_matcher_from_outside_this_library_quantifies(): void
 	{
-		$schema = new Facade('order');
+		$schema = new Definition('order');
 		$flag = $schema->createTextField('flag')->makeOptional();
 
 		$lines = $schema->createCollectionField('lines', self::fieldWithItsOwnMatcher(), $flag);

@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../vendor/autoload.php';
 
-use Meraki\Schema\Facade;
+use Meraki\Schema\Definition;
 use Meraki\Schema\Field\Address\Precision;
 
 // An address field has two dials, and they answer independent questions:
@@ -15,7 +15,7 @@ use Meraki\Schema\Field\Address\Precision;
 // published format, and the floor only decides how much of it to inherit — so the same field
 // is correct in Australia, Japan and Panama without knowing anything about them.
 
-$schema = new Facade('venues');
+$schema = new Definition('venues');
 
 // The default: a street is required, and a PO box is a perfectly good answer.
 $billing = $schema->createAddressField('billing');
@@ -187,7 +187,7 @@ printf("                        states:   %s\n", implode(', ', array_keys($au->s
 printf("                        QLD is:   %s\n", $au->subdivisions['AU-QLD']);
 
 // A field restricted to one country need not repeat it.
-$delivery = (new Facade('shipping'))->createAddressField('delivery', ['AU']);
+$delivery = (new Definition('shipping'))->createAddressField('delivery', ['AU']);
 
 printf("\n  delivery (AU only) -> %s\n", implode(', ', $delivery->requirementsFor()['AU']->requiredParts));
 

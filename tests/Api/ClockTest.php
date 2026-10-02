@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Api;
 
-use Meraki\Schema\Facade;
+use Meraki\Schema\Definition;
 use Meraki\Schema\Field;
 use Meraki\Schema\FieldName;
 use Brick\DateTime\Clock\FixedClock;
@@ -43,8 +43,8 @@ final class ClockTest extends TestCase
 	#[Test]
 	public function a_schema_declares_the_clock_its_fields_inherit(): void
 	{
-		// The same shape as Facade::for() — declared once, inherited by fields added after.
-		$schema = new Facade('checkout', clock: $this->fixed());
+		// The same shape as Definition::for() — declared once, inherited by fields added after.
+		$schema = new Definition('checkout', clock: $this->fixed());
 		$schema->add($schema->createCreditCardField('card')->mustExpireInFuture());
 
 		// Instants are compared as instants, not as strings: Brick omits zero seconds, so
@@ -59,13 +59,13 @@ final class ClockTest extends TestCase
 	public function cloning_the_schema_preserves_the_clock(): void
 	{
 		$clock = $this->fixed();
-		$schema = (new Facade('checkout', clock: $clock))->for('AU');
+		$schema = (new Definition('checkout', clock: $clock))->for('AU');
 
 		// should always be a shallow copy, not a deep one: the author of the
 		// copy should get the same clock and country defaults as the original
 		$copy = clone $schema;
 
-		$this->assertSame($clock, (new ReflectionProperty(Facade::class, 'clock'))->getValue($copy));
+		$this->assertSame($clock, (new ReflectionProperty(Definition::class, 'clock'))->getValue($copy));
 
 		// And the country defaults, for the same reason: a field built on the copy must be the
 		// field the author would have got from the original.

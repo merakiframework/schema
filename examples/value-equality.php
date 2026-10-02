@@ -3,8 +3,8 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../vendor/autoload.php';
 
+use Meraki\Schema\Definition;
 use Meraki\Schema\Exception\IncomparableValues;
-use Meraki\Schema\Facade;
 
 // Every field parses to a value object this library defines, and that object decides what counts
 // as the same value.
@@ -13,7 +13,7 @@ use Meraki\Schema\Facade;
 // *private layout* of whatever class a field happens to return. For a third-party class that is
 // not a contract; it is an implementation detail that happens to be visible.
 
-$schema = new Facade('comparisons');
+$schema = new Definition('comparisons');
 
 $schema->add(
 	$schema->createNumberField('qty'),
@@ -23,7 +23,7 @@ $schema->add(
 );
 
 /** Two submissions of the same field, and whether the field calls them one value. */
-$same = static function (Facade $schema, string $field, mixed $a, mixed $b): string {
+$same = static function (Definition $schema, string $field, mixed $a, mixed $b): string {
 	$one = $schema->fields->getByName($field)->resolvedValueFor($a);
 	$other = $schema->fields->getByName($field)->resolvedValueFor($b);
 

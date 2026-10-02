@@ -3,8 +3,8 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../vendor/autoload.php';
 
+use Meraki\Schema\Definition;
 use Meraki\Schema\Exception\InvalidRule;
-use Meraki\Schema\Facade;
 use Meraki\Schema\Rule\Draft;
 
 // The twelve questions a rule can ask, and where each one's boundary sits.
@@ -14,8 +14,8 @@ use Meraki\Schema\Rule\Draft;
 // the bound itself is included.
 
 /** Builds a fresh schema, hands your fields to a callback, and adds whatever rule it returns. */
-$build = static function (callable $rule): Facade {
-	$schema = new Facade('matchers');
+$build = static function (callable $rule): Definition {
+	$schema = new Definition('matchers');
 
 	$schema->add(
 		$age = $schema->createNumberField('age')->makeOptional(),
@@ -31,7 +31,7 @@ $build = static function (callable $rule): Facade {
 };
 
 /** Whether the rule fired, read off the effective definition it produced. */
-$fired = static function (Facade $schema, array $submitted): string {
+$fired = static function (Definition $schema, array $submitted): string {
 	return $schema->validate((object) $submitted)->forField('flag')->field->optional ? '-' : 'FIRED';
 };
 

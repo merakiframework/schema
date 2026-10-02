@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Rule;
 
-use Meraki\Schema\Facade;
+use Meraki\Schema\Definition;
 use Meraki\Schema\Field;
 use Meraki\Schema\PropertyScope;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -28,10 +28,10 @@ use InvalidArgumentException;
 #[CoversClass(Field\Collection::class)]
 final class RowRuleTest extends TestCase
 {
-	/** @return array{Facade, Field\Collection} */
+	/** @return array{Definition, Field\Collection} */
 	private function workshop(): array
 	{
-		$schema = new Facade('workshop');
+		$schema = new Definition('workshop');
 		$age = $schema->createNumberField('age');
 		$guardian = $schema->createTextField('guardian')->makeOptional();
 
@@ -108,7 +108,7 @@ final class RowRuleTest extends TestCase
 	{
 		// It runs against a copy of the template and nothing else, so a field outside it could
 		// never resolve — and would fail on a user's request rather than where the rule was written.
-		$schema = new Facade('workshop');
+		$schema = new Definition('workshop');
 		$age = $schema->createNumberField('age');
 		$guardian = $schema->createTextField('guardian')->makeOptional();
 		$outside = $schema->createTextField('note');
@@ -132,7 +132,7 @@ final class RowRuleTest extends TestCase
 	{
 		// Dead on arrival: a number is never the string 'eighteen', so the rule could not fire,
 		// and a rule that never fires looks exactly like one whose condition never held.
-		$schema = new Facade('workshop');
+		$schema = new Definition('workshop');
 		$age = $schema->createNumberField('age');
 		$guardian = $schema->createTextField('guardian')->makeOptional();
 
@@ -148,7 +148,7 @@ final class RowRuleTest extends TestCase
 	{
 		// This used to be accepted and then throw InvalidScope on whichever request first
 		// reached it — a 500 for the submitter, from a typo the author made.
-		$schema = new Facade('workshop');
+		$schema = new Definition('workshop');
 		$age = $schema->createNumberField('age');
 		$guardian = $schema->createTextField('guardian')->makeOptional();
 
@@ -164,7 +164,7 @@ final class RowRuleTest extends TestCase
 	public function adding_a_row_rule_leaves_the_original_collection_alone(): void
 	{
 		// A wither, like every other configuration method on a field.
-		$schema = new Facade('workshop');
+		$schema = new Definition('workshop');
 		$age = $schema->createNumberField('age');
 		$guardian = $schema->createTextField('guardian')->makeOptional();
 
@@ -179,7 +179,7 @@ final class RowRuleTest extends TestCase
 	public function a_row_rule_can_ignore_a_field_in_one_row_only(): void
 	{
 		// Ignoring is about a request rather than a definition, so it has to be a per-row fact too.
-		$schema = new Facade('order');
+		$schema = new Definition('order');
 		$kind = $schema->createTextField('kind');
 		$address = $schema->createTextField('address')->makeOptional();
 

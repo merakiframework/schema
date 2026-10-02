@@ -46,9 +46,9 @@ The three names line up on purpose: `minLengthOf()` sets `$minLength` and report
 ## Defining a schema
 
 ```php
-use Meraki\Schema\Facade;
+use Meraki\Schema\Definition;
 
-$schema = new Facade('signup');
+$schema = new Definition('signup');
 
 $schema->add(
     $schema->createTextField('username')->minLengthOf(3)->maxLengthOf(20),
@@ -73,7 +73,7 @@ get wrong.
 A schema declares a region once, and the region-aware fields inherit it:
 
 ```php
-$schema = (new Facade('booking'))->for('AU');
+$schema = (new Definition('booking'))->for('AU');
 
 $schema->createAddressField('billing');            // restricted to AU
 $schema->createPhoneNumberField('mobile');         // ditto
@@ -390,7 +390,7 @@ $billing = $schema->createAddressField('billing', ['AU']);
 that. So it holds a **source** of the instant:
 
 ```php
-$schema = new Facade('checkout', clock: new FixedClock($instant));   // testable
+$schema = new Definition('checkout', clock: new FixedClock($instant));   // testable
 $schema->createCreditCardField('card')->mustExpireInFuture();
 ```
 

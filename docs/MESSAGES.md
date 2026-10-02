@@ -10,12 +10,12 @@ constraint the design is built around.
 ## The shape of it
 
 ```php
-use Meraki\Schema\Facade;
+use Meraki\Schema\Definition;
 use Meraki\Schema\Message\Mf2\Mf2Provider;
 
 $provider = Mf2Provider::fromPackage('meraki/schema-language-english');
 
-$schema = new Facade('signup');
+$schema = new Definition('signup');
 $schema->add($schema->createAddressField('billing', ['AU']));
 
 $result = $schema->validate($data, locale: 'en-AU', messages: $provider);

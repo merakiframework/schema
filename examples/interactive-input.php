@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../vendor/autoload.php';
 
-use Meraki\Schema\Facade;
+use Meraki\Schema\Definition;
 use Meraki\Schema\FieldResult;
 
 // Asking for input one field at a time, re-asking until it is acceptable.
@@ -14,7 +14,7 @@ use Meraki\Schema\FieldResult;
 // Run it with a terminal attached and it prompts. Run it without one (as CI does) and it plays
 // a scripted set of answers instead, so the example is still exercised rather than skipped.
 
-$schema = new Facade('signup');
+$schema = new Definition('signup');
 
 $schema->add(
 	$schema->createNameField('name'),

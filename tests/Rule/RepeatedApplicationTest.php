@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Rule;
 
-use Meraki\Schema\Facade;
+use Meraki\Schema\Definition;
 use Meraki\Schema\FieldScope;
 use Meraki\Schema\Rule;
 use Meraki\Schema\Scope;
@@ -72,9 +72,9 @@ final class RepeatedApplicationTest extends TestCase
 		$this->assertSame($resolver->resolve($scope), $resolver->resolve($scope));
 	}
 
-	private function createSchemaWithAFiringRule(): Facade
+	private function createSchemaWithAFiringRule(): Definition
 	{
-		$schema = new Facade('test');
+		$schema = new Definition('test');
 		$schema->add($schema->createEnumField('method', ['email', 'phone'])->defaultsTo('phone'));
 		$schema->add($phoneNumber = $schema->createTextField('phone_number')->makeOptional());
 		$schema->addRule(new Rule(

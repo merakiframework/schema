@@ -173,7 +173,7 @@ class Set implements IteratorAggregate, Countable
 	 * **Nothing here knows about rules.** A rule naming a field that is no longer present fails
 	 * when that rule fires, which is on a request — the one place this library works to keep
 	 * failures out of. A schema with rules should not have fields taken off it without checking
-	 * them; `Facade` is where such a check could live, and there is not one yet.
+	 * them; the schema is where such a check could live, and there is not one yet.
 	 *
 	 * @throws UnknownField if no field of that name is present
 	 */

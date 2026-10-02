@@ -3,8 +3,8 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../vendor/autoload.php';
 
+use Meraki\Schema\Definition;
 use Meraki\Schema\Exception\InvalidRule;
-use Meraki\Schema\Facade;
 use Meraki\Schema\ValueScope;
 
 // A rule can compare two *fields*, not just a field and a constant — and it can compare one
@@ -15,7 +15,7 @@ use Meraki\Schema\ValueScope;
 //     #/fields/shipping/value            the whole value
 //     #/fields/shipping/value/country    one part of it
 
-$schema = new Facade('checkout');
+$schema = new Definition('checkout');
 
 $schema->add(
 	$schema->createAddressField('billing', ['AU', 'NZ']),
@@ -54,7 +54,7 @@ $auckland = [
 ];
 
 /** @param array<string, mixed> $shipping */
-$report = static function (Facade $schema, string $label, array $billing, array $shipping): void {
+$report = static function (Definition $schema, string $label, array $billing, array $shipping): void {
 	$result = $schema->validate((object) [
 		'billing' => (object) $billing,
 		'shipping' => (object) $shipping,

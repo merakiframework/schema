@@ -9,7 +9,7 @@ use Meraki\Schema\Rule;
 /**
  * Runs a set of rules against a set of fields, and reports what they did.
  *
- * The fold itself, lifted out of {@see \Meraki\Schema\Facade} so that it has two callers rather
+ * The fold itself, lifted out of {@see \Meraki\Schema\Definition} so that it has two callers rather
  * than a copy: a schema applies its rules to its own fields, and a collection applies its *row*
  * rules to a copy of its template, once per row. Both want the same interleaving, the same
  * `applyTo()`, and the same record of what happened — and a second implementation of any of that

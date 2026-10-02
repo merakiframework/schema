@@ -46,12 +46,12 @@ if checking your work is cheap, you check it often.
 
 **A schema is a definition. A request never touches it.**
 
-A `Facade` holds fields and rules. You build it once and it never changes again. Everything that
+A `Definition` holds fields and rules. You build it once and it never changes again. Everything that
 belongs to one request — what was submitted, what each check said — comes back as a *result*
 object, and nothing is written back.
 
 ```php
-$schema = new Facade('signup');
+$schema = new Definition('signup');
 $schema->add($schema->createTextField('username')->minLengthOf(3));
 
 $a = $schema->validate((object) ['username' => 'jo']);     // fails
@@ -106,7 +106,7 @@ address to the next.
 
 ```
 src/
-├── Facade.php              the schema: fields, rules, validate(), resolve()
+├── Definition.php              the schema: fields, rules, validate(), resolve()
 ├── Field.php               what every field is (interface)
 ├── AtomicField.php         the usual lifecycle: one value, checked
 ├── Scope.php               a path to something, like #/fields/x/value
@@ -154,7 +154,7 @@ Shared machinery sits beside them:
 | `Field/Constraint.php` | one check: a name, a closure, the limit, the part it concerns |
 | `Field/ParsedValue.php` | the marker every value object implements |
 | `Field/HasParts.php` | implemented by a value made of named parts |
-| `Field/BuildsFields.php` | the `createTextField()` helpers on the facade |
+| `Field/BuildsFields.php` | the `createTextField()` helpers on the definition |
 | `Field/ValueClass.php` | reads a field's value type off its `parse()` signature |
 
 ---
@@ -164,7 +164,7 @@ Shared machinery sits beside them:
 This is the most useful thing to have in your head. Here is a small schema:
 
 ```php
-$schema = new Facade('checkout');
+$schema = new Definition('checkout');
 $schema->add(
     $pay = $schema->createEnumField('pay_by', ['card', 'invoice']),
     $card = $schema->createCreditCardField('card')->makeOptional(),
@@ -181,7 +181,7 @@ $result = $schema->validate((object) [
 
 What happens, in order:
 
-**1. The facade copies itself.** `Facade::against()` does `clone $this`. Rules are about to
+**1. The schema copies itself.** `Definition::against()` does `clone $this`. Rules are about to
 change fields, and they change the copy. Your `$schema` is untouched.
 
 **2. Rules run, interleaved.** `Rule\Application` walks the rules in the order they were added.
@@ -192,7 +192,7 @@ That is deliberate and documented, not an accident.
 Here the condition `pay_by equals 'card'` holds, so `makeRequired()` is applied: the *copy* of
 the `card` field is replaced with a required one.
 
-**3. Each field is handed its value.** For every field, the facade picks what to validate:
+**3. Each field is handed its value.** For every field, the definition picks what to validate:
 
 ```
 submitted  →  prefilled  →  the authored default  →  nothing
@@ -261,7 +261,7 @@ $result = $schema->validate($data, locale: 'en-AU', messages: $provider);
 
 | To watch | Stop at |
 | --- | --- |
-| a whole request | `Facade::against()` |
+| a whole request | `Definition::against()` |
 | a rule firing | `Rule\Application::of()` |
 | input becoming a value | your field's `parse()` |
 | the shape decision | `AtomicField::check()` |

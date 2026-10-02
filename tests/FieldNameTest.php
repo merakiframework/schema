@@ -75,7 +75,7 @@ final class FieldNameTest extends TestCase
 	 * This used to fold case, and the intent was sound — a schema holding both `email` and
 	 * `Email` leaves a reader guessing which one a message or a scope path meant. What made it
 	 * wrong was that nothing else folded: a payload is keyed exactly, `forField()` matches
-	 * exactly, and the outcome bucket in `Facade::against()` is keyed exactly. One comparison
+	 * exactly, and the outcome bucket in `Definition::against()` is keyed exactly. One comparison
 	 * disagreeing with all of them was silent in both directions — a collection template holding
 	 * `Name` and `name` built fine and threw on every request, and `thenIgnore('Detail')`
 	 * against `detail` passed every check and never applied.

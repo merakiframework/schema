@@ -6,7 +6,7 @@ declare(strict_types=1);
  *
  * The examples are documentation, and documentation that does not run is worse than none: it
  * is confidently wrong. Every one of them was broken by the 2.0 rewrite — calling `pairWith()`,
- * `Property\Name`, `Facade::for()`, `Number::minOf()` — while the test suite stayed green,
+ * `Property\Name`, `Definition::for()`, `Number::minOf()` — while the test suite stayed green,
  * because nothing executed them. This is what notices.
  *
  * An example may read `$argv`, so each runs in its own process with no arguments, exactly as a

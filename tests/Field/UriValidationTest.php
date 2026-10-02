@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Field;
 
-use Meraki\Schema\Facade;
+use Meraki\Schema\Definition;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Group;
@@ -44,9 +44,9 @@ final class UriValidationTest extends TestCase
 		];
 	}
 
-	private function schema(): Facade
+	private function schema(): Definition
 	{
-		$schema = new Facade('link');
+		$schema = new Definition('link');
 		$schema->add($schema->createUriField('url'));
 
 		return $schema;
@@ -69,7 +69,7 @@ final class UriValidationTest extends TestCase
 	#[Test]
 	public function a_scheme_allowlist_can_be_declared(): void
 	{
-		$schema = new Facade('link');
+		$schema = new Definition('link');
 		$schema->add($schema->createUriField('url')->allowSchemes('https'));
 
 		$this->assertFalse($schema->validate((object)['url' => 'https://example.com'])->anyFailed());
@@ -81,7 +81,7 @@ final class UriValidationTest extends TestCase
 	{
 		// The reason the allowlist exists: anything rendered back into a page or followed
 		// by a redirect must not be able to carry script or inline content.
-		$schema = new Facade('link');
+		$schema = new Definition('link');
 		$schema->add($schema->createUriField('url')->allowSchemes('http', 'https'));
 
 		$this->assertTrue($schema->validate((object)['url' => 'javascript:alert(document.cookie)'])->anyFailed());
@@ -99,7 +99,7 @@ final class UriValidationTest extends TestCase
 	#[Test]
 	public function length_constraints_still_apply(): void
 	{
-		$schema = new Facade('link');
+		$schema = new Definition('link');
 		$schema->add($schema->createUriField('url')->maxLengthOf(20));
 
 		$this->assertTrue($schema->validate((object)['url' => 'https://example.com/a/very/long/path'])->anyFailed());

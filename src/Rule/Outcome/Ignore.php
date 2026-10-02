@@ -35,7 +35,7 @@ final class Ignore implements Outcome
 	{
 		// The definition is untouched, so the field comes back exactly as it went in.
 		// "Ignore this field" is a statement about one request, not about the field, so it is
-		// honoured where the request is: Facade::against() sees this outcome among the ones
+		// honoured where the request is: Definition::against() sees this outcome among the ones
 		// that were applied and withholds the submitted value.
 		//
 		// It used to set a flag on the field instead, which meant a schema remembered —

@@ -48,7 +48,7 @@ use Meraki\Schema\Rule;
  *
  * ### Why composition takes conditions and not rules
  *
- * {@see \Meraki\Schema\Facade::allOf()} accepts drafts that carry no outcomes yet. If it took
+ * {@see \Meraki\Schema\Definition::allOf()} accepts drafts that carry no outcomes yet. If it took
  * finished rules there would be several sets of outcomes in play and no answer to which of them
  * should fire — so a draft with outcomes is refused there rather than guessed at.
  */
@@ -72,7 +72,7 @@ final class Draft
 	 *
 	 * Hands back a copy, like every wither on a field. It used to write to `$this` and return
 	 * itself, which made two fluent idioms with opposite meanings in one library — and quietly
-	 * broke the thing {@see \Meraki\Schema\Facade::allOf()} invites you to do:
+	 * broke the thing {@see \Meraki\Schema\Definition::allOf()} invites you to do:
 	 *
 	 *     $base = $plan->when()->equals('go');
 	 *     $a = $base->then($f1->makeRequired());
@@ -128,7 +128,7 @@ final class Draft
 	 *
 	 * Deferred to here rather than done in {@see self::then()} because a draft has no schema: the
 	 * difference between "the field you configured" and "the field on the schema" can only be read
-	 * where both are in hand, and that is {@see \Meraki\Schema\Facade::addRule()}.
+	 * where both are in hand, and that is {@see \Meraki\Schema\Definition::addRule()}.
 	 *
 	 * @throws InvalidRule if a field named by an outcome is not on the schema
 	 * @throws IncompleteRule if no outcome was ever attached

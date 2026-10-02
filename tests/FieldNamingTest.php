@@ -12,7 +12,7 @@ use InvalidArgumentException;
 
 #[Group('field')]
 #[CoversClass(FieldName::class)]
-#[CoversClass(Facade::class)]
+#[CoversClass(Definition::class)]
 final class FieldNamingTest extends TestCase
 {
 	/** @return array<string, array{string}> */
@@ -79,7 +79,7 @@ final class FieldNamingTest extends TestCase
 	#[Test]
 	public function a_duplicate_field_name_is_rejected(): void
 	{
-		$schema = new Facade('signup');
+		$schema = new Definition('signup');
 		$schema->add($schema->createTextField('email'));
 
 		$this->expectException(InvalidArgumentException::class);
@@ -93,7 +93,7 @@ final class FieldNamingTest extends TestCase
 	{
 		// The definition used to vanish with no error, leaving a schema that quietly
 		// validated something other than what was written.
-		$schema = new Facade('signup');
+		$schema = new Definition('signup');
 		$schema->add($schema->createTextField('email'));
 
 		try {
@@ -109,10 +109,10 @@ final class FieldNamingTest extends TestCase
 	#[Test]
 	public function the_schema_itself_is_named_by_the_same_rules(): void
 	{
-		$this->assertSame('create-person', (string) (new Facade('create-person'))->name);
+		$this->assertSame('create-person', (string) (new Definition('create-person'))->name);
 
 		$this->expectException(InvalidArgumentException::class);
 
-		new Facade('');
+		new Definition('');
 	}
 }

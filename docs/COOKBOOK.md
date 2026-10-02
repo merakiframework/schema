@@ -31,7 +31,7 @@ the whole surface of a field, [API.md](API.md). For longer, runnable versions of
 ## Defining and validating
 
 ```php
-$schema = new Facade('signup');
+$schema = new Definition('signup');
 
 $schema->add(
     $schema->createTextField('username')->minLengthOf(3),
@@ -413,7 +413,7 @@ changes. See [MESSAGES.md](MESSAGES.md).
 ## One region for the whole form
 
 ```php
-$schema = (new Facade('booking'))->for('AU');
+$schema = (new Definition('booking'))->for('AU');
 
 $schema->createAddressField('billing');            // restricted to AU
 $schema->createPhoneNumberField('mobile');         // ditto

@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../vendor/autoload.php';
 
-use Meraki\Schema\Facade;
+use Meraki\Schema\Definition;
 
 // A repeatable section: many rows, each made of the same fields.
 //
@@ -11,7 +11,7 @@ use Meraki\Schema\Facade;
 // the collection itself is checked against its own constraints — how many rows, and whether any
 // repeat.
 
-$schema = new Facade('invoice');
+$schema = new Definition('invoice');
 
 $schema->add(
 	$schema->createCollectionField(

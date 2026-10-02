@@ -174,7 +174,7 @@ abstract class Comparison implements Condition, Scoped
 	 */
 	public function whyItCouldNeverHold(Field\Set $fields): ?string
 	{
-		// Not this check's business. Facade::addRule() reports an unaddressable scope itself, and
+		// Not this check's business. Definition::addRule() reports an unaddressable scope itself, and
 		// with a better message than anything here would be.
 		$field = (new ScopeResolver($fields))->fieldFor($this->scope);
 
@@ -213,7 +213,7 @@ abstract class Comparison implements Condition, Scoped
 	/**
 	 * Every scope this mentions, on either side.
 	 *
-	 * {@see \Meraki\Schema\Facade::addRule()} checks every one, so an expectation naming a field
+	 * {@see \Meraki\Schema\Definition::addRule()} checks every one, so an expectation naming a field
 	 * that does not exist is refused where the rule is written rather than resolving to `null` on
 	 * every request afterwards.
 	 *

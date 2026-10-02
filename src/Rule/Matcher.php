@@ -39,7 +39,7 @@ use Meraki\Schema\Scope;
  *
  * ### A scope on its own gets everything
  *
- * {@see \Meraki\Schema\Facade::when()} answers with {@see Matcher\OrderedText}, because a field
+ * {@see \Meraki\Schema\Definition::when()} answers with {@see Matcher\OrderedText}, because a field
  * named by a string — or a part of a value — cannot be resolved to a type at authoring time. The
  * rule is still checked when it is added, so `$schema->when('notes')->isAtLeast(3)` is refused
  * there rather than silently never firing. Holding the field is what buys the earlier answer.

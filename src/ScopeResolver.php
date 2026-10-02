@@ -60,7 +60,7 @@ final class ScopeResolver
 	 * comparing it against `'URGENT'` is a question for `Text`, not for `Collection`.
 	 *
 	 * Null rather than raising, because every caller is a check that runs *after*
-	 * {@see Facade::addRule()} has already reported an unaddressable scope in better words.
+	 * {@see Definition::addRule()} has already reported an unaddressable scope in better words.
 	 */
 	public function fieldFor(Scope $scope): ?Field
 	{

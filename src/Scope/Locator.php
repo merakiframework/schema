@@ -37,7 +37,7 @@ interface Locator extends Stringable
 	 *
 	 * For a collection locator that is the collection, never the template field inside it — so a
 	 * rule naming a row still groups under the field the schema actually holds, and
-	 * {@see \Meraki\Schema\Facade::addRule()} needs no special case.
+	 * {@see \Meraki\Schema\Definition::addRule()} needs no special case.
 	 */
 	public FieldName $field { get; }
 

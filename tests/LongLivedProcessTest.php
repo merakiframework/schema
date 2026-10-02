@@ -22,7 +22,7 @@ use Fiber;
  * the suite does and needs no extension to reproduce the interleaving that matters.
  */
 #[Group('long-lived')]
-#[CoversClass(Facade::class)]
+#[CoversClass(Definition::class)]
 final class LongLivedProcessTest extends TestCase
 {
 	/**
@@ -31,9 +31,9 @@ final class LongLivedProcessTest extends TestCase
 	 * The rule matters: rules work by changing fields, so a schema carrying one exercises
 	 * the path most likely to write back to the definition.
 	 */
-	private function bootSchema(): Facade
+	private function bootSchema(): Definition
 	{
-		$schema = new Facade('signup');
+		$schema = new Definition('signup');
 		$schema->add($schema->createTextField('username')->minLengthOf(3));
 		$schema->add($schema->createTextField('nickname')->makeOptional());
 		$schema->addRule($schema->when('username')->equals('admin')->then($schema->fields->getByName('nickname')->makeRequired()));
@@ -73,7 +73,7 @@ final class LongLivedProcessTest extends TestCase
 	#[Test]
 	public function validating_a_clone_leaves_the_original_untouched(): void
 	{
-		// Neither Facade nor Field\Set defines __clone, so a clone shares the very same
+		// Neither Definition nor Field\Set defines __clone, so a clone shares the very same
 		// Field objects. That used to make the obvious workaround fail silently; it is
 		// safe now only because validation writes nothing to a field.
 		$schema = $this->bootSchema();
@@ -150,7 +150,7 @@ final class LongLivedProcessTest extends TestCase
 		// saved email, their last address — put one request's data where the next request read
 		// it. This test used to assert the *defect*, with a note to invert it once prefilling
 		// moved to resolution. It has.
-		$schema = new Facade('profile');
+		$schema = new Definition('profile');
 		$schema->add($schema->createTextField('email'));
 
 		$request = static fn(string $email): Fiber => new Fiber(
@@ -182,7 +182,7 @@ final class LongLivedProcessTest extends TestCase
 		// The other half of B9: not merely that two requests cannot see each other's data, but
 		// that the schema keeps none of it once the request is over. A long-lived worker holds
 		// this object for the life of the process.
-		$schema = new Facade('profile');
+		$schema = new Definition('profile');
 		$schema->add($schema->createTextField('email'));
 
 		$schema->validate(prefilledWith: (object)['email' => 'alice-pii@example.com']);

@@ -12,7 +12,7 @@ namespace Meraki\Schema;
  *
  * It is also what makes the defaults/prefill split visible. An authored default is a constant in
  * the schema and serialises with it; a prefill is one user's data, arrives with the request, and
- * must never touch the definition — see {@see Facade::validate()}.
+ * must never touch the definition — see {@see Definition::validate()}.
  */
 enum ValueSource
 {

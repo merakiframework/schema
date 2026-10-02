@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Rule;
 
-use Meraki\Schema\Facade;
+use Meraki\Schema\Definition;
 use Meraki\Schema\Field;
 use Meraki\Schema\Rule\Condition\Comparison;
 use Meraki\Schema\Scope;
@@ -28,9 +28,9 @@ use InvalidArgumentException;
 #[CoversClass(Scope::class)]
 final class CollectionScopeTest extends TestCase
 {
-	private function order(): Facade
+	private function order(): Definition
 	{
-		$schema = new Facade('order');
+		$schema = new Definition('order');
 		$schema->add(
 			$schema->createCollectionField(
 				'lines',

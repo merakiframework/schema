@@ -10,11 +10,11 @@ use Brick\DateTime\Clock;
 /**
  * Builds fields, for whatever holds them.
  *
- * Used by {@see \Meraki\Schema\Facade}, so a schema builds its own fields the same way it builds
+ * Used by {@see \Meraki\Schema\Definition}, so a schema builds its own fields the same way it builds
  * its own rules:
  *
  * ```php
- * $schema = new \Meraki\Schema\Facade('signup');
+ * $schema = new \Meraki\Schema\Definition('signup');
  *
  * $username = $schema->createTextField('username')->minLengthOf(3);
  * $nickname = $schema->createTextField('nickname')->makeOptional();
@@ -28,15 +28,17 @@ use Brick\DateTime\Clock;
  * object for — only the country list below, which belongs to the schema being authored anyway.
  *
  * **Building is not registering.** Every method here hands back a field and does nothing else;
- * {@see \Meraki\Schema\Facade::add()} is what puts it in the schema. The two were one call until
+ * {@see \Meraki\Schema\Definition::add()} is what puts it in the schema. The two were one call until
  * fields were sealed, and then `$schema->addTextField('x')->minLengthOf(3)` started adding a
  * field and configuring a *copy* of it, leaving the schema holding the unconfigured original.
  * Separating them makes the order impossible to get wrong: build, finish configuring, then add
  * what you finished with.
  *
- * A trait rather than methods written directly on the Facade, for the same reason
- * {@see Definition} is one: a schema already holds fields, builds rules and validates requests,
- * and nineteen field builders interleaved with that would bury all three.
+ * A trait rather than methods written directly on {@see \Meraki\Schema\Definition}, for the
+ * same reason {@see Definition} is one — note that those are two different classes, the schema
+ * and the field half, and inside this namespace the bare name means the latter. A schema already
+ * holds fields, builds rules and validates requests, and nineteen field builders interleaved with
+ * that would bury all three.
  */
 trait BuildsFields
 {
@@ -70,7 +72,7 @@ trait BuildsFields
 	/**
 	 * Declares the countries this schema is for, so region-aware fields need not repeat them:
 	 *
-	 *     $schema = (new Facade('booking'))->for('AU');
+	 *     $schema = (new \Meraki\Schema\Definition('booking'))->for('AU');
 	 *     $schema->createAddressField('billing');            // restricted to AU
 	 *     $schema->createPhoneNumberField('mobile');         // ditto
 	 *     $schema->createAddressField('shipping', ['NZ']);   // an explicit list still wins

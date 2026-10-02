@@ -70,7 +70,7 @@ interface FieldResult extends ValidationResult
 	/**
 	 * The same outcome with its messages rendered in one language.
 	 *
-	 * Plumbing rather than something a consumer calls: {@see Facade::validate()} resolves the
+	 * Plumbing rather than something a consumer calls: {@see Definition::validate()} resolves the
 	 * request's language once and hands the translator to each result. It is on the interface
 	 * because a result shape somebody else wrote has to be reachable the same way — a
 	 * {@see Field\Collection\Result} passes it down to every row, and one that quietly did not

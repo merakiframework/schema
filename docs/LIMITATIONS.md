@@ -214,7 +214,7 @@ Validation is strict about types. `Boolean` rejects `"1"` and `"on"`; rule condi
 compare with `===`, so `whenEquals(..., true)` never matches the string `"1"`.
 
 ```php
-$schema = new Meraki\Schema\Facade('prefs');
+$schema = new Meraki\Schema\Definition('prefs');
 $schema->add($schema->createBooleanField('subscribe'));
 
 $schema->validate((object) ['subscribe' => 'on'])->anyFailed();   // true  — HTML form input
@@ -231,7 +231,7 @@ is not a string will fail.
 ### Validation is a query, not a step
 
 `validate($data)` and `resolve($data)` return results and leave the schema exactly as they
-found it, so a `Facade` may be built once and shared.
+found it, so a `Definition` may be built once and shared.
 
 There is no longer a way to stage data onto a schema first. `input()`, which did that and
 was the root cause of [B7](#b7), has been removed: the value goes in as an argument and

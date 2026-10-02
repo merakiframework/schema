@@ -35,6 +35,34 @@ So the mechanical rule for the whole upgrade is:
 > `validate()`**. Anything you used to **read back off** a field after validating is now on the
 > **result**.
 
+### `Facade` is now `Definition`
+
+A straight rename of the class you build a schema with. No alias is shipped.
+
+```php
+// before
+use Meraki\Schema\Facade;
+$schema = new Facade('signup');
+
+// now
+use Meraki\Schema\Definition;
+$schema = new Definition('signup');
+```
+
+Nothing else about it changed — same constructor, same methods, same behaviour.
+
+`Facade` named a pattern rather than a thing, and not accurately: a facade simplifies a subsystem
+you could still use directly, and there is no schema underneath this one. The codebase had
+already settled on the other word — every port wrote `Facade $schema`, the result class was
+`SchemaValidationResult`, and this was the only class in `src/` with no docblock, because a
+pattern name leaves nothing to explain.
+
+`Definition` names the distinction the library turns on: a definition is what the author wrote, a
+result is what one request produced, and nothing per-request may touch the first.
+
+**It is not `Meraki\Schema\Field\Definition`**, which is the trait holding the configuration half
+of a field. Different namespaces, different jobs, and they do not appear in the same file.
+
 ### Building a schema
 
 `addXField()` did two jobs — construct and attach — and returned either the schema or the field
@@ -49,7 +77,7 @@ $schema->addTextField('username', function (Field\Text $f): void {
 });
 
 // 2.0
-$schema = new Facade('signup');
+$schema = new Definition('signup');
 $schema->add(
     $schema->createTextField('username')->minLengthOf(3)->maxLengthOf(20),
 );
@@ -64,7 +92,7 @@ Two consequences worth knowing:
   about it, so most schemas now read as a series of `create…` assignments followed by one `add()`.
 
 `Field\Factory` is gone; the schema builds its own fields. `Factory::for('AU')` is now
-`(new Facade('booking'))->for('AU')`.
+`(new Definition('booking'))->for('AU')`.
 
 A collection takes its template fields directly instead of a closure:
 
@@ -188,7 +216,7 @@ $schema = new Facade('signup', messages: $provider);
 $result = $schema->validate($data, locale: 'en-AU');
 
 // now
-$schema = new Facade('signup');
+$schema = new Definition('signup');
 $result = $schema->validate($data, locale: 'en-AU', messages: $provider);
 ```
 

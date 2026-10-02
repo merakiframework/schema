@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Field;
 
-use Meraki\Schema\Facade;
+use Meraki\Schema\Definition;
 use PHPUnit\Framework\Attributes\CoversTrait;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
@@ -27,7 +27,7 @@ final class BuildsFieldsTest extends TestCase
 	#[Test]
 	public function region_aware_fields_inherit_the_schemas_countries(): void
 	{
-		$schema = (new Facade('booking'))->for('AU');
+		$schema = (new Definition('booking'))->for('AU');
 
 		$this->assertSame(['AU'], $schema->createAddressField('billing')->allowedCountries);
 		$this->assertSame(['AU'], $schema->createPhoneNumberField('mobile')->allowedCountries);
@@ -36,7 +36,7 @@ final class BuildsFieldsTest extends TestCase
 	#[Test]
 	public function it_normalises_the_countries(): void
 	{
-		$schema = (new Facade('booking'))->for('au', 'AU', ' nz ');
+		$schema = (new Definition('booking'))->for('au', 'AU', ' nz ');
 
 		$this->assertSame(['AU', 'NZ'], $schema->createAddressField('billing')->allowedCountries);
 	}
@@ -44,7 +44,7 @@ final class BuildsFieldsTest extends TestCase
 	#[Test]
 	public function an_explicit_country_list_overrides_the_schemas(): void
 	{
-		$schema = (new Facade('booking'))->for('AU');
+		$schema = (new Definition('booking'))->for('AU');
 
 		$this->assertSame(['NZ'], $schema->createAddressField('shipping', ['NZ'])->allowedCountries);
 		$this->assertSame(['NZ'], $schema->createPhoneNumberField('mobile', ['NZ'])->allowedCountries);
@@ -54,7 +54,7 @@ final class BuildsFieldsTest extends TestCase
 	#[Test]
 	public function an_explicit_empty_country_list_opts_out(): void
 	{
-		$schema = (new Facade('booking'))->for('AU');
+		$schema = (new Definition('booking'))->for('AU');
 
 		$this->assertSame([], $schema->createAddressField('anywhere', [])->allowedCountries);
 		$this->assertSame([], $schema->createPhoneNumberField('international', [])->allowedCountries);
@@ -65,7 +65,7 @@ final class BuildsFieldsTest extends TestCase
 	{
 		// `for()` is authoring configuration, not a retroactive setting: a field is immutable, so
 		// one already built cannot acquire a country list it was not given.
-		$schema = new Facade('booking');
+		$schema = new Definition('booking');
 		$before = $schema->createAddressField('before');
 
 		$schema->for('AU');
@@ -81,7 +81,7 @@ final class BuildsFieldsTest extends TestCase
 	#[Test]
 	public function it_does_not_affect_money_fields(): void
 	{
-		$schema = (new Facade('booking'))->for('AU');
+		$schema = (new Definition('booking'))->for('AU');
 
 		// A map rather than a list: the scale a currency uses is part of allowing it.
 		$this->assertSame(['NZD' => 2], $schema->createMoneyField('price', ['NZD' => 2])->allowedCurrencies);
@@ -92,7 +92,7 @@ final class BuildsFieldsTest extends TestCase
 	{
 		// Nothing special makes this work: the template fields are built by the schema like any
 		// other, and simply handed over.
-		$schema = (new Facade('booking'))->for('AU');
+		$schema = (new Definition('booking'))->for('AU');
 
 		$sessions = $schema->createCollectionField('sessions', $schema->createAddressField('venue'));
 
@@ -104,7 +104,7 @@ final class BuildsFieldsTest extends TestCase
 	{
 		// The two were one call until fields were sealed, and then adding-and-configuring left
 		// the schema holding the unconfigured original.
-		$schema = new Facade('signup');
+		$schema = new Definition('signup');
 
 		$schema->createTextField('username');
 

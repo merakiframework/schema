@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Field;
 
-use Meraki\Schema\Facade;
+use Meraki\Schema\Definition;
 use Meraki\Schema\Field\Collection\Item;
 use Meraki\Schema\Field\Collection\Result;
 use Meraki\Schema\Field\Collection\Value as CollectionValue;
@@ -633,7 +633,7 @@ final class CollectionTest extends TestCase
 	#[Test]
 	public function a_template_cannot_hold_two_names_differing_only_by_case(): void
 	{
-		$schema = new Facade('order');
+		$schema = new Definition('order');
 
 		$this->expectException(InvalidArgumentException::class);
 		$this->expectExceptionMessage("The template already has a field named 'name'.");

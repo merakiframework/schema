@@ -8,11 +8,11 @@ use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
-#[Group('facade')]
+#[Group('definition')]
 #[Group('validation')]
-#[CoversClass(Facade::class)]
+#[CoversClass(Definition::class)]
 #[CoversClass(SchemaValidationResult::class)]
-final class FacadeValidateInputTest extends TestCase
+final class DefinitionInputTest extends TestCase
 {
 	#[Test]
 	public function it_reads_input_from_plain_public_properties(): void
@@ -46,7 +46,7 @@ final class FacadeValidateInputTest extends TestCase
 		// Mirrors the real-world schema: a required field plus an omitted
 		// optional one. This produces a mix of passed + skipped results, which
 		// SchemaValidationResult must report as Passed rather than crashing.
-		$schema = new Facade('create-person');
+		$schema = new Definition('create-person');
 		$schema->add($schema->createNameField('name')->minLengthOf(1)->maxLengthOf(255));
 		$schema->add($schema->createDateField('dateOfBirth')->from('1900-01-01')->until('2010-01-01')->makeOptional());
 
@@ -65,7 +65,7 @@ final class FacadeValidateInputTest extends TestCase
 	#[Test]
 	public function it_resets_conditional_rule_effects_between_validations(): void
 	{
-		$schema = new Facade('contact');
+		$schema = new Definition('contact');
 		$schema->add($schema->createBooleanField('has_phone'));
 		$schema->add($schema->createTextField('phone')->makeOptional());
 		$schema->addRule($schema->when('has_phone')->equals(true)->then($schema->fields->getByName('phone')->makeRequired()));
@@ -82,7 +82,7 @@ final class FacadeValidateInputTest extends TestCase
 	#[Test]
 	public function declarative_rule_can_ignore_a_field_when_a_not_equals_condition_holds(): void
 	{
-		$schema = new Facade('booking');
+		$schema = new Definition('booking');
 		$schema->add($schema->createEnumField('vehicle', ['school', 'own']));
 		$schema->add($schema->createEnumField('transmission', ['automatic', 'manual'])->makeOptional());
 		// transmission only matters for a school vehicle: otherwise make it optional AND ignore
@@ -99,9 +99,9 @@ final class FacadeValidateInputTest extends TestCase
 		$this->assertTrue($schema->validate((object)['vehicle' => 'school', 'transmission' => 'bogus'])->anyFailed());
 	}
 
-	private function createPersonSchema(): Facade
+	private function createPersonSchema(): Definition
 	{
-		$schema = new Facade('create-person');
+		$schema = new Definition('create-person');
 		$schema->add($schema->createNameField('name')->minLengthOf(1)->maxLengthOf(255));
 
 		return $schema;

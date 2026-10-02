@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Message;
 
-use Meraki\Schema\Facade;
+use Meraki\Schema\Definition;
 use Meraki\Schema\Field;
 use Meraki\Schema\FieldResult;
 use Meraki\Schema\Message\Mf2\Mf2Provider;
@@ -26,9 +26,9 @@ final class SchemaMessagesTest extends TestCase
 {
 	private const PACK = __DIR__ . '/../fixtures/lang/basic';
 
-	private function schema(): Facade
+	private function schema(): Definition
 	{
-		$schema = new Facade('signup');
+		$schema = new Definition('signup');
 
 		return $schema->add(
 			$schema->createTextField('username')->minLengthOf(3),
@@ -146,7 +146,7 @@ final class SchemaMessagesTest extends TestCase
 	{
 		// The failure this guards against is a form where the outer errors are translated and the
 		// inner ones are blank.
-		$schema = new Facade('order');
+		$schema = new Definition('order');
 		$schema->add($schema->createCollectionField(
 			'lines',
 			$schema->createTextField('sku')->minLengthOf(3),
@@ -172,7 +172,7 @@ final class SchemaMessagesTest extends TestCase
 	{
 		// Rebuilding the items has to replace the copies held in `$results` too, or the same row
 		// read two ways would carry messages only once.
-		$schema = new Facade('order');
+		$schema = new Definition('order');
 		$schema->add($schema->createCollectionField(
 			'lines',
 			$schema->createTextField('sku')->minLengthOf(3),

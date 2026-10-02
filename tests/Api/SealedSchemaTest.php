@@ -4,7 +4,7 @@ declare(strict_types=1);
 namespace Meraki\Schema\Api;
 
 use Meraki\Schema\AggregatedValidationResult;
-use Meraki\Schema\Facade;
+use Meraki\Schema\Definition;
 use Meraki\Schema\Field;
 use Meraki\Schema\Rule;
 use PHPUnit\Framework\Attributes\CoversNothing;
@@ -29,9 +29,9 @@ use LogicException;
 #[CoversNothing]
 final class SealedSchemaTest extends TestCase
 {
-	private function schema(): Facade
+	private function schema(): Definition
 	{
-		$schema = new Facade('sealed');
+		$schema = new Definition('sealed');
 		$schema->add($schema->createTextField('username'));
 
 		return $schema;
@@ -137,7 +137,7 @@ final class SealedSchemaTest extends TestCase
 		$this->expectException(LogicException::class);
 		$this->expectExceptionMessage('has no fields');
 
-		(new Facade('nothing'))->validate((object) []);
+		(new Definition('nothing'))->validate((object) []);
 	}
 
 	#[Test]
@@ -146,7 +146,7 @@ final class SealedSchemaTest extends TestCase
 		// Resolving is the same question asked without checking, so it gets the same answer.
 		$this->expectException(LogicException::class);
 
-		(new Facade('nothing'))->resolve();
+		(new Definition('nothing'))->resolve();
 	}
 
 	/**
@@ -156,7 +156,7 @@ final class SealedSchemaTest extends TestCase
 	#[Test]
 	public function an_empty_schema_may_still_be_built(): void
 	{
-		$schema = new Facade('nothing');
+		$schema = new Definition('nothing');
 
 		$this->assertCount(0, $schema->fields);
 

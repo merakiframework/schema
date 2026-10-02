@@ -35,9 +35,9 @@ final class MalformedCompositeInputTest extends TestCase
 		];
 	}
 
-	private function schema(): Facade
+	private function schema(): Definition
 	{
-		$schema = new Facade('checkout');
+		$schema = new Definition('checkout');
 		$schema->add($schema->createMoneyField('price', ['AUD' => 2]));
 		$schema->add($schema->createAddressField('billing', ['AU']));
 		$schema->add($schema->createCreditCardField('card'));
@@ -78,7 +78,7 @@ final class MalformedCompositeInputTest extends TestCase
 	public function an_optional_composite_still_fails_on_unusable_input(): void
 	{
 		// Optional excuses an absent value, never a bad one.
-		$schema = new Facade('checkout');
+		$schema = new Definition('checkout');
 		$schema->add($schema->createMoneyField('price', ['AUD' => 2])->makeOptional());
 
 		$this->assertTrue($schema->validate((object)['price' => 'not-an-array'])->anyFailed());
@@ -87,7 +87,7 @@ final class MalformedCompositeInputTest extends TestCase
 	#[Test]
 	public function an_optional_composite_left_out_is_still_skipped(): void
 	{
-		$schema = new Facade('checkout');
+		$schema = new Definition('checkout');
 		$schema->add($schema->createMoneyField('price', ['AUD' => 2])->makeOptional());
 
 		$this->assertFalse($schema->validate((object)[])->anyFailed());
@@ -96,7 +96,7 @@ final class MalformedCompositeInputTest extends TestCase
 	#[Test]
 	public function a_list_where_an_item_is_unusable_fails(): void
 	{
-		$schema = new Facade('checkout');
+		$schema = new Definition('checkout');
 		$schema->add($schema->createCollectionField('items', $schema->createTextField('sku')));
 
 		$this->assertTrue($schema->validate((object)['items' => ['not-an-item']])->anyFailed());
@@ -118,7 +118,7 @@ final class MalformedCompositeInputTest extends TestCase
 	#[Test]
 	public function an_object_is_still_accepted(): void
 	{
-		$schema = new Facade('checkout');
+		$schema = new Definition('checkout');
 		$schema->add($schema->createMoneyField('price', ['AUD' => 2]));
 
 		$this->assertFalse($schema->validate((object)['price' => (object) ['amount' => '99.95', 'currency' => 'AUD']])->anyFailed());
@@ -127,7 +127,7 @@ final class MalformedCompositeInputTest extends TestCase
 	#[Test]
 	public function the_failure_is_reported_against_the_field_itself(): void
 	{
-		$schema = new Facade('checkout');
+		$schema = new Definition('checkout');
 		$schema->add($schema->createMoneyField('price', ['AUD' => 2]));
 
 		$resolved = $schema->validate((object)['price' => 'not-an-array'])->forField('price');
@@ -179,7 +179,7 @@ final class MalformedCompositeInputTest extends TestCase
 		string $part,
 		string $constraint,
 	): void {
-		$schema = new Facade('s');
+		$schema = new Definition('s');
 		$schema->add($make($schema));
 
 		$without = $complete;
@@ -204,28 +204,28 @@ final class MalformedCompositeInputTest extends TestCase
 	public static function recordFields(): iterable
 	{
 		yield 'Money' => [
-			static fn(Facade $s): Field => $s->createMoneyField('f', ['AUD' => 2]),
+			static fn(Definition $s): Field => $s->createMoneyField('f', ['AUD' => 2]),
 			['currency' => 'AUD', 'amount' => '10.00'],
 			'amount',
 			'amountRequired',
 		];
 
 		yield 'Address' => [
-			static fn(Facade $s): Field => $s->createAddressField('f', ['AU']),
+			static fn(Definition $s): Field => $s->createAddressField('f', ['AU']),
 			['street' => ['1 Main St'], 'locality' => 'Bne', 'subdivision' => 'QLD', 'postal_code' => '4000', 'country' => 'AU'],
 			'locality',
 			'localityRequired',
 		];
 
 		yield 'CreditCard' => [
-			static fn(Facade $s): Field => $s->createCreditCardField('f'),
+			static fn(Definition $s): Field => $s->createCreditCardField('f'),
 			['number' => '4111111111111111', 'expiry' => '2030-01', 'name' => 'A B'],
 			'expiry',
 			'expiryRequired',
 		];
 
 		yield 'PhoneNumber' => [
-			static fn(Facade $s): Field => $s->createPhoneNumberField('f', ['AU']),
+			static fn(Definition $s): Field => $s->createPhoneNumberField('f', ['AU']),
 			['number' => '0411222333', 'country' => 'AU'],
 			'number',
 			'numberRequired',
@@ -240,7 +240,7 @@ final class MalformedCompositeInputTest extends TestCase
 	#[DataProvider('recordFields')]
 	public function an_optional_field_is_skipped_rather_than_missing(callable $make): void
 	{
-		$schema = new Facade('s');
+		$schema = new Definition('s');
 		$schema->add($make($schema)->makeOptional());
 
 		foreach ([(object) [], (object) ['f' => null]] as $payload) {
@@ -270,7 +270,7 @@ final class MalformedCompositeInputTest extends TestCase
 	#[DataProvider('recordsWithAStrayKey')]
 	public function a_key_the_value_does_not_declare_stops_the_request(callable $make, array $complete, string $stray): void
 	{
-		$schema = new Facade('s');
+		$schema = new Definition('s');
 		$schema->add($make($schema));
 
 		// The same payload without it reads, so the stray key is what this is about.
@@ -288,7 +288,7 @@ final class MalformedCompositeInputTest extends TestCase
 	#[Test]
 	public function a_stray_key_stops_a_resolve_as_well(): void
 	{
-		$schema = new Facade('s');
+		$schema = new Definition('s');
 		$schema->add($schema->createMoneyField('f', ['AUD' => 2]));
 
 		$this->expectException(BrokenInputContract::class);
@@ -302,7 +302,7 @@ final class MalformedCompositeInputTest extends TestCase
 	#[Test]
 	public function the_refusal_names_the_keys_it_did_not_accept(): void
 	{
-		$schema = new Facade('s');
+		$schema = new Definition('s');
 		$schema->add($schema->createMoneyField('f', ['AUD' => 2]));
 
 		try {
@@ -320,31 +320,31 @@ final class MalformedCompositeInputTest extends TestCase
 		// The stray keys are the mistakes that actually happen: a typo, and a part that was
 		// renamed out from under a port.
 		yield 'Money' => [
-			static fn(Facade $s): Field => $s->createMoneyField('f', ['AUD' => 2]),
+			static fn(Definition $s): Field => $s->createMoneyField('f', ['AUD' => 2]),
 			['currency' => 'AUD', 'amount' => '10.00'],
 			'ammount',
 		];
 
 		yield 'Address' => [
-			static fn(Facade $s): Field => $s->createAddressField('f', ['AU']),
+			static fn(Definition $s): Field => $s->createAddressField('f', ['AU']),
 			['street' => ['1 Main St'], 'locality' => 'Bne', 'subdivision' => 'QLD', 'postal_code' => '4000', 'country' => 'AU'],
 			'line1',
 		];
 
 		yield 'CreditCard' => [
-			static fn(Facade $s): Field => $s->createCreditCardField('f'),
+			static fn(Definition $s): Field => $s->createCreditCardField('f'),
 			['number' => '4111111111111111', 'expiry' => '2030-01', 'name' => 'A B'],
 			'securty_code',
 		];
 
 		yield 'PhoneNumber' => [
-			static fn(Facade $s): Field => $s->createPhoneNumberField('f', ['AU']),
+			static fn(Definition $s): Field => $s->createPhoneNumberField('f', ['AU']),
 			['number' => '0411222333', 'country' => 'AU'],
 			'e164',
 		];
 
 		yield 'File' => [
-			static fn(Facade $s): Field => $s->createFileField('f'),
+			static fn(Definition $s): Field => $s->createFileField('f'),
 			['name' => 'cv.pdf', 'type' => 'application/pdf', 'size' => 1024],
 			'tmp_name',
 		];
@@ -366,7 +366,7 @@ final class MalformedCompositeInputTest extends TestCase
 	#[Test]
 	public function a_raw_php_upload_is_not_a_file(): void
 	{
-		$schema = new Facade('s');
+		$schema = new Definition('s');
 		$schema->add($schema->createFileField('f'));
 
 		$this->expectException(BrokenInputContract::class);

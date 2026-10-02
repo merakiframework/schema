@@ -92,7 +92,7 @@ class ResolvedField extends AggregatedValidationResult implements FieldResult
 	/**
 	 * The same field with its messages rendered in one language.
 	 *
-	 * Called by {@see Facade::validate()} once per field, after the verdicts are in, because
+	 * Called by {@see Definition::validate()} once per field, after the verdicts are in, because
 	 * nothing about a language may change a verdict. A result that never goes through here keeps
 	 * the empty set it was built with.
 	 *

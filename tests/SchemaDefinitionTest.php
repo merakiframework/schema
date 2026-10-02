@@ -8,21 +8,21 @@ use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use ReflectionProperty;
 
-#[CoversClass(Facade::class)]
-final class SchemaFacadeTest extends TestCase
+#[CoversClass(Definition::class)]
+final class SchemaDefinitionTest extends TestCase
 {
 	#[Test]
 	public function it_exists(): void
 	{
-		$schema = new Facade('test');
+		$schema = new Definition('test');
 
-		$this->assertInstanceOf(Facade::class, $schema);
+		$this->assertInstanceOf(Definition::class, $schema);
 	}
 
 	#[Test]
-	public function cloning_copies_the_facade_and_nothing_it_holds(): void
+	public function cloning_copies_the_definition_and_nothing_it_holds(): void
 	{
-		// `Facade::against()` runs every request against `clone $this`, which is only affordable
+		// `Definition::against()` runs every request against `clone $this`, which is only affordable
 		// because the copy shares the definition rather than duplicating it: a `__clone()` that
 		// deep-copied would rebuild every field on every request. Shallow is also what makes the
 		// copy *safe* — a rule reassigns `$fields` on the copy, and reassigning a property the
@@ -32,7 +32,7 @@ final class SchemaFacadeTest extends TestCase
 		// LongLivedProcessTest asserts a clone's validation leaves the original untouched. Neither
 		// would notice a deep copy. This does.
 		// Two fields and a rule, because rules are the only thing that writes to `$fields`.
-		$schema = new Facade('signup');
+		$schema = new Definition('signup');
 		$schema->add($schema->createTextField('username')->minLengthOf(3));
 		$schema->add($schema->createTextField('nickname')->makeOptional());
 		$schema->addRule(
@@ -59,7 +59,7 @@ final class SchemaFacadeTest extends TestCase
 
 		// Reflection because the clock is `protected` on Field\BuildsFields — the extension point
 		// that lets a third-party field inherit it. Same reading as Api\ClockTest.
-		$clock = new ReflectionProperty(Facade::class, 'clock');
+		$clock = new ReflectionProperty(Definition::class, 'clock');
 
 		$this->assertSame($clock->getValue($schema), $clock->getValue($clone));
 	}

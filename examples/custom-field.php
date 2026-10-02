@@ -147,10 +147,10 @@ namespace Main {
 
 	use Acme\Isbn;
 	use Meraki\Schema\Exception\InvalidDefault;
-	use Meraki\Schema\Facade;
+	use Meraki\Schema\Definition;
 	use Meraki\Schema\FieldName;
 
-	$schema = new Facade('library');
+	$schema = new Definition('library');
 	$schema->add($isbn = (new Isbn(new FieldName('isbn')))->thirteenDigitsOnly());
 
 	echo 'It behaves like any other field:' . PHP_EOL;

@@ -14,7 +14,7 @@ use Meraki\Schema\ScopeResolver;
 /**
  * What has to be true of a rule before it is worth keeping, checked where the rule is written.
  *
- * Lifted out of {@see \Meraki\Schema\Facade} for the same reason {@see Application} was, and it
+ * Lifted out of {@see \Meraki\Schema\Definition} for the same reason {@see Application} was, and it
  * is the other half of that same pairing: a schema adds rules against its own fields, and a
  * collection adds *row* rules against a copy of its template. Both are "here is a rule, here are
  * the fields it may talk about", so both want the same answer.

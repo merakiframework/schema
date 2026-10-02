@@ -92,7 +92,7 @@ interface Field
 	 * Nothing should hold the return of this method as a bare `Rule\Matcher`. Doing so throws away
 	 * the narrowing, which is the entire point — hold the field instead, and the type follows.
 	 *
-	 * {@see \Meraki\Schema\Facade::when()} is the other way in, for a field named by string or a
+	 * {@see \Meraki\Schema\Definition::when()} is the other way in, for a field named by string or a
 	 * scope pointing at a part. It cannot know the type, so it answers with every verb and leans
 	 * on the check that runs when the rule is added.
 	 */

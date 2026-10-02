@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Rule;
 
-use Meraki\Schema\Facade;
+use Meraki\Schema\Definition;
 use Meraki\Schema\PropertyScope;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Group;
@@ -20,12 +20,12 @@ use InvalidArgumentException;
  * once the fields it names are. That is pinned here too, so the cost stays visible.
  */
 #[Group('scope')]
-#[CoversClass(Facade::class)]
+#[CoversClass(Definition::class)]
 final class ScopeValidationTest extends TestCase
 {
-	private function schema(): Facade
+	private function schema(): Definition
 	{
-		$schema = new Facade('signup');
+		$schema = new Definition('signup');
 		$schema->add($schema->createTextField('username')->minLengthOf(3));
 		$schema->add($schema->createTextField('nickname')->makeOptional());
 
@@ -69,7 +69,7 @@ final class ScopeValidationTest extends TestCase
 	public function a_rule_must_be_added_after_the_fields_it_names(): void
 	{
 		// The cost of checking early. Declaring rules first is no longer allowed.
-		$schema = new Facade('signup');
+		$schema = new Definition('signup');
 
 		$this->expectException(InvalidArgumentException::class);
 

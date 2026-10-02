@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Api;
 
-use Meraki\Schema\Facade;
+use Meraki\Schema\Definition;
 use Meraki\Schema\PrefillPolicy;
 use Meraki\Schema\ValidationStatus;
 use Meraki\Schema\ValueSource;
@@ -22,9 +22,9 @@ use InvalidArgumentException;
 #[Group('api-2.0')]
 final class DefaultsAndPrefillTest extends TestCase
 {
-	private function schema(): Facade
+	private function schema(): Definition
 	{
-		$schema = new Facade('signup');
+		$schema = new Definition('signup');
 		$schema->add($schema->createTextField('username')->minLengthOf(3));
 		$schema->add($schema->createTextField('nickname')->defaultsTo('anonymous'));
 
@@ -145,7 +145,7 @@ final class DefaultsAndPrefillTest extends TestCase
 	{
 		// An invalid default is a bug in the schema, and blaming a user's request for it
 		// would be the wrong place to find out.
-		$schema = new Facade('signup');
+		$schema = new Definition('signup');
 
 		$this->expectException(InvalidArgumentException::class);
 
@@ -156,7 +156,7 @@ final class DefaultsAndPrefillTest extends TestCase
 	public function prefilling_does_not_leak_between_concurrent_requests(): void
 	{
 		// B9. The same shape as B7, in the method that survived it.
-		$schema = new Facade('profile');
+		$schema = new Definition('profile');
 		$schema->add($schema->createTextField('email'));
 
 		$request = static fn(string $email): Fiber => new Fiber(
@@ -184,7 +184,7 @@ final class DefaultsAndPrefillTest extends TestCase
 	#[Test]
 	public function a_prefilled_value_is_never_retained_by_the_schema(): void
 	{
-		$schema = new Facade('profile');
+		$schema = new Definition('profile');
 		$schema->add($schema->createTextField('email'));
 
 		$schema->validate(null, prefilledWith: (object)['email' => 'alice-pii@example.com']);
@@ -222,7 +222,7 @@ final class DefaultsAndPrefillTest extends TestCase
 	 * `print_r()` walks the graph the same way and prints a closure as a closure, so a value
 	 * hidden anywhere in a field, a constraint's bound or a rule would still show up here.
 	 */
-	private static function dump(Facade $schema): string
+	private static function dump(Definition $schema): string
 	{
 		return print_r($schema, true);
 	}
