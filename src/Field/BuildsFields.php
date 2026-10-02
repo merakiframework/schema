@@ -35,8 +35,9 @@ use Brick\DateTime\Clock;
  * what you finished with.
  *
  * A trait rather than methods written directly on {@see \Meraki\Schema\Definition}, for the
- * same reason {@see Definition} is one — note that those are two different classes, the schema
- * and the field half, and inside this namespace the bare name means the latter. A schema already
+ * same reason {@see Definition} is one — note that those two names are different things, the
+ * schema and the trait holding a field's configuration half, and inside this namespace the bare
+ * name means the trait. A schema already
  * holds fields, builds rules and validates requests, and nineteen field builders interleaved with
  * that would bury all three.
  */

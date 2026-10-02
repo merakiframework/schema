@@ -41,7 +41,8 @@ use Brick\DateTime\Clock\SystemClock;
  * `Definition $schema` is the same shape.
  *
  * Not to be confused with {@see Field\Definition}, which is the trait holding the configuration
- * half of a *field*. Different namespaces, different jobs; they never appear in the same file.
+ * half of a *field*. Different namespaces, different jobs — and inside `Meraki\Schema\Field`
+ * the bare name means the trait, so anything there referring to this class qualifies it.
  */
 final class Definition
 {
@@ -76,6 +77,11 @@ final class Definition
 	 * Resolve this schema against request data, without validating anything.
 	 *
 	 * Every field will come back with {@see ValidationStatus::Pending}.
+	 *
+	 * Stops rather than reports if a record carries a key its value does not declare: that is a
+	 * {@see \Meraki\Schema\Exception\BrokenInputContract}, and it is deliberately not caught.
+	 * Not a `@throws` tag because the raise happens inside a value constructor reached through a
+	 * closure, which static analysis cannot trace — see that class for what a port does with it.
 	 *
 	 * @throws NothingToValidate If there are no fields on this schema
 	 * @param object|null $prefilledWith values looked up for this one user
@@ -129,6 +135,9 @@ final class Definition
 	 *
 	 * {@see self::resolve()} takes neither, because it reaches no verdict and only a failure has
 	 * anything to say.
+	 *
+	 * Stops rather than reports on a {@see \Meraki\Schema\Exception\BrokenInputContract}, as
+	 * {@see self::resolve()} does and for the same reason.
 	 *
 	 * @throws NothingToValidate If there are no fields on this schema
 	 * @param object|null $prefilledWith values looked up for this one user

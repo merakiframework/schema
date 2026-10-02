@@ -252,8 +252,9 @@ final readonly class CreditCard extends AtomicField
 	}
 
 	/**
-	 * Skipped unless asked for, and skipped when there is no expiry to judge — `expiryFormat`
-	 * reports that instead.
+	 * Skipped unless asked for, and skipped when there is no expiry to judge — `expiryRequired`
+	 * reports an absent one, and an expiry that was given and cannot be read never gets this far:
+	 * the value refuses it, so the whole card is unreadable.
 	 */
 	private function hasNotExpired(Value $card): ?bool
 	{
@@ -270,7 +271,7 @@ final readonly class CreditCard extends AtomicField
 	 *
 	 * Always asked, unlike {@see self::hasNotExpired()}: a field capturing a card for later still
 	 * wants to know that `2099` was a typo. Skipped only when there is no expiry to judge, which
-	 * `expiryFormat` reports instead.
+	 * `expiryRequired` reports instead.
 	 */
 	private function expiresWithinReach(Value $card): ?bool
 	{

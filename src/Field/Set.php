@@ -80,10 +80,6 @@ class Set implements IteratorAggregate, Countable
 		return $this->fields[0] ?? null;
 	}
 
-	public function exists(Field $field): bool
-	{
-		return $this->indexOf($field) !== null;
-	}
 
 	/**
 	 * Private, because a set handed to a schema must not be changeable from outside it.

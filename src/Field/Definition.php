@@ -213,7 +213,10 @@ trait Definition
 	 * That is one blind spot producing about a hundred errors, and it is worse than noise —
 	 * suppressing it by pattern would suppress a *genuine* inverted guard written the same way.
 	 * Returning `mixed` here keeps the property at its declared type, so a real type error is
-	 * still caught and `src` is clean to level 8 with no ignore entries.
+	 * still caught. It is what took `src` from 101 errors at level 4 to clean at **level 6**,
+	 * with three narrow ignore entries rather than two blanket patterns. Not higher: levels 7
+	 * and 8 cost 47 and 50 errors respectively, for unrelated reasons tracked in
+	 * docs/ROADMAP.md.
 	 *
 	 * **It does cost one thing.** A property that really is never configured no longer has its
 	 * dead guard reported, because this makes the two cases identical to the analyser. The wither

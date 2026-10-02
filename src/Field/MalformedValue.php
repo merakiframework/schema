@@ -10,8 +10,8 @@ use InvalidArgumentException;
  * Input that is not the kind of thing a value holds.
  *
  * Thrown by a {@see ParsedValue}'s constructor when it is handed something it cannot be made of.
- * What happens next depends on who asked, and {@see Definition} decides that rather than the
- * field:
+ * What happens next depends on who asked, and {@see \Meraki\Schema\Field\Definition} — the
+ * lifecycle trait, not {@see \Meraki\Schema\Definition} — decides that rather than the field:
  *
  * | Asked by | Answer |
  * | --- | --- |

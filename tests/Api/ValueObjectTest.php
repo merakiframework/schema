@@ -71,6 +71,47 @@ final class ValueObjectTest extends TestCase
 		yield 'Uuid' => [Field\Uuid::class, '3f2504e0-4f89-41d3-9a0c-0305e82c3301'];
 	}
 
+	/**
+	 * A result's `$value` is a value object or `null`. **Never the raw input.**
+	 *
+	 * {@see \Meraki\Schema\ResolvedField::$value} states it, and the reason is that a property
+	 * meaning two things is a property nobody can type: a consumer reading `$value` has to ask
+	 * what kind of thing it got before it can do anything with it, which is the whole problem
+	 * value objects were introduced to remove. What was submitted is on `$given`, unchanged.
+	 *
+	 * Swept over every field because it was true of eighteen of them and quietly false of the
+	 * nineteenth: `Password::validate()` overrode the lifecycle to report entropy and wrote
+	 * `$parsed ?? $raw`, so an unreadable secret came back as the submitted `int` or `array`
+	 * while the same field's `resolve()` answered `null` three lines away. Nothing noticed,
+	 * because nothing asked this question of every field at once.
+	 *
+	 * Both entry points, because that is where they disagreed.
+	 */
+	#[Test]
+	#[DataProvider('fieldsAndAValueTheyAccept')]
+	public function an_unreadable_value_is_null_and_never_the_raw_input(string $class, mixed $accepted): void
+	{
+		$field = self::construct($class);
+
+		// Something no field can read: not a scalar any of them parse, not a record, not a list.
+		$unreadable = new \stdClass();
+
+		foreach (['validate', 'resolve'] as $entryPoint) {
+			$value = $field->{$entryPoint}($unreadable)->value;
+
+			$this->assertNull($value, sprintf(
+				'%s::%s() handed back the submitted input as $value (%s). It must be null when '
+					. 'nothing could be read; what arrived is on $given.',
+				$class,
+				$entryPoint,
+				get_debug_type($value),
+			));
+		}
+
+		// And the control: a value it *can* read still comes back as the object.
+		$this->assertInstanceOf(ParsedValue::class, $field->validate($accepted)->value, $class);
+	}
+
 	#[Test]
 	#[DataProvider('fieldsAndAValueTheyAccept')]
 	public function its_parsed_value_knows_its_own_equality(string $class, mixed $accepted): void

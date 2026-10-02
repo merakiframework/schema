@@ -193,17 +193,6 @@ final readonly class Value implements ParsedValue, HasParts
 	}
 
 
-	/**
-	 * Whether nothing at all was supplied. A card with no parts is not a card, so the field reads
-	 * it as unreadable rather than as a half-filled one — {@see \Meraki\Schema\Field\CreditCard}.
-	 */
-	public function isEmpty(): bool
-	{
-		return $this->number === null
-			&& $this->expiry === null
-			&& $this->name === null
-			&& $this->securityCode === null;
-	}
 
 	/**
 	 * The last four digits, which is the most of a card number anything should ever show.

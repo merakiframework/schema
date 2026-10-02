@@ -51,8 +51,8 @@ final readonly class Value implements ParsedValue, HasParts
 	/**
 	 * Part names as they appear in submitted data, mapped to the property holding them.
 	 *
-	 * The one source of truth: {@see self::partNames()}, {@see self::parts()},
-	 * {@see self::toArray()} and {@see self::isEmpty()} all read it rather than repeating it.
+	 * The one source of truth: {@see self::partNames()}, {@see self::parts()} and
+	 * {@see self::toArray()} all read it rather than repeating it.
 	 *
 	 * @var array<string, string>
 	 */
@@ -405,22 +405,6 @@ final readonly class Value implements ParsedValue, HasParts
 		return $parts;
 	}
 
-	/**
-	 * Whether any part was supplied at all. An address with nothing in it is not a vague
-	 * address; it is an absent one.
-	 */
-	public function isEmpty(): bool
-	{
-		foreach (self::PARTS as $property) {
-			$part = $this->{$property};
-
-			if ($part !== null && $part !== []) {
-				return false;
-			}
-		}
-
-		return true;
-	}
 
 	/**
 	 * A part by the name submitted data uses — `postal_code`, not `postalCode`.
@@ -452,7 +436,8 @@ final readonly class Value implements ParsedValue, HasParts
 	 * The parts as they are held, for a scope to resolve against.
 	 *
 	 * Unlike {@see self::toArray()} an absent street stays `[]`, because that is what the
-	 * property holds and a rule asking `isEmpty()` of it should see the real value.
+	 * property holds and a rule asking `isEmpty()` of that part should see the real value —
+	 * {@see \Meraki\Schema\Rule\Condition\Emptiness} reads `[]` as empty.
 	 *
 	 * @return array<string, mixed>
 	 */
