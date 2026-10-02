@@ -4,7 +4,6 @@ declare(strict_types=1);
 namespace Meraki\Schema\Field\EmailAddress;
 
 use Meraki\Schema\Comparison\Equality;
-use Meraki\Schema\Field\HasParts;
 use Meraki\Schema\Field\MalformedValue;
 use Meraki\Schema\Field\ParsedValue;
 
@@ -32,6 +31,17 @@ use Meraki\Schema\Field\ParsedValue;
  * constraints, and a constraint that raised here would report "unreadable" where it should report
  * which check failed and what the limit was.
  *
+ * ### One string, so no parts
+ *
+ * It does not implement {@see \Meraki\Schema\Field\HasParts}, which it used to. An address is
+ * submitted as `kim@example.test` — one box on a form, one string in a payload — so `local_part`
+ * and `domain` were never *inputs*. They are a reading of the one input, and reporting them as
+ * parts told a port there were two things to render and two places to put a message.
+ *
+ * The rule that settles it: a value reports the parts it is **submitted with**. Both halves stay
+ * readable as properties, which is what a rule matching on a domain actually needs —
+ * {@see self::__toString()} plus `matches('/@example\.test$/')` covers it without parts at all.
+ *
  * ### The one thing it changes, and the one thing it does not
  *
  * **The domain is lower-cased.** DNS is case-insensitive, so `EXAMPLE.TEST` and `example.test`
@@ -46,7 +56,7 @@ use Meraki\Schema\Field\ParsedValue;
  * Nothing is trimmed, because `" a@b.test "` is not an address under the grammar and repairing it
  * would be guessing too.
  */
-final readonly class Value implements ParsedValue, HasParts
+final readonly class Value implements ParsedValue
 {
 	/**
 	 * The addr-spec this accepts: a dot-atom local part, and a domain of LDH labels.
@@ -122,44 +132,5 @@ final readonly class Value implements ParsedValue, HasParts
 	public function __toString(): string
 	{
 		return "{$this->localPart}@{$this->domain}";
-	}
-
-	/**
-	 * Split as RFC 5321 splits it. The domain is already lower-cased and the local part
-	 * deliberately is not, so comparing two `domain` parts is the reliable half of comparing two
-	 * addresses.
-	 *
-	 * @return list<string>
-	 */
-	public static function partNames(): array
-	{
-		return ['local_part', 'domain'];
-	}
-
-	/**
-	 * @return array<string, mixed>
-	 */
-	public function parts(): array
-	{
-		return [
-			'local_part' => $this->localPart,
-			'domain' => $this->domain,
-		];
-	}
-
-	/**
-	 * Nothing here is canonicalised, so a rule compares against exactly what it was written
-	 * with. {@see \Meraki\Schema\Field\Address\Value::canonicalPartValue()} is the one that
-	 * has work to do.
-	 */
-	public function canonicalPartValue(string $part, mixed $expected): mixed
-	{
-		return $expected;
-	}
-
-	/** Every part here is one string. @see HasParts::listParts() */
-	public static function listParts(): array
-	{
-		return [];
 	}
 }

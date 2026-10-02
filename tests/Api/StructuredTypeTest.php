@@ -7,6 +7,7 @@ use Meraki\Schema\Facade;
 use Meraki\Schema\Field;
 use Meraki\Schema\FieldName;
 use PHPUnit\Framework\Attributes\CoversNothing;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
@@ -288,5 +289,99 @@ final class StructuredTypeTest extends TestCase
 
 		// And with one, it is stored as the code whatever spelling arrived.
 		$this->assertSame('AU', $address->validate(self::auAddress(['country' => 'Australia']))->value->countryCode);
+	}
+	/**
+	 * Every part a value reports is a key it is **submitted with**.
+	 *
+	 * `PhoneNumber` reported `country, e164` against an input of `{number, country}`, so
+	 * `#/fields/phone/value/e164` resolved against something nobody had sent while
+	 * `forPart('number')` raised on the one part a form definitely renders. E.164 is a *reading*
+	 * of the pair and stays one — {@see Field\PhoneNumber\Value::toE164()}.
+	 *
+	 * The converse is deliberately not asserted. A `File`'s upload also carries `tmp_name` and
+	 * `error`, which are plumbing rather than boxes anybody fills in, so a part may be absent from
+	 * this direction without being a mistake. The direction that burns a port is a declared part
+	 * nothing can submit.
+	 */
+	#[Test]
+	#[DataProvider('recordPayloads')]
+	public function every_part_a_value_reports_is_a_key_it_is_submitted_with(Field $field, object $payload): void
+	{
+		$declared = Field\ValueClass::partNamesOf($field);
+		$undeliverable = array_values(array_diff($declared, array_keys(get_object_vars($payload))));
+
+		$this->assertNotSame([], $declared, $field::class . ' should report parts.');
+		$this->assertSame([], $undeliverable, sprintf('%s declares parts nothing can submit.', $field::class));
+
+		// And a resolved value agrees with the declaration, in the declared order — which is the
+		// order a PartedSet reads its sentences in.
+		$this->assertSame($declared, array_keys($field->resolve($payload)->value->parts()));
+	}
+
+	/** @return iterable<string, array{Field, object}> */
+	public static function recordPayloads(): iterable
+	{
+		// Every part, including the optional `dependent_locality` — the question here is which
+		// keys a submitter *may* send, not which ones an address is incomplete without.
+		yield 'Address' => [
+			new Field\Address(new FieldName('f'), ['AU']),
+			self::auAddress(['dependent_locality' => 'Frenchville']),
+		];
+		yield 'Money' => [new Field\Money(new FieldName('f'), ['AUD' => 2]), (object) ['currency' => 'AUD', 'amount' => '12.50']];
+		yield 'PhoneNumber' => [new Field\PhoneNumber(new FieldName('f'), ['AU']), (object) ['number' => '0411 222 333', 'country' => 'AU']];
+		yield 'CreditCard' => [new Field\CreditCard(new FieldName('f')), (object) [
+			'number' => '4111111111111111',
+			'expiry' => '2030-01',
+			'name' => 'Jane Doe',
+			'security_code' => '123',
+		]];
+		yield 'File' => [new Field\File(new FieldName('f')), (object) [
+			'name' => 'cv.pdf',
+			'type' => 'application/pdf',
+			'size' => 1024,
+			'tmp_name' => '/tmp/php1234',
+			'error' => 0,
+		]];
+	}
+
+	/**
+	 * And the other half of the same rule: a field submitted as one string has no parts.
+	 *
+	 * `EmailAddress` reported `local_part, domain` and took `kim@example.test` — one box. Both
+	 * halves are still readable as properties, and a rule about a domain was always written as
+	 * `matches('/@example\.test$/')` rather than through a part, so nothing was lost by dropping
+	 * them. What they cost was real: the field's messages went into a {@see \Meraki\Schema\Message\PartedSet}
+	 * keyed by names no submitter had ever seen, and `#/fields/email/value/domain` resolved.
+	 *
+	 * Asserted as an inventory over every field rather than as one case, so the next value that
+	 * reports a reading instead of an input fails here.
+	 */
+	#[Test]
+	public function only_record_shaped_fields_report_parts(): void
+	{
+		$reporting = [];
+
+		foreach (SealedFieldTest::fields() as $short => [$class]) {
+			if (Field\ValueClass::hasParts(self::build($class))) {
+				$reporting[] = $short;
+			}
+		}
+
+		$this->assertSame(['Address', 'CreditCard', 'File', 'Money', 'PhoneNumber'], $reporting);
+	}
+
+	/** @param class-string<Field> $class */
+	private static function build(string $class): Field
+	{
+		$name = new FieldName('f');
+
+		return match ($class) {
+			Field\Enum::class => new Field\Enum($name, ['a', 'b']),
+			Field\Money::class => new Field\Money($name, ['AUD' => 2]),
+			Field\Address::class => new Field\Address($name, ['AU']),
+			Field\PhoneNumber::class => new Field\PhoneNumber($name, ['AU']),
+			Field\Collection::class => new Field\Collection($name, new Field\Text(new FieldName('item'))),
+			default => new $class($name),
+		};
 	}
 }

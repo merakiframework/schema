@@ -27,6 +27,19 @@ namespace Meraki\Schema\Field;
  * vocabulary. A third spelling for the same thing would be the dotted-name problem again in
  * miniature.
  *
+ * ### A reading of a value is not a part of it
+ *
+ * The rule runs both ways: a value reports the parts it is **submitted with**, and a value
+ * submitted as one thing reports none. `EmailAddress\Value` implemented this and returned
+ * `local_part, domain` — both readable on the value, neither ever an input, since an address is
+ * one box on a form. `PhoneNumber\Value` returned `country, e164` for an input of
+ * `{number, country}`, so a scope resolved against something nobody had sent while the one part
+ * a form definitely renders raised. Both are gone, and `Api\StructuredTypeTest` holds the line.
+ *
+ * The test for whether something belongs here: *could a submitter fill this in on its own?* If it
+ * is derived from the parts rather than one of them, it is a method on the value —
+ * `Value::toE164()`, `Value::__toString()`.
+ *
  * ### Why the names are declarable without a value
  *
  * {@see self::partNames()} is static because {@see \Meraki\Schema\Facade::addRule()} validates a
