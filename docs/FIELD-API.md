@@ -83,7 +83,11 @@ final readonly class Boolean extends AtomicField
 
     protected function parse(mixed $value): Value          // 4. the one conversion hook
     {
-        return is_bool($value) ? new Value($value) : null;
+        if (!is_bool($value)) {
+            throw MalformedValue::of(Value::class, 'yes or no is submitted as a boolean');
+        }
+
+        return new Value($value);
     }
 
     protected function defineConstraints(): Constraint\Set // 5. what it checks
@@ -116,7 +120,7 @@ constraints are built *from* those properties. A field that gets this wrong fail
 ## `parse()` — the one hook
 
 ```php
-abstract protected function parse(mixed $value): ?ParsedValue;
+abstract protected function parse(mixed $value): ParsedValue;
 ```
 
 It replaced `process()`, `validateValue()` and `transform()`, which between them parsed most values
@@ -461,15 +465,16 @@ values cannot interfere, which is what makes one schema safe across many request
 `Field\Collection` implements `Field` directly and uses `Definition`, because `AtomicField`'s
 lifecycle does not fit: it resolves a *list* and checks each item against a template.
 
-Its result is a `Collection\Result` rather than a `ResolvedField`, carrying the collection's own
-verdicts plus one `Collection\Item` per row. Rows keep the key they arrived under — a position for
-a plain list, a name for `['first' => …, 'second' => …]` — so a failure is reported against
-something a person recognises.
+Its result is a `Collection\Result`, carrying the collection's own verdicts plus one
+`Collection\Item` per row. Rows keep the key they arrived under, and that key must be a **name**:
+`['first' => …, 'second' => …]` is accepted and a plain list is refused, because a stored rule
+naming row `0` would mean a different row on a different request.
 
-A field whose result has a different *shape* implements `FieldResult`, as that does. A field with
-something extra to *report* subclasses `ResolvedField` instead — `Field\Password\Result` adds the
-measured entropy of the secret. The seam is deliberately narrow: a subclass adds readings, never
-verdicts, which still come from constraints.
+Both kinds of richer result subclass `ResolvedField`, which itself implements `FieldResult`:
+`Collection\Result` adds a result per item, and `Field\Password\Result` adds the measured entropy
+of the secret. `FieldResult` is the interface `SchemaValidationResult::forField()` looks a field up
+by, so it never has to know which shape it got. The seam is deliberately narrow either way: a
+subclass adds readings, never verdicts, which still come from constraints.
 
 ---
 

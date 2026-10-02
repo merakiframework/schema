@@ -68,7 +68,7 @@ Breaking by construction, so a major version regardless.
 | **Scopes** | *Done.* Typed and immutable; resolution moved out of the field classes into `ScopeResolver`. `ScopeTarget` and `traverse()` are gone, and `Field::NOT_ADDRESSABLE` went with the back-reference it guarded — every public property of a field is addressable, with no exceptions list. `Wizard\RuleScopes` is `schema-html`'s and goes with the ports. |
 | **Rules** | *Done.* [Matcher vocabulary](#rule-authoring), an else-branch, and rules built as values: `$f->when()->equals(…)->then($g->makeRequired())`, composed with `allOf()`/`anyOf()` and added with `addRule()`/`addRules()`. `whenAllMatch()`/`whenAnyMatch()` and both rule builders are gone. An outcome is now an *operation* — `applyTo(Field): Field` — which is what makes it work against an immutable field at all; every one of them was calling a wither and discarding the result, so rules had silently stopped doing anything. All twelve matchers exist, and a field offers only the ones its value can answer — `$text->when()` has no `isAtLeast` to call. An outcome is the field put through its own withers: `then($insurance->makeRequired()->mustBeAccepted())`, with the rule storing the difference. |
 | **API surface** | `addXField()` becomes `createXField()` plus an explicit add; `pairWith()` and `Field::$schema` are removed; `type` stops being reported as a constraint; every row in [API.md](API.md) confirmed and the public API frozen. |
-| **Messages** | Wording becomes part of the core, as *installable language packs* rather than strings in the library. One integration point — `$fieldResult->messages` — a `Message\Provider` the schema is given, and a locale passed to `validate()`. Packs are MessageFormat 2 data with no code in them, so every implementation of this library renders the same sentence. Entirely optional: with no provider the library behaves exactly as it did. See [MESSAGES.md](MESSAGES.md). |
+| **Messages** | Wording becomes part of the core, as *installable language packs* rather than strings in the library. One integration point — `$fieldResult->messages` — a `Message\Provider` and a locale, both passed to `validate()`. Packs are MessageFormat 2 data with no code in them, so every implementation of this library renders the same sentence. Entirely optional: with no provider the library behaves exactly as it did. See [MESSAGES.md](MESSAGES.md). |
 | **Retire the rewrite-era tests** | *Done.* A rewrite needs tests asserting the *old* behaviour is gone; they earn their keep while both shapes exist in living memory and become noise the moment `2.0` ships, since nobody writing against a 2.x API needs telling that a 1.x one is absent. Each was run one last time to confirm the removal, then deleted — four standalone tests plus `NamingTest`'s 31-row removal matrix. Tests asserting a *live* design boundary were kept, and the distinction is recorded in TODO.md. `AtomicField::getConstraints()` has gone too, with `constraints()` becoming the `$constraints` property. |
 
 ### `2.1`, `2.2`, … — feature releases
@@ -79,9 +79,9 @@ Additive, after the redesign has settled. Each is a minor version.
 | --- | --- |
 | **Richer `Uri`** | Absolute and relative, URL and URN, RFC 3986 and WHATWG, and the plain shape check. Built on PHP's native `Uri\Rfc3986\Uri` and `Uri\WhatWg\Url` rather than a hand-rolled pattern — which is the "standards data over hand-typed tables" principle applied to the one field that most violates it. Requires PHP 8.5. |
 | **`Duration` on PHP's own class** | PHP 8.6 is expected to add a native duration type; adopt it in place of the current handling. Requires PHP 8.6. |
-| **Readonly property defaults** | [The RFC](https://wiki.php.net/rfc/readonly_property_defaults) is implemented for 8.6 and removes the only reason `AtomicField` has a constructor. `public bool $optional = false;` on the declaration replaces it, and the `parent::__construct()` call goes from all 23 fields — with it, the hazard that `tests/Api/SealedFieldTest::its_inherited_state_is_initialised()` exists to catch. Empty the constructor rather than deleting it, so the calls can be removed field by field instead of in one commit. Requires PHP 8.6. |
+| **Readonly property defaults** | [The RFC](https://wiki.php.net/rfc/readonly_property_defaults) is implemented for 8.6 and removes the only reason `AtomicField` has a constructor. `public bool $optional = false;` on the declaration replaces it, and the `parent::__construct()` call goes from all 18 fields that extend it — with it, the hazard that `tests/Api/SealedFieldTest::its_inherited_state_is_initialised()` exists to catch. Empty the constructor rather than deleting it, so the calls can be removed field by field instead of in one commit. Requires PHP 8.6. |
 | **PHPStan: clone-with narrowing** | `AtomicField::with()` clones with a string-keyed array, which PHPStan cannot see, so a `readonly` property is typed as whatever the constructor assigned it and every guard in front of it narrows to *NEVER*. That cost 101 errors at level 4 and two blanket `ignoreErrors` patterns. Both are gone: every configuration property is now initialised through `Field\Definition::initially()`, a `mixed`-returning seam that keeps the property at its declared type, and `src` is clean at **level 6** with three narrow ignore entries. Remove `initially()` when PHPStan models PHP 8.5 clone-with, or when 8.6 readonly property defaults let these be declared rather than assigned — either makes it dead weight. |
-| ~~**Typed value extraction**~~ | *Done in `2.0`, and not as `transformed`.* Every field's `parse()` returns a value object this library defines, so the parsed value **is** the typed value and there is no second property to populate. See [API.md](API.md#transformed--dropped-and-why). |
+| ~~**Typed value extraction**~~ | *Done in `2.0`, and not as `transformed`.* Every field's `parse()` returns a value object this library defines, so the parsed value **is** the typed value and there is no second property to populate. See [API.md](API.md#what-was-removed-and-why). |
 | **Cross-field constraints** | `confirm_password === password`, `end_date > start_date`. |
 | **A constraint about more than one part** | `Constraint` carries at most one `part`, which assumes a rule concerns one piece of a value. `Address` has four near-identical constraints — `localityUsed`, `dependentLocalityUsed`, `subdivisionUsed`, `postalCodeUsed` — because one rule reporting "these parts are not used by that country" had nowhere to put the list, so a form had no input to mark and a message pack got one sentence for every variant. Widening `part` to a list would collapse them: `parts: ['subdivision', 'dependent_locality']` on one failure. The cost is real — the check signature goes from `?bool` to something like `bool\|null\|list<string>`, and `ConstraintValidationResult`, the `Mf2Translator` key ladder, `Message\PartedSet`'s grouping and every port change with it — which is why four constraints were the better trade for one field. **Cross-field constraints** below need the same thing (`confirm_password === password` is a rule about two fields, not one part), so the two should be designed together: whatever shape serves a rule spanning fields probably serves one spanning parts. |
 | **Reference the reference data, do not embed it** | A document carries *configuration* — `allowedCountries`, `minLength` — and never the standards data the rules are read from. So a JavaScript reader of the same document cannot validate an Australian address without its own copy of libaddressinput, and if that copy disagrees with this one the same definition accepts different input depending on who validated it, silently. Embedding is not the answer: a free-form address field would have to carry 206 formats and 1548 subdivisions, and `Money`, `PhoneNumber` and `Password` have the same shape of problem. What is wanted is a way for a document to *name the dataset and version it assumes*, so a reader can refuse one it does not implement rather than quietly disagreeing. Same problem as **Baselines across languages** below, one layer out: that is about floors this library derives, this is about tables it reads. Worth solving once, for both. |
@@ -159,7 +159,7 @@ somebody typed. A rejected form is re-rendered from `given`, and showing a coerc
 of what was typed turns a correction into a second mistake.
 
 `transformed` was in this sketch too, and is gone for the opposite reason: the parsed value is
-already the typed value. See [API.md](API.md#transformed--dropped-and-why).
+already the typed value. See [API.md](API.md#what-was-removed-and-why).
 
 Notable consequences:
 
@@ -172,10 +172,9 @@ Notable consequences:
   names are paths. Collections extend the same scheme with an index — `items[1].sku.max`
   — which is how indexed collection results arrive.
 - **Nothing on a result throws.** `transformed` was to throw when read on a failed field; there
-  is no `transformed`, and `value` holds whatever there was to judge — the parsed value, or the
-  raw input when nothing could read it. A form redrawing a rejected field needs something to
-  show, and a property that throws on exactly the requests where it is most needed is the wrong
-  shape for that.
+  is no `transformed`. `value` is the parsed value, or `null` when nothing could be read, and
+  `given` is exactly what arrived — so a form redrawing a rejected field has something to show
+  without a property that throws on precisely the requests where it is most needed.
 - **Resolving and validating are separate steps.** Rendering a form for the first time
   resolves without validating; that state is what `ValidationStatus::Pending` has always
   described. Hence `Resolved`, not `Validated`.
@@ -272,11 +271,12 @@ row, at which point `isIn` already says it.
 `compareTo()` and one question put to the `Order` it returns, written once against the
 interface rather than once per field type — which is what that interface was split out for.
 A seventh orderable value type gets all five for free.
-### `otherwise()`
+### ~~`otherwise()`~~
 
-An else-branch of outcomes, which today requires a second rule with a hand-inverted
-condition that drifts out of step with the first. It is as declarative as `then`, so it
-serializes the same way.
+*Done in `2.0`, and spelled `else()`.* An else-branch of outcomes, which used to require a
+second rule with a hand-inverted condition that drifted out of step with the first. It is as
+declarative as `then`, so it serializes the same way. `elseIgnore()` is the shorthand for the
+common case.
 
 ### Outcomes are the field, configured — and this page used to say they could not be
 
@@ -435,7 +435,9 @@ definition time rather than carried raw — so string-based rules keep working.
 the field.
 
 All of it lands in the same breaking release as the seam, so there is one migration
-rather than three.---
+rather than three.
+
+---
 
 <a id="planned-features"></a>
 

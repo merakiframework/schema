@@ -13,7 +13,7 @@ The library is **pre-release**. See [ROADMAP.md](ROADMAP.md) for the release lad
 - [Known defects](#known-defects) — all fixed; kept as the record of what they were
 - [Design constraints](#design-constraints) — intentional behaviour that will surprise you
 - [Not yet implemented](#not-yet-implemented) — advertised but inert
-- [Rough edges](#rough-edges) — smaller API warts
+- [Recently fixed](#recently-fixed) — what changed, and what it was
 
 ---
 
@@ -211,7 +211,7 @@ These are not bugs. They are deliberate, and they will still surprise you.
 ### The core expects typed PHP values, not raw request strings
 
 Validation is strict about types. `Boolean` rejects `"1"` and `"on"`; rule conditions
-compare with `===`, so `whenEquals(..., true)` never matches the string `"1"`.
+compare with `===`, so `when()->equals(true)` never matches the string `"1"`.
 
 ```php
 $schema = new Meraki\Schema\Definition('prefs');
@@ -244,7 +244,7 @@ depends on a field that a later rule changes will not re-evaluate, and there is 
 detection. Order your rules so that dependencies come first, and avoid rules that feed
 each other.
 
-### A record nests, and most records ignore a key they do not know
+### A record nests, and refuses a key it does not know
 
 A structured field takes one record under the field's own name. There are no sub-fields to
 address, so a flat dotted key is not a second spelling of anything — it is a field name nobody
@@ -326,7 +326,7 @@ Collection rows, which this entry also used to rule out, are addressable now: a 
 rather than a position, so `#/fields/attendees/value/alice/email/value` means the same row on every
 request. See [API.md](API.md#reaching-into-a-collection).
 
-**The scope string format is still not frozen at `2.0.0-alpha.2`** even though the rest of the
+**The scope string format is still not frozen at `2.0.0-alpha.3`** even though the rest of the
 public API is. Widening it stays additive — existing scope strings keep their meaning — and nested
 parts are the remaining candidate.
 

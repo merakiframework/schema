@@ -13,7 +13,7 @@ know why.
 
 - **PHP 8.5 is required.** `2.0` uses clone-with and property hooks; there is no 8.4 fallback.
 - **The ports are not migrated yet.** `meraki/schema-html` and `meraki/schema-json` do not work
-  against `2.0.0-alpha.2`. If you depend on either, stay on `1.14.0` until they are tagged.
+  against `2.0.0-alpha.3`. If you depend on either, stay on `1.14.0` until they are tagged.
 - **Your stored documents still load.** The serialized form is unchanged: `#/fields/x/value` is
   still the scope wire format, and conditions and outcomes keep their `type`/`action` shapes.
   This is an API break, not a data break.
@@ -35,6 +35,36 @@ So the mechanical rule for the whole upgrade is:
 > `validate()`**. Anything you used to **read back off** a field after validating is now on the
 > **result**.
 
+### A field name identifies exactly, and collides case-insensitively
+
+Two jobs that used to be one method, split — and the split is a breaking change in both
+directions.
+
+```php
+// before: equals() folded case, and nothing else honoured that
+(new FieldName('email'))->equals(new FieldName('Email'));      // true
+
+// now
+(new FieldName('email'))->equals(new FieldName('Email'));      // false  — exact
+(new FieldName('email'))->collidesWith(new FieldName('Email')); // true  — the old behaviour
+```
+
+**`FieldName::equals()` is now an exact string comparison.** It had to be, because every lookup
+around it already was: `SchemaValidationResult::forField()`, `Rule\Application::forField()`,
+`Collection\Item::forField()` and the outcome keying all compare the raw string. `equals()`
+answering `true` where those answered "not found" is what made `thenIgnore('Detail')` against a
+field named `detail` accept at authoring time and then silently never apply — the dead-rule
+failure this library spends most of its guards preventing.
+
+**`Field\Set::add()` and a `Collection` template now refuse a case-insensitive collision**, using
+the new `collidesWith()`. That is where the old folding went, and it is the half that was worth
+keeping: a schema holding both `email` and `Email` is a schema whose author has made a mistake.
+
+**What breaks.** A template or schema that builds today with two names differing only in case
+now throws `DuplicateFieldName` at `add()`. Previously it built, and then threw on *every
+request* instead — so this is the same defect reported somewhere you can act on it. If you are
+calling `FieldName::equals()` directly and relying on it folding case, switch that call to
+`collidesWith()`.
 ### `Facade` is now `Definition`
 
 A straight rename of the class you build a schema with. No alias is shipped.
@@ -451,7 +481,7 @@ required", which names the symptom and hides the stale key.
 `subdivisionRequired`, `postalCodeRequired`, and four that report a part the submitted
 country has no place for — `localityUsed`, `dependentLocalityUsed`, `subdivisionUsed`,
 `postalCodeUsed`. There is no `streetUsed`: all 206 countries use a street. The generated message-key list
-changes with them — `vendor/bin/schema-lang keys` prints the new set, and your `.mf2` packs
+changes with them — `vendor/bin/schema-lang keys` prints the new set, and your `.mfr` packs
 need updating. None are bundled here.
 
 **Migrating stored addresses.** Three of these change persisted values, not just calls:

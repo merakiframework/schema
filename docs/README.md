@@ -42,8 +42,10 @@ Each is about one thing, and each runs — `composer test:examples` fails the bu
 | [collections.php](../examples/collections.php) | Repeatable rows: naming them, counting them, refusing duplicates |
 | [value-equality.php](../examples/value-equality.php) | Why a field's value decides equality, and what `==` gets wrong |
 | [branching-rules.php](../examples/branching-rules.php) | One field's value deciding another's requirements |
+| [addresses.php](../examples/addresses.php) | Per-country requirements, the two precision dials, and what each part is called |
 | [matchers.php](../examples/matchers.php) | The twelve questions a rule can ask, and where each one's boundary sits |
 | [comparing-fields.php](../examples/comparing-fields.php) | Comparing two fields, whole or part by part |
+| [row-rules.php](../examples/row-rules.php) | Rules that run once per row of a collection |
 | [validate-with-rules.php](../examples/validate-with-rules.php) | Rules end to end, with the result's provenance |
 | [interactive-input.php](../examples/interactive-input.php) | Asking one field at a time and re-asking until it is acceptable |
 | [messages.php](../examples/messages.php) | Language packs: one schema, several languages, and verdicts that do not move |

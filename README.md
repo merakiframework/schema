@@ -6,7 +6,7 @@
 
 > ### `2.0` is in alpha
 >
-> `main` is tagged `2.0.0-alpha.2`. It is a **breaking rewrite** of `1.x`: fields are immutable,
+> `main` is tagged `2.0.0-alpha.3`. It is a **breaking rewrite** of `1.x`: fields are immutable,
 > input is objects rather than arrays, and every field parses to a value object.
 > [UPGRADING.md](UPGRADING.md) is the migration guide.
 >
@@ -182,7 +182,7 @@ happen to be writing in.**
 
 Three things hold whether or not you use it:
 
-- **The provider is registered on the schema; the language arrives with the request.** One schema
+- **The provider and the language both arrive with the request.** One schema
   serves every reader.
 - **A missing language cannot change a verdict.** Ask for one nobody has and you get the same
   failures with nothing to say about them.

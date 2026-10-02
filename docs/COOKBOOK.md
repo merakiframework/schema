@@ -182,7 +182,7 @@ $schema->validate((object) [
 ```
 
 Every part here is required *because Australia requires it*. Nothing about the field says so —
-`getRequiredFields()` does. Japan asks for a prefecture and no locality, Panama has no postcode
+the country's own published format does, and `requirementsFor()` is how you read it. Japan asks for a prefecture and no locality, Panama has no postcode
 at all, and Great Britain has no state, so the same field accepts all three without being
 configured per country. A check for a part the submitted country does not ask for **skips**; it
 does not quietly pass.
@@ -364,8 +364,10 @@ Submitted beats prefilled beats the authored default. **A prefill is never writt
 which is what makes "a serialised schema can never contain user data" true by construction rather
 than by discipline.
 
-Pass `policy: PrefillPolicy::Unchecked` if a value you looked up should not have to satisfy the
-field's constraints — a stored phone number that predates a rule you have since tightened.
+Pass `policy: PrefillPolicy::Trusted` if a value you looked up should not have to satisfy the
+field's constraints — a stored phone number that predates a rule you have since tightened. Trust
+attaches to the *value*, not the request: it waives the constraints only for a value that actually
+survived as prefilled, so it can never excuse something the user typed over the top.
 
 ## Rendering before anything is submitted
 
@@ -404,7 +406,7 @@ $result->forField('billing')->messages->forPart('postal_code')->first;
 // "That is not a valid postcode for the country you chose."
 ```
 
-The provider is registered once; the **language is part of the request**. A field whose value has
+The provider and the locale both arrive **with the request**, so one schema serves every reader. A field whose value has
 named parts groups its messages by part; everything else gives a flat list.
 
 Entirely optional — with no provider, every result carries an empty message set and nothing else

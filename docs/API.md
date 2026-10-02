@@ -99,7 +99,7 @@ and the euro spans twenty.
 | `Enum` | — | — | `Enum\Value` |
 | `File` | `allowDocuments()`, `allowImages()`, `allowTypes()`, `allowVideos()`, `clearAllowedTypes()`, `clearDisallowedTypes()`, `disallowScripts()`, `disallowTypes()`, `maxSizeOf()`, `minSizeOf()` | `minSize`, `maxSize`, `allowedTypes`, `disallowedTypes` | `File\Value` |
 | `Money` | `allowCurrencies()`, `clearAllowedCurrencies()`, `maxAmountOf()`, `minAmountOf()` | `currencyRequired`, `amountRequired`, `allowedCurrencies`, `minAmount`, `maxAmount`, `scale` | `Money\Value` |
-| `Name` | — | `minLength`, `maxLength` | `Name\Value` |
+| `Name` | `maxLengthOf()`, `minLengthOf()` | `minLength`, `maxLength` | `Name\Value` |
 | `Number` | `inIncrementsOf()`, `maxPrecisionOf()`, `maxValueOf()`, `minValueOf()`, `scaleTo()` | `minValue`, `maxValue`, `step`, `scale`, `maxPrecision` | `Number\Value` |
 | `Password` | `maxLengthOf()`, `minLengthOf()`, `minNumberOfDigits()`, `minNumberOfLowercaseChars()`, `minNumberOfSymbols()`, `minNumberOfUppercaseChars()`, `minStrengthOf()` | `minLength`, `maxLength`, `minStrength`, `minUppercaseChars`, `minLowercaseChars`, `minDigits`, `minSymbols` | `Password\Value` |
 | `PhoneNumber` | `allowCountries()`, `clearAllowedCountries()`, `ofType()` | `numberRequired`, `allowedCountries`, `numberType` | `PhoneNumber\Value` |
@@ -111,8 +111,7 @@ and the euro spans twenty.
 **Shared by every field**, so not repeated above: `defaultsTo()`, `makeOptional()`,
 `makeRequired()`, `equals()`, `resolve()`, `validate()`, `resolvedValueFor()`.
 
-Two rows worth reading twice. **`Name` has no configuration at all** — its length bounds are a
-baseline, not a dial. **`Enum` reports no constraints** — the list of cases *is* the type, so a
+One row worth reading twice. **`Enum` reports no constraints** — the list of cases *is* the type, so a
 value outside it is a shape failure, the same way an unparseable string is for `Date`.
 
 ## How things are named
@@ -412,7 +411,7 @@ $field = $schema->validate($data)->forField('email');
 | `$field->shape` | could this be read at all? |
 | `$field->constraints` | the constraint verdicts, on their own |
 | `$field->status` | `Passed` \| `Failed` \| `Skipped` \| `Pending` |
-| `$field->messages` | what to tell somebody, in the language the request asked for — empty unless a provider was registered |
+| `$field->messages` | what to tell somebody, in the language the request asked for — empty unless the request passed a provider |
 
 ### `given` and `value` mean one thing each
 

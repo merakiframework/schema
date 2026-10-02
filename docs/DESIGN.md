@@ -184,7 +184,7 @@ validator — which every mature alternative does — makes the wording a proper
 implementation rather than of the definition, and a port has to re-translate everything.
 
 **The language cannot reach the judging.** A definition is the same in every language: the same
-data passes or fails identically whoever is reading. So a provider is registered on the schema and
+data passes or fails identically whoever is reading. So both the provider and
 the *locale* is passed to `validate()`, applied to the verdicts afterwards. The consequence is the
 point — ask for a language nobody has and you get every failure you would otherwise have got, with
 nothing to say about them. Nothing about wording can move an outcome.
