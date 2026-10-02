@@ -10,6 +10,312 @@ is a commit subject, with the body kept because the body is where the reasoning 
 
 ## Unreleased
 
+### A record refuses a key it does not know
+
+`a7753d82` · 2026-10-02
+
+Money, CreditCard, PhoneNumber and File dropped an unrecognised key inside
+the record. Address has refused since its parts were renamed; the other
+four now do the same.
+
+Ignoring the key means reporting whatever its absence breaks. `ammount`
+was answered with "enter an amount"; `securty_code` left the security code
+absent and reported *that*. In both, the one key that was actually wrong is
+the only thing nobody is told, and data somebody meant to send is gone
+without a word. Address's own comment has said why since the rewrite:
+naming the symptom hides the stale key that caused it.
+
+This had already bitten once. `e164` and `local_part` stopped being parts
+two commits ago, so a port still sending them would have been told its
+phone number or email was incomplete -- the renamed-part failure Address
+was made strict to prevent, arriving on the fields that were not.
+
+Each value does its own check against its own partNames(), duplicated
+rather than shared: sibling field types stay independent, and the accepted
+keys being literally the declared parts is worth more than three lines
+saved.
+
+File is the apparent exception and is not one. A $_FILES entry carries
+tmp_name, error and -- since PHP 8.1 -- full_path beside the three parts
+this library reads, and a port handing one straight over should not have to
+strip them first. Those six are named in UPLOAD_KEYS: declared and ignored,
+which is a different thing from a key nobody declared.
+
+What this does not do is say which key it was. The verdict is `unreadable`
+and the message naming the stray key is on the MalformedValue, which the
+request path absorbs by design. `$resolved->given` still holds exactly what
+was submitted, so it is recoverable; it is not handed over. Said plainly in
+docs/LIMITATIONS.md rather than left to be discovered.
+
+Both halves are pinned in MalformedCompositeInputTest -- the stray key
+refused, the same payload without it readable -- so the test cannot pass by
+refusing everything.
+
+### Say what the code does, in the five places it did not
+
+`5fd525da` · 2026-10-02
+
+Each of these was found by reading the code beside the claim rather than
+the claim on its own, which is the only way this kind of rot gets found:
+every one of them reads perfectly until you check.
+
+  - Facade's scope example named `PropertyScope::of('age', 'min')`. The
+    property is `minValue`. Anyone copying it got a scope refused at
+    addRule(), which is the good failure, but still a documented call that
+    has never worked. (Rode along with the previous commit, same file.)
+
+  - CreditCard pointed at `Value::fromInput()`, gone since the value
+    objects took the whole record. docs/FIELD-API.md showed the same
+    method in the worked example of how to write parse(), so somebody
+    following the extension guide wrote a field that could not compile.
+    Replaced with what the built-in fields actually do.
+
+  - Collection described a `type` constraint. Readability is the shape
+    now -- the precondition every constraint depends on, not one more rule
+    among them -- and `type` is not a constraint on anything.
+
+  - docs/LIMITATIONS.md demonstrated array payloads and addBooleanField(),
+    both of which now raise a TypeError, in the section explaining what
+    this library accepts.
+
+  - docs/EXTENDING.md listed reaching into a collection row as impossible.
+    Rows are keyed by name, so a stored rule naming one means the same row
+    on every request; it was positional indices that could not be stored.
+    Replaced with the limitation that is actually still there -- a part of
+    a part.
+
+While rewriting the LIMITATIONS section on records I checked rather than
+assumed, and the behaviour it described is split: Address refuses a key it
+does not know, and Money, CreditCard, PhoneNumber and File ignore it. That
+is documented here as it stands and is being fixed next.
+
+Also in: UPGRADING sections for the three breaking changes behind this
+batch, and docs/API.md's per-field constraint tables, which had not caught
+up with the new *Required names or with expiryFormat going away.
+
+### Wording arrives with the request, not with the schema
+
+`da967d65` · 2026-10-02
+
+The locale always did. The provider sat on Facade's constructor beside the
+fields, which made it half a property of the definition -- and the half
+that mattered. A schema built in a service container was stuck with
+whatever pack that container had. Serialising a schema dropped the provider
+silently. Swapping the wording for one caller meant rebuilding the schema.
+
+None of that is a fact about a definition. The same data passes or fails
+identically in every language; this library's own sentence for it is
+already written two lines above the constructor it contradicted.
+
+    $schema = new Facade('signup');
+    $result = $schema->validate($data, locale: 'en-AU', messages: $provider);
+
+Facade::$messages goes with it, so there is no longer a copy of a schema
+that could be carrying a different one -- which is what the clone test now
+asserts instead.
+
+resolve() takes neither. It reaches no verdict, and only a failure has
+anything to say, so a provider there would have been a parameter that
+could not change an outcome. Said in its docblock rather than left to be
+discovered.
+
+Everything else holds: no provider, an unsupported tag, or no tag at all
+still leaves every verdict exactly as it was and every message set empty.
+
+### A value reports the parts it is submitted with
+
+`a4de8da1` · 2026-10-02
+
+Two values reported a *reading* of themselves instead of their inputs.
+
+EmailAddress\Value returned `local_part, domain` and took `kim@example.test`
+-- one box on a form, one string in a payload. Neither half was ever an
+input, so `#/fields/email/value/domain` resolved against something nobody
+had sent, and the field's messages went into a PartedSet keyed by names no
+submitter has seen. It stops implementing HasParts. Both halves are still
+readable as properties, and a rule about a domain was always written as
+`matches('/@example\.test$/')` rather than through a part, so nothing a
+caller could do is lost.
+
+PhoneNumber's half of this came with the previous commit: `number, country`
+rather than `country, e164`.
+
+Nothing in the suite broke, which is the finding rather than the relief --
+2172 tests and not one of them noticed. So the rule is pinned twice in
+Api\StructuredTypeTest, as a sweep rather than as two cases:
+
+  - every part a value declares is a key its payload carries. Not the
+    converse: a File's upload also carries tmp_name and error, which are
+    plumbing rather than boxes anybody fills in, and a part missing from
+    that direction is not a mistake. The direction that burns a port is a
+    declared part nothing can submit.
+
+  - only the five record-shaped fields report parts at all, asserted over
+    the whole field inventory, so the next value that reports a derived
+    reading fails here rather than in a port.
+
+The test for whether something belongs in partNames(): could a submitter
+fill this in on its own? If it is derived from the parts rather than one of
+them, it is a method on the value -- toE164(), __toString(). That is now
+written on the HasParts interface, where the next person to implement it
+will read it.
+
+### A required part that was not sent names itself
+
+`9155bbbe` · 2026-10-02
+
+The invariant, across every record-shaped field: a required part that is
+absent, or present and null, fails that part's own constraint and names the
+part. A part that was *sent* and holds nothing is unreadable instead -- `''`
+was a decision somebody made, and reading it as absence would let whitespace
+satisfy a requiredness check. An optional field absent or null is skipped,
+which is the qualifier that makes it an invariant rather than a rule of
+thumb.
+
+Only Address honoured it. Money, CreditCard and PhoneNumber collapsed all
+three cases into `unreadable`, so "you left the amount out" and "the amount
+is gibberish" were one verdict carrying no part -- which is why schema-html
+ended up collapsing blank records to null before handing them over.
+
+Money gains currencyRequired and amountRequired; PhoneNumber numberRequired;
+CreditCard numberRequired and expiryRequired. Each names its part, so a form
+marks the box rather than being told the whole value is unreadable.
+
+Two asymmetries worth stating, because both look like oversights:
+
+PhoneNumber's country has no counterpart. libphonenumber cannot parse a
+number without a region, and `0411 222 333` is a different number in a
+different country -- so the country is to a phone number what it is to an
+address, refused rather than reported. The number is the half that reports.
+
+CreditCard loses expiryFormat. An expiry that was given and cannot be read is
+now a shape failure, as a bad amount already was on Money, so the constraint
+had nothing left to say that expiryRequired does not. Keeping both would mean
+two names for "there is no usable expiry here".
+
+File is deliberately untouched. Its three parts are one upload's metadata
+rather than three inputs a form renders -- no page has a "file type" box to
+mark -- and its own comment already says a null there is a malformed upload.
+Adding *Required constraints would have added three names nothing can act on.
+
+Also: PhoneNumber::partNames() returns the keys it is submitted with,
+`number` and `country`, rather than `country` and `e164`. E.164 is a derived
+reading and stays as toE164(); it was never an input, so a port could not
+derive its field names from the parts and PartedSet::forPart('number') raised
+on the one part a form definitely renders.
+
+The audit lives in MalformedCompositeInputTest as one provider across all
+four, because the point is that they agree -- a fifth record field that does
+not fails there rather than in a port.
+
+### A field name identifies exactly, and collides case-insensitively
+
+`a62aebc8` · 2026-10-01
+
+FieldName::equals() folded case, and it was the only thing in the library
+that did. A payload is keyed exactly, forField() matches exactly, extractData
+keys exactly, and Facade::against() buckets outcomes by the scope's spelling
+and reads them back by the field's. One comparison disagreeing with all of
+them was silent in both directions:
+
+  - a collection template holding `Name` and `name` built without complaint,
+    then threw DuplicateFieldName on *every request*, when eachItem() built a
+    Set from it. An authoring mistake that waited for a user to find it.
+  - thenIgnore('Detail') against a field called `detail` passed Guards,
+    because the resolver folded case, and then never applied, because the
+    outcome bucket did not.
+
+What the folding was *for* is a good rule and stays: a schema holding both
+`email` and `Email` leaves a reader guessing which one a message or a scope
+path meant. It is just not the same question. "Is this the same field" is
+asked on every request and must agree with every lookup; "could these be
+confused" is asked once, where the schema is written.
+
+So equals() is exact and collidesWith() is new, and Field\Set and
+Collection's template both refuse a collision as they add. Collection had its
+own duplicate check keyed by the name as written, which is why it disagreed
+with Field\Set in the first place; it asks the shared question now.
+
+FieldNameTest::case_does_not_distinguish_two_names is inverted rather than
+deleted -- it pinned a real decision, and the replacement pins where that
+decision moved to.
+
+### A rule about an address part no longer dies quietly
+
+`14ca7430` · 2026-10-01
+
+Two ways to write one that was accepted where it was written and then never
+fired -- the failure Rule\Guards exists to prevent, arriving through a door
+it does not watch, because wouldBeParsed() asks for a ValueScope and a
+PartScope is its sibling rather than its subclass.
+
+**A spelling the field accepts as input.** An address stores AU-QLD whichever
+of QLD, qld, AU-QLD or Queensland arrived, and AU for Australia. The stored
+side went through that canonicalisation and the expectation did not, so
+equals('QLD') compared AU-QLD against QLD and was false for every request
+there would ever be. The spelling that reads most naturally was the one that
+could not work.
+
+The value canonicalises the expectation now, through a new
+HasParts::canonicalPartValue(). Asked of the value rather than worked out by
+the comparison, because only the value knows what it did: a subdivision needs
+its country to resolve, and the submitted address is the only thing holding
+one. That is also why it happens at match time -- with several countries
+allowed there is no single subdivision list to resolve against. Five of the
+six implementations return the expectation unchanged, because five of the six
+canonicalise nothing.
+
+**A part held as a list.** street is up to three lines, so every scalar verb
+compared an array against a string. Six of the seven were dead; only isEmpty
+worked, and only because 03b7c6c had already taught it about lists. The
+textual verbs fold over the entries now -- "any line", the only reading that
+is useful and unambiguous -- and the ordered ones are refused where the rule
+is written, naming the verbs a list does answer. HasParts::listParts()
+declares which parts those are, statically, because a rule is checked before
+any value exists.
+
+Not Condition\Quantified: it asserts a Scope\Column and folds rowNamesIn(),
+which is collection machinery for "how many rows match" rather than "does any
+line".
+
+Two things found while doing it. IsIn had its own comparison loop and so
+missed both fixes; the comparison core is now one method both go through, so
+a subclass looping over operands cannot get a simpler comparison than equals
+does. And the first cut of this silently did nothing, because PartScope was
+not imported into Comparison -- instanceof against an undefined class returns
+false rather than raising, which is the same shape of bug as the two above.
+
+### Read the addressing library's field names rather than assuming their shape
+
+`be578b51` · 2026-10-01
+
+Requirements compared upstream field names strictly against string literals.
+Its own docblock was candid about the risk: the addressing library documents
+getRequiredFields() and getUsedFields() as returning AddressField objects,
+and at runtime they are the strings those objects' constants hold.
+
+Strict comparison against the wrong shape fails silently in the direction
+that matters. requiredParts empties, so every requiredness check skips and an
+address is never incomplete again; usedParts empties the same way. Only
+streetLineLimit would have failed loudly, by dropping to zero. composer.json
+allows ^2.0, so an update inside the permitted range could do it, and nothing
+in the suite would have gone red.
+
+Both readers now go through nameEach(), which reads a string, a backed enum
+or a Stringable, and raises UnreadableAddressFormat for anything else. Loud
+rather than quiet, for the reason UnknownAddressPart gives one layer down:
+the silent alternative answers "not required" and lets the part go unchecked.
+
+Two tests. One pins the current shape, so an upstream change is noticed even
+though it no longer breaks anything -- it says in its own docblock that going
+red means "move the assertion", not "something is wrong". The other exercises
+all three shapes directly, because no version of the library produces more
+than one of them at a time, so a defensive read cannot ride on the data.
+
+### Update history
+
+`69664130` · 2026-10-01
+
 ### Report an unusable part against the part itself
 
 `553ea19c` · 2026-10-01
