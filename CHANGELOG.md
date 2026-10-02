@@ -10,6 +10,80 @@ is a commit subject, with the body kept because the body is where the reasoning 
 
 ## Unreleased
 
+### A step must be positive, and clearStep() is how you remove one
+
+`12cee191` · 2026-10-02
+
+Number and Duration both accepted a step of zero or a negative one, and
+then reported it per request -- in four combinations that between them
+managed four different wrong answers:
+
+  Number   inIncrementsOf(0)        step Skipped forever: the call
+                                    silently did nothing
+  Number   inIncrementsOf(-5)       step Failed forever
+  Duration inIncrementsOf('PT0S')   step Failed forever
+  Duration inIncrementsOf('-PT5M')  Passed -- (600e9 - 0) % -300e9 is 0,
+                                    so a negative step behaved like a
+                                    positive one by accident of the modulus
+
+Two of those are a field nothing can ever satisfy. One is a rule the author
+asked for and did not get, with nothing anywhere to say so, which is the
+dead-rule shape Rule\Guards exists to prevent arriving through the
+configuration door instead. The fourth works, for a reason nobody intended
+and nothing records.
+
+Every other bound in this library refuses an unsatisfiable definition where
+it is written -- maxPrecisionOf(0), File::minSizeOf, Text::maxLengthOf,
+Money::minAmountOf all throw InvalidConfiguration. Step was the exception,
+and Duration's own code has carried a comment conceding the divergence and
+"preserved for now" since it was noticed.
+
+So both withers refuse it now, and both predicates lose their zero and
+negative branches: null means no step, and nothing else can get in.
+
+clearStep() is new on both, and on Number it is the replacement for
+something that was never documented as an API -- passing 0 was the only way
+to un-set a step, because `step` starts null and nothing could return it
+there. Now there is a method that says what it does.
+
+On Duration it widens past the default, and that is worth being explicit
+about rather than quiet: an unconfigured duration steps by the minute and
+refuses PT30S. It is not a new exception to "configuration narrows" -- it
+is the end of a dial that already turned both ways, since
+inIncrementsOf('PT1S') admits PT30S just as surely. Said in both the method
+docblock and UPGRADING.
+
+One existing provider row went with it: DurationTest asserted a zero step
+fails every value, which was the behaviour being removed.
+
+### namePresent is nameRequired, like the other mandatory parts
+
+`518b850e` · 2026-10-02
+
+This release introduced the *Required family -- currencyRequired,
+amountRequired, numberRequired, expiryRequired, and four on Address -- and
+the cardholder name was the one mandatory part left outside it. Same job,
+different word, on the same line-run as two constraints that got the new
+name. A port dispatching on constraint names had to know about seven
+*Required and one Present.
+
+Renaming it collapsed the difference entirely: namesAHolder() was
+`$card->name !== null && $card->name !== ''`, and the `!== ''` half has not
+been able to fire since the value constructor started refusing a part that
+was sent and holds nothing. So it is hasA('name') now, the same predicate
+its two siblings use, and it declares `true` as its bound where it used to
+declare null -- which is what the other *Required constraints do, so a
+message pack sees one shape rather than two.
+
+The three now sit together at the head of the set, as Money's two do.
+
+Wording moves with it in meraki/schema-language-english, unchanged:
+"Enter the cardholder's name as it is printed on the card."
+
+### Update history
+
+`736c71b4` · 2026-10-02
+
 ### Document the pack install that actually resolves
 
 `af90bed6` · 2026-10-02
