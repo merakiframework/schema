@@ -174,7 +174,7 @@ Every library above bundles error messages and translations *into the validator*
 PHP. This one puts them in an installable pack of MessageFormat 2 data with no code in it:
 
 ```
-composer require meraki/schema-language-english
+composer require meraki/schema-language-english:dev-main
 ```
 
 The difference is not whether you get English out of the box — you do, from one package rather

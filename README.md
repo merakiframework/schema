@@ -161,8 +161,11 @@ That is enough to write your own sentence, and plenty of applications should. Fo
 is an **installable language pack** — data, not code:
 
 ```
-composer require meraki/schema-language-english
+composer require meraki/schema-language-english:dev-main
 ```
+
+`dev-main` while 2.0 is in alpha: the pack tracks a vocabulary that is still moving, so there is
+nothing stable to pin to yet.
 
 ```php
 use Meraki\Schema\Message\Mf2\Mf2Provider;
