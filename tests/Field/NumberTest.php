@@ -74,7 +74,6 @@ final class NumberTest extends FieldTestCase
 			'(float) zero' => [0.00],
 			'(float) positive with leading 0' => [0.456],
 			'(float) negative with leading 0' => [-0.456],
-			'(float) no integral part' => [.456],
 			'(float) without fractional part' => [123.],
 			'(float) with exponent' => [1.23e3],
 		];

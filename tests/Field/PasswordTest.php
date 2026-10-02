@@ -12,6 +12,7 @@ use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
 use InvalidArgumentException;
+use ReflectionProperty;
 
 #[Group('field')]
 #[CoversClass(Password::class)]
@@ -163,9 +164,27 @@ final class PasswordTest extends FieldTestCase
 	{
 		// zxcvbn's dictionaries cost ~18ms and ~10MB, so a field with no strength requirement must
 		// not pay for them merely by being validated.
+		//
+		// This used to read `assertSame($resolved->entropy, $resolved->entropy)`, which could not
+		// fail: `$entropy` is `?int`, so assertSame compares by value and re-measuring on every
+		// read would pass just as happily. Both halves of the name are now actually asserted —
+		// the measurement does not happen until asked, and happens once when it is.
 		$resolved = $this->createField()->validate('correct horse battery staple');
 
-		$this->assertSame($resolved->entropy, $resolved->entropy);
+		$measured = new ReflectionProperty(Password\Result::class, 'hasMeasured');
+
+		$this->assertFalse($measured->getValue($resolved), 'Validating must not reach for zxcvbn.');
+
+		$first = $resolved->entropy;
+
+		$this->assertTrue($measured->getValue($resolved), 'Reading $entropy must take the measurement.');
+		$this->assertIsInt($first);
+
+		// Poison the memo. A second read that re-measures would overwrite it and disagree.
+		$held = new ReflectionProperty(Password\Result::class, 'measured');
+		$held->setValue($resolved, $first + 1);
+
+		$this->assertSame($first + 1, $resolved->entropy, 'The measurement was taken a second time.');
 	}
 
 	#[Test]

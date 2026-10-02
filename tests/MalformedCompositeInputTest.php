@@ -46,32 +46,42 @@ final class MalformedCompositeInputTest extends TestCase
 		return $schema;
 	}
 
+	/**
+	 * Asserted against the field itself, not against `anyFailed()` on the whole schema.
+	 *
+	 * These four read `assertTrue($this->schema()->validate(…)->anyFailed())` for a long time,
+	 * and sixteen cases could not fail: the fixture holds four required fields and each test
+	 * submits one, so the other three are absent and `anyFailed()` is true whatever the value
+	 * under test does. A *valid* price gave `true` just as readily. The "rather than raises"
+	 * half still did its job — an exception errors the test — but the "fails" half asserted
+	 * nothing at all.
+	 */
 	#[Test]
 	#[DataProvider('unusableValues')]
 	public function a_money_field_fails_rather_than_raises(mixed $value): void
 	{
-		$this->assertTrue($this->schema()->validate((object)['price' => $value])->anyFailed());
+		$this->assertTrue($this->schema()->validate((object)['price' => $value])->forField('price')->wasUnreadable());
 	}
 
 	#[Test]
 	#[DataProvider('unusableValues')]
 	public function an_address_field_fails_rather_than_raises(mixed $value): void
 	{
-		$this->assertTrue($this->schema()->validate((object)['billing' => $value])->anyFailed());
+		$this->assertTrue($this->schema()->validate((object)['billing' => $value])->forField('billing')->wasUnreadable());
 	}
 
 	#[Test]
 	#[DataProvider('unusableValues')]
 	public function a_credit_card_field_fails_rather_than_raises(mixed $value): void
 	{
-		$this->assertTrue($this->schema()->validate((object)['card' => $value])->anyFailed());
+		$this->assertTrue($this->schema()->validate((object)['card' => $value])->forField('card')->wasUnreadable());
 	}
 
 	#[Test]
 	#[DataProvider('unusableValues')]
 	public function a_collection_field_fails_rather_than_raises(mixed $value): void
 	{
-		$this->assertTrue($this->schema()->validate((object)['items' => $value])->anyFailed());
+		$this->assertTrue($this->schema()->validate((object)['items' => $value])->forField('items')->shape->failed());
 	}
 
 	#[Test]

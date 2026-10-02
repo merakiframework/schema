@@ -6,11 +6,13 @@ namespace Meraki\Schema\Message;
 use Meraki\Schema\Definition;
 use Meraki\Schema\Field;
 use Meraki\Schema\FieldResult;
+use Meraki\Schema\Message;
 use Meraki\Schema\Message\Mf2\Mf2Provider;
 use PHPUnit\Framework\Attributes\CoversNothing;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
+use ReflectionObject;
 
 /**
  * Messages as a schema actually uses them: a provider registered once, a language per request.
@@ -197,9 +199,48 @@ final class SchemaMessagesTest extends TestCase
 	{
 		// What a result says is fixed at the moment it was judged. Two reads cannot disagree
 		// because somebody edited a pack in between.
+		//
+		// This used to read `assertSame($result->messages->all, $result->messages->all)`, which
+		// could not fail: `$all` is an array, so assertSame compares by value, and a set that
+		// re-rendered from a held translator on every read would have passed just as happily.
+		// What makes the claim testable is asserting the thing the name says — that the set
+		// holds sentences, and holds nothing that could produce a different one later.
 		$result = $this->schema()->validate(self::payload(), locale: 'en', messages: self::pack())->forField('username');
 
 		$this->assertInstanceOf(FieldResult::class, $result);
-		$this->assertSame($result->messages->all, $result->messages->all);
+		$this->assertNotSame([], $result->messages->all);
+
+		foreach ($result->messages->all as $said) {
+			$this->assertIsString($said);
+		}
+
+		foreach (self::everythingHeldBy($result->messages) as $held) {
+			$this->assertNotInstanceOf(Message\Translator::class, $held);
+			$this->assertNotInstanceOf(Message\Provider::class, $held);
+		}
+	}
+
+	/**
+	 * Everything a message set holds, one level in, so a test can assert what is *not* there.
+	 *
+	 * A parted set holds a flat set per part, so this flattens one level rather than recursing:
+	 * a translator kept anywhere a sentence could come from would be at one of these two depths.
+	 *
+	 * @return list<mixed>
+	 */
+	private static function everythingHeldBy(Message\Set $set): array
+	{
+		$held = [];
+
+		foreach ((new ReflectionObject($set))->getProperties() as $property) {
+			$value = $property->getValue($set);
+			$held[] = $value;
+
+			foreach (is_array($value) ? $value : [] as $inner) {
+				$held[] = $inner;
+			}
+		}
+
+		return $held;
 	}
 }

@@ -79,7 +79,6 @@ final class ValueTest extends TestCase
 			'no at sign' => ['kim'],
 			'nothing before the at' => ['@example.test'],
 			'nothing after the at' => ['kim@'],
-			'no dot is fine, no domain is not' => ['kim@'],
 			'a space inside' => ['kim doe@example.test'],
 			'surrounded by spaces' => [' kim@example.test '],
 			'empty' => [''],
@@ -94,6 +93,21 @@ final class ValueTest extends TestCase
 		$this->expectException(MalformedValue::class);
 
 		new Value($notAnAddress);
+	}
+
+	/**
+	 * A domain with no dot is an address. `kim@localhost` and `kim@intranet` are deliverable on
+	 * a network that says so, and the grammar here makes the dot optional on purpose —
+	 * `(?:\.[…])*`. What is refused is a domain that is not *there*.
+	 *
+	 * `notAddresses` used to carry a row named for this, holding `'kim@'` — the same input as
+	 * the row above it. The name described this case; the data tested the other one, so the
+	 * half that reads "no dot is fine" was asserted nowhere.
+	 */
+	#[Test]
+	public function a_domain_with_no_dot_is_still_a_domain(): void
+	{
+		$this->assertSame('intranet', (new Value('kim@intranet'))->domain);
 	}
 
 	#[Test]

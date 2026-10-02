@@ -1,9 +1,8 @@
 <?php
 declare(strict_types=1);
 
-namespace Meraki\Schema\Field\Type;
+namespace Meraki\Schema\Field;
 
-use Meraki\Schema\Field\File;
 use Meraki\Schema\Field\File\Value;
 use Meraki\Schema\FieldName;
 use Meraki\Schema\FieldTestCase;
