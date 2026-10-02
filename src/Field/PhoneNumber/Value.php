@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace Meraki\Schema\Field\PhoneNumber;
 
 use Meraki\Schema\Comparison\Equality;
+use Meraki\Schema\Exception\BrokenInputContract;
 use Meraki\Schema\Field\HasParts;
 use Meraki\Schema\Field\MalformedValue;
 use Meraki\Schema\Field\ParsedValue;
@@ -52,7 +53,9 @@ final readonly class Value implements ParsedValue, HasParts
 	 * already E.164, so `+61…` paired with `US` would otherwise sail through with the two
 	 * halves disagreeing.
 	 *
-	 * @param object $number with a `number` and a `country`, or an already-parsed LibPhoneNumber
+	 * @param LibPhoneNumber|object{number?: string|null, country: string} $number an already-parsed
+	 *        number, or the pair a form submits
+	 * @throws BrokenInputContract if it carries a key a phone number does not have
 	 *        — which is how a field hands back a value it resolved using its own default country
 	 * @throws MalformedValue if either half is missing, or the pair does not describe a number
 	 */
@@ -69,15 +72,10 @@ final readonly class Value implements ParsedValue, HasParts
 		$parts = get_object_vars($number);
 		$unknown = array_diff(array_keys($parts), self::partNames());
 
-		// Named rather than ignored, the rule every record-shaped value here follows. A port
-		// still sending `e164` — which was a part until it stopped being one — would otherwise
-		// be told its number is missing, which names the symptom and hides the stale key.
+		// Raised, not reported: a port still sending `e164` — which was a part until it stopped
+		// being one — is a port that needs changing, not a request that needs a message.
 		if ($unknown !== []) {
-			throw MalformedValue::of(self::class, sprintf(
-				'"%s" is not a part of a phone number. The parts are: "%s"',
-				implode('", "', $unknown),
-				implode('", "', self::partNames()),
-			));
+			throw BrokenInputContract::recordHasKeysItDoesNotAccept(self::class, array_values($unknown), self::partNames());
 		}
 
 		// A part that was sent and holds nothing is unreadable, not absent — the rule every

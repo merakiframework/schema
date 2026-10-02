@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace Meraki\Schema\Field\File;
 
 use Meraki\Schema\Comparison\Equality;
+use Meraki\Schema\Exception\BrokenInputContract;
 use Meraki\Schema\Field\HasParts;
 use Meraki\Schema\Field\MalformedValue;
 use Meraki\Schema\Field\ParsedValue;
@@ -28,21 +29,6 @@ use Meraki\Schema\Field\ParsedValue;
  */
 final readonly class Value implements ParsedValue, HasParts
 {
-	/**
-	 * Every key an upload may arrive with, which is more than its parts.
-	 *
-	 * `name`, `type` and `size` are what this reads and what it reports as parts. The other
-	 * three are PHP's: a `$_FILES` entry also carries a temporary path, an error code and —
-	 * since 8.1 — the client's full path. A port handing one straight over should not have to
-	 * strip them first, so they are accepted and ignored.
-	 *
-	 * Accepted-and-ignored is a different thing from a key nobody declared. That one is
-	 * refused, because it is data somebody meant to send.
-	 *
-	 * @var list<string>
-	 */
-	private const UPLOAD_KEYS = ['name', 'type', 'size', 'tmp_name', 'error', 'full_path'];
-
 	/** @var non-empty-string the client's filename */
 	public string $name;
 
@@ -53,29 +39,36 @@ final readonly class Value implements ParsedValue, HasParts
 	public int $size;
 
 	/**
-	 * Takes the record a field takes, which for a file is the `$_FILES` triple a port hands
-	 * over: a name, a claimed type and a reported size.
+	 * Takes the record a field takes: a name, a claimed type and a reported size.
 	 *
-	 * @param object $file with a `name`, a `type` and a `size`
+	 * **These three and nothing else.** A `$_FILES` entry also carries `tmp_name`, `error` and —
+	 * since PHP 8.1 — `full_path`, and none of them belong here. A temporary path is a detail of
+	 * how one language's web SAPI receives an upload; an error code is that SAPI's verdict on
+	 * whether the upload finished. A schema describes what a file *is*, and a port in another
+	 * language has no `$_FILES` to hand over. Accepting them because PHP happens to supply them
+	 * would put a web server's plumbing in a document meant to be read by anything.
+	 *
+	 * So a port takes what it needs from the upload and hands over the three. Handing the whole
+	 * entry raises, which is the point: it is a contract this library cannot express in a
+	 * signature, so it is checked here instead.
+	 *
+	 * @param object{name: non-empty-string, type: non-empty-string, size: int<0, max>|numeric-string} $file
+	 * @throws BrokenInputContract if it carries a key no upload has
 	 * @throws MalformedValue if any part is missing or unreadable
 	 */
 	public function __construct(object $file)
 	{
 		$parts = get_object_vars($file);
-		$unknown = array_diff(array_keys($parts), self::UPLOAD_KEYS);
+		$unknown = array_diff(array_keys($parts), self::partNames());
 
-		// Named rather than ignored, the rule every record-shaped value here follows. A port
-		// sending `filename` or `mime_type` would otherwise be told the upload has no name,
-		// which names the symptom and hides the key that caused it.
+		// Raised, not reported. A port handing over `$_FILES['cv']` whole, or sending
+		// `filename`, is a port writing to the wrong contract rather than a submitter getting
+		// something wrong — see {@see BrokenInputContract}.
 		if ($unknown !== []) {
-			throw MalformedValue::of(self::class, sprintf(
-				'"%s" is not part of an upload. An upload has: "%s"',
-				implode('", "', $unknown),
-				implode('", "', self::UPLOAD_KEYS),
-			));
+			throw BrokenInputContract::recordHasKeysItDoesNotAccept(self::class, array_values($unknown), self::partNames());
 		}
 
-		foreach (['name', 'type', 'size'] as $key) {
+		foreach (self::partNames() as $key) {
 			// array_key_exists rather than isset: a null here is a malformed upload, and saying
 			// so is more useful than reporting the key as absent.
 			if (!array_key_exists($key, $parts)) {

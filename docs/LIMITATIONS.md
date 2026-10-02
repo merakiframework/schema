@@ -255,28 +255,31 @@ $schema->validate((object) ['price' => (object) ['amount' => '1500', 'currency' 
 $schema->validate((object) ['price.amount' => '1500']);                                       // ignored
 ```
 
-Inside the record, a key the value does not know is **refused**. The whole value reads as
-unreadable rather than being built without it, across all five record-shaped fields.
+Inside the record, a key the value does not declare **raises**. `validate()` and `resolve()` stop;
+there is no verdict.
 
 ```php
 $schema->validate((object) ['price' => (object) ['currency' => 'AUD', 'ammount' => '15.00']]);
-// price is unreadable — not "enter an amount"
+// Exception\BrokenInputContract — not a failed field
 ```
 
-This is the loud direction on purpose. Ignoring the key means reporting whatever its absence
-breaks, so a typo in `securty_code` is reported as a missing security code and the one key that
-was actually wrong is the only thing nobody is told — with the data somebody meant to send gone
-without a word.
+This is the one input failure that is not the submitter's. Keys are vocabulary rather than data:
+something always maps a payload onto them, so a stray key is that mapping being wrong on every
+request until somebody edits code. A verdict would say *this is reportable to whoever submitted*,
+and this library cannot see whether that is a person, a peer implementation or a bad deploy.
 
-A `File` is the apparent exception and is not one: an upload is accepted with `tmp_name`,
-`error` and `full_path` beside its three parts, because that is the shape `$_FILES` hands a port
-and stripping them first should not be anybody's job. Those are *declared and ignored*, which is
-a different thing from a key nobody declared.
+**It obliges a port to map rather than forward.** Handing over a decoded body wholesale —
+`json_decode($body)`, `(object) $_POST['billing']` — makes the remote party a co-author of your
+key vocabulary, and then its typo is your exception. See
+[EXTENDING.md](EXTENDING.md#if-you-are-writing-a-port).
 
-What the refusal does **not** currently do is tell you which key it was. The verdict is
-`unreadable`; the message naming the stray key is on the exception, and the request path absorbs
-it. `$resolved->given` still holds exactly what was submitted, so it is recoverable, but it is
-not handed to you.
+`$broken->unknownKeys` and `$broken->valueClass` carry what is needed to answer in your own
+protocol without parsing the message.
+
+A value that *is* under a declared key and cannot be read stays an ordinary verdict —
+`['amount' => 'twelve']` is somebody typing badly in a box that was mapped correctly. The line is
+**which keys**, not what is in them, because only the first can be blamed on the builder without
+knowing the protocol.
 
 ---
 

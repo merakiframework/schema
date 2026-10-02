@@ -235,28 +235,65 @@ no country is. The number is the half that reports.
 three inputs a form renders — no page has a "file type" box to mark — so `*Required` constraints
 there would have added three names nothing can act on.
 
-### A record refuses a key it does not know
+### A record raises on a key it does not declare
 
-`Money`, `CreditCard`, `PhoneNumber` and `File` ignored an unrecognised key inside the record.
-They now refuse it, as `Address` already did, and the whole value reads as unreadable.
+**This is the change most likely to break a working port, so read it even if you skip the rest.**
+
+Every record-shaped field now raises `Exception\BrokenInputContract` when the record carries a key
+its value does not declare. `validate()` and `resolve()` stop. Previously `Address` reported this
+as an unreadable value and the other four silently dropped the key.
 
 ```php
 $schema->validate((object) ['price' => (object) ['currency' => 'AUD', 'ammount' => '15.00']]);
 // alpha.2 — amountRequired fails: "enter an amount"
-// now     — price is unreadable
+// now     — Exception\BrokenInputContract
 ```
 
-Ignoring the key meant reporting whatever its absence broke, so the one key that was wrong was
-the only thing nobody was told, and data somebody meant to send disappeared without a word. It
-had already bitten once: `e164` and `local_part` stopped being parts in this same release, and a
-port still sending them would have been told its number or address was incomplete.
+Keys are vocabulary rather than data. Something always maps a payload onto them, so a stray key is
+that mapping being wrong on every request, for every submitter, until somebody edits code — and no
+verdict can say so. A verdict says *this is reportable to whoever submitted*, and this library
+cannot see whether that is a person, a peer implementation or a deploy that went out wrong.
 
-**If you send extra keys, strip them.** The likely cases are a payload built from a wider
-internal record, and a part renamed in 2.0 that a port still sends.
+**What you have to do.** A port must build the record from keys it chose, rather than forwarding a
+decoded payload:
 
-A `File` is the apparent exception and is not one: `tmp_name`, `error` and `full_path` are
-accepted beside the three parts, because that is the shape `$_FILES` hands a port. They are
-declared and ignored rather than unknown.
+```php
+// No — the remote party co-authors your key vocabulary.
+$schema->validate(json_decode($request->getBody()));
+
+// Yes.
+$schema->validate((object) ['price' => (object) [
+    'currency' => $body->price->currency,
+    'amount' => $body->price->amount,
+]]);
+```
+
+Catch it at your boundary and answer in your own protocol: a 500 for your own mapping bug, a `400`
+naming `$broken->unknownKeys` for a client of a public API, a dead letter for a queue.
+
+**The likely breakages**, in order: a payload forwarded from a decoded body; a payload built from a
+wider internal record; and a part renamed in 2.0 that a port still sends — `line1`,
+`administrative_area`, and now `e164` and `local_part`, which stopped being parts in this same
+release.
+
+**`File` no longer accepts a `$_FILES` entry.** It takes `name`, `type` and `size`. PHP's
+`tmp_name`, `error` and `full_path` describe how one language's web SAPI received an upload rather
+than anything about the file, and a port in another language has none of them. Hand over the three:
+
+```php
+$upload = $_FILES['resume'];
+
+$schema->validate((object) ['resume' => (object) [
+    'name' => $upload['name'],
+    'type' => $upload['type'],
+    'size' => $upload['size'],
+]]);
+```
+
+**What did not change:** a value under a key that *is* declared. `['amount' => 'twelve']` is still
+an ordinary unreadable value, reported as a verdict and rendered from a message pack. The line is
+which keys, not what is in them — only the first can be attributed to the builder without knowing
+the protocol.
 
 ### A value reports the parts it is submitted with
 

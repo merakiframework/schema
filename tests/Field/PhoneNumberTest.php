@@ -66,7 +66,7 @@ final class PhoneNumberTest extends FieldTestCase
 		// A shape failure rather than a constraint one: there is nothing to report against,
 		// because the input did not describe a phone number at all. This replaced an
 		// `unambiguous` constraint whose only job was to ask for the missing half.
-		$resolved = (new PhoneNumber(new FieldName('phone'), ['AU']))->validate((object) $given);
+		$resolved = (new PhoneNumber(new FieldName('phone'), ['AU']))->validate($given);
 
 		$this->assertShapeFailed($resolved);
 		$this->assertConstraintValidationResultSkipped('allowedCountries', $resolved);
@@ -94,13 +94,19 @@ final class PhoneNumberTest extends FieldTestCase
 	public static function incompletePairs(): array
 	{
 		return [
+			// Not a record at all. Written as what arrives rather than cast in the test, because
+			// `(object) '0411 222 333'` is `{scalar: '0411 222 333'}` — a shape nothing sends,
+			// and one that now raises for its key rather than failing for not being a pair.
 			'a bare national string' => ['0411 222 333'],
 			'a bare E.164 string' => ['+61411222333'],
-			'a number with no country' => [['number' => '0411 222 333']],
-			'an empty country' => [['number' => '0411 222 333', 'country' => '']],
-			'an empty number' => [['number' => '', 'country' => 'AU']],
-			'neither' => [[]],
-			'not an array at all' => [12345],
+			'a list' => [[]],
+			'not a record at all' => [12345],
+
+			// A record, and still not a number and a country.
+			'a number with no country' => [(object) ['number' => '0411 222 333']],
+			'an empty country' => [(object) ['number' => '0411 222 333', 'country' => '']],
+			'an empty number' => [(object) ['number' => '', 'country' => 'AU']],
+			'neither' => [(object) []],
 		];
 	}
 

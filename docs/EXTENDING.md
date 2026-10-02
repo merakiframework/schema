@@ -270,6 +270,54 @@ If your field needs a clock or the schema's country list, `BuildsFields::$clock`
 so a type they have never heard of needs a case registering with them. `registerFieldRenderer()`
 is the documented hook on the HTML side.
 
+## If you are writing a port
+
+A port is whatever turns a payload into the records this library validates — a form handler, a
+JSON controller, a queue consumer, a CLI. One rule governs all of them.
+
+### Map; do not forward
+
+Take the keys you know out of the payload and build the record from them. A record carrying a key
+its value does not declare raises `Exception\BrokenInputContract`, and `validate()` stops.
+
+```php
+// No. The remote party now co-authors your key vocabulary, and its typo is your exception.
+$schema->validate(json_decode($request->getBody()));
+
+// Yes. You decide what the keys are, which is the whole job.
+$body = json_decode($request->getBody());
+$schema->validate((object) [
+    'price' => (object) ['currency' => $body->price->currency, 'amount' => $body->price->amount],
+]);
+```
+
+This is not about untrusted input in particular. A stale internal mapping raises the same way, and
+that is the point: the keys are the schema's vocabulary rather than anybody's data, so a key
+nobody declared is always a mistake in code. A submitter can be wrong about a *value* — that is
+reported as a verdict, in their language, and nothing raises.
+
+### Decide what the exception means in your protocol
+
+This library deliberately does not. It cannot see whether the record was built by your own
+mapping layer, by a third-party client, or by a producer three services away, and those want
+different answers:
+
+| What built the record | A reasonable port response |
+| --- | --- |
+| your own mapping layer | let it surface — it is a bug, and a 500 is honest |
+| a client of your public API | `400`, naming `$broken->unknownKeys` |
+| a producer on a queue | dead-letter it and alert; two deployments disagree |
+
+`$broken->unknownKeys` is a `list<string>` and `$broken->valueClass` names what refused them, so
+none of that needs the message parsed.
+
+### Do not pass your platform's upload struct through
+
+`File` takes a name, a claimed type and a reported size. PHP's `$_FILES` entry also carries
+`tmp_name`, `error` and `full_path`; those describe how one language's web SAPI received an
+upload, which is not a fact about the file and means nothing to a port in another language.
+Hand over the three.
+
 ## What you cannot do
 
 **Add a constraint to a built-in field.** Every field is `final readonly` and

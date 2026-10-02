@@ -131,12 +131,13 @@ final class StructuredTypeTest extends TestCase
 		// Several files is a collection of file fields, not a field that is itself plural.
 		$file = new Field\File(new FieldName('resume'));
 
+		// A name, a claimed type and a reported size. Not a $_FILES entry: `tmp_name` and
+		// `error` are one language's web SAPI describing how it received an upload, and a port
+		// takes the three it needs out of that rather than handing the whole thing over.
 		$resolved = $file->resolve((object) [
 			'name' => 'cv.pdf',
 			'type' => 'application/pdf',
 			'size' => 1024,
-			'tmp_name' => '/tmp/php1234',
-			'error' => 0,
 		]);
 
 		$this->assertInstanceOf(Field\File\Value::class, $resolved->value);
@@ -298,10 +299,9 @@ final class StructuredTypeTest extends TestCase
 	 * `forPart('number')` raised on the one part a form definitely renders. E.164 is a *reading*
 	 * of the pair and stays one — {@see Field\PhoneNumber\Value::toE164()}.
 	 *
-	 * The converse is deliberately not asserted. A `File`'s upload also carries `tmp_name` and
-	 * `error`, which are plumbing rather than boxes anybody fills in, so a part may be absent from
-	 * this direction without being a mistake. The direction that burns a port is a declared part
-	 * nothing can submit.
+	 * Every record value declares exactly the keys it accepts, so this reads as an equality in
+	 * both directions — and `File` is what used to make it an inequality, back when it tolerated
+	 * the `tmp_name` and `error` that one language's web SAPI puts on an upload.
 	 */
 	#[Test]
 	#[DataProvider('recordPayloads')]
@@ -339,8 +339,6 @@ final class StructuredTypeTest extends TestCase
 			'name' => 'cv.pdf',
 			'type' => 'application/pdf',
 			'size' => 1024,
-			'tmp_name' => '/tmp/php1234',
-			'error' => 0,
 		]];
 	}
 

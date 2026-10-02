@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace Meraki\Schema\Field\Address;
 
 use Meraki\Schema\Comparison\Equality;
+use Meraki\Schema\Exception\BrokenInputContract;
 use Meraki\Schema\Field\HasParts;
 use Meraki\Schema\Field\MalformedValue;
 use Meraki\Schema\Field\ParsedValue;
@@ -117,7 +118,8 @@ final readonly class Value implements ParsedValue, HasParts
 	 *   country uses a subdivision without requiring one, an unrecognised value is kept for
 	 *   `knownSubdivision` to report, because nothing downstream depends on it there.
 	 *
-	 * @param object $address with any of the keys in {@see self::PARTS}
+	 * @param object{street?: list<string>, dependent_locality?: string, locality?: string, subdivision?: string, postal_code?: string, country?: string} $address
+	 * @throws BrokenInputContract if it carries a key an address does not have
 	 * @throws MalformedValue if a part was sent empty, if it names no usable country, or if a
 	 *         required subdivision cannot be resolved
 	 */
@@ -126,16 +128,12 @@ final readonly class Value implements ParsedValue, HasParts
 		$parts = get_object_vars($address);
 		$unknown = array_diff(array_keys($parts), array_keys(self::PARTS));
 
-		// Named rather than ignored, because the parts were renamed: a port still sending
-		// `line1` or `administrative_area` would otherwise build an address missing the part it
-		// thought it had supplied, and be told "street is required" — which names the symptom
-		// and hides the stale key that caused it.
+		// Raised, not reported, because the parts were renamed: a port still sending `line1` or
+		// `administrative_area` is a port that needs changing, and being told "street is
+		// required" names the symptom while hiding the stale key that caused it. This used to
+		// be absorbed as a shape failure, which said the submitter had got something wrong.
 		if ($unknown !== []) {
-			throw MalformedValue::of(self::class, sprintf(
-				'"%s" is not a part of an address. The parts are: "%s"',
-				implode('", "', $unknown),
-				implode('", "', array_keys(self::PARTS)),
-			));
+			throw BrokenInputContract::recordHasKeysItDoesNotAccept(self::class, array_values($unknown), array_keys(self::PARTS));
 		}
 
 		// Total about the *type* of the optional parts, as it always was: a non-string is read

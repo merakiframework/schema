@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace Meraki\Schema\Field\CreditCard;
 
 use Meraki\Schema\Comparison\Equality;
+use Meraki\Schema\Exception\BrokenInputContract;
 use Meraki\Schema\Field\HasParts;
 use Meraki\Schema\Field\MalformedValue;
 use Meraki\Schema\Field\ParsedValue;
@@ -63,7 +64,8 @@ final readonly class Value implements ParsedValue, HasParts
 	 * halves are missing. It refuses only a card with nothing in it at all, which is not a
 	 * vague card — it is not a card.
 	 *
-	 * @param object $card with any of `number`, `expiry`, `name`, `security_code`
+	 * @param object{number?: string|null, expiry?: string|null, name?: string|null, security_code?: string|null} $card
+	 * @throws BrokenInputContract if it carries a key a card does not have
 	 * @throws MalformedValue if every part is absent
 	 */
 	public function __construct(#[SensitiveParameter] object $card)
@@ -71,17 +73,10 @@ final readonly class Value implements ParsedValue, HasParts
 		$parts = get_object_vars($card);
 		$unknown = array_diff(array_keys($parts), self::partNames());
 
-		// Named rather than ignored, the rule every record-shaped value here follows. A card is
-		// where it matters most: `securty_code` would otherwise leave the security code absent
-		// and report that absence, so the one key that was wrong is the one thing nobody is
-		// told. Only the names are repeated back — never a value, on a type where a value is a
-		// card number.
+		// Raised, not reported. Only the key *names* reach the message — never a value, on a
+		// type where a value is a card number.
 		if ($unknown !== []) {
-			throw MalformedValue::of(self::class, sprintf(
-				'"%s" is not a part of a card. The parts are: "%s"',
-				implode('", "', $unknown),
-				implode('", "', self::partNames()),
-			));
+			throw BrokenInputContract::recordHasKeysItDoesNotAccept(self::class, array_values($unknown), self::partNames());
 		}
 
 		// Absent or not a string is null. A part that was *sent* and holds nothing is unreadable

@@ -6,6 +6,7 @@ namespace Meraki\Schema\Field\Money;
 use Meraki\Schema\Comparison\Comparable;
 use Meraki\Schema\Comparison\Equality;
 use Meraki\Schema\Comparison\Order;
+use Meraki\Schema\Exception\BrokenInputContract;
 use Meraki\Schema\Exception\IncomparableValues;
 use Meraki\Schema\Field\HasParts;
 use Meraki\Schema\Field\MalformedValue;
@@ -54,24 +55,20 @@ final readonly class Value implements ParsedValue, HasParts, Comparable
 	 * {@see self::of()} is the readable way to write one by hand — a rule's bound, a test —
 	 * and it is a convenience over this rather than a second way in.
 	 *
-	 * @param object $money with a `currency` and an `amount`
-	 * @throws MalformedValue if either half is missing or unreadable
+	 * @param object{currency?: string|null, amount?: string|int|float|null} $money
+	 * @throws BrokenInputContract if it carries a key money does not have
+	 * @throws MalformedValue if either half is unreadable, or it holds neither
 	 */
 	public function __construct(object $money)
 	{
 		$parts = get_object_vars($money);
 		$unknown = array_diff(array_keys($parts), self::partNames());
 
-		// Named rather than ignored. A key this does not know is data somebody meant to send,
-		// and dropping it reports whatever its absence breaks — "enter an amount" for a payload
-		// that said `ammount` — which names the symptom and hides the typo that caused it.
-		// {@see \Meraki\Schema\Field\Address\Value} has done this since the parts were renamed.
+		// Raised, not reported. A key nobody declared is a port writing to the wrong contract,
+		// and `ammount` is wrong on every request for every user — see
+		// {@see \Meraki\Schema\Exception\BrokenInputContract} for why that is not a shape failure.
 		if ($unknown !== []) {
-			throw MalformedValue::of(self::class, sprintf(
-				'"%s" is not a part of an amount of money. The parts are: "%s"',
-				implode('", "', $unknown),
-				implode('", "', self::partNames()),
-			));
+			throw BrokenInputContract::recordHasKeysItDoesNotAccept(self::class, array_values($unknown), self::partNames());
 		}
 
 		// A part that was *sent* and holds nothing is unreadable, not absent — the same rule

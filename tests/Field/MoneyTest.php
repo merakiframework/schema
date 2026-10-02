@@ -61,23 +61,29 @@ final class MoneyTest extends FieldTestCase
 	#[DataProvider('notMoney')]
 	public function it_rejects_what_cannot_be_read_as_money(mixed $given): void
 	{
-		$this->assertShapeFailed($this->createField()->validate((object) $given));
+		$this->assertShapeFailed($this->createField()->validate($given));
 	}
 
 	/** @return array<string, array{mixed}> */
 	public static function notMoney(): array
 	{
 		return [
+			// Not a record at all. Written as what arrives rather than cast in the test, because
+			// `(object) 12.50` is `{scalar: 12.50}` — a shape nothing sends, and one that now
+			// raises for carrying a key money does not have rather than failing for not being
+			// money. The assertion would still pass, and would be testing the cast.
 			'a bare number' => [12.50],
 			'a string' => ['AUD 12.50'],
-			'nothing at all' => [null],
-			'neither half' => [[]],
-			'an amount that is not a number' => [['currency' => 'AUD', 'amount' => 'abc']],
-			'a currency that is not three letters' => [['currency' => 'AUSD', 'amount' => '1.00']],
+			'a list' => [[]],
+
+			// A record, and still not money.
+			'neither half' => [(object) []],
+			'an amount that is not a number' => [(object) ['currency' => 'AUD', 'amount' => 'abc']],
+			'a currency that is not three letters' => [(object) ['currency' => 'AUSD', 'amount' => '1.00']],
 			// Sent and holding nothing is not the same as not sent: `''` was a decision somebody
 			// made, so reading it as "no amount" would let it satisfy `amountRequired`.
-			'a blank amount' => [['currency' => 'AUD', 'amount' => '']],
-			'a blank currency' => [['currency' => '', 'amount' => '1.00']],
+			'a blank amount' => [(object) ['currency' => 'AUD', 'amount' => '']],
+			'a blank currency' => [(object) ['currency' => '', 'amount' => '1.00']],
 		];
 	}
 

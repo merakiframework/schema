@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace Meraki\Schema;
 
+use Meraki\Schema\Exception\BrokenInputContract;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Group;
@@ -247,17 +248,19 @@ final class MalformedCompositeInputTest extends TestCase
 		}
 	}
 	/**
-	 * A key the value does not know is **refused**, never dropped.
+	 * A key the value does not declare **stops the request**, rather than being reported on it.
 	 *
-	 * Dropping it reports whatever its absence breaks. A payload saying `ammount` was told to
-	 * enter an amount; `securty_code` left the security code absent and reported *that*. In both
-	 * the one key that was wrong is the only thing nobody is told, and the data somebody meant
-	 * to send is gone without a word.
+	 * This is the one input failure that is not the submitter's, in any protocol. Keys are
+	 * vocabulary rather than data — something always maps a payload onto them, whether that is a
+	 * form port, a JSON client or a producer on a queue — so `ammount` is that mapping being
+	 * wrong, on every request, for every submitter, until somebody edits a line of code.
 	 *
-	 * `Address` has refused since its parts were renamed, because a port still sending `line1`
-	 * would otherwise build an address quietly missing a street. The other four ignored, which
-	 * is the same bug waiting on a rename that has already happened once — `e164` and
-	 * `local_part` stopped being parts in this same batch.
+	 * No verdict can say that. A verdict says *this is reportable to whoever submitted*, and
+	 * this library cannot see whether that is a person, a peer implementation or a deploy that
+	 * went out wrong. One of those wants a 500, one a 400 naming the key, one an alert.
+	 *
+	 * So it raises and `validate()` stops, with a trace pointing at the line that built the
+	 * record, and each port maps that to whatever its protocol means by "the caller is wrong".
 	 *
 	 * Both halves are asserted, so this cannot pass by refusing everything.
 	 *
@@ -265,16 +268,50 @@ final class MalformedCompositeInputTest extends TestCase
 	 */
 	#[Test]
 	#[DataProvider('recordsWithAStrayKey')]
-	public function a_key_the_value_does_not_know_is_refused(callable $make, array $complete, string $stray): void
+	public function a_key_the_value_does_not_declare_stops_the_request(callable $make, array $complete, string $stray): void
 	{
 		$schema = new Facade('s');
 		$schema->add($make($schema));
 
-		$clean = $schema->validate((object) ['f' => (object) $complete])->forField('f');
-		$strayed = $schema->validate((object) ['f' => (object) ([$stray => 'x'] + $complete)])->forField('f');
+		// The same payload without it reads, so the stray key is what this is about.
+		$this->assertTrue($schema->validate((object) ['f' => (object) $complete])->forField('f')->shape->passed());
 
-		$this->assertTrue($clean->shape->passed(), 'the payload without the stray key should read');
-		$this->assertTrue($strayed->wasUnreadable(), "\"{$stray}\" should be refused");
+		$this->expectException(BrokenInputContract::class);
+		$this->expectExceptionMessageMatches('/\b' . preg_quote($stray, '/') . '\b/');
+
+		$schema->validate((object) ['f' => (object) ([$stray => 'x'] + $complete)]);
+	}
+
+	/**
+	 * And it stops a `resolve()` too — drawing a form reads the same record as judging one.
+	 */
+	#[Test]
+	public function a_stray_key_stops_a_resolve_as_well(): void
+	{
+		$schema = new Facade('s');
+		$schema->add($schema->createMoneyField('f', ['AUD' => 2]));
+
+		$this->expectException(BrokenInputContract::class);
+
+		$schema->resolve((object) ['f' => (object) ['currency' => 'AUD', 'ammount' => '10.00']]);
+	}
+
+	/**
+	 * It carries the keys, so a port asserts on them rather than parsing English.
+	 */
+	#[Test]
+	public function the_refusal_names_the_keys_it_did_not_accept(): void
+	{
+		$schema = new Facade('s');
+		$schema->add($schema->createMoneyField('f', ['AUD' => 2]));
+
+		try {
+			$schema->validate((object) ['f' => (object) ['currency' => 'AUD', 'ammount' => '1', 'xyz' => '2']]);
+			$this->fail('A stray key should have raised.');
+		} catch (BrokenInputContract $broken) {
+			$this->assertSame(['ammount', 'xyz'], $broken->unknownKeys);
+			$this->assertSame(Field\Money\Value::class, $broken->valueClass);
+		}
 	}
 
 	/** @return iterable<string, array{callable, array<string, mixed>, string}> */
@@ -309,33 +346,38 @@ final class MalformedCompositeInputTest extends TestCase
 		yield 'File' => [
 			static fn(Facade $s): Field => $s->createFileField('f'),
 			['name' => 'cv.pdf', 'type' => 'application/pdf', 'size' => 1024],
-			'mime_type',
+			'tmp_name',
 		];
 	}
 
 	/**
-	 * The one exception, and it is not one: an upload carries more than its parts.
+	 * A `$_FILES` entry is not what a file field takes, and `tmp_name` is the proof.
 	 *
-	 * `$_FILES` holds a temporary path, an error code and — since PHP 8.1 — the client's full
-	 * path, beside the three this library reads. A port handing an entry straight over should
-	 * not have to strip them first, so they are accepted and ignored. Accepted-and-ignored is a
-	 * different thing from a key nobody declared, and only the second is refused.
+	 * It is PHP's temporary path: a detail of how one language's web SAPI receives an upload,
+	 * beside an `error` code that is that SAPI's verdict on whether the upload finished. A
+	 * schema says what a file *is* — a name, a claimed type, a reported size — and a port in
+	 * another language has no `$_FILES` to hand over at all.
+	 *
+	 * This was briefly tolerated on the grounds that a port should not have to strip them. That
+	 * had it backwards: taking the three it needs out of an upload is exactly a port's job, and
+	 * accepting PHP's plumbing would put one web SAPI's internals in a document meant to be read
+	 * by anything.
 	 */
 	#[Test]
-	public function an_upload_may_carry_the_keys_php_puts_on_it(): void
+	public function a_raw_php_upload_is_not_a_file(): void
 	{
 		$schema = new Facade('s');
 		$schema->add($schema->createFileField('f'));
 
-		$result = $schema->validate((object) ['f' => (object) [
+		$this->expectException(BrokenInputContract::class);
+
+		$schema->validate((object) ['f' => (object) [
 			'name' => 'cv.pdf',
 			'full_path' => 'documents/cv.pdf',
 			'type' => 'application/pdf',
 			'tmp_name' => '/tmp/php1234',
 			'error' => 0,
 			'size' => 1024,
-		]])->forField('f');
-
-		$this->assertTrue($result->shape->passed());
+		]]);
 	}
 }

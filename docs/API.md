@@ -315,16 +315,22 @@ people toward predictable substitutions.
 ### `File` believes what it is told
 
 ```php
-$file->validate((object) ['name' => 'cv.pdf', 'type' => 'application/pdf', 'size' => 1024, ...]);
+$file->validate((object) ['name' => 'cv.pdf', 'type' => 'application/pdf', 'size' => 1024]);
 ```
+
+Those three keys, and no others. PHP's `$_FILES` entry also carries `tmp_name`, `error` and
+`full_path`; handing one over whole raises `Exception\BrokenInputContract`, because none of them
+is a fact about the file — they describe how one language's web SAPI received a transfer, and a
+port in another language has none of them. Take the three out of the upload yourself.
 
 `$type` is the MIME type the **client claimed**, not a verified one. `File\Value` says so in as
 many words, and `allowedTypes` checks an assertion rather than a fact.
 
-The library trusts it because it is all `$_FILES` offers, and because opening a path in the core
-would tie it to one runtime's idea of where an upload lives. **The better shape is for the port to
-hand over a handle** — a stream or an SPL file object — so the field can check the real size and
-sniff the real type. On the roadmap. Until then, verify uploads yourself before trusting them.
+The library trusts it because it is all an upload form offers, and because opening a path in the
+core would tie it to one runtime's idea of where an upload lives. **The better shape is for the
+port to hand over a handle** — a stream or an SPL file object — so the field can check the real
+size and sniff the real type. On the roadmap. Until then, verify uploads yourself before trusting
+them.
 
 ### Everything stays singular
 
@@ -761,9 +767,17 @@ throws because a form was filled in wrongly.
 
 What throws is a mistake in *your code*: a field configured so that it can never accept anything,
 a rule naming a field that is not on the schema, a default the field that declares it would
-reject. All of those are found where they are written, at boot, rather than on the request where
-they would have done damage — because most of them have no symptom on a request. A rule that
-cannot fire raises nothing and looks exactly like a rule whose condition never held.
+reject. Nearly all of those are found where they are written, at boot, rather than on the request
+where they would have done damage — because most of them have no symptom on a request. A rule
+that cannot fire raises nothing and looks exactly like a rule whose condition never held.
+
+**One of them can only be found on a request**, and it is the exception to the shape of this
+section rather than to its rule. `Exception\BrokenInputContract` fires when a record carries a key
+its value does not declare — `ammount`, or a part renamed out from under a port. That is a mistake
+in code, not a form filled in wrongly: keys are the schema's vocabulary rather than anybody's
+data, and something always maps a payload onto them. There is simply no record to inspect at boot,
+so the earliest it can be caught is the first request that carries one. It is still not a
+validation failure, and still not something to show a submitter.
 
 Every one of them implements `Meraki\Schema\Exception`, so one `catch` covers the library:
 
@@ -790,6 +804,7 @@ still works and is what a framework's error handler will already be doing.
 | `Exception\InvalidRule` | `InvalidArgumentException` | a rule could not do what it says — see [Writing a rule](#writing-a-rule) |
 | `Exception\IncomparableValues` | `InvalidArgumentException` | two values are put in an order that does not exist: a duration against a date, money across currencies |
 | `Field\MalformedValue` | `InvalidArgumentException` | a value object is handed input it cannot represent. Caught on the request path and reported as an unreadable value; only an authored default lets it out |
+| `Exception\BrokenInputContract` | `InvalidArgumentException` | a record carries a key its value does not declare. **Not** caught on the request path — see above, and [EXTENDING.md](EXTENDING.md#if-you-are-writing-a-port) for what a port does with it |
 | `Exception\IncompleteRule` | `LogicException` | a draft is asked for a rule before it says what happens |
 | `Exception\NothingToValidate` | `LogicException` | a schema with no fields is validated |
 | `Exception\IncompleteVocabulary` | `LogicException` | a field type cannot be built from a name alone, so the message vocabulary cannot list its keys |

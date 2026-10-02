@@ -22,11 +22,28 @@ use Meraki\Schema\ValueScope;
  *         $schema->createFileField('file')->allowDocuments(),
  *     )->minCountOf(1);
  *
- * Input is a `$_FILES`-shaped array or a {@see Value}; either way it resolves to a `Value`.
- * Note what that value can and cannot tell you — see the warning on `Value` about the
- * claimed MIME type.
+ * Input is a record of a name, a claimed type and a reported size, or a {@see Value}; either way
+ * it resolves to a `Value`. Note what that value can and cannot tell you — see the warning on
+ * `Value` about the claimed MIME type.
  *
- * @psalm-type UploadedFile = array{name: string, type: string, size: int}
+ * ### Those three, and not a `$_FILES` entry
+ *
+ * PHP's upload array also carries `tmp_name`, `error` and — since 8.1 — `full_path`, and handing
+ * one over whole raises {@see \Meraki\Schema\Exception\BrokenInputContract}. None of them is a
+ * fact about the file: a temporary path is where one language's web SAPI put the bytes, and an
+ * error code is that SAPI's verdict on whether the transfer finished. A port in another language
+ * has neither, and a schema that accepted them would describe a PHP web request rather than a
+ * file.
+ *
+ *     $upload = $_FILES['resume'];
+ *
+ *     $schema->validate((object) ['resume' => (object) [
+ *         'name' => $upload['name'],
+ *         'type' => $upload['type'],
+ *         'size' => $upload['size'],
+ *     ]]);
+ *
+ * @psalm-type UploadedFile = object{name: non-empty-string, type: non-empty-string, size: int<0, max>|numeric-string}
  * @extends AtomicField<UploadedFile|Value|null>
  */
 final readonly class File extends AtomicField

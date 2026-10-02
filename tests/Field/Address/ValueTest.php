@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Field\Address;
 
+use Meraki\Schema\Exception\BrokenInputContract;
 use Meraki\Schema\Field\MalformedValue;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -204,10 +205,14 @@ final class ValueTest extends TestCase
 	#[Test]
 	public function a_key_that_is_not_a_part_cannot_be_read(): void
 	{
-		// The renames make this earn its keep: a port still sending `line1` would otherwise
+		// The renames make this earn its keep: anything still sending `line1` would otherwise
 		// build an address with no street at all and be told 'street is required', which names
 		// the symptom rather than the stale key that caused it.
-		$this->expectException(MalformedValue::class);
+		//
+		// BrokenInputContract rather than MalformedValue, and the difference is who is wrong. A
+		// MalformedValue is absorbed and reported, because it came from a submitter. `line1` is
+		// a key, and keys are not submitter data in any protocol — so it escapes.
+		$this->expectException(BrokenInputContract::class);
 
 		self::address(['line1' => '7 Cunningham St']);
 	}
@@ -218,8 +223,9 @@ final class ValueTest extends TestCase
 		try {
 			self::address(['organization' => 'Meraki']);
 			$this->fail('expected the address to be unreadable');
-		} catch (MalformedValue $e) {
+		} catch (BrokenInputContract $e) {
 			$this->assertStringContainsString('organization', $e->getMessage());
+			$this->assertSame(['organization'], $e->unknownKeys);
 		}
 	}
 

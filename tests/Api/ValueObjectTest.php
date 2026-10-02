@@ -59,7 +59,7 @@ final class ValueObjectTest extends TestCase
 		yield 'Duration' => [Field\Duration::class, 'PT1H'];
 		yield 'EmailAddress' => [Field\EmailAddress::class, 'a@example.test'];
 		yield 'Enum' => [Field\Enum::class, 'a'];
-		yield 'File' => [Field\File::class, (object) ['name' => 'a.txt', 'type' => 'text/plain', 'size' => 10, 'tmp_name' => '/tmp/a', 'error' => 0]];
+		yield 'File' => [Field\File::class, (object) ['name' => 'a.txt', 'type' => 'text/plain', 'size' => 10]];
 		yield 'Money' => [Field\Money::class, (object) ['currency' => 'AUD', 'amount' => '12.50']];
 		yield 'Name' => [Field\Name::class, 'Kim Miller'];
 		yield 'Number' => [Field\Number::class, '18'];
