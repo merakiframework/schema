@@ -95,7 +95,7 @@ final class CreditCardTest extends FieldTestCase
 			'numberChecksum' => 'number',
 			'expiryInFuture' => 'expiry',
 			'expiryWithinReach' => 'expiry',
-			'namePresent' => 'name',
+			'nameRequired' => 'name',
 			'securityCodeFormat' => 'security_code',
 		];
 
@@ -137,7 +137,7 @@ final class CreditCardTest extends FieldTestCase
 		$result = $this->createField()->validate((object) self::card(without: 'name'));
 
 		$this->assertShapePassed($result);
-		$this->assertConstraintValidationResultFailed('namePresent', $result);
+		$this->assertConstraintValidationResultFailed('nameRequired', $result);
 	}
 
 	#[Test]
@@ -179,7 +179,7 @@ final class CreditCardTest extends FieldTestCase
 		return [
 			'a number' => ['number', 'numberRequired'],
 			'an expiry' => ['expiry', 'expiryRequired'],
-			'a name' => ['name', 'namePresent'],
+			'a name' => ['name', 'nameRequired'],
 		];
 	}
 

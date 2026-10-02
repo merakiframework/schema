@@ -91,7 +91,7 @@ and the euro spans twenty.
 | `Address` | `allowCountries()`, `clearAllowedCountries()`, `minPrecisionOf()`, `mustBeVisitable()` | `allowedCountries`, `streetRequired`, `streetLineLimit`, `streetVisitable`, `localityRequired`, `localityUsed`, `dependentLocalityUsed`, `subdivisionRequired`, `subdivisionUsed`, `knownSubdivision`, `postalCodeRequired`, `postalCodeUsed`, `postalCodeFormat` | `Address\Value` |
 | `Boolean` | `mustBeAccepted()` | `accepted` | `Boolean\Value` |
 | `Collection` | `allowDuplicates()`, `maxCountOf()`, `minCountOf()` | `minCount`, `maxCount`, `unique` | `Collection\Value` |
-| `CreditCard` | `mustExpireInFuture()` | `numberRequired`, `expiryRequired`, `numberFormat`, `numberChecksum`, `expiryInFuture`, `expiryWithinReach`, `namePresent`, `securityCodeFormat` | `CreditCard\Value` |
+| `CreditCard` | `mustExpireInFuture()` | `numberRequired`, `expiryRequired`, `nameRequired`, `numberFormat`, `numberChecksum`, `expiryInFuture`, `expiryWithinReach`, `securityCodeFormat` | `CreditCard\Value` |
 | `Date` | `after()`, `atIntervalsOf()`, `from()`, `through()`, `until()` | `from`, `after`, `until`, `through`, `interval` | `Date\Value` |
 | `DateTime` | `after()`, `atIntervalsOf()`, `from()`, `through()`, `until()` | `from`, `after`, `until`, `through`, `interval`, `precision` | `DateTime\Value` |
 | `Duration` | `inIncrementsOf()`, `maxValueOf()`, `minValueOf()` | `minValue`, `maxValue`, `step` | `Duration\Value` |

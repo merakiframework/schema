@@ -230,7 +230,7 @@ allow-list was set.
 $card = $result->forField('card');
 
 $card->shape->passed();                            // true
-$card->forConstraint('namePresent')->failed();     // true — no cardholder name was sent
+$card->forConstraint('nameRequired')->failed();    // true — no cardholder name was sent
 ```
 
 Printing every verdict for the card above shows all three answers at once:
@@ -238,11 +238,11 @@ Printing every verdict for the card above shows all three answers at once:
 ```
 numberRequired       Passed
 expiryRequired       Passed
+nameRequired         Failed      ← the one real problem
 numberFormat         Passed
 numberChecksum       Passed
 expiryInFuture       Skipped     ← opt-in; nobody called mustExpireInFuture()
 expiryWithinReach    Passed
-namePresent          Failed      ← the one real problem
 securityCodeFormat   Skipped     ← no security code was sent, and it is optional
 ```
 

@@ -276,7 +276,7 @@ amount is gibberish", and could not mark anything, since no part was named.
 | Field | New constraints |
 | --- | --- |
 | `Money` | `currencyRequired`, `amountRequired` |
-| `CreditCard` | `numberRequired`, `expiryRequired` |
+| `CreditCard` | `numberRequired`, `expiryRequired`, `nameRequired` |
 | `PhoneNumber` | `numberRequired` |
 
 **`CreditCard::expiryFormat` is gone.** An expiry that was given and cannot be read is now a

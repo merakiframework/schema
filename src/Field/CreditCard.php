@@ -156,6 +156,7 @@ final readonly class CreditCard extends AtomicField
 			// value refuses it, and there is no half-readable card to report against.
 			new Constraint('numberRequired', $this->hasA('number'), true, 'number'),
 			new Constraint('expiryRequired', $this->hasA('expiry'), true, 'expiry'),
+			new Constraint('nameRequired', $this->hasA('name'), true, 'name'),
 			new Constraint('numberFormat', $this->hasAWellFormedNumber(...), null, 'number'),
 			new Constraint('numberChecksum', $this->passesLuhn(...), null, 'number'),
 			// The bound is the instant it was judged against, so a message can say what "expired"
@@ -176,7 +177,6 @@ final readonly class CreditCard extends AtomicField
 				'expiry',
 				timeRelative: true,
 			),
-			new Constraint('namePresent', $this->namesAHolder(...), null, 'name'),
 			new Constraint('securityCodeFormat', $this->hasAWellFormedSecurityCode(...), null, 'security_code'),
 		);
 	}
@@ -282,12 +282,6 @@ final readonly class CreditCard extends AtomicField
 		return $card->expiry->isBeforeOrEqualTo($this->determineToday()->plusYears(self::MAX_YEARS_AHEAD));
 	}
 
-	private function namesAHolder(Value $card): bool
-	{
-		// `''` is a submitted empty string rather than an absent part — the constructor refuses
-		// that outright now — and either way it is not a name.
-		return $card->name !== null && $card->name !== '';
-	}
 
 	/**
 	 * Skipped when none was given: it is the one optional part.

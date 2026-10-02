@@ -99,10 +99,10 @@ final class ConstraintNameTest extends TestCase
 			// mark the box. There is no `expiryFormat` beside them: an expiry that *was* sent and
 			// cannot be read is a shape failure, the same way a bad amount is on Money.
 			'CreditCard' => [
-				'numberRequired', 'expiryRequired',
+				'numberRequired', 'expiryRequired', 'nameRequired',
 				'numberFormat', 'numberChecksum',
 				'expiryInFuture', 'expiryWithinReach',
-				'namePresent', 'securityCodeFormat',
+				'securityCodeFormat',
 			],
 
 			// A collection bounds the list and refuses repeats; each item is checked against the
