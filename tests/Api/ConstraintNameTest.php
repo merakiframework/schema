@@ -72,7 +72,7 @@ final class ConstraintNameTest extends TestCase
 
 			// No `unambiguous`: a number is submitted with its country, so there is no ambiguity
 			// left for a constraint to report. The pairing settles it before any check runs.
-			'PhoneNumber' => ['allowedCountries', 'numberType'],
+			'PhoneNumber' => ['numberRequired', 'allowedCountries', 'numberType'],
 
 			// No `maxBytes`, and no composition *maximums*. What a hashing algorithm can swallow
 			// is the hashing layer's business — see Field\Password — and a maximum number of
@@ -87,7 +87,7 @@ final class ConstraintNameTest extends TestCase
 			// Structured types: flat, and no longer prefixed with the field's own name. Each part
 			// a constraint concerns is carried on the result as `part` rather than spelled into
 			// the name, which is what let the dotted names go.
-			'Money' => ['allowedCurrencies', 'minAmount', 'maxAmount', 'scale'],
+			'Money' => ['currencyRequired', 'amountRequired', 'allowedCurrencies', 'minAmount', 'maxAmount', 'scale'],
 			'Address' => [
 				'allowedCountries',
 				'streetRequired', 'streetLineLimit', 'streetVisitable',
@@ -95,9 +95,13 @@ final class ConstraintNameTest extends TestCase
 				'subdivisionRequired', 'subdivisionUsed', 'knownSubdivision',
 				'postalCodeRequired', 'postalCodeUsed', 'postalCodeFormat',
 			],
+			// `numberRequired` and `expiryRequired` name a part that was not sent, so a form can
+			// mark the box. There is no `expiryFormat` beside them: an expiry that *was* sent and
+			// cannot be read is a shape failure, the same way a bad amount is on Money.
 			'CreditCard' => [
+				'numberRequired', 'expiryRequired',
 				'numberFormat', 'numberChecksum',
-				'expiryFormat', 'expiryInFuture', 'expiryWithinReach',
+				'expiryInFuture', 'expiryWithinReach',
 				'namePresent', 'securityCodeFormat',
 			],
 

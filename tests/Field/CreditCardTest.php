@@ -89,9 +89,10 @@ final class CreditCardTest extends FieldTestCase
 	public function each_constraint_names_the_part_it_is_about(): void
 	{
 		$expected = [
+			'numberRequired' => 'number',
+			'expiryRequired' => 'expiry',
 			'numberFormat' => 'number',
 			'numberChecksum' => 'number',
-			'expiryFormat' => 'expiry',
 			'expiryInFuture' => 'expiry',
 			'expiryWithinReach' => 'expiry',
 			'namePresent' => 'name',
@@ -176,8 +177,8 @@ final class CreditCardTest extends FieldTestCase
 	public static function requiredParts(): array
 	{
 		return [
-			'a number' => ['number', 'numberFormat'],
-			'an expiry' => ['expiry', 'expiryFormat'],
+			'a number' => ['number', 'numberRequired'],
+			'an expiry' => ['expiry', 'expiryRequired'],
 			'a name' => ['name', 'namePresent'],
 		];
 	}
@@ -302,9 +303,12 @@ final class CreditCardTest extends FieldTestCase
 	#[Test]
 	public function an_unreadable_expiry_reports_once(): void
 	{
+		// An expiry that was *given* and cannot be read is a shape failure, as a bad amount is on
+		// Money: there is no half-readable card left to report a constraint against. Absent is the
+		// other case, and `expiryRequired` names it.
 		$result = $this->expiring()->validate((object) self::card(['expiry' => 'soon']));
 
-		$this->assertConstraintValidationResultFailed('expiryFormat', $result);
+		$this->assertShapeUnreadable($result);
 		$this->assertConstraintValidationResultSkipped('expiryInFuture', $result);
 	}
 

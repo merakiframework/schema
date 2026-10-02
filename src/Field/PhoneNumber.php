@@ -127,17 +127,26 @@ final readonly class PhoneNumber extends AtomicField
 	protected function defineConstraints(): Constraint\Set
 	{
 		return new Constraint\Set(
-			new Constraint('allowedCountries', $this->isFromAnAllowedCountry(...), $this->allowedCountries),
-			new Constraint('numberType', $this->isAnAllowedType(...), $this->numberType->value),
+			// A country chosen with nothing typed yet is the ordinary half-filled form, so the
+			// part is named rather than the whole value being called unreadable. The country has
+			// no counterpart here: a number cannot be read without one, so the value refuses it.
+			new Constraint('numberRequired', $this->hasANumber(...), true, 'number'),
+			new Constraint('allowedCountries', $this->isFromAnAllowedCountry(...), $this->allowedCountries, 'country'),
+			new Constraint('numberType', $this->isAnAllowedType(...), $this->numberType->value, 'number'),
 		);
+	}
+
+	private function hasANumber(Value $parsed): bool
+	{
+		return $parsed->number !== null;
 	}
 
 	private function isFromAnAllowedCountry(Value $parsed): ?bool
 	{
 		$number = $parsed->number;
 
-		// Nothing was asked.
-		if ($this->allowedCountries === []) {
+		// Nothing was asked, or nothing to ask it of.
+		if ($this->allowedCountries === [] || $number === null) {
 			return null;
 		}
 
@@ -148,7 +157,7 @@ final readonly class PhoneNumber extends AtomicField
 	{
 		$number = $parsed->number;
 
-		if ($this->numberType === Type::Any) {
+		if ($this->numberType === Type::Any || $number === null) {
 			return null;
 		}
 

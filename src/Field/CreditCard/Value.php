@@ -70,12 +70,22 @@ final readonly class Value implements ParsedValue, HasParts
 	{
 		$parts = get_object_vars($card);
 
-		// Absent or not a string is null; `''` is kept, because submitting it was a decision.
-		// Nothing is trimmed — that is the port's job.
+		// Absent or not a string is null. A part that was *sent* and holds nothing is unreadable
+		// rather than absent — the rule every record-shaped value here follows — because `''` was
+		// a decision somebody made, and reading it as "no expiry" would satisfy `expiryRequired`.
+		// Nothing is trimmed beyond that; repairing input is the port's job.
 		$text = static function (string $key) use ($parts): ?string {
 			$value = $parts[$key] ?? null;
 
-			return is_string($value) ? $value : null;
+			if (!is_string($value)) {
+				return null;
+			}
+
+			if (trim($value) === '') {
+				throw MalformedValue::of(self::class, "its {$key} was given but holds nothing");
+			}
+
+			return $value;
 		};
 
 		$number = $text('number');
@@ -83,7 +93,12 @@ final readonly class Value implements ParsedValue, HasParts
 		// The one thing that *is* canonicalised: ISO/IEC 7812 says a PAN is digits, so the
 		// grouping people type it in is a display convention rather than part of the number.
 		$this->number = $number === null ? null : preg_replace('/\s+/', '', $number);
-		$this->expiry = self::readExpiry($text('expiry'));
+		$expiry = $text('expiry');
+		$this->expiry = $expiry === null ? null : self::readExpiry($expiry);
+
+		if ($expiry !== null && $this->expiry === null) {
+			throw MalformedValue::of(self::class, sprintf('"%s" is not an expiry date', $expiry));
+		}
 		$this->name = $text('name');
 		$this->securityCode = $text('security_code');
 

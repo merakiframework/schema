@@ -71,10 +71,43 @@ final class MoneyTest extends FieldTestCase
 			'a bare number' => [12.50],
 			'a string' => ['AUD 12.50'],
 			'nothing at all' => [null],
-			'no currency' => [['amount' => '12.50']],
-			'no amount' => [['currency' => 'AUD']],
+			'neither half' => [[]],
 			'an amount that is not a number' => [['currency' => 'AUD', 'amount' => 'abc']],
 			'a currency that is not three letters' => [['currency' => 'AUSD', 'amount' => '1.00']],
+			// Sent and holding nothing is not the same as not sent: `''` was a decision somebody
+			// made, so reading it as "no amount" would let it satisfy `amountRequired`.
+			'a blank amount' => [['currency' => 'AUD', 'amount' => '']],
+			'a blank currency' => [['currency' => '', 'amount' => '1.00']],
+		];
+	}
+
+	/**
+	 * A half-filled amount names the half that is missing.
+	 *
+	 * `{currency: 'AUD'}` used to be refused outright, so a currency chosen with no amount
+	 * typed yet reported "this is not readable money" — which names neither the problem nor the
+	 * input a form should mark. It is a readable, incomplete amount now, and the part says so.
+	 *
+	 * @param array<string, mixed> $given
+	 */
+	#[Test]
+	#[DataProvider('halfFilledMoney')]
+	public function a_missing_half_is_reported_against_that_half(array $given, string $expected): void
+	{
+		$result = $this->createField()->validate((object) $given);
+
+		$this->assertShapePassed($result);
+		$this->assertConstraintValidationResultFailed($expected, $result);
+	}
+
+	/** @return array<string, array{array<string, mixed>, string}> */
+	public static function halfFilledMoney(): array
+	{
+		return [
+			'no amount' => [['currency' => 'AUD'], 'amountRequired'],
+			'a null amount' => [['currency' => 'AUD', 'amount' => null], 'amountRequired'],
+			'no currency' => [['amount' => '12.50'], 'currencyRequired'],
+			'a null currency' => [['currency' => null, 'amount' => '12.50'], 'currencyRequired'],
 		];
 	}
 
@@ -82,6 +115,8 @@ final class MoneyTest extends FieldTestCase
 	public function each_constraint_names_the_half_it_is_about(): void
 	{
 		$expected = [
+			'currencyRequired' => 'currency',
+			'amountRequired' => 'amount',
 			'allowedCurrencies' => 'currency',
 			'minAmount' => 'amount',
 			'maxAmount' => 'amount',

@@ -72,6 +72,24 @@ final class PhoneNumberTest extends FieldTestCase
 		$this->assertConstraintValidationResultSkipped('allowedCountries', $resolved);
 	}
 
+	/**
+	 * A country chosen with nothing typed yet is a half-filled form, not a non-number.
+	 *
+	 * It used to be a shape failure alongside the rest, which reported the whole field
+	 * unreadable for the most ordinary state a phone input passes through — and named neither
+	 * the problem nor the box to mark. The country still has no counterpart: a number cannot be
+	 * read without one, so that half stays refused.
+	 */
+	#[Test]
+	public function a_country_with_no_number_yet_names_the_missing_number(): void
+	{
+		$resolved = (new PhoneNumber(new FieldName('phone'), ['AU']))->validate((object) ['country' => 'AU']);
+
+		$this->assertShapePassed($resolved);
+		$this->assertConstraintValidationResultFailed('numberRequired', $resolved);
+		$this->assertConstraintValidationResultSkipped('allowedCountries', $resolved);
+	}
+
 	/** @return array<string, array{mixed}> */
 	public static function incompletePairs(): array
 	{
@@ -79,7 +97,6 @@ final class PhoneNumberTest extends FieldTestCase
 			'a bare national string' => ['0411 222 333'],
 			'a bare E.164 string' => ['+61411222333'],
 			'a number with no country' => [['number' => '0411 222 333']],
-			'a country with no number' => [['country' => 'AU']],
 			'an empty country' => [['number' => '0411 222 333', 'country' => '']],
 			'an empty number' => [['number' => '', 'country' => 'AU']],
 			'neither' => [[]],

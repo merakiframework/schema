@@ -13,6 +13,7 @@ use Brick\DateTime\Clock\SystemClock;
 use Brick\DateTime\Instant;
 use Brick\DateTime\LocalDate;
 use Brick\DateTime\TimeZone;
+use Closure;
 use SensitiveParameter;
 
 /**
@@ -150,9 +151,13 @@ final readonly class CreditCard extends AtomicField
 	protected function defineConstraints(): Constraint\Set
 	{
 		return new Constraint\Set(
+			// A part that was not sent is named, so a form marks the box. A part that was sent
+			// and cannot be read is a shape failure instead, as a bad amount is on Money — the
+			// value refuses it, and there is no half-readable card to report against.
+			new Constraint('numberRequired', $this->hasA('number'), true, 'number'),
+			new Constraint('expiryRequired', $this->hasA('expiry'), true, 'expiry'),
 			new Constraint('numberFormat', $this->hasAWellFormedNumber(...), null, 'number'),
 			new Constraint('numberChecksum', $this->passesLuhn(...), null, 'number'),
-			new Constraint('expiryFormat', $this->hasAReadableExpiry(...), null, 'expiry'),
 			// The bound is the instant it was judged against, so a message can say what "expired"
 			// was measured from rather than only that it was. Per request, because that is what a
 			// clock means.
@@ -192,9 +197,11 @@ final readonly class CreditCard extends AtomicField
 		return $this->clock->getTime();
 	}
 
-	private function hasAWellFormedNumber(Value $card): bool
+	private function hasAWellFormedNumber(Value $card): ?bool
 	{
-		return $card->number !== null && preg_match(self::NUMBER_PATTERN, $card->number) === 1;
+		// Skipped rather than failed when there is none: `numberRequired` reports that, and
+		// saying "this is not a card number" about a box nobody filled in is the wrong sentence.
+		return $card->number === null ? null : preg_match(self::NUMBER_PATTERN, $card->number) === 1;
 	}
 
 	/**
@@ -230,9 +237,18 @@ final readonly class CreditCard extends AtomicField
 		return $sum % 10 === 0;
 	}
 
-	private function hasAReadableExpiry(Value $card): bool
+	/**
+	 * Whether the part is there at all.
+	 *
+	 * Absent and `null` both fail; one that was sent and cannot be read never reaches here,
+	 * because the value refuses it. So this asks one question, and the part it names is the
+	 * input a form should mark.
+	 *
+	 * @return Closure(Value): bool
+	 */
+	private function hasA(string $part): Closure
 	{
-		return $card->expiry !== null;
+		return static fn(Value $card): bool => ($card->parts()[$part] ?? null) !== null;
 	}
 
 	/**

@@ -149,4 +149,99 @@ final class MalformedCompositeInputTest extends TestCase
 			);
 		}
 	}
+
+	/**
+	 * Every record-shaped field answers the same three questions the same way.
+	 *
+	 * The invariant: a **required** part that is absent, or present and `null`, fails that
+	 * part's `*Required` constraint and names the part, so a form can mark the box. A part that
+	 * was *sent* and holds nothing is `unreadable` instead — `''` was a decision somebody made,
+	 * and reading it as absence would let whitespace satisfy a requiredness check.
+	 *
+	 * Only `Address` honoured this. `Money`, `CreditCard` and `PhoneNumber` collapsed all three
+	 * cases into `unreadable`, so "you left the amount out" and "the amount is gibberish" were
+	 * one verdict with no part on it — which is why `schema-html` ended up collapsing blank
+	 * records to null before handing them over.
+	 *
+	 * One provider across all four, because the point is that they agree: a fifth record field
+	 * that disagrees fails here rather than being discovered by a port.
+	 *
+	 * @param array<string, mixed> $complete
+	 */
+	#[Test]
+	#[DataProvider('recordFields')]
+	public function a_required_part_that_is_absent_names_itself(
+		callable $make,
+		array $complete,
+		string $part,
+		string $constraint,
+	): void {
+		$schema = new Facade('s');
+		$schema->add($make($schema));
+
+		$without = $complete;
+		unset($without[$part]);
+
+		foreach (['absent' => $without, 'null' => [$part => null] + $complete] as $how => $given) {
+			$result = $schema->validate((object) ['f' => (object) $given])->forField('f');
+			$failed = $result->forConstraint($constraint);
+
+			$this->assertTrue($result->shape->passed(), "{$constraint}: {$how} should still be readable");
+			$this->assertTrue($failed->failed(), "{$constraint}: {$how} should fail");
+			$this->assertSame($part, $failed->part, "{$constraint}: {$how} should name the part");
+		}
+
+		// Sent and holding nothing is the other case, and it is a shape failure.
+		$blank = $schema->validate((object) ['f' => (object) ([$part => ''] + $complete)])->forField('f');
+
+		$this->assertTrue($blank->wasUnreadable(), "{$constraint}: blank should be unreadable");
+	}
+
+	/** @return iterable<string, array{callable, array<string, mixed>, string, string}> */
+	public static function recordFields(): iterable
+	{
+		yield 'Money' => [
+			static fn(Facade $s): Field => $s->createMoneyField('f', ['AUD' => 2]),
+			['currency' => 'AUD', 'amount' => '10.00'],
+			'amount',
+			'amountRequired',
+		];
+
+		yield 'Address' => [
+			static fn(Facade $s): Field => $s->createAddressField('f', ['AU']),
+			['street' => ['1 Main St'], 'locality' => 'Bne', 'subdivision' => 'QLD', 'postal_code' => '4000', 'country' => 'AU'],
+			'locality',
+			'localityRequired',
+		];
+
+		yield 'CreditCard' => [
+			static fn(Facade $s): Field => $s->createCreditCardField('f'),
+			['number' => '4111111111111111', 'expiry' => '2030-01', 'name' => 'A B'],
+			'expiry',
+			'expiryRequired',
+		];
+
+		yield 'PhoneNumber' => [
+			static fn(Facade $s): Field => $s->createPhoneNumberField('f', ['AU']),
+			['number' => '0411222333', 'country' => 'AU'],
+			'number',
+			'numberRequired',
+		];
+	}
+
+	/**
+	 * And the qualifier that makes it an invariant rather than a rule of thumb: none of it
+	 * applies to a field nobody has to fill in.
+	 */
+	#[Test]
+	#[DataProvider('recordFields')]
+	public function an_optional_field_is_skipped_rather_than_missing(callable $make): void
+	{
+		$schema = new Facade('s');
+		$schema->add($make($schema)->makeOptional());
+
+		foreach ([(object) [], (object) ['f' => null]] as $payload) {
+			$this->assertTrue($schema->validate($payload)->forField('f')->shape->skipped());
+		}
+	}
 }

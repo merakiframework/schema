@@ -13,6 +13,7 @@ use Brick\Math\BigDecimal;
 use Brick\Math\Exception\MathException;
 use Brick\Money\Exception\UnknownCurrencyException;
 use Brick\Money\ISOCurrencyProvider;
+use Closure;
 
 /**
  * An amount of money, held as one {@see Value} carrying both the currency and the amount.
@@ -186,6 +187,11 @@ final readonly class Money extends AtomicField
 	protected function defineConstraints(): Constraint\Set
 	{
 		return new Constraint\Set(
+			// A part that was not sent is named, so a form can mark the box rather than being told
+			// the whole amount is unreadable. A blank one is a shape failure instead: it was a
+			// decision somebody made, and the value refuses it.
+			new Constraint('currencyRequired', $this->hasA('currency'), true, 'currency'),
+			new Constraint('amountRequired', $this->hasA('amount'), true, 'amount'),
 			new Constraint('allowedCurrencies', $this->isAnAllowedCurrency(...), array_keys($this->allowedCurrencies), 'currency'),
 			// Every bound here is per currency, so the declared one is only knowable when a single
 			// currency is allowed. `boundFor` supplies the one that actually applied, once the
@@ -209,28 +215,47 @@ final readonly class Money extends AtomicField
 				$this->matchesScale(...),
 				$this->singleScale(),
 				'amount',
-				fn(Value $money): ?int => $this->allowedCurrencies[$money->currency] ?? null,
+				fn(Value $money): ?int => $money->currency === null ? null : ($this->allowedCurrencies[$money->currency] ?? null),
 			),
 		);
 	}
 
+	/**
+	 * Whether the part is there at all.
+	 *
+	 * Absent and `null` both fail; a blank one never reaches here, because the value refuses it
+	 * as unreadable. So this asks one question — "did you give me one" — and the part it names
+	 * is the input a form should mark.
+	 *
+	 * @return Closure(Value): bool
+	 */
+	private function hasA(string $part): Closure
+	{
+		return static fn(Value $money): bool => ($money->parts()[$part] ?? null) !== null;
+	}
+
 	private function isAnAllowedCurrency(Value $money): ?bool
 	{
-		return $this->allowedCurrencies === [] ? null : isset($this->allowedCurrencies[$money->currency]);
+		// Nothing to judge until there is a currency; `currencyRequired` reports its absence.
+		if ($money->currency === null || $this->allowedCurrencies === []) {
+			return null;
+		}
+
+		return isset($this->allowedCurrencies[$money->currency]);
 	}
 
 	private function meetsMinimum(Value $money): ?bool
 	{
-		$min = $this->minAmounts[$money->currency] ?? null;
+		$min = $money->currency === null ? null : ($this->minAmounts[$money->currency] ?? null);
 
-		return $min === null ? null : $money->amount->isGreaterThanOrEqualTo($min);
+		return ($min === null || $money->amount === null) ? null : $money->amount->isGreaterThanOrEqualTo($min);
 	}
 
 	private function meetsMaximum(Value $money): ?bool
 	{
-		$max = $this->maxAmounts[$money->currency] ?? null;
+		$max = $money->currency === null ? null : ($this->maxAmounts[$money->currency] ?? null);
 
-		return $max === null ? null : $money->amount->isLessThanOrEqualTo($max);
+		return ($max === null || $money->amount === null) ? null : $money->amount->isLessThanOrEqualTo($max);
 	}
 
 	/**
@@ -242,9 +267,11 @@ final readonly class Money extends AtomicField
 	 */
 	private function matchesScale(Value $money): ?bool
 	{
-		$scale = $this->allowedCurrencies[$money->currency] ?? null;
+		$scale = $money->currency === null ? null : ($this->allowedCurrencies[$money->currency] ?? null);
 
-		return $scale === null ? null : $money->amount->stripTrailingZeros()->getScale() <= $scale;
+		return ($scale === null || $money->amount === null)
+			? null
+			: $money->amount->stripTrailingZeros()->getScale() <= $scale;
 	}
 
 	/**
@@ -272,7 +299,7 @@ final readonly class Money extends AtomicField
 	 */
 	private function boundFor(array $bounds, Value $money): ?string
 	{
-		$bound = $bounds[$money->currency] ?? null;
+		$bound = $money->currency === null ? null : ($bounds[$money->currency] ?? null);
 
 		return $bound === null ? null : (string) $bound;
 	}
