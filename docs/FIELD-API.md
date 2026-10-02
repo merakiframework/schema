@@ -245,15 +245,20 @@ protected function parse(mixed $value): Value
         return $value;                       // already this field's own type
     }
 
-    $parts = self::recordIn($value);         // object -> named parts, anything else -> null
-
-    if ($parts === null) {
-        return null;
+    // An object is a record; an array is a list. A value with named parts arrives as the
+    // former — see Definition::recordIn().
+    if (!is_object($value)) {
+        throw MalformedValue::of(Value::class, 'a widget is submitted as a record of its parts');
     }
 
-    return Value::fromInput($parts);
+    return new Value($value);                // the value reads the record it is handed
 }
 ```
+
+The value takes the whole record rather than parts picked out for it, so there is one answer to
+"what is a widget here" instead of a field that reads input and a value that trusts whatever it is
+handed. `parse()` returns a value or raises; returning `null` for unreadable input is not a thing
+it does.
 
 ---
 

@@ -393,9 +393,9 @@ the author wrote that way. `$field->appliedOutcomes` has the detail, including
 ```php
 use Meraki\Schema\Message\Mf2\Mf2Provider;
 
-$schema = new Facade('signup', messages: Mf2Provider::fromPackage('meraki/schema-language-english'));
+$provider = Mf2Provider::fromPackage('meraki/schema-language-english');
 
-$result = $schema->validate($input, locale: 'en-AU');
+$result = $schema->validate($input, locale: 'en-AU', messages: $provider);
 
 $result->forField('username')->messages->first;
 // "Use at least 3 characters."

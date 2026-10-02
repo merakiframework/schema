@@ -74,9 +74,10 @@ final readonly class Collection implements Field
 	 * | `false` | 3 | `minCount` fails | `minCount` fails | passes |
 	 * | `true` | 3 | `minCount` skipped | `minCount` fails | passes |
 	 *
-	 * So `type` means only "that was not a list", `$optional` means only "empty is acceptable",
-	 * and this means only "how many is enough" — which is what lets "no referees, or three" be
-	 * said at all.
+	 * So the **shape** means only "that was not a list", `$optional` means only "empty is
+	 * acceptable", and this means only "how many is enough" — which is what lets "no referees, or
+	 * three" be said at all. There is no `type` constraint; readability is the precondition every
+	 * constraint depends on rather than one more rule among them.
 	 *
 	 * @var positive-int
 	 */

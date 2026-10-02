@@ -15,21 +15,26 @@ use Meraki\Schema\Message\Mf2\Mf2Provider;
 
 $provider = Mf2Provider::fromPackage('meraki/schema-language-english');
 
-$schema = new Facade('signup', messages: $provider);
+$schema = new Facade('signup');
 $schema->add($schema->createAddressField('billing', ['AU']));
 
-$result = $schema->validate($data, locale: 'en-AU');
+$result = $schema->validate($data, locale: 'en-AU', messages: $provider);
 
 $result->forField('billing')->messages->forPart('postal_code')->first;
 // "That is not a valid postcode for the country you chose."
 ```
 
-Two things arrive at two different times, and the split is the whole design:
+Both arrive with the **request**, and that split is the whole design:
 
-- **The provider** is registered on the schema. It is a *source* — built once, holding every
-  language it can serve, safe to share — in the same way the clock is.
-- **The locale** arrives with the request, because that is what varies. One schema serves a German
-  reader and an English one without being defined twice.
+- **The provider** is a *source* — built once, holding every language it can serve, safe to share.
+  Share it the way you would a connection pool; it is the schema it does not belong to.
+- **The locale** says which of those languages this reader wants.
+
+Neither is part of the definition. The provider used to sit on the schema's constructor, and
+`validate()` reached for it — which meant a schema built in a service container was stuck with
+whatever pack that container had, serialising a schema silently dropped it, and swapping the
+wording for one request meant rebuilding the schema. One schema serves a German reader and an
+English one, and serves them from different packs if you want.
 
 ## Why the language cannot be part of the definition
 

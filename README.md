@@ -167,9 +167,9 @@ composer require meraki/schema-language-english
 ```php
 use Meraki\Schema\Message\Mf2\Mf2Provider;
 
-$schema = new Facade('signup', messages: Mf2Provider::fromPackage('meraki/schema-language-english'));
+$provider = Mf2Provider::fromPackage('meraki/schema-language-english');
 
-$result = $schema->validate($data, locale: 'en-AU');
+$result = $schema->validate($data, locale: 'en-AU', messages: $provider);
 
 $result->forField('billing')->messages->forPart('postal_code')->first;
 // "That is not a valid postcode for the country you chose."

@@ -130,8 +130,9 @@ one the judged value came from. `PrefillPolicy::Trusted` waives the constraints 
 actually survived as prefilled — trust attaches to the value, so it cannot excuse anything the
 user typed over the top.
 
-`validate()` takes an `object`, not an array. It also takes an optional `locale` for message
-packs. To resolve without judging — drawing a form for the first time — call `resolve()`.
+`validate()` takes an `object`, not an array. It also takes an optional `locale` **and the
+message provider itself** — see [Wording arrives with the request](#wording-arrives-with-the-request).
+To resolve without judging — drawing a form for the first time — call `resolve()`.
 
 `defaultsTo()` is unchanged and stays on the definition: a default is authored by you, where a
 prefill belongs to a request. That split is what makes "a serialised schema can never contain
@@ -174,6 +175,84 @@ On a `ResolvedField`:
   distinction `1.x` made you disentangle by hand.
 - **`transformed` is gone.** The parsed value is already the typed value, so there is no second
   property. Format from `$value` plus the field's own configuration.
+
+<a id="wording-arrives-with-the-request"></a>
+
+### Wording arrives with the request, not with the schema
+
+The `messages:` constructor argument is gone. Hand the provider to `validate()` instead:
+
+```php
+// alpha.2
+$schema = new Facade('signup', messages: $provider);
+$result = $schema->validate($data, locale: 'en-AU');
+
+// now
+$schema = new Facade('signup');
+$result = $schema->validate($data, locale: 'en-AU', messages: $provider);
+```
+
+`Facade::$messages` is gone with it. The locale always worked this way and the provider did not,
+which made wording half a property of the definition: a schema built in a service container was
+stuck with that container's pack, serialising a schema dropped the provider silently, and
+swapping the wording for one caller meant rebuilding the schema. Nothing about wording was ever
+a fact about a *definition* — the same data passes or fails identically in every language.
+
+`resolve()` takes neither, because it reaches no verdict and only a failure has anything to say.
+
+Everything else is unchanged: no provider, an unsupported tag, or no tag at all still leaves
+every verdict exactly as it was and every message set empty.
+
+### A required part that was not sent names itself
+
+Every record-shaped field now answers the same three questions the same way. A **required** part
+that is absent, or present and `null`, fails that part's own `*Required` constraint and carries
+the part on the verdict, so a form can mark the box. A part that was *sent* and holds nothing is
+a shape failure — `''` was a decision somebody made, and reading it as absence would let
+whitespace satisfy a requiredness check.
+
+`Address` already behaved this way. `Money`, `CreditCard` and `PhoneNumber` collapsed all three
+cases into "unreadable", which is why a port could not tell "you left the amount out" from "the
+amount is gibberish", and could not mark anything, since no part was named.
+
+| Field | New constraints |
+| --- | --- |
+| `Money` | `currencyRequired`, `amountRequired` |
+| `CreditCard` | `numberRequired`, `expiryRequired` |
+| `PhoneNumber` | `numberRequired` |
+
+**`CreditCard::expiryFormat` is gone.** An expiry that was given and cannot be read is now a
+shape failure, the same way a bad amount already was on `Money`, so the constraint had nothing
+left to say that `expiryRequired` does not. A message pack with wording for `expiryFormat` keeps
+working — an unused key is not an error — but nothing will read it.
+
+**`PhoneNumber` has no `countryRequired`,** and that is deliberate rather than an oversight.
+libphonenumber cannot parse a number without a region, and `0411 222 333` is a different number
+in a different country, so a phone number with no country is refused exactly as an address with
+no country is. The number is the half that reports.
+
+**`File` is unchanged.** Its `name`, `type` and `size` are one upload's metadata rather than
+three inputs a form renders — no page has a "file type" box to mark — so `*Required` constraints
+there would have added three names nothing can act on.
+
+### A value reports the parts it is submitted with
+
+| | parts before | parts now |
+| --- | --- | --- |
+| `EmailAddress` | `local_part`, `domain` | **none** — it no longer implements `HasParts` |
+| `PhoneNumber` | `country`, `e164` | `number`, `country` |
+
+Both were reporting a *reading* of the value rather than its inputs. An email address is one box
+on a form; `#/fields/email/value/domain` stops resolving, and the field's messages move from a
+`PartedSet` to a `FlatSet`. `$value->localPart` and `$value->domain` are unchanged, and a rule
+about a domain was always written as `matches('/@example\.test$/')` rather than through a part.
+
+E.164 was never submitted either. `#/fields/phone/value/e164` stops resolving and
+`Value::toE164()` is where it lives; in exchange, `#/fields/phone/value/number` now resolves and
+`forPart('number')` no longer raises on the one part a form definitely renders.
+
+`Api\StructuredTypeTest` holds the rule both ways, so the next value that reports a derived
+reading fails there rather than in a port.
 
 ### Rules
 

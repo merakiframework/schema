@@ -91,18 +91,18 @@ and the euro spans twenty.
 | `Address` | `allowCountries()`, `clearAllowedCountries()`, `minPrecisionOf()`, `mustBeVisitable()` | `allowedCountries`, `streetRequired`, `streetLineLimit`, `streetVisitable`, `localityRequired`, `localityUsed`, `dependentLocalityUsed`, `subdivisionRequired`, `subdivisionUsed`, `knownSubdivision`, `postalCodeRequired`, `postalCodeUsed`, `postalCodeFormat` | `Address\Value` |
 | `Boolean` | `mustBeAccepted()` | `accepted` | `Boolean\Value` |
 | `Collection` | `allowDuplicates()`, `maxCountOf()`, `minCountOf()` | `minCount`, `maxCount`, `unique` | `Collection\Value` |
-| `CreditCard` | `mustExpireInFuture()` | `numberFormat`, `numberChecksum`, `expiryFormat`, `expiryInFuture`, `expiryWithinReach`, `namePresent`, `securityCodeFormat` | `CreditCard\Value` |
+| `CreditCard` | `mustExpireInFuture()` | `numberRequired`, `expiryRequired`, `numberFormat`, `numberChecksum`, `expiryInFuture`, `expiryWithinReach`, `namePresent`, `securityCodeFormat` | `CreditCard\Value` |
 | `Date` | `after()`, `atIntervalsOf()`, `from()`, `through()`, `until()` | `from`, `after`, `until`, `through`, `interval` | `Date\Value` |
 | `DateTime` | `after()`, `atIntervalsOf()`, `from()`, `through()`, `until()` | `from`, `after`, `until`, `through`, `interval`, `precision` | `DateTime\Value` |
 | `Duration` | `inIncrementsOf()`, `maxValueOf()`, `minValueOf()` | `minValue`, `maxValue`, `step` | `Duration\Value` |
 | `EmailAddress` | `allowDomains()`, `clearAllowedDomains()`, `clearDisallowedDomains()`, `disallowDomains()`, `maxLengthOf()`, `minLengthOf()` | `minLength`, `maxLength`, `allowedDomains`, `disallowedDomains` | `EmailAddress\Value` |
 | `Enum` | — | — | `Enum\Value` |
 | `File` | `allowDocuments()`, `allowImages()`, `allowTypes()`, `allowVideos()`, `clearAllowedTypes()`, `clearDisallowedTypes()`, `disallowScripts()`, `disallowTypes()`, `maxSizeOf()`, `minSizeOf()` | `minSize`, `maxSize`, `allowedTypes`, `disallowedTypes` | `File\Value` |
-| `Money` | `allowCurrencies()`, `clearAllowedCurrencies()`, `maxAmountOf()`, `minAmountOf()` | `allowedCurrencies`, `minAmount`, `maxAmount`, `scale` | `Money\Value` |
+| `Money` | `allowCurrencies()`, `clearAllowedCurrencies()`, `maxAmountOf()`, `minAmountOf()` | `currencyRequired`, `amountRequired`, `allowedCurrencies`, `minAmount`, `maxAmount`, `scale` | `Money\Value` |
 | `Name` | — | `minLength`, `maxLength` | `Name\Value` |
 | `Number` | `inIncrementsOf()`, `maxPrecisionOf()`, `maxValueOf()`, `minValueOf()`, `scaleTo()` | `minValue`, `maxValue`, `step`, `scale`, `maxPrecision` | `Number\Value` |
 | `Password` | `maxLengthOf()`, `minLengthOf()`, `minNumberOfDigits()`, `minNumberOfLowercaseChars()`, `minNumberOfSymbols()`, `minNumberOfUppercaseChars()`, `minStrengthOf()` | `minLength`, `maxLength`, `minStrength`, `minUppercaseChars`, `minLowercaseChars`, `minDigits`, `minSymbols` | `Password\Value` |
-| `PhoneNumber` | `allowCountries()`, `clearAllowedCountries()`, `ofType()` | `allowedCountries`, `numberType` | `PhoneNumber\Value` |
+| `PhoneNumber` | `allowCountries()`, `clearAllowedCountries()`, `ofType()` | `numberRequired`, `allowedCountries`, `numberType` | `PhoneNumber\Value` |
 | `Text` | `maxLengthOf()`, `minLengthOf()`, `mustMatch()` | `minLength`, `maxLength`, `pattern` | `Text\Value` |
 | `Time` | `after()`, `atIntervalsOf()`, `from()`, `through()`, `until()` | `from`, `after`, `until`, `through`, `interval`, `precision` | `Time\Value` |
 | `Uri` | `allowSchemes()`, `clearAllowedSchemes()`, `maxLengthOf()`, `minLengthOf()` | `minLength`, `maxLength`, `allowedSchemes` | `Uri\Value` |
@@ -441,17 +441,19 @@ foreach ($field->constraints as $verdict) { ... }
 ### Messages are applied to the verdicts, never fed into them
 
 ```php
-$schema = new Facade('signup', messages: $provider);
-$result = $schema->validate($data, locale: 'en-AU');
+$result = $schema->validate($data, locale: 'en-AU', messages: $provider);
 ```
 
-The provider is a *source* registered on the schema, like the clock. The **locale** is part of the
-request, because that is the part that varies — so one schema serves every reader rather than being
-defined once per language.
+Both arrive with the **request**, not with the schema. Wording is never a fact about a definition:
+the same data passes or fails identically in every language, so a schema that carried a provider
+was a schema that could not be serialised whole, could not be shared between a service container
+and a CLI command that wanted different packs, and could not change its wording for one caller.
 
-It also means a missing language cannot change an outcome: an unsupported tag, or none at all,
-leaves every verdict as it was and every message set empty. A field validated on its own therefore
-has no messages, because there is no schema to have carried a provider.
+It also means a missing language cannot change an outcome: no provider, an unsupported tag, or no
+tag at all leaves every verdict as it was and every message set empty. A field validated on its
+own therefore has no messages, because nothing handed it a provider.
+
+`resolve()` takes neither, because it reaches no verdict and only a failure has anything to say.
 
 `$messages` is a [`FlatSet`](../src/Message/FlatSet.php) for a field holding one value and a
 [`PartedSet`](../src/Message/PartedSet.php) for one whose value has named parts — decided by the

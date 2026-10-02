@@ -276,9 +276,14 @@ is the documented hook on the HTML side.
 `defineConstraints()` is `protected`, so adding "not a reserved word" to `Text` means
 reimplementing `Text`. Tracked in [ROADMAP.md](ROADMAP.md).
 
-**Add a verb to the fluent matcher.** `Rule\Matcher` is `final` with `equals` and `notEquals`.
+**Add a verb to the fluent matcher.** The matcher sets are `final`, so the sentence is closed.
 You can write a `Rule\Condition` of your own and wrap it — `new Rule\Draft(new MyCondition(...))`
 — so the engine is open even though the sentence is not.
 
-**Reach inside a collection item from a scope.** Which row `0` is depends on what was submitted,
-so a stored rule naming one would mean a different row on a different request.
+**Reach into a part of a part.** A scope addresses a field, one of its public properties, one
+part of a structured value, or a named row of a collection — but not a part of a part. Widening
+that is additive, so nothing you store today changes meaning if it lands.
+
+Reaching into a **collection row** used to be on this list and is not any more: rows are keyed by
+name, so `#/fields/attendees/value/alice/email/value` means the same row on every request. It was
+positional indices that could not be stored, not rows.

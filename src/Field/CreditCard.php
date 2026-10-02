@@ -283,8 +283,8 @@ final readonly class CreditCard extends AtomicField
 
 	private function namesAHolder(Value $card): bool
 	{
-		// `''` is a submitted empty string rather than an absent part, and either way it is not a
-		// name — see Value::fromInput().
+		// `''` is a submitted empty string rather than an absent part — the constructor refuses
+		// that outright now — and either way it is not a name.
 		return $card->name !== null && $card->name !== '';
 	}
 

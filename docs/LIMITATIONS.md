@@ -215,11 +215,14 @@ compare with `===`, so `whenEquals(..., true)` never matches the string `"1"`.
 
 ```php
 $schema = new Meraki\Schema\Facade('prefs');
-$schema->addBooleanField('subscribe');
+$schema->add($schema->createBooleanField('subscribe'));
 
-$schema->validate(['subscribe' => 'on'])->anyFailed();   // true  — HTML form input
-$schema->validate(['subscribe' => true])->anyFailed();   // false
+$schema->validate((object) ['subscribe' => 'on'])->anyFailed();   // true  — HTML form input
+$schema->validate((object) ['subscribe' => true])->anyFailed();   // false
 ```
+
+A payload is an **object**, not an array. An array is a list, which is what a collection takes,
+so `validate(['subscribe' => true])` is a `TypeError` rather than a payload with one key.
 
 This is intentional: normalizing an HTTP request is `meraki/schema-html`'s job, not the
 core's. If you point the core straight at `$_POST` without normalizing, everything that
@@ -241,16 +244,29 @@ depends on a field that a later rule changes will not re-evaluate, and there is 
 detection. Order your rules so that dependencies come first, and avoid rules that feed
 each other.
 
-### Composite input nests by local name
+### A record nests, and most records ignore a key they do not know
 
-Sub-field values are supplied nested under the composite. Fully-qualified flat keys are
-not accepted, and unrecognised keys are silently ignored — so a typo in a sub-field name
-leaves that sub-field empty and fails its required check rather than reporting the typo.
+A structured field takes one record under the field's own name. There are no sub-fields to
+address, so a flat dotted key is not a second spelling of anything — it is a field name nobody
+registered, and it is ignored along with every other unrecognised top-level key.
 
 ```php
-$schema->validate(['price' => ['amount' => '1500', 'currency' => 'AUD']]);   // yes
-$schema->validate(['price.amount' => '1500']);                               // ignored
+$schema->validate((object) ['price' => (object) ['amount' => '1500', 'currency' => 'AUD']]);  // yes
+$schema->validate((object) ['price.amount' => '1500']);                                       // ignored
 ```
+
+Inside the record, what happens to a key the value does not know is **not uniform**, and this is
+the part that will surprise you:
+
+| | an unknown part |
+| --- | --- |
+| `Address` | **refused** — the whole value is unreadable, and the message names the key |
+| `Money`, `CreditCard`, `PhoneNumber`, `File` | ignored |
+
+So `securty_code` on a card leaves the security code absent and reports whatever that absence
+fails, rather than reporting the typo. `Address` is strict because its parts were renamed in 2.0
+and a port still sending `line1` would otherwise build an address quietly missing a street; the
+others have not been tightened to match.
 
 ---
 
