@@ -10,6 +10,62 @@ is a commit subject, with the body kept because the body is where the reasoning 
 
 ## Unreleased
 
+### Coverage that reports what it measures
+
+`c5044142` · 2026-10-02
+
+The published figure said 72% of lines for a suite that executes 92%. Not a
+testing gap -- an attribution one. Every test names what it covers, so
+PHPUnit discards coverage for everything else a test runs, and
+Field\Text\Value sat at 0% while being among the most-executed code here.
+
+Fixed where attributing is honest, which is most of the gap that mattered:
+
+A field and its value object are one unit split across two files, and the
+convention already said so -- PasswordTest named Password, Strength and
+Password\Result; PhoneNumberTest named PhoneNumber and Type. The thirteen
+value classes with no dedicated ValueTest were simply never added. Address,
+Collection and EmailAddress reported fine the whole time because they have
+one.
+
+Then nine more that a test genuinely drives and never named: the scope
+locators built by every Scope (SchemaField) and by forEachRow (Column, Row,
+Template), the equality helper every Comparison dispatches through, the two
+composing conditions allOf()/anyOf() construct, AppliedOutcome, and the
+guards ScopeValidationTest exists to test.
+
+Lines 72.18% -> 76.36%, methods 58.41% -> 62.23%, classes 26.39% -> 30.56%.
+
+The rest of the gap stays, and should. It is the exception classes, the
+result and constraint machinery, and the enums: all exercised constantly,
+none of them the subject of a test that could honestly name them.
+Api\ExceptionTest is the clearest case -- it scans source text and reflects,
+so it executes none of what it checks, and #[CoversNothing] is the truthful
+answer there. Attributing those to whichever test happens to run them would
+make the number bigger and mean less.
+
+So phpunit.xml now says which question the percentage answers. Read a drop
+as "something stopped being covered on purpose"; do not read the absolute
+figure as the proportion of the library that works.
+
+And a new check, because I needed it myself. #[CoversClass] resolves against
+the *test file's* namespace, so in tests/Rule/ScopeValidationTest.php, which
+is namespace Meraki\Schema\Rule, writing Rule\Guards::class means
+Meraki\Schema\Rule\Rule\Guards. PHPUnit says nothing: it attributes nothing
+and carries on, so the class reads as untested and the attribute reads as
+proof that it is not. Four of the attributes in this commit were written
+that way and I only caught them because the number moved the wrong way.
+tools/check-coverage-metadata.php resolves all 151 the way PHP does and
+fails on any that name nothing. It is in `ci` and in the workflow.
+
+A source scan rather than reflection, deliberately: autoloading every
+candidate re-enters Composer for names differing only in case, which on a
+case-insensitive filesystem re-includes a loaded file and kills the process.
+
+### Update history
+
+`35c9f04a` · 2026-10-02
+
 ### A step must be positive, and clearStep() is how you remove one
 
 `12cee191` · 2026-10-02
