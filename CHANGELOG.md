@@ -8,7 +8,11 @@ Entries are not sorted into "Added / Changed / Fixed". That classification lives
 head at commit time, and a script inferring it from a verb produces confident nonsense. Each entry
 is a commit subject, with the body kept because the body is where the reasoning is.
 
-## Unreleased
+## v2.0.0-alpha.3 — 2026-10-02
+
+### Update history
+
+`8231c37a` · 2026-10-02
 
 ### Coverage that reports what it measures
 
