@@ -10,6 +10,203 @@ is a commit subject, with the body kept because the body is where the reasoning 
 
 ## Unreleased
 
+### Document the pack install that actually resolves
+
+`af90bed6` · 2026-10-02
+
+`composer require meraki/schema-language-english` fails: the pack has no
+tags, so Packagist serves only dev-main and a default minimum-stability
+refuses it. Both places this library tells somebody to run it now name the
+constraint, and the README says why it is dev-main rather than leaving a
+reader to wonder.
+
+### Sixteen cases that could not fail, and two that could not detect
+
+`aa4bac0d` · 2026-10-02
+
+MalformedCompositeInputTest builds a four-field schema, all required, and
+each of its four "fails rather than raises" tests submits one field. The
+other three are absent, so anyFailed() is true whatever the value under
+test does -- a *valid* price gave true just as readily. Four tests times
+four provider rows is sixteen assertions that asserted nothing. The
+"rather than raises" half still worked, because an exception errors the
+test; the "fails" half never did. They now assert against the field.
+
+Two tests named for memoisation compared by value, so neither could see
+the thing it was named for:
+
+  PasswordTest::the_measurement_is_taken_once_and_only_when_asked did
+  assertSame($resolved->entropy, $resolved->entropy). $entropy is ?int, so
+  deleting the memo and re-running zxcvbn on every read would have passed.
+  It now asserts both halves: hasMeasured is false after validate(), true
+  after the first read, and poisoning the memo proves the second read does
+  not re-measure.
+
+  SchemaMessagesTest::messages_are_rendered_once_rather_than_held_as_a_translator
+  did the same with an array. It now asserts what the name says -- every
+  sentence is already a string, and nothing the set holds is a Translator
+  or a Provider.
+
+(My first attempt at the second one laid a second pack over the provider
+and asserted the sentences did not move. withPack() is a wither, so that
+discarded its own result and would have replaced one tautology with
+another.)
+
+Two duplicate data-provider rows, one of which hid a gap. EmailAddress had
+'nothing after the at' and 'no dot is fine, no domain is not' both holding
+'kim@' -- the second name describes a case the data never tested, and
+kim@intranet is in fact accepted, which nothing asserted. Now a test of its
+own. NumberTest had '(float) no integral part' => [.456] beside
+'(float) positive with leading 0' => [0.456]; PHP parses both to the same
+double, and the string form already covers it.
+
+Also: tests/Field/FileTest.php declared namespace Meraki\Schema\Field\Type,
+left over from the pre-2.0 layout, which PSR-4 cannot map -- composer
+skipped the class on every dump-autoload. And bin/schema-lang and
+.githooks/pre-commit were both committed non-executable. The hook one
+mattered: composer install points core.hooksPath at .githooks, and git
+silently skips a hook it cannot execute, so every contributor not on
+Windows had it configured and never running.
+
+### Two samples that could not run, and five sentences left behind
+
+`018878b1` · 2026-10-02
+
+A documentation audit against the running library: every snippet extracted
+and executed, every named class, method and constraint grepped, every link
+and anchor resolved, every count recomputed. Most of it held. What did not
+falls into two piles.
+
+Two samples were copy-paste fatal:
+
+  COOKBOOK documented `PrefillPolicy::Unchecked`, which has never existed --
+  the cases are Checked and Trusted. A reader following it gets an Error,
+  and the same page's own neighbours (API.md, UPGRADING.md) both say
+  Trusted for exactly this.
+
+  FIELD-API's worked Boolean::parse() returned null from a method typed
+  `: Value`, on precisely the input the branch exists for. That is a
+  TypeError, in the page a new field author is told to read first, nineteen
+  lines above the sentence "It returns a value, or raises MalformedValue.
+  There is no null." The abstract signature three paragraphs down had the
+  same `?` on it.
+
+The second pile has one cause. The recent churn landed in the code samples
+and left the prose around them behind, so five pages still told the reader
+the message provider is registered on the schema while the snippet three
+lines away passed it to validate(). DESIGN.md was the worst of them: not a
+stale call, but the argued rationale for a design that no longer exists.
+
+The rest, each verified by running it rather than by reading:
+
+  - API.md said Name has no configuration "at all". It has minLengthOf()
+    and maxLengthOf(). It was the one wrong row in a nineteen-row table
+    that is otherwise correct to the method name.
+  - FIELD-API said a collection row keeps "a position for a plain list".
+    A positional list is refused; that is why rows are named.
+  - FIELD-API had the result hierarchy backwards -- Collection\Result and
+    Password\Result both extend ResolvedField, so the contrast it drew
+    between them does not exist.
+  - ROADMAP said `value` holds the raw input when nothing could read it.
+    It holds null; `given` is the raw input. Three other pages say so.
+  - LIMITATIONS' heading said records "ignore a key they do not know",
+    five lines above the body correctly saying they raise.
+  - LIMITATIONS cited whenEquals() in a current-behaviour section; that is
+    1.x. COOKBOOK cited getRequiredFields(), which belongs to
+    commerceguys/addressing and is on no public type here.
+  - Three broken anchors: #rough-edges (no such heading anywhere) and
+    #transformed--dropped-and-why twice.
+  - ROADMAP counted 23 fields where 18 extend AtomicField, and still had
+    otherwise() as future work -- it shipped as else().
+  - UPGRADING told translators to update their `.mf2` packs. The extension
+    is `.mfr`, including in the loader's own glob.
+  - docs/README listed 12 of the 14 examples.
+
+And the entry that was simply missing: UPGRADING said nothing about
+FieldName. Three public behaviours changed in a62aebc and none of them
+reached the guide -- equals() stopped folding case, collidesWith() is where
+that went, and Field\Set::add() now refuses a case-insensitive collision.
+That last one breaks schemas that build today. It is the first thing a port
+author would have hit and the last place they would have looked.
+
+### A password's value is what the field made of it, like every other field
+
+`bfb6de31` · 2026-10-02
+
+Password::validate() wrote `$parsed ?? $raw`, so a secret the field could
+not read came back out of `$value` as the submitted int or array. Every
+other field answers null there. So did Password's own resolve(), forty
+lines above.
+
+ResolvedField::$value states the contract in as many words -- "Never the
+raw input: that is $given, and having both mean it made the type unusable"
+-- and AtomicField carries a comment on the exact line explaining why it is
+`$parsed` and not `$parsed ?? $raw`. One field in nineteen disagreed, and
+it disagreed with itself between its two entry points.
+
+Nothing caught it because nothing asked the question of every field at
+once, so Api\ValueObjectTest now does, over both entry points. That sweep
+is also what makes the fix worth more than the one line: a twentieth field
+overriding validate() cannot reintroduce this quietly.
+
+While there: that method had a fourth private copy of rawFor(), the method
+whose own docblock says "It was three answers, and they disagreed". It is
+identical today only because absentValue() returns null for an atomic
+field. Now it calls rawFor().
+
+Four members deleted, none of which could run:
+
+  Textual::textAt()            -- lost its last caller to textLinesAt()
+  CreditCard\Value::isEmpty()  -- unreachable; the constructor refuses a
+  Address\Value::isEmpty()        card or address with nothing in it, so
+                                  both can only ever return false
+  Field\Set::exists()          -- orphaned when collidesWith() replaced it
+
+The two isEmpty() are the interesting pair: they were correct when written
+and were made unreachable by a later commit tightening the constructors,
+which is exactly the shape that survives review. Checked against the rule
+verb before deleting -- Condition\Emptiness reads Countable, arrays and
+Stringable, never a value's own isEmpty() -- and against both ports.
+
+Docblocks the adjacent code refuses:
+
+  - Field\Definition said `src` is "clean to level 8 with no ignore
+    entries". Measured: 50 errors at level 8, 47 at level 7, and
+    phpstan.neon sets level 6 with three ignores. That sentence is the
+    justification for initially() existing, so overstating it is the one
+    place it matters.
+  - CreditCard cited expiryFormat twice as the thing that reports an
+    unreadable expiry. That constraint was removed last week; the value
+    refuses such an expiry outright now.
+  - Textual rested its whole "why this is not checked when the rule is
+    written" argument on ValueScope::of('email', 'domain') "which works
+    perfectly". It is refused at addRule() since EmailAddress dropped its
+    parts. The argument still holds for address parts, so it now uses one.
+  - PhoneNumber\Value promised to raise "if either half is missing". A
+    missing number is deliberately kept so numberRequired can name the box.
+    The same docblock had a @throws inserted between a @param and its
+    continuation line, so a clause about default countries had attached
+    itself to the wrong tag.
+
+And my own, from the rename two commits ago: Definition's new docblock said
+the two Definitions "never appear in the same file", which BuildsFields
+disproves in that same commit -- and Definition itself uses the trait. A
+disambiguation note a reader can falsify in the next file is worse than
+none.
+
+Definition::resolve() and ::validate() now say that BrokenInputContract
+escapes them. In prose rather than as @throws: the raise happens in a value
+constructor reached through a closure, which PHPStan cannot trace, and it
+reports an unused @throws type. Suppressing that is against house rules and
+the reader needs the fact either way.
+
+Found by three parallel audits of src/, docs/ and the release mechanics.
+Every finding above was re-verified here by running it.
+
+### Update history
+
+`0a96aff6` · 2026-10-02
+
 ### Facade is now Definition
 
 `56df5cd9` · 2026-10-02
