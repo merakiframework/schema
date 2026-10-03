@@ -15,6 +15,7 @@ use InvalidArgumentException;
 
 #[Group('field')]
 #[CoversClass(File::class)]
+#[CoversClass(File\Input::class)]
 #[CoversClass(Value::class)]
 final class FileTest extends FieldTestCase
 {
@@ -43,11 +44,9 @@ final class FileTest extends FieldTestCase
 
 	#[Test]
 	#[DataProvider('unusableInput')]
-	public function it_rejects_what_cannot_be_read_as_a_file(mixed $given): void
+	public function it_cannot_read_what_does_not_describe_a_file(mixed $given): void
 	{
-		// process() passes unusable input through untouched, so it fails the shape check
-		// alongside everything else rather than throwing while a definition is built.
-		$this->assertShapeFailed($this->createField()->validate($given));
+		$this->assertShapeUnreadable($this->createField()->validate($given));
 	}
 
 	/** @return array<string, array{mixed}> */
@@ -56,13 +55,49 @@ final class FileTest extends FieldTestCase
 		return [
 			'a string' => ['not-a-file'],
 			'a number' => [42],
+			// An array is a list, and a file's description is a record — so these were never
+			// testing a missing part, whatever they were called. The record cases are below.
 			'a list of files' => [[['name' => 'a.txt', 'type' => 'text/plain', 'size' => 1]]],
-			'missing its name' => [['type' => 'text/plain', 'size' => 1]],
-			'missing its type' => [['name' => 'a.txt', 'size' => 1]],
-			'missing its size' => [['name' => 'a.txt', 'type' => 'text/plain']],
-			'a null name' => [['name' => null, 'type' => 'text/plain', 'size' => 1]],
-			'a non-numeric size' => [['name' => 'a.txt', 'type' => 'text/plain', 'size' => 'big']],
+			'a description as a list' => [['name' => 'a.txt', 'type' => 'text/plain', 'size' => 1]],
+			'a record with nothing in it' => [(object) []],
 		];
+	}
+
+	/**
+	 * A description missing a part, or holding one it cannot read, is reported against that part
+	 * and judged by no constraint.
+	 *
+	 * @param list<File\Check> $expected
+	 */
+	#[Test]
+	#[DataProvider('halfAnUpload')]
+	public function a_description_that_is_not_whole_names_the_part_in_the_way(object $given, array $expected): void
+	{
+		$this->assertIncompleteWith($expected, $this->createField()->maxSizeOf(10)->validate($given));
+	}
+
+	/** @return array<string, array{object, list<File\Check>}> */
+	public static function halfAnUpload(): array
+	{
+		return [
+			'missing its name' => [(object) ['type' => 'text/plain', 'size' => 1], [File\Check::NameRequired]],
+			'missing its type' => [(object) ['name' => 'a.txt', 'size' => 1], [File\Check::TypeRequired]],
+			'missing its size' => [(object) ['name' => 'a.txt', 'type' => 'text/plain'], [File\Check::SizeRequired]],
+			'a null name' => [(object) ['name' => null, 'type' => 'text/plain', 'size' => 1], [File\Check::NameRequired]],
+			'an empty name' => [(object) ['name' => '', 'type' => 'text/plain', 'size' => 1], [File\Check::NameFormat]],
+			'an empty type' => [(object) ['name' => 'a.txt', 'type' => '', 'size' => 1], [File\Check::TypeFormat]],
+			'a non-numeric size' => [(object) ['name' => 'a.txt', 'type' => 'text/plain', 'size' => 'big'], [File\Check::SizeFormat]],
+			'a negative size' => [(object) ['name' => 'a.txt', 'type' => 'text/plain', 'size' => -1], [File\Check::SizeFormat]],
+			'every part wrong' => [(object) ['name' => 1, 'type' => 2, 'size' => 'big'], [File\Check::NameFormat, File\Check::TypeFormat, File\Check::SizeFormat]],
+		];
+	}
+
+	#[Test]
+	public function only_a_part_that_was_not_sent_is_missing(): void
+	{
+		$result = $this->createField()->validate((object) ['name' => '', 'size' => 1]);
+
+		$this->assertSame([File\Part::Type], $result->missingParts);
 	}
 
 	#[Test]
@@ -287,8 +322,8 @@ final class FileTest extends FieldTestCase
 	{
 		// PHP hands $_FILES sizes back as integers, but a JSON body or a form round-trip
 		// can deliver the same number as a string.
-		$value = new Value((object) ['name' => 'a.txt', 'type' => 'text/plain', 'size' => '2048']);
+		$value = $this->createField()->resolve((object) ['name' => 'a.txt', 'type' => 'text/plain', 'size' => '2048'])->value;
 
-		$this->assertSame(2048, $value->size);
+		$this->assertSame(2048, $value?->size);
 	}
 }

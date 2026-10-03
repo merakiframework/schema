@@ -169,6 +169,8 @@ final class ConstraintNameTest extends TestCase
 				'knownSubdivision', 'subdivisionUsed',
 				'postalCodeFormat', 'postalCodeUsed',
 			],
+			// An upload described without its size is not described on any field.
+			'File' => ['nameRequired', 'typeRequired', 'sizeRequired', 'nameFormat', 'typeFormat', 'sizeFormat'],
 		];
 
 		foreach (SealedFieldTest::fields() as $short => [$class]) {

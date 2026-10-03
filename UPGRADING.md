@@ -368,8 +368,9 @@ $result->value;                      // null — there is no value until there i
 `read()` returns. An input that reports nothing wrong and makes no value raises
 `Exception\InconsistentInput`, because it is a bug no submitter can cause.
 
-The record-shaped fields move onto this one at a time, and each is listed here as it does. A field
-not listed still reads its value in one step, so `wasIncomplete()` is always false for it.
+The five record-shaped fields — `Money`, `PhoneNumber`, `CreditCard`, `Address` and `File` — all
+read their parts this way. A field whose value is one thing reads it in one step, so
+`wasIncomplete()` is always false for it.
 
 **`Money`** reads its halves first.
 
@@ -404,6 +405,19 @@ $result = $price->validate((object) ['currency' => 'AUD']);
 | `PhoneNumber\Value` implemented `HasParts` | a rule reads the parts from `PhoneNumber\Input` |
 | `when(PartScope::of('phone', 'number'))->equals('0411 222 333')` never held — the part is E.164 | holds: the expectation is read in the submitted country |
 
+**`CreditCard`** reads its parts first, and its name becomes optional.
+
+| Was | Is |
+| --- | --- |
+| a number, an expiry and a name were required | a number and an expiry. `nameRequired` is gone; the name is optional, like the security code |
+| `numberRequired`, `expiryRequired`, `numberFormat`, `numberChecksum` and `securityCodeFormat` were constraints | reported while assembling; the result is incomplete and the expiry is not judged |
+| an expiry, name or security code that was sent and unreadable made the field unreadable — or, for a security code, failed a constraint | `expiryFormat`, `nameFormat` or `securityCodeFormat`, against that part |
+| a number that was not a string counted as absent | `numberFormat`: it was sent |
+| `expiryInFuture` and `expiryWithinReach` skipped when there was no expiry | they run only on a whole card, so there always is one |
+| every `CreditCard\Value` part could be null, `lastFourDigits()` returned `?string`, and `isComplete()` said whether the three were there | `$number` and `$expiry` are never null and `lastFourDigits()` returns `string`. `isComplete()` is gone: a value is always complete |
+| `CreditCard\Value::of()` took every part as optional | `of($number, $expiry, $name, $securityCode)`, read the way a form's card is |
+| `CreditCard\Value` implemented `HasParts` | a rule reads the parts from `CreditCard\Input` |
+
 **`Address`** reads its parts first, against the submitted country's own format. Only the country
 is essential: how much of an address a field demands is still configuration, through its
 precision floor, so `streetRequired` and its three siblings stay constraints.
@@ -424,18 +438,19 @@ on an Australia-only field reports `subdivisionUsed` first and `allowedCountries
 submission. Whether a constraint should run as soon as the parts it reads are sound is the open
 decision in [ROADMAP.md](docs/ROADMAP.md#constraints-that-run-when-their-parts-are-ready).
 
-**`CreditCard`** reads its parts first, and its name becomes optional.
+**`File`** reads its three parts first.
 
 | Was | Is |
 | --- | --- |
-| a number, an expiry and a name were required | a number and an expiry. `nameRequired` is gone; the name is optional, like the security code |
-| `numberRequired`, `expiryRequired`, `numberFormat`, `numberChecksum` and `securityCodeFormat` were constraints | reported while assembling; the result is incomplete and the expiry is not judged |
-| an expiry, name or security code that was sent and unreadable made the field unreadable — or, for a security code, failed a constraint | `expiryFormat`, `nameFormat` or `securityCodeFormat`, against that part |
-| a number that was not a string counted as absent | `numberFormat`: it was sent |
-| `expiryInFuture` and `expiryWithinReach` skipped when there was no expiry | they run only on a whole card, so there always is one |
-| every `CreditCard\Value` part could be null, `lastFourDigits()` returned `?string`, and `isComplete()` said whether the three were there | `$number` and `$expiry` are never null and `lastFourDigits()` returns `string`. `isComplete()` is gone: a value is always complete |
-| `CreditCard\Value::of()` took every part as optional | `of($number, $expiry, $name, $securityCode)`, read the way a form's card is |
-| `CreditCard\Value` implemented `HasParts` | a rule reads the parts from `CreditCard\Input` |
+| a part absent, `null`, empty or not a whole number of bytes made the field unreadable | `nameRequired`, `typeRequired`, `sizeRequired`, `nameFormat`, `typeFormat` or `sizeFormat`, against that part |
+| `new File\Value((object) [...])` read a record | `new File\Value($name, $type, $size)`, or `File\Value::of()` as before; `File\Input` reads a record |
+| `File\Value` implemented `HasParts` | a rule reads the parts from `File\Input` |
+
+`minSize`, `maxSize`, `allowedTypes` and `disallowedTypes` are unchanged, and still about the upload
+as a whole.
+
+**Every record-shaped field has moved,** so `HasParts` is implemented only by the inputs, and a
+part scope always reads one.
 
 ### A required part that was not sent names itself
 
@@ -461,9 +476,11 @@ flows never ask for either. A name that *was* sent still has to hold text, or it
 **`PhoneNumber` and `Address` report a missing country too,** as `countryRequired` — see the
 next section, which is where that changed.
 
-**`File` is unchanged.** Its `name`, `type` and `size` are one upload's metadata rather than
-three inputs a form renders — no page has a "file type" box to mark — so `*Required` constraints
-there would have added three names nothing can act on.
+**`File` names its parts too, now.** An earlier alpha left it out, on the grounds that `name`,
+`type` and `size` are one upload's metadata rather than three inputs a form renders — no page has a
+"file type" box to mark. That is still true of the form, and a renderer shows these beside its one
+file input. What changed is that a missing part is part of whether there is an upload at all, and
+the code says which part a port's upload handling failed to supply.
 
 ### A missing country names the country box
 

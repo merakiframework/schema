@@ -150,11 +150,11 @@ abstract class Comparison implements Condition, Scoped
 			return $expected;
 		}
 
-		$holder = $resolver->partsHolderFor($this->scope);
+		$input = $resolver->inputFor($this->scope);
 		$part = $this->partNamedBy($this->scope, $fields);
 
-		return ($holder !== null && $part !== null)
-			? $holder->canonicalPartValue($part, $expected)
+		return ($input !== null && $part !== null)
+			? $input->canonicalPartValue($part, $expected)
 			: $expected;
 	}
 

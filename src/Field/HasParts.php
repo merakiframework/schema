@@ -9,8 +9,7 @@ namespace Meraki\Schema\Field;
  * `#/fields/billing_address/value` is the whole address; `#/fields/billing_address/value/country`
  * is one part of it. This interface is what makes the second answerable, and the thing that
  * answers is the field's {@see Input}: the parts as read, whether or not they make a value yet. So
- * a rule about one part holds on a form that is still half-filled. A field still reading its value
- * in one step implements this on the value instead, and is asked there.
+ * a rule about one part holds on a form that is still half-filled.
  *
  * Which parts there are is a fact about the field, not about any request: a scope asking for a
  * part the field does not declare is refused where the rule is written.

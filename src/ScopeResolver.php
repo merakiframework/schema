@@ -72,11 +72,11 @@ final class ScopeResolver
 	}
 
 	/**
-	 * What a part scope reads its part from, or null when there is nothing to read.
+	 * What a part scope reads its part from — the field's {@see Field\Input} — or null when there
+	 * is nothing to read.
 	 *
-	 * The field's {@see Field\Input}: the parts as read, whether or not they make a value, so a
-	 * rule about the country holds on an address whose street is still empty. A field whose value
-	 * is still read in one step has no input, and its value is asked instead.
+	 * The parts as read, whether or not they make a value, so a rule about the country holds on an
+	 * address whose street is still empty.
 	 *
 	 * Public because a comparison needs the same thing a part is read from to canonicalise what
 	 * the rule was written with: an address stores `AU-QLD` for `QLD`, and only the thing holding
@@ -85,22 +85,9 @@ final class ScopeResolver
 	 *
 	 * @throws InvalidScope if the scope reaches into a template without naming a row
 	 */
-	public function partsHolderFor(PartScope $scope): ?Field\HasParts
+	public function inputFor(PartScope $scope): ?Field\Input
 	{
-		if ($scope->in instanceof Scope\Column) {
-			return null;
-		}
-
-		$field = $this->fieldIn($scope->in);
-		$input = $this->inputIn($scope->in, $field);
-
-		if ($input !== null) {
-			return $input;
-		}
-
-		$value = $this->valueIn($scope->in, $field);
-
-		return $value instanceof Field\HasParts ? $value : null;
+		return $scope->in instanceof Scope\Column ? null : $this->inputIn($scope->in, $this->fieldIn($scope->in));
 	}
 
 	/**
@@ -286,7 +273,7 @@ final class ScopeResolver
 		// Nothing was submitted, so every part of it is absent. Not an error: a rule asking
 		// "is the shipping country the billing country" on a request that gave neither is
 		// answerable, and the answer is that they are both nothing.
-		return $this->partsHolderFor($scope)?->parts()[$scope->part] ?? null;
+		return $this->inputFor($scope)?->parts()[$scope->part] ?? null;
 	}
 
 	/**

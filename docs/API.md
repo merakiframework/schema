@@ -119,6 +119,7 @@ them, and no constraint runs until they are clear — see
 | `PhoneNumber` | `numberRequired`, `countryRequired`, `numberFormat`, `knownCountry`, `numberInCountry` |
 | `CreditCard` | `numberRequired`, `expiryRequired`, `numberFormat`, `numberChecksum`, `expiryFormat`, `nameFormat`, `securityCodeFormat` |
 | `Address` | `countryRequired`, `knownCountry`, `streetFormat`, `streetLineLimit`, `dependentLocalityFormat`, `dependentLocalityUsed`, `localityFormat`, `localityUsed`, `knownSubdivision`, `subdivisionUsed`, `postalCodeFormat`, `postalCodeUsed` |
+| `File` | `nameRequired`, `typeRequired`, `sizeRequired`, `nameFormat`, `typeFormat`, `sizeFormat` |
 
 **Shared by every field**, so not repeated above: `defaultsTo()`, `makeOptional()`,
 `makeRequired()`, `equals()`, `resolve()`, `validate()`, `resolvedValueFor()`, `resolvedInputFor()`.

@@ -23,8 +23,8 @@ use Meraki\Schema\ValueScope;
  *     )->minCountOf(1);
  *
  * Input is a record of a name, a claimed type and a reported size, or a {@see Value}; either way
- * it resolves to a `Value`. Note what that value can and cannot tell you — see the warning on
- * `Value` about the claimed MIME type.
+ * it resolves to a `Value`, once all three are there and readable — see {@see File\Input}. Note
+ * what that value can and cannot tell you: see the warning on `Value` about the claimed MIME type.
  *
  * ### Those three, and not a `$_FILES` entry
  *
@@ -220,12 +220,15 @@ final readonly class File extends AtomicField
 	}
 
 	/**
-	 * @param array<string, mixed>|Value $value
+	 * The record read part by part. Whether the parts describe an upload is the input's to say,
+	 * and the lifecycle's to report — see {@see File\Input}.
+	 *
+	 * @param object|Value $value
 	 */
-	protected function parse(mixed $value): Value
+	protected function parse(mixed $value): File\Input
 	{
 		if ($value instanceof Value) {
-			return $value;
+			return File\Input::of($value);
 		}
 
 		// An object is a record; an array is a list. A file's description has named parts, so
@@ -234,10 +237,8 @@ final readonly class File extends AtomicField
 			throw MalformedValue::of(Value::class, 'a file is submitted as a record with a name, a type and a size');
 		}
 
-		return new Value($value);
+		return new File\Input($value);
 	}
-
-
 
 	protected function defineConstraints(): Constraint\Set
 	{
