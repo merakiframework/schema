@@ -10,6 +10,47 @@ is a commit subject, with the body kept because the body is where the reasoning 
 
 ## Unreleased
 
+### An address is read against its own country before anything judges it
+
+`4e28ba4c` · 2026-10-03
+
+Address\Value held every part as nullable, the country included, and a
+part its country could not read was judged by a constraint that first
+had to ask whether there was a country, and then whether the field took
+that country, before it could say anything. A part sent blank, a street
+that was not a list of lines, or a country that was not one made the
+whole address unreadable with no box named.
+
+Address now reads its parts into Address\Input, against the submitted
+country's own published format. The country is the one essential part.
+Whether each part is one that country has a place for and can read is
+assembly - countryRequired, knownCountry, streetFormat, streetLineLimit,
+the four *Used codes, knownSubdivision, postalCodeFormat, and new
+localityFormat and dependentLocalityFormat for a part sent holding
+nothing - because a postcode Australia's pattern refuses is not an
+Australian postcode on any field. The country is read first, and without
+one nothing read from its format is judged.
+
+What a field demands stays configuration: allowedCountries,
+streetVisitable and the four *Required, through the precision floor, are
+the constraints, handed an Address\Value whose country is never null.
+The bounds the *Used, postalCodeFormat and streetLineLimit constraints
+declared on a single-country field are read from requirementsFor() now,
+the one accessor for a country's format.
+
+The constraints wait for a whole address, so a state typed into a New
+Zealand address on an Australia-only field reports subdivisionUsed
+before allowedCountries. A test pins that, with a pointer to the open
+decision in ROADMAP.md about letting a constraint run once the parts it
+reads are sound.
+
+Address\ValueTest tested reading a record, which is the input's job
+now; it is split into InputTest and a ValueTest for the whole value.
+
+### Update history
+
+`60d22a6c` · 2026-10-03
+
 ### A card is whole before anything judges it, and its name is optional
 
 `6b34a33c` · 2026-10-03
