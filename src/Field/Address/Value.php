@@ -4,9 +4,7 @@ declare(strict_types=1);
 namespace Meraki\Schema\Field\Address;
 
 use Meraki\Schema\Comparison\Equality;
-use Meraki\Schema\Exception\BrokenInputContract;
 use Meraki\Schema\Field;
-use Meraki\Schema\Field\HasParts;
 use Meraki\Schema\Field\MalformedValue;
 use Meraki\Schema\Field\ParsedValue;
 use CommerceGuys\Addressing\Country\CountryRepository;
@@ -14,10 +12,11 @@ use CommerceGuys\Addressing\Country\CountryRepository;
 /**
  * One postal or street address, held whole.
  *
- * Six parts, and every one is optional here, the country included: this object holds whatever
- * was submitted, including a half-filled form on its way to being reported as invalid. *How
- * much* of it is required is the field's business — see {@see Precision}, and the field's
- * `countryRequired` — not this object's.
+ * Six parts. The country is never null: an address without one describes no place, so a form that
+ * has not reached the country yet is an {@see Input} that has not made a value, and is reported
+ * part by part. Every other part is optional here, because *how much* of an address is required is
+ * the field's business — see {@see Precision} — not this object's. Each part that is present is one
+ * the country's own format has a place for, and reads.
  *
  * The names come from three places, and each earns its keep:
  *
@@ -35,7 +34,7 @@ use CommerceGuys\Addressing\Country\CountryRepository;
  * a place rather than the place, and an address is the place.
  *
  * Properties are camelCase and array keys are snake_case, which is the convention a form sends
- * and a database column uses. The constructor and {@see self::toArray()} are the seam.
+ * and a database column uses. {@see Input} and {@see self::toArray()} are the seam.
  *
  * Nothing is trimmed, collapsed or repaired. Unlike E.164 or the WHATWG email grammar there is
  * no standard normal form for an address line to normalise towards, so any rule would be a
@@ -47,12 +46,12 @@ use CommerceGuys\Addressing\Country\CountryRepository;
  * per-country (libaddressinput's business) and rendering is the UI's. {@see self::toArray()} is
  * how you get at the parts.
  */
-final readonly class Value implements ParsedValue, HasParts
+final readonly class Value implements ParsedValue
 {
 	/**
 	 * Part names as they appear in submitted data, mapped to the property holding them.
 	 *
-	 * Keyed by each {@see Part}'s value, which is the part list itself; {@see self::parts()} and
+	 * Keyed by each {@see Part}'s value, which is the part list itself; {@see Input::parts()} and
 	 * {@see self::toArray()} both read this rather than repeating it.
 	 *
 	 * @var array<string, string>
@@ -69,205 +68,43 @@ final readonly class Value implements ParsedValue, HasParts
 	];
 
 	/**
-	 * The lines below the locality, in the order they were written.
+	 * Built by {@see Input} from what was submitted, or by {@see self::of()} by hand. The
+	 * constructor still guards the one part no address is without, so a value made any other way
+	 * cannot hold a country spelled two ways.
 	 *
-	 * Empty means the part was not submitted. A submitted empty list is refused, so a value that
-	 * exists and holds `[]` can only mean "absent" — which is what lets a requiredness check ask
-	 * one question instead of two.
-	 *
-	 * @var list<string>
+	 * @param string $countryCode the ISO 3166-1 alpha-2 code
+	 * @param list<string> $street the lines below the locality, in the order they were written —
+	 *        empty when there are none
+	 * @param string|null $dependentLocality a neighbourhood or townland, where a country uses one
+	 * @param string|null $locality the place the post routes to: a city, town, suburb or post town
+	 * @param string|null $subdivision the full ISO 3166-2 code — `AU-QLD`, not `QLD` — where the
+	 *        country publishes a list, and as written where it does not
+	 * @throws MalformedValue if the country is not an ISO 3166-1 alpha-2 code
 	 */
-	public array $street;
-
-	/** A neighbourhood or townland, where a country uses one. */
-	public ?string $dependentLocality;
-
-	/** The place the post routes to: a city, town, suburb or post town. */
-	public ?string $locality;
-
-	/** The full ISO 3166-2 code — `AU-QLD`, not `QLD` — once canonicalised. */
-	public ?string $subdivision;
-
-	public ?string $postalCode;
-
-	/** The ISO 3166-1 alpha-2 code, whichever spelling was submitted. */
-	public ?string $countryCode;
-
-	/**
-	 * Takes the record a field takes, so there is one answer to "what is an address here".
-	 *
-	 * Three things it refuses, and all three are about whether this is an address at all rather
-	 * than whether it is an acceptable one. A constraint judges an address that could be read;
-	 * these are the cases where there is nothing left to judge.
-	 *
-	 * - **A record with no parts at all.** That is not a half-filled address; it is not one.
-	 * - **A part that was sent and holds nothing.** `''` and `'   '` are not "no locality" —
-	 *   they were provided, so the part is not missing; it simply cannot be read. Answering
-	 *   "absent" would let whitespace satisfy a requiredness check, and answering "present"
-	 *   would let it satisfy one too. A port with no value for a part omits it.
-	 * - **A country that was given and names no country.** A postcode means nothing without
-	 *   one — `4700` is Rockhampton in Australia and something else elsewhere — and the
-	 *   postcode pattern, the subdivision list and the required set are all selected *by* the
-	 *   country. Keeping an unrecognised one and letting every check skip is how an alpha-3
-	 *   code used to pass entirely unvalidated.
-	 *
-	 * Two things it keeps rather than refuses, so the field can name the box. A country that was
-	 * *not* given is `null`, and the field reports `countryRequired`. A subdivision the country
-	 * does not have is kept as submitted, and the field reports `knownSubdivision` — whether the
-	 * country requires one or merely uses one, because a bad state is a bad state.
-	 *
-	 * @param object{street?: list<string>, dependent_locality?: string, locality?: string, subdivision?: string, postal_code?: string, country?: string} $address
-	 * @throws BrokenInputContract if it carries a key an address does not have
-	 * @throws MalformedValue if it has no parts, if a part was sent empty, or if a country was
-	 *         given that names no country
-	 */
-	public function __construct(object $address)
-	{
-		$parts = get_object_vars($address);
-		$unknown = array_diff(array_keys($parts), array_keys(self::PARTS));
-
-		// Raised, not reported, because the parts were renamed: a port still sending `line1` or
-		// `administrative_area` is a port that needs changing, and being told "street is
-		// required" names the symptom while hiding the stale key that caused it. This used to
-		// be absorbed as a shape failure, which said the submitter had got something wrong.
-		if ($unknown !== []) {
-			throw BrokenInputContract::recordHasKeysItDoesNotAccept(self::class, array_values($unknown), array_keys(self::PARTS));
+	public function __construct(
+		public string $countryCode,
+		public array $street = [],
+		public ?string $dependentLocality = null,
+		public ?string $locality = null,
+		public ?string $subdivision = null,
+		public ?string $postalCode = null,
+	) {
+		if (self::codeFor($countryCode) !== $countryCode) {
+			throw MalformedValue::of(self::class, "\"{$countryCode}\" is not an ISO 3166-1 alpha-2 code");
 		}
-
-		// Total about the *type* of the optional parts, as it always was: a non-string is read
-		// as absent rather than refused. `street` is the exception, because a list is the whole
-		// point of it — silently reading a delimited string as "no street" would lose an
-		// address the submitter did give.
-		$read = static function (string $key) use ($parts): ?string {
-			$value = $parts[$key] ?? null;
-
-			if (!is_string($value)) {
-				return null;
-			}
-
-			if (trim($value) === '') {
-				throw MalformedValue::of(self::class, "its {$key} was given but holds nothing");
-			}
-
-			return $value;
-		};
-
-		$street = self::readStreet($parts);
-		$dependentLocality = $read('dependent_locality');
-		$locality = $read('locality');
-		$postalCode = $read('postal_code');
-		$subdivision = $read('subdivision');
-		$country = $read('country');
-
-		if ($street === [] && $dependentLocality === null && $locality === null
-			&& $postalCode === null && $subdivision === null && $country === null) {
-			throw MalformedValue::of(self::class, 'it has no parts at all');
-		}
-
-		// Absent is kept as null rather than refused, so `countryRequired` can name the box.
-		// This used to raise, on the reasoning that a country gives the rest of an address its
-		// meaning — which is true, and is equally true of the currency on `Money`, which
-		// reports `currencyRequired` and skips what it cannot judge. Refusing told somebody who
-		// had not reached the country dropdown yet that their address was not an address.
-		//
-		// A country that was *given* and is not one stays unreadable: "Zorbia" is not a box
-		// left empty, it is an answer nothing can use.
-		$countryCode = null;
-
-		if ($country !== null) {
-			$countryCode = self::codeFor($country);
-
-			if ($countryCode === null) {
-				throw MalformedValue::of(self::class, sprintf('"%s" is not a country ISO 3166-1 knows', $country));
-			}
-		}
-
-		$this->street = $street;
-		$this->dependentLocality = $dependentLocality;
-		$this->locality = $locality;
-		$this->postalCode = $postalCode;
-		$this->countryCode = $countryCode;
-		$this->subdivision = self::resolveSubdivision($countryCode, $subdivision);
-	}
-
-	/**
-	 * The street lines, or `[]` when the part was not submitted.
-	 *
-	 * @param array<string, mixed> $parts
-	 * @return list<string>
-	 * @throws MalformedValue if it is not a list of lines, or holds a line with nothing in it
-	 */
-	private static function readStreet(array $parts): array
-	{
-		$street = $parts['street'] ?? null;
-
-		if ($street === null) {
-			return [];
-		}
-
-		if (!is_array($street) || !array_is_list($street)) {
-			throw MalformedValue::of(self::class, 'its street is not a list of lines');
-		}
-
-		if ($street === []) {
-			throw MalformedValue::of(self::class, 'its street was given as an empty list; leave the part out instead');
-		}
-
-		foreach ($street as $line) {
-			if (!is_string($line)) {
-				throw MalformedValue::of(self::class, 'its street holds a line that is not text');
-			}
-
-			if (trim($line) === '') {
-				throw MalformedValue::of(self::class, 'its street holds a line with nothing in it');
-			}
-		}
-
-		return $street;
-	}
-
-	/**
-	 * The subdivision as ISO 3166-2 writes it, or the value verbatim where it cannot be resolved —
-	 * because there is no country yet, the country has no list on file, or this is not one of
-	 * its subdivisions.
-	 */
-	private static function resolveSubdivision(?string $countryCode, ?string $subdivision): ?string
-	{
-		// Nothing to resolve against until a country is known, and `countryRequired` is already
-		// reporting that. Kept as submitted so the form can show back what somebody typed.
-		if ($subdivision === null || $countryCode === null) {
-			return $subdivision;
-		}
-
-		// A country with none on file constrains nothing, whatever its format says it uses.
-		// Eight countries are in that position, and guessing at them would be worse.
-		if (Requirements::subdivisionsIn($countryCode) === []) {
-			return $subdivision;
-		}
-
-		// One resolver, shared with Requirements: two answers to "which subdivision is this"
-		// would eventually disagree, and the port reads its options from the same place.
-		$code = Requirements::subdivisionCodeIn($countryCode, $subdivision);
-
-		// Unresolvable is kept, whether or not the country requires one, and
-		// `knownSubdivision` reports it. This used to raise for a country that requires a
-		// subdivision, which made one part behave three different ways depending on the
-		// country: `subdivisionRequired` when absent, `knownSubdivision` when the country
-		// merely *uses* one, and the whole address unreadable when the country requires one.
-		// A bad state is a bad state.
-		return $code ?? $subdivision;
 	}
 
 	/**
 	 * The readable way to write one by hand — a rule's bound, a test.
 	 *
-	 * A convenience over the constructor rather than a second way in: it builds the record a
-	 * form would submit and hands it over, so the invariant is enforced in one place. A null
-	 * part is left out rather than sent as null, which is the same thing the ports are asked to
-	 * do.
+	 * Read the way a form's address is, through {@see Input}, so there is one place where what an
+	 * address *is* gets decided: `of(country: 'Australia', subdivision: 'qld')` is `AU`, `AU-QLD`.
+	 * A null part is left out rather than sent as null, which is the same thing the ports are asked
+	 * to do.
 	 *
 	 * @param list<string>|null $street
-	 * @throws MalformedValue on the same three refusals the constructor makes
+	 * @throws MalformedValue if what it is given does not make an address — no country, or a part
+	 *         the country cannot read
 	 */
 	public static function of(
 		?array $street = null,
@@ -286,7 +123,12 @@ final readonly class Value implements ParsedValue, HasParts
 			'country' => $country,
 		];
 
-		return new self((object) array_filter($parts, static fn(mixed $part): bool => $part !== null));
+		$input = new Input((object) array_filter($parts, static fn(mixed $part): bool => $part !== null));
+
+		return $input->value ?? throw MalformedValue::of(self::class, sprintf(
+			'it does not make an address: %s',
+			implode(', ', array_map(static fn(Field\Violation $violation): string => $violation->name, $input->violations)),
+		));
 	}
 
 	/**
@@ -372,10 +214,8 @@ final readonly class Value implements ParsedValue, HasParts
 	 * shape rather than testing for keys.
 	 *
 	 * An absent street is `null` here rather than `[]`, so that what this emits is something
-	 * the constructor accepts: a *submitted* empty list is refused, and a value that could not
-	 * be read back from its own serialisation would break every persist-and-reload path.
-	 * {@see self::parts()} keeps the raw list, because a scope asking whether a street is empty
-	 * wants the property, not its wire form.
+	 * {@see Input} reads back: a *submitted* empty list is wrong, and a value that could not be
+	 * read back from its own serialisation would break every persist-and-reload path.
 	 *
 	 * @return array<string, string|list<string>|null>
 	 */
@@ -405,58 +245,5 @@ final readonly class Value implements ParsedValue, HasParts
 		$property = self::PARTS[$key] ?? null;
 
 		return $property === null ? null : $this->{$property};
-	}
-
-	/**
-	 * The parts as they are held, for a scope to resolve against.
-	 *
-	 * Unlike {@see self::toArray()} an absent street stays `[]`, because that is what the
-	 * property holds and a rule asking `isEmpty()` of that part should see the real value —
-	 * {@see \Meraki\Schema\Rule\Condition\Emptiness} reads `[]` as empty.
-	 *
-	 * @return array<string, mixed>
-	 */
-	public function parts(): array
-	{
-		$parts = [];
-
-		foreach (self::PARTS as $key => $property) {
-			$parts[$key] = $this->{$property};
-		}
-
-		return $parts;
-	}
-
-	/**
-	 * The two parts this canonicalises, resolved the way a submitted address would be.
-	 *
-	 * `country` and `subdivision` are stored as codes whichever spelling arrived — `AU` for
-	 * `Australia`, `AU-QLD` for any of `QLD`, `qld`, `AU-QLD` or `Queensland`. A rule compares
-	 * against what was *stored*, so an expectation written in a spelling the field happily
-	 * accepts as input was false for every request there would ever be: accepted at authoring,
-	 * silently dead, and indistinguishable from a condition that simply never held.
-	 *
-	 * Resolved here rather than by the comparison because a subdivision needs its country, and
-	 * this value is the only thing that has one.
-	 *
-	 * Anything unresolvable is returned unchanged, so it still fails to match — reporting *why*
-	 * belongs to `knownSubdivision` and `allowedCountries`, which say it better.
-	 */
-	public function canonicalPartValue(Field\Part $part, mixed $expected): mixed
-	{
-		if (!is_string($expected)) {
-			return $expected;
-		}
-
-		return match ($part) {
-			Part::Country => self::codeFor($expected) ?? $expected,
-			// A subdivision only resolves against a country, and a form may be submitted before
-			// one is chosen. The stored side is kept as submitted in that case — see
-			// resolveSubdivision() — so the expectation is too, and both are compared as written.
-			Part::Subdivision => $this->countryCode === null
-				? $expected
-				: (Requirements::subdivisionCodeIn($this->countryCode, $expected) ?? $expected),
-			default => $expected,
-		};
 	}
 }

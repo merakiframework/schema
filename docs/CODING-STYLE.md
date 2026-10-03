@@ -177,7 +177,7 @@ different things, and `Collection\Result` and `Collection\Item` are the proof, b
 constraint name and the other a field name while being held together. It also chains legibly:
 
 ```php
-$schemaResult->forField('venue')->forConstraint('postalCodeFormat')->bound
+$schemaResult->forField('venue')->forConstraint('postalCodeRequired')->bound
 ```
 
 `named()` is the exception, and deliberately so: it hands back a *definition* rather than a verdict

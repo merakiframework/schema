@@ -5,6 +5,7 @@ require_once __DIR__ . '/../vendor/autoload.php';
 
 use Meraki\Schema\Definition;
 use Meraki\Schema\Field\Address\Precision;
+use Meraki\Schema\Field\Violation;
 
 // An address field has two dials, and they answer independent questions:
 //
@@ -69,21 +70,24 @@ function emerald(array $overrides = [], string ...$without): object
 	return (object) array_merge($parts, $overrides);
 }
 
+// Every failure is a violation, whichever step found it: a postcode the country's own format
+// refuses is reported while the address is assembled, and a street this field demands by a
+// constraint after it. A form marks the box the same way either way.
 $show = static function (string $label, \Meraki\Schema\Field $field, object $address): void {
 	$result = $field->validate($address);
-	$failed = [];
-
-	foreach ($result->constraintNames as $name) {
-		if ($result->forConstraint($name)->failed()) {
-			$failed[] = $name;
-		}
-	}
+	$codes = array_map(static fn(Violation $violation): string => $violation->name, iterator_to_array($result->violations));
 
 	printf(
-		"  %-42s %-8s %s\n",
+		"  %-42s %-10s %s\n",
 		$label,
-		$result->shape->failed() ? 'UNREADABLE' : ($failed === [] ? 'valid' : 'invalid'),
-		implode(', ', $failed),
+		match (true) {
+			$result->wasUnreadable() => 'UNREADABLE',
+			// Its parts make no address yet, so nothing this field demands has been asked.
+			$result->wasIncomplete() => 'incomplete',
+			$codes === [] => 'valid',
+			default => 'invalid',
+		},
+		implode(', ', $codes),
 	);
 };
 

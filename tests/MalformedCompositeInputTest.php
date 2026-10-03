@@ -245,20 +245,21 @@ final class MalformedCompositeInputTest extends TestCase
 	}
 
 	/**
-	 * The same questions, for a part a field checks among its constraints: the record is read, the
-	 * part's `*Required` constraint fails and names it, and a blank one is unreadable.
-	 *
-	 * A field leaves this provider when it moves onto assembly, and its row joins the one above.
+	 * The same questions, for a part a field *demands* rather than one no value of its kind can be
+	 * without: an address's locality, which the precision floor asks for. The address is whole
+	 * without it, so it is judged — the part's `*Required` constraint fails and names the part. Sent
+	 * blank, it is wrong rather than absent, and reported while the address is assembled.
 	 *
 	 * @param array<string, mixed> $complete
 	 */
 	#[Test]
-	#[DataProvider('partsCheckedAsConstraints')]
-	public function a_required_part_that_is_absent_names_itself(
+	#[DataProvider('demandedParts')]
+	public function a_demanded_part_that_is_absent_names_itself(
 		callable $make,
 		array $complete,
 		string $part,
 		string $constraint,
+		string $format,
 	): void {
 		$schema = new Definition('s');
 		$schema->add($make($schema));
@@ -270,25 +271,28 @@ final class MalformedCompositeInputTest extends TestCase
 			$result = $schema->validate((object) ['f' => (object) $given])->forField('f');
 			$failed = $result->forConstraint($constraint);
 
-			$this->assertTrue($result->shape->passed(), "{$constraint}: {$how} should still be readable");
+			$this->assertTrue($result->shape->passed(), "{$constraint}: {$how} should still make a value");
 			$this->assertTrue($failed->failed(), "{$constraint}: {$how} should fail");
 			$this->assertSame($part, $failed->part?->value, "{$constraint}: {$how} should name the part");
 		}
 
-		// Sent and holding nothing is the other case, and it is a shape failure.
 		$blank = $schema->validate((object) ['f' => (object) ([$part => ''] + $complete)])->forField('f');
 
-		$this->assertTrue($blank->wasUnreadable(), "{$constraint}: blank should be unreadable");
+		$this->assertTrue($blank?->wasIncomplete(), "{$constraint}: blank should leave the record incomplete");
+		$this->assertSame($format, $blank->violations->first()?->name, "{$constraint}: blank should be wrong");
+		$this->assertSame($part, $blank->violations->first()?->part?->value, "{$constraint}: blank should name the part");
 	}
 
-	/** @return iterable<string, array{callable, array<string, mixed>, string, string}> */
-	public static function partsCheckedAsConstraints(): iterable
+	/** @return iterable<string, array{callable, array<string, mixed>, string, string, string}> */
+	public static function demandedParts(): iterable
 	{
-		foreach (self::recordFields() as $kind => $row) {
-			if (!in_array($kind, ['Money', 'PhoneNumber', 'CreditCard'], true)) {
-				yield $kind => $row;
-			}
-		}
+		yield 'Address' => [
+			static fn(Definition $s): Field => $s->createAddressField('f', ['AU']),
+			['street' => ['1 Main St'], 'locality' => 'Bne', 'subdivision' => 'QLD', 'postal_code' => '4000', 'country' => 'AU'],
+			'locality',
+			'localityRequired',
+			'localityFormat',
+		];
 	}
 
 	/** @return iterable<string, array{callable, array<string, mixed>, string, string}> */

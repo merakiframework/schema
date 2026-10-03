@@ -147,10 +147,10 @@ address" are different sentences.
 
 ## Where error messages come from
 
-A verdict says *what* failed and *what the limit was*, with no wording attached:
+A violation says *what* failed and *what the limit was*, with no wording attached:
 
 ```php
-$failed = $field->getFailedConstraints()->getFirst();
+$failed = $field->violations->first();
 
 $failed->name;    // 'minLength'
 $failed->bound;   // 3

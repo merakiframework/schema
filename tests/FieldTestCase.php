@@ -213,6 +213,43 @@ abstract class FieldTestCase extends TestCase
 		}
 	}
 
+	/**
+	 * Whether a code was reported, whichever step reported it.
+	 *
+	 * The step is a fact about the result rather than part of the code, so a test asking "was the
+	 * postcode wrong" reads the same whether the postcode is judged while the value is assembled
+	 * or by a constraint after it.
+	 */
+	public function assertReported(Field\Check|string $code, AggregatedValidationResult $result): void
+	{
+		$this->assertContains(self::nameOf($code), self::reportedCodes($result));
+	}
+
+	public function assertNotReported(Field\Check|string $code, AggregatedValidationResult $result): void
+	{
+		$this->assertNotContains(self::nameOf($code), self::reportedCodes($result));
+	}
+
+	/**
+	 * Every code reported against a result, in reading order.
+	 *
+	 * @return list<string>
+	 */
+	public static function reportedCodes(AggregatedValidationResult $result): array
+	{
+		self::assertInstanceOf(FieldResult::class, $result);
+
+		return array_map(
+			static fn(Field\Violation $violation): string => $violation->name,
+			iterator_to_array($result->violations),
+		);
+	}
+
+	private static function nameOf(Field\Check|string $code): string
+	{
+		return $code instanceof Field\Check ? (string) $code->value : $code;
+	}
+
 	public function assertShapeProblemIs(ShapeProblem $expected, AggregatedValidationResult $result): void
 	{
 		foreach ($result as $inner) {

@@ -291,19 +291,23 @@ final class StructuredTypeTest extends TestCase
 		// as true of the currency on `Money`, which has always named the part instead. The
 		// case that settles it is a field allowing several countries, where the country is a
 		// box somebody fills in rather than one the port supplies.
-		$this->assertTrue($resolved->shape->passed());
-		$this->assertTrue($resolved->forConstraint('countryRequired')->failed());
-		$this->assertSame(Field\Address\Part::Country, $resolved->forConstraint('countryRequired')->part);
+		$this->assertTrue($resolved->wasIncomplete());
+		$this->assertSame([Field\Address\Part::Country], $resolved->missingParts);
 
-		// Everything read from a country's own format has nothing to read, so it skips rather
-		// than guessing — one mistake, one message.
-		foreach (['streetRequired', 'localityRequired', 'postalCodeFormat', 'knownSubdivision'] as $name) {
-			$this->assertTrue($resolved->forConstraint($name)->skipped(), $name);
-		}
+		// Everything read from a country's own format has nothing to read, so nothing else is
+		// said — one mistake, one message — and no constraint runs without an address.
+		$this->assertSame(
+			[Field\Address\Check::CountryRequired],
+			array_map(static fn(Field\Violation $violation): Field\Check => $violation->code, iterator_to_array($resolved->violations)),
+		);
+		$this->assertTrue($resolved->constraints->allSkipped());
 
-		// A country that *was* given and is not one stays unreadable: that is an answer
-		// nothing can use, not a box left empty.
-		$this->assertTrue($address->validate((object) ['locality' => 'X', 'country' => 'Zorbia'])->shape->wasUnreadable());
+		// A country that *was* given and is not one is wrong rather than missing: that is an
+		// answer nothing can use, not a box left empty.
+		$zorbia = $address->validate((object) ['locality' => 'X', 'country' => 'Zorbia']);
+
+		$this->assertSame(Field\Address\Check::KnownCountry, $zorbia->violations->first()?->code);
+		$this->assertSame([], $zorbia->missingParts);
 
 		// And with one, it is stored as the code whatever spelling arrived.
 		$this->assertSame('AU', $address->validate(self::auAddress(['country' => 'Australia']))->value->countryCode);

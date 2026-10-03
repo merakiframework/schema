@@ -404,6 +404,26 @@ $result = $price->validate((object) ['currency' => 'AUD']);
 | `PhoneNumber\Value` implemented `HasParts` | a rule reads the parts from `PhoneNumber\Input` |
 | `when(PartScope::of('phone', 'number'))->equals('0411 222 333')` never held — the part is E.164 | holds: the expectation is read in the submitted country |
 
+**`Address`** reads its parts first, against the submitted country's own format. Only the country
+is essential: how much of an address a field demands is still configuration, through its
+precision floor, so `streetRequired` and its three siblings stay constraints.
+
+| Was | Is |
+| --- | --- |
+| `countryRequired`, `streetLineLimit`, `knownSubdivision` and the four `*Used` were constraints | reported while assembling, against the submitted country's format — whether or not this field takes that country |
+| `postalCodeFormat` was a constraint | likewise: a postcode Australia's pattern refuses is not an Australian postcode on any field |
+| a part sent blank, a street that was not a list of lines, or a country that is not one made the field unreadable | `streetFormat`, `localityFormat`, `dependentLocalityFormat`, `knownSubdivision`, `postalCodeFormat` or `knownCountry`, against that part |
+| a part that was not text at all — `'locality' => 42` — was read as absent | wrong, the same way as a blank one: it was sent |
+| on a field allowing one country, the `*Used`, `postalCodeFormat` and `streetLineLimit` constraints declared that country's answer as their bound | read it from `requirementsFor()`, the one accessor for a country's format; a failure still carries the bound that applied |
+| `Address\Value::$countryCode` could be null | never null; `new Address\Value('AU', ['1 Denham St'], …)` refuses a country that is not an alpha-2 code |
+| `new Address\Value((object) [...])` read a record | `Address\Value::of(...)` for one written by hand; `Address\Input` reads a record, so a stored `toArray()` is read back with `(new Address\Input((object) $array))->value` |
+| `Address\Value` implemented `HasParts`, with `parts()` and `canonicalPartValue()` | a rule reads the parts from `Address\Input`, which canonicalises the country and subdivision the same way |
+
+The constraints that remain wait for a whole address, so a state typed into a New Zealand address
+on an Australia-only field reports `subdivisionUsed` first and `allowedCountries` on the next
+submission. Whether a constraint should run as soon as the parts it reads are sound is the open
+decision in [ROADMAP.md](docs/ROADMAP.md#constraints-that-run-when-their-parts-are-ready).
+
 **`CreditCard`** reads its parts first, and its name becomes optional.
 
 | Was | Is |
@@ -458,22 +478,20 @@ $schema->validate((object) ['billing' => (object) [
 ]]);
 
 // before — shape unreadable, no part named: "That is not a valid address."
-// now    — countryRequired fails on part `country`:  "Choose a country."
+// now    — incomplete; countryRequired on part `country`:  "Choose a country."
 ```
 
 The reasoning that put it there was that a country gives the rest of an address its meaning, so
 there is nothing to report against. That is true, and it is just as true of the currency on
-`Money` — which names the part and *skips* what it cannot judge. Everything read from a
-country's own published format now skips when there is no country, so one mistake earns one
-message.
+`Money` — which names the part and judges nothing it cannot. Everything read from a country's own
+published format is not judged when there is no country, so one mistake earns one message.
 
 **It only shows on a field that allows several countries.** With one allowed country a port
 supplies it and nobody sees the box, which is why this survived two alphas.
 
-A country that was *given* and is not a country — `'Zorbia'` — is wrong rather than missing. On
-`PhoneNumber` it is `knownCountry`, against the country box; on `Address` it is still unreadable
-until `Address` reads its parts first. A bare string for a phone number is still a shape failure,
-because a string never described a pair.
+A country that was *given* and is not a country — `'Zorbia'` — is wrong rather than missing: on
+both fields it is `knownCountry`, against the country box. A bare string for a phone number is
+still a shape failure, because a string never described a pair.
 
 `PhoneNumber` gains one more wrinkle worth knowing: with a number but no country, the number is
 **not judged at all**. libphonenumber cannot read it without a region — but telling somebody to
@@ -492,17 +510,19 @@ Now the middle two are one: an unrecognised subdivision is kept as submitted and
 ```php
 // AU with subdivision 'ZZ'
 // before — shape unreadable: "That is not a valid address."
-// now    — knownSubdivision fails: "That is not a state we recognise for the country you chose."
+// now    — knownSubdivision, on the subdivision: "That is not a state we recognise for the country you chose."
 ```
 
 For China and Colombia, whose subdivisions carry their own postcode patterns, the postcode is
 still judged — it falls back to the country's own pattern — so a bad state no longer hides a
 bad postcode.
 
-`Address\Value::$subdivision` therefore holds the ISO 3166-2 code when the subdivision resolved
-and the submitted text when it did not. It already behaved that way for Ireland; it is now
-consistent. Rules written against a part are unaffected, because the expectation is
-canonicalised through the same resolver as the stored value.
+`Address\Input::$subdivision` therefore holds the ISO 3166-2 code when the subdivision resolved
+and the submitted text when it did not, and a rule about the part reads it either way.
+`Address\Value::$subdivision` holds the code wherever the country publishes a list — an address
+with an unknown one is not whole — and the text where it does not. Rules written against a part
+are unaffected, because the expectation is canonicalised through the same resolver as the stored
+value.
 ### A record raises on a key it does not declare
 
 **This is the change most likely to break a working port, so read it even if you skip the rest.**
@@ -717,13 +737,15 @@ A key that is not a part is now refused by name. That is deliberate: a caller st
 `line1` would otherwise build an address with no street at all and be told "street is
 required", which names the symptom and hides the stale key.
 
-**Constraints.** `specific` → `streetRequired`, `line1Visitable` → `streetVisitable`,
+**Codes.** `specific` → `streetRequired`, `line1Visitable` → `streetVisitable`,
 `administrativeArea` → `knownSubdivision`. New: `streetLineLimit`, `localityRequired`,
-`subdivisionRequired`, `postalCodeRequired`, and four that report a part the submitted
+`subdivisionRequired`, `postalCodeRequired`, four that report a part the submitted
 country has no place for — `localityUsed`, `dependentLocalityUsed`, `subdivisionUsed`,
-`postalCodeUsed`. There is no `streetUsed`: all 206 countries use a street. The generated message-key list
-changes with them — `vendor/bin/schema-lang keys` prints the new set, and your `.mfr` packs
-need updating. None are bundled here.
+`postalCodeUsed` — and, for parts sent holding nothing, `streetFormat`, `localityFormat` and
+`dependentLocalityFormat`. There is no `streetUsed`: all 206 countries use a street. Which step
+reports each is [above](#a-value-made-of-parts-is-assembled-before-it-is-judged). The generated
+message-key list changes with them — `vendor/bin/schema-lang keys` prints the new set, and your
+`.mfr` packs need updating. None are bundled here.
 
 **Migrating stored addresses.** Three of these change persisted values, not just calls:
 
@@ -732,9 +754,9 @@ need updating. None are bundled here.
 - `organization` moves out of the address.
 
 **If you write a port, you now have an obligation**: omit a part you have no value for, and
-never submit `''`. An HTML form that posts empty strings for untouched inputs will make every
-such address unreadable, and the requiredness constraints will never fire — the submitter gets
-"this address cannot be read" instead of "suburb is required". Normalising request input was
+never submit `''`. An HTML form that posts empty strings for untouched inputs reports every such
+part as wrong, and the requiredness constraints never get to run — the submitter gets "that is
+not a valid suburb" instead of "suburb is required". Normalising request input was
 already a port's job; this makes it a requirement. Since the core no longer normalises
 anything, tidying is yours too: trimming, collapsing blank lines, and splitting a textarea into
 the list. There is no standard normal form for an address line, so any rule you choose is a

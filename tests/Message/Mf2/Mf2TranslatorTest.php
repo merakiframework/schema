@@ -73,7 +73,7 @@ final class Mf2TranslatorTest extends TestCase
 	public function a_part_specific_key_wins_over_the_field_specific_one(): void
 	{
 		$field = new Field\Address(new FieldName('billing'), ['AU']);
-		$result = $field->validate(self::rockhampton(postcode: '99'))->forConstraint('postalCodeFormat');
+		$violation = $field->validate(self::rockhampton(postcode: '99'))->violations->first();
 
 		$translator = self::translator(
 			"postalCodeFormat = generic\n"
@@ -81,7 +81,8 @@ final class Mf2TranslatorTest extends TestCase
 			. 'Address.postal_code.postalCodeFormat = by part',
 		);
 
-		$this->assertSame('by part', $translator->forViolation($field, self::violationOf($result)));
+		$this->assertNotNull($violation);
+		$this->assertSame('by part', $translator->forViolation($field, $violation));
 	}
 
 	#[Test]
@@ -128,14 +129,15 @@ final class Mf2TranslatorTest extends TestCase
 	public function the_part_arrives_translated(): void
 	{
 		$field = new Field\Address(new FieldName('billing'), ['AU']);
-		$result = $field->validate(self::rockhampton(postcode: '99'))->forConstraint('postalCodeFormat');
+		$violation = $field->validate(self::rockhampton(postcode: '99'))->violations->first();
 
 		$translator = self::translator(
 			"part.postal_code = postcode\n"
 			. 'postalCodeFormat = That is not a valid {$part}.',
 		);
 
-		$this->assertSame('That is not a valid postcode.', $translator->forViolation($field, self::violationOf($result)));
+		$this->assertNotNull($violation);
+		$this->assertSame('That is not a valid postcode.', $translator->forViolation($field, $violation));
 	}
 
 	#[Test]
@@ -204,15 +206,16 @@ final class Mf2TranslatorTest extends TestCase
 	}
 
 	#[Test]
-	public function a_constraint_with_no_bound_renders_an_empty_one(): void
+	public function a_check_with_no_bound_renders_an_empty_one(): void
 	{
 		// Rather than raising. The message asking for a bound that does not exist is a pack bug,
 		// and the place to catch it is the pack's build, not somebody's form.
 		$field = new Field\Address(new FieldName('billing'), ['AU']);
-		$result = $field->validate(self::rockhampton(area: 'ZZ'))->forConstraint('knownSubdivision');
+		$violation = $field->validate(self::rockhampton(area: 'ZZ'))->violations->first();
 		$translator = self::translator('knownSubdivision = Not recognised.{$bound}');
 
-		$this->assertSame('Not recognised.', $translator->forViolation($field, self::violationOf($result)));
+		$this->assertSame(Field\Address\Check::KnownSubdivision, $violation?->code);
+		$this->assertSame('Not recognised.', $translator->forViolation($field, $violation));
 	}
 
 	#[Test]

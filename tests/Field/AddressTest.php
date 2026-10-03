@@ -16,9 +16,13 @@ use InvalidArgumentException;
 /**
  * The field's half of an address: what it demands, and what it reports when the demand is unmet.
  *
- * The value object's half — what an address *is*, and the three ways it can fail to be one — is
- * `Address\ValueTest`. What a country asks for is `Address\RequirementsTest`. The ladder itself is
- * `Address\PrecisionTest`.
+ * What an address *is* — a country, and parts that country can read — is `Address\InputTest`,
+ * and the whole value is `Address\ValueTest`. What a country asks for is
+ * `Address\RequirementsTest`. The ladder itself is `Address\PrecisionTest`.
+ *
+ * Most assertions here ask whether a code was *reported* rather than which step reported it: a
+ * form marks the postcode box the same way whether the postcode was judged while the address was
+ * assembled or by a constraint after it.
  *
  * Two dials replaced a four-case enum here. The enum came from HL7 FHIR, where
  * `postal | physical | both` describes an address someone already holds rather than demanding
@@ -81,7 +85,7 @@ final class AddressTest extends FieldTestCase
 	{
 		$value = Value::of(street: ['1 Denham St'], locality: 'Rockhampton', subdivision: 'QLD', postalCode: '4700', country: 'AU');
 
-		$this->assertSame($value, $this->australian()->resolve($value)->value);
+		$this->assertTrue($value->equals($this->australian()->resolve($value)->value));
 	}
 
 	#[Test]
@@ -91,28 +95,33 @@ final class AddressTest extends FieldTestCase
 	}
 
 	#[Test]
-	public function every_constraint_names_the_part_it_is_about(): void
+	public function every_code_names_the_part_it_is_about(): void
 	{
 		$expected = [
-			'allowedCountries' => 'country',
-			'streetRequired' => 'street',
+			'countryRequired' => 'country',
+			'knownCountry' => 'country',
+			'streetFormat' => 'street',
 			'streetLineLimit' => 'street',
-			'streetVisitable' => 'street',
-			'localityRequired' => 'locality',
-			'localityUsed' => 'locality',
+			'dependentLocalityFormat' => 'dependent_locality',
 			'dependentLocalityUsed' => 'dependent_locality',
-			'subdivisionRequired' => 'subdivision',
-			'subdivisionUsed' => 'subdivision',
+			'localityFormat' => 'locality',
+			'localityUsed' => 'locality',
 			'knownSubdivision' => 'subdivision',
-			'postalCodeRequired' => 'postal_code',
-			'postalCodeUsed' => 'postal_code',
+			'subdivisionUsed' => 'subdivision',
 			'postalCodeFormat' => 'postal_code',
+			'postalCodeUsed' => 'postal_code',
+			'allowedCountries' => 'country',
+			'streetVisitable' => 'street',
+			'streetRequired' => 'street',
+			'localityRequired' => 'locality',
+			'subdivisionRequired' => 'subdivision',
+			'postalCodeRequired' => 'postal_code',
 		];
 
-		$result = $this->australian()->validate(self::au());
+		$this->assertSame(array_keys($expected), array_column($this->australian()->checks, 'value'));
 
-		foreach ($expected as $name => $part) {
-			$this->assertSame($part, $result->forConstraint($name)->part?->value, $name);
+		foreach ($this->australian()->checks as $check) {
+			$this->assertSame($expected[$check->value], $check->part()->value, $check->value);
 		}
 	}
 
@@ -224,10 +233,7 @@ final class AddressTest extends FieldTestCase
 				'country' => $country,
 			]);
 
-			$this->assertTrue(
-				$result->forConstraint('dependentLocalityUsed')->passed(),
-				"{$country} uses a dependent locality and should accept one",
-			);
+			$this->assertNotReported('dependentLocalityUsed', $result);
 		}
 	}
 
@@ -248,7 +254,7 @@ final class AddressTest extends FieldTestCase
 			'country' => 'CN',
 		]);
 
-		$this->assertTrue($valid->forConstraint('knownSubdivision')->passed());
+		$this->assertNotReported('knownSubdivision', $valid);
 
 		$unknown = $field->validate((object) [
 			'street' => ['1 Nanjing Rd'],
@@ -258,9 +264,7 @@ final class AddressTest extends FieldTestCase
 			'country' => 'CN',
 		]);
 
-		$this->assertTrue($unknown->shape->passed());
-		$this->assertTrue($unknown->forConstraint('knownSubdivision')->failed());
-		$this->assertTrue($unknown->forConstraint('postalCodeFormat')->passed());
+		$this->assertSame(['knownSubdivision'], self::reportedCodes($unknown));
 
 		$badPostcode = $field->validate((object) [
 			'street' => ['1 Nanjing Rd'],
@@ -270,7 +274,7 @@ final class AddressTest extends FieldTestCase
 			'country' => 'CN',
 		]);
 
-		$this->assertTrue($badPostcode->forConstraint('postalCodeFormat')->failed());
+		$this->assertSame(['knownSubdivision', 'postalCodeFormat'], self::reportedCodes($badPostcode));
 	}
 
 	#[Test]
@@ -435,25 +439,26 @@ final class AddressTest extends FieldTestCase
 	{
 		$street = ['Level 3', 'Tower B', '1 Denham St'];
 
-		$this->assertTrue($this->australian()->validate(self::au(['street' => $street]))->forConstraint('streetLineLimit')->passed());
+		$this->assertNotReported('streetLineLimit', $this->australian()->validate(self::au(['street' => $street])));
 	}
 
 	#[Test]
 	public function a_fourth_line_is_more_than_any_country_has(): void
 	{
 		$street = ['Level 3', 'Tower B', 'Suite 9', '1 Denham St'];
-		$failed = $this->australian()->validate(self::au(['street' => $street]))->forConstraint('streetLineLimit');
+		$result = $this->australian()->validate(self::au(['street' => $street]));
 
-		$this->assertTrue($failed->failed());
-		$this->assertSame(3, $failed->bound);
+		$this->assertIncompleteWith([Address\Check::StreetLineLimit], $result);
+		$this->assertSame(3, $result->violations->first()?->bound);
 	}
 
 	#[Test]
-	public function the_line_limit_is_answerable_with_no_country_allowed(): void
+	public function the_line_limit_is_answerable_with_no_country_yet(): void
 	{
 		// Every one of the 206 countries uses exactly three, so this is the one country-driven
-		// bound that stays declarable on a free-form field.
-		$this->assertSame(3, $this->createField()->constraints->named('streetLineLimit')->bound);
+		// question that does not wait for the country.
+		$this->assertSame(3, Address\Requirements::genericStreetLineLimit());
+		$this->assertReported('streetLineLimit', $this->createField()->validate(self::au(['street' => ['a', 'b', 'c', 'd']], 'country')));
 	}
 
 	// ── parts a country does not have ──────────────────────────────────────────────────────
@@ -509,16 +514,14 @@ final class AddressTest extends FieldTestCase
 		string $constraint,
 		array $address,
 	): void {
-		$failed = (new Address(new FieldName('billing'), [$country]))
-			->validate((object) $address)
-			->forConstraint($constraint);
+		$result = (new Address(new FieldName('billing'), [$country]))->validate((object) $address);
 
-		$this->assertTrue($failed->failed(), $constraint);
+		$this->assertSame([$constraint], self::reportedCodes($result));
 
 		// The whole point: a form knows which input to mark.
 		$this->assertSame(
 			['subdivisionUsed' => 'subdivision', 'dependentLocalityUsed' => 'dependent_locality', 'localityUsed' => 'locality', 'postalCodeUsed' => 'postal_code'][$constraint],
-			$failed->part?->value,
+			$result->violations->first()?->part?->value,
 		);
 	}
 
@@ -536,39 +539,34 @@ final class AddressTest extends FieldTestCase
 			'country' => 'GB',
 		]);
 
-		$this->assertTrue($result->forConstraint('subdivisionUsed')->failed());
-		$this->assertTrue($result->forConstraint('dependentLocalityUsed')->failed());
+		$this->assertSame(['dependentLocalityUsed', 'subdivisionUsed'], self::reportedCodes($result));
 	}
 
 	#[Test]
-	public function a_part_the_country_does_use_passes(): void
+	public function a_part_the_country_does_use_is_not_reported(): void
 	{
 		$result = $this->australian()->validate(self::au());
 
-		$this->assertTrue($result->forConstraint('subdivisionUsed')->passed());
-		$this->assertTrue($result->forConstraint('localityUsed')->passed());
-		$this->assertTrue($result->forConstraint('postalCodeUsed')->passed());
+		$this->assertSame([], self::reportedCodes($result));
 	}
 
 	#[Test]
 	public function a_part_nobody_submitted_is_not_asked_about(): void
 	{
-		// Skipped rather than passed: "you did not send a dependent locality" is not a verdict
-		// on whether Australia has one.
-		$result = $this->australian()->validate(self::au());
-
-		$this->assertTrue($result->forConstraint('dependentLocalityUsed')->skipped());
+		// "You did not send a dependent locality" is not a verdict on whether Australia has one.
+		$this->assertNotReported('dependentLocalityUsed', $this->australian()->validate(self::au()));
 	}
 
 	#[Test]
-	public function whether_a_country_uses_a_part_is_declarable_for_one_country(): void
+	public function whether_a_country_uses_a_part_is_read_from_its_requirements(): void
 	{
-		$au = new Address(new FieldName('billing'), ['AU']);
-		$free = $this->createField();
+		// One accessor for one fact. These used to be the declared bounds of the `*Used`
+		// constraints as well, on a field allowing one country; they are assembly now, and a
+		// fact with two accessors is a fact that can disagree with itself.
+		$au = (new Address(new FieldName('billing'), ['AU']))->requirementsFor('AU')['AU'];
 
-		$this->assertTrue($au->constraints->named('subdivisionUsed')->bound);
-		$this->assertFalse($au->constraints->named('dependentLocalityUsed')->bound);
-		$this->assertNull($free->constraints->named('subdivisionUsed')->bound);
+		$this->assertContains('subdivision', $au->usedParts);
+		$this->assertNotContains('dependent_locality', $au->usedParts);
 	}
 
 	#[Test]
@@ -609,18 +607,16 @@ final class AddressTest extends FieldTestCase
 		new Address(new FieldName('a'), ['ZZ']);
 	}
 
+	/** A New Zealand address, whole by New Zealand's own format — which has no subdivision. */
+	private static function auckland(): object
+	{
+		return (object) ['street' => ['1 Queen St'], 'locality' => 'Auckland', 'postal_code' => '1010', 'country' => 'NZ'];
+	}
+
 	#[Test]
 	public function it_reports_a_country_that_is_not_allowed(): void
 	{
-		$result = $this->australian()->validate((object) [
-			'street' => ['1 Queen St'],
-			'locality' => 'Auckland',
-			'subdivision' => 'AUK',
-			'postal_code' => '1010',
-			'country' => 'NZ',
-		]);
-
-		$failed = $result->forConstraint('allowedCountries');
+		$failed = $this->australian()->validate(self::auckland())->forConstraint('allowedCountries');
 
 		$this->assertTrue($failed->failed());
 		$this->assertSame(['AU'], $failed->bound);
@@ -629,18 +625,27 @@ final class AddressTest extends FieldTestCase
 	#[Test]
 	public function a_country_outside_the_allow_list_is_reported_once(): void
 	{
-		// Deriving the postcode rule from a country already reported would turn one mistake into
-		// several failures.
-		$result = $this->australian()->validate((object) [
-			'street' => ['1 Queen St'],
-			'locality' => 'Auckland',
-			'subdivision' => 'AUK',
-			'postal_code' => '1010',
-			'country' => 'NZ',
-		]);
+		// Deriving what a field demands from a country it does not take would turn one mistake
+		// into several failures.
+		$result = $this->australian()->validate(self::auckland());
 
-		$this->assertTrue($result->forConstraint('postalCodeFormat')->skipped());
+		$this->assertSame(['allowedCountries'], self::reportedCodes($result));
 		$this->assertTrue($result->forConstraint('localityRequired')->skipped());
+	}
+
+	#[Test]
+	public function an_address_its_own_country_cannot_read_is_reported_before_the_allow_list(): void
+	{
+		// The cost of judging only whole values, pinned so that changing it is a decision: a state
+		// typed into a New Zealand address is wrong in New Zealand, and the field does not take New
+		// Zealand either — but the second waits until the first is fixed, because the allow-list
+		// is a constraint and constraints judge whole addresses. Letting a constraint run as soon
+		// as the parts it reads are sound would report both at once; see "Constraints that run
+		// when their parts are ready" in docs/ROADMAP.md.
+		$result = $this->australian()->validate((object) (['subdivision' => 'AUK'] + (array) self::auckland()));
+
+		$this->assertSame(['subdivisionUsed'], self::reportedCodes($result));
+		$this->assertTrue($result->forConstraint('allowedCountries')->skipped());
 	}
 
 	#[Test]
@@ -654,11 +659,11 @@ final class AddressTest extends FieldTestCase
 	#[Test]
 	public function it_reports_a_postcode_that_is_wrong_for_its_country(): void
 	{
-		$failed = $this->australian()->validate(self::au(['postal_code' => '99']))->forConstraint('postalCodeFormat');
+		$result = $this->australian()->validate(self::au(['postal_code' => '99']));
 
-		$this->assertTrue($failed->failed());
-		$this->assertSame(Address\Part::PostalCode, $failed->part);
-		$this->assertSame('\d{4}', $failed->bound);
+		$this->assertIncompleteWith([Address\Check::PostalCodeFormat], $result);
+		$this->assertSame(Address\Part::PostalCode, $result->violations->first()?->part);
+		$this->assertSame('\d{4}', $result->violations->first()?->bound);
 	}
 
 	#[Test]
@@ -666,20 +671,18 @@ final class AddressTest extends FieldTestCase
 	{
 		// The submitter said which country, so checking their postcode against it is reading
 		// what they wrote rather than guessing.
-		$failed = $this->createField()->validate(self::au(['postal_code' => '99']))->forConstraint('postalCodeFormat');
-
-		$this->assertTrue($failed->failed());
+		$this->assertReported('postalCodeFormat', $this->createField()->validate(self::au(['postal_code' => '99'])));
 	}
 
 	#[Test]
 	public function a_postcode_failure_reports_the_pattern_that_applied(): void
 	{
 		$field = $this->createField()->allowCountries('AU', 'NZ');
-		$failed = $field->validate(self::au(['postal_code' => '99']))->forConstraint('postalCodeFormat');
+		$result = $field->validate(self::au(['postal_code' => '99']));
 
-		// Not declarable up front with two countries allowed, but the one that applied is.
-		$this->assertNull($field->constraints->named('postalCodeFormat')->bound);
-		$this->assertSame('\d{4}', $failed->bound);
+		// Not knowable up front with two countries allowed — requirementsFor() answers per
+		// country — but the one that applied is.
+		$this->assertSame('\d{4}', $result->violations->first()?->bound);
 	}
 
 	// ── subdivisions ───────────────────────────────────────────────────────────────────────
@@ -687,8 +690,8 @@ final class AddressTest extends FieldTestCase
 	#[Test]
 	public function a_subdivision_is_reported_where_the_country_uses_one_without_requiring_it(): void
 	{
-		// Ireland: a wrong county is reportable, because nothing downstream depends on it there.
-		// In Australia the same mistake makes the address unreadable instead — see ValueTest.
+		// Ireland: a wrong county is reportable, as it is in Australia — a bad state is a bad
+		// state whether or not the country requires one.
 		$result = (new Address(new FieldName('billing'), ['IE']))->validate((object) [
 			'street' => ['1 Main St'],
 			'locality' => 'Carlow',
@@ -696,7 +699,7 @@ final class AddressTest extends FieldTestCase
 			'country' => 'IE',
 		]);
 
-		$this->assertTrue($result->forConstraint('knownSubdivision')->failed());
+		$this->assertSame(['knownSubdivision'], self::reportedCodes($result));
 	}
 
 	/**
@@ -744,29 +747,34 @@ final class AddressTest extends FieldTestCase
 			'country' => $country,
 		]);
 
-		$check = $result->forConstraint('postalCodeFormat');
+		if ($valid) {
+			$this->assertNotReported('postalCodeFormat', $result);
 
-		$this->assertSame($valid, $check->passed(), "{$subdivision} {$postcode}");
+			return;
+		}
 
 		// And the reported bound names the rule that actually applied, not the country's.
-		$this->assertSame($pattern, $check->bound);
+		$this->assertSame(['postalCodeFormat'], self::reportedCodes($result), "{$subdivision} {$postcode}");
+		$this->assertSame($pattern, $result->violations->first()?->bound);
 	}
 
 	#[Test]
 	public function a_postcode_falls_back_to_the_country_when_no_subdivision_is_given(): void
 	{
-		// China requires one, so this is unreadable rather than a constraint failure — but the
-		// declared bound on a China-only field is still the country's pattern, because no
-		// subdivision is known when the field is built.
-		$field = new Address(new FieldName('billing'), ['CN']);
+		$result = (new Address(new FieldName('billing'), ['CN']))->validate((object) [
+			'street' => ['1 Nanjing Rd'],
+			'locality' => 'Shanghai Shi',
+			'postal_code' => 'zzz',
+			'country' => 'CN',
+		]);
 
-		$this->assertSame('\d{6}', $field->constraints->named('postalCodeFormat')->bound);
+		$this->assertSame('\d{6}', $result->violations->first()?->bound);
 	}
 
 	#[Test]
-	public function a_known_subdivision_passes(): void
+	public function a_known_subdivision_is_not_reported(): void
 	{
-		$this->assertTrue($this->australian()->validate(self::au())->forConstraint('knownSubdivision')->passed());
+		$this->assertNotReported('knownSubdivision', $this->australian()->validate(self::au()));
 	}
 
 	#[Test]
@@ -780,17 +788,13 @@ final class AddressTest extends FieldTestCase
 	// ── the value object is the field's ────────────────────────────────────────────────────
 
 	#[Test]
-	public function an_address_that_cannot_be_read_fails_the_shape_and_skips_everything(): void
+	public function an_address_that_names_no_country_is_judged_by_no_constraint(): void
 	{
+		// The country is the precondition everything else is read from, not one more rule among
+		// them — so nothing is judged, rather than everything failing at once.
 		$result = $this->australian()->validate((object) ['street' => ['1 Denham St'], 'country' => 'Banana']);
 
-		$this->assertTrue($result->shape->wasUnreadable());
-
-		// Readability is the precondition every constraint depends on, not one more rule among
-		// them — so nothing is judged, rather than everything failing at once.
-		foreach ($result->constraintNames as $name) {
-			$this->assertTrue($result->forConstraint($name)->skipped(), "{$name} should have skipped");
-		}
+		$this->assertIncompleteWith([Address\Check::KnownCountry], $result);
 	}
 
 	#[Test]

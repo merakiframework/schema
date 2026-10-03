@@ -92,13 +92,13 @@ final class ConstraintNameTest extends TestCase
 			// Whether the halves make money at all is assembly, so `currencyRequired` and its
 			// three siblings are not constraints — see the test below for every code.
 			'Money' => ['knownCurrency', 'allowedCurrencies', 'minAmount', 'maxAmount', 'scale'],
+			// What this field accepts: which countries, how much of the address its precision
+			// floor demands, and whether it must be somewhere a person can go. Whether the parts
+			// make an address in their own country is assembly, below.
 			'Address' => [
-				'countryRequired',
 				'allowedCountries',
-				'streetRequired', 'streetLineLimit', 'streetVisitable',
-				'localityRequired', 'localityUsed', 'dependentLocalityUsed',
-				'subdivisionRequired', 'subdivisionUsed', 'knownSubdivision',
-				'postalCodeRequired', 'postalCodeUsed', 'postalCodeFormat',
+				'streetVisitable',
+				'streetRequired', 'localityRequired', 'subdivisionRequired', 'postalCodeRequired',
 			],
 			// The two that ask what day it is. Everything else about a card is assembly — see
 			// below — and there is no `nameRequired`: the name is optional, like the security
@@ -157,6 +157,17 @@ final class ConstraintNameTest extends TestCase
 			'CreditCard' => [
 				'numberRequired', 'expiryRequired',
 				'numberFormat', 'numberChecksum', 'expiryFormat', 'nameFormat', 'securityCodeFormat',
+			],
+			// A country's published format is reference data, the same for every field there will
+			// ever be. Only the country is essential; the street and the rest are demanded, by
+			// the precision floor, so their `*Required` codes are constraints.
+			'Address' => [
+				'countryRequired', 'knownCountry',
+				'streetFormat', 'streetLineLimit',
+				'dependentLocalityFormat', 'dependentLocalityUsed',
+				'localityFormat', 'localityUsed',
+				'knownSubdivision', 'subdivisionUsed',
+				'postalCodeFormat', 'postalCodeUsed',
 			],
 		];
 

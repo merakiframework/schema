@@ -88,7 +88,7 @@ and the euro spans twenty.
 
 | Field | Configuration | Constraint names | Value |
 | --- | --- | --- | --- |
-| `Address` | `allowCountries()`, `clearAllowedCountries()`, `minPrecisionOf()`, `mustBeVisitable()` | `countryRequired`, `allowedCountries`, `streetRequired`, `streetLineLimit`, `streetVisitable`, `localityRequired`, `localityUsed`, `dependentLocalityUsed`, `subdivisionRequired`, `subdivisionUsed`, `knownSubdivision`, `postalCodeRequired`, `postalCodeUsed`, `postalCodeFormat` | `Address\Value` |
+| `Address` | `allowCountries()`, `clearAllowedCountries()`, `minPrecisionOf()`, `mustBeVisitable()` | `allowedCountries`, `streetVisitable`, `streetRequired`, `localityRequired`, `subdivisionRequired`, `postalCodeRequired` | `Address\Value` |
 | `Boolean` | `mustBeAccepted()` | `accepted` | `Boolean\Value` |
 | `Collection` | `allowDuplicates()`, `maxCountOf()`, `minCountOf()` | `minCount`, `maxCount`, `unique` | `Collection\Value` |
 | `CreditCard` | `mustExpireInFuture()` | `expiryInFuture`, `expiryWithinReach` | `CreditCard\Value` |
@@ -118,6 +118,7 @@ them, and no constraint runs until they are clear — see
 | `Money` | `currencyRequired`, `amountRequired`, `currencyFormat`, `amountFormat` |
 | `PhoneNumber` | `numberRequired`, `countryRequired`, `numberFormat`, `knownCountry`, `numberInCountry` |
 | `CreditCard` | `numberRequired`, `expiryRequired`, `numberFormat`, `numberChecksum`, `expiryFormat`, `nameFormat`, `securityCodeFormat` |
+| `Address` | `countryRequired`, `knownCountry`, `streetFormat`, `streetLineLimit`, `dependentLocalityFormat`, `dependentLocalityUsed`, `localityFormat`, `localityUsed`, `knownSubdivision`, `subdivisionUsed`, `postalCodeFormat`, `postalCodeUsed` |
 
 **Shared by every field**, so not repeated above: `defaultsTo()`, `makeOptional()`,
 `makeRequired()`, `equals()`, `resolve()`, `validate()`, `resolvedValueFor()`, `resolvedInputFor()`.
@@ -546,7 +547,7 @@ $failed->bound;   // 3               — the limit, ready to interpolate
 No name carries the field it came from. `postalCodeFormat`, not
 `billing_address.postal_code.format` — so renaming a field changes nothing downstream.
 
-See [DESIGN.md](DESIGN.md#a-failed-constraint-says-everything-a-message-needs) for why each of the
+See [DESIGN.md](DESIGN.md#a-failure-says-everything-a-message-needs) for why each of the
 three exists.
 
 ### A bound is a literal

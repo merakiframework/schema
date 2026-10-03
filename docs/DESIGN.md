@@ -318,12 +318,12 @@ real library lands.
 
 ---
 
-## A failed constraint says everything a message needs
+## A failure says everything a message needs
 
 Three things, and each exists because writing the message without it meant guessing.
 
 ```php
-$failed = $schema->validate($data)->forField('billing')->getFailedConstraints()->getFirst();
+$failed = $billing->resultIn($schema->validate($data))->violations->first();
 
 $failed->name;    // 'postalCodeFormat'  — what was checked
 $failed->part;    // Address\Part::PostalCode — which piece of the value it was about
@@ -339,6 +339,9 @@ match ($failed->name) {
 };
 ```
 
+Every failure carries the three, whichever step found it: `postalCodeFormat` is reported while the
+address is assembled, and `minLength` by a constraint, and a provider cannot tell — nor needs to.
+
 **`name` — what was checked.** It used to be the only thing a result carried, so anything wanting
 to say more had to go back to the field and read `$field->{$name}` — a dynamic property access
 that static analysis cannot type and that renders `"Array"` for a bound held as a map.
@@ -351,8 +354,8 @@ every provider matching on them. Now the name is fixed and the part is a separat
 
 **`bound` — the limit.** "Too short" is not a useful sentence; "needs at least 3 characters" is.
 Some bounds are only knowable once you see the value — `Money` holds a minimum per currency,
-`Address` a postcode pattern per country — so a constraint can compute one from the submitted
-value rather than declaring it up front:
+`Address` a postcode pattern per country — so a check can report the one that applied to the
+submitted value rather than declaring it up front:
 
 ```php
 $money = $schema->createMoneyField('cost', ['AUD' => 2, 'USD' => 2])
