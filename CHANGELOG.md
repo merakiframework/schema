@@ -10,6 +10,69 @@ is a commit subject, with the body kept because the body is where the reasoning 
 
 ## Unreleased
 
+### A card is whole before anything judges it, and its name is optional
+
+`6b34a33c` · 2026-10-03
+
+CreditCard\Value held every part as nullable, and a required name sat
+beside the number and the expiry even though plenty of flows never ask
+for one. An expiry or a security code that was sent and unreadable made
+the whole card unreadable, or failed a constraint that then had to skip
+itself whenever a part was missing.
+
+CreditCard now reads its parts into CreditCard\Input. A card is a number
+and an expiry: numberRequired and expiryRequired are assembly, beside
+numberFormat, numberChecksum, expiryFormat, nameFormat and
+securityCodeFormat, every one reported against its own part. The name is
+optional like the security code, so nameRequired is gone; sent, either
+still has to be readable. No configuration changes any of these, so a
+card failing Luhn is not a card on any field.
+
+The two checks that ask what day it is, expiryInFuture and
+expiryWithinReach, stay constraints, so a default is never refused for
+an expiry that was fine when the schema was written. They are handed a
+whole CreditCard\Value, whose number and expiry are never null;
+lastFourDigits() returns a string, isComplete() is gone because a value
+always is, and Value::of() reads its arguments through the input so its
+refusals name codes and never what was typed.
+
+The developer guide's request walkthrough used the missing name as its
+one real problem; it now walks a card whose expiry is month 13, which
+shows the new step.
+
+### A phone number is read in its country before anything judges it
+
+`622275ec` · 2026-10-03
+
+PhoneNumber\Value held a nullable number and a nullable country, and
+anything wrong with a half that was sent - a blank number, a number valid
+only elsewhere, a country that is not a region - made the whole field
+unreadable with no box named.
+
+PhoneNumber now reads its halves into PhoneNumber\Input, the country
+first, because a number is only a number in one. numberRequired and
+countryRequired move to assembly, beside three new codes: numberFormat
+for a number that is not one, numberInCountry for one that is not valid
+in the submitted country (with the country as its bound, so a message can
+name it), and knownCountry for a country that is not a region. With no
+usable country the number is not judged at all: telling somebody to fix
+a number they typed correctly is the wrong message, and the country is
+what is in the way. The constraints, allowedCountries and numberType,
+are handed a whole PhoneNumber\Value, whose halves are never null.
+
+A rule about the number part compared its E.164 against whatever the
+rule was written with, so equals('0411 222 333') never held. The input
+reads the expectation in the submitted country now, and a rule about the
+country holds while the number is still empty.
+
+Three docblocks on the field still described the allow-list supplying
+the region for national numbers, which stopped being true when the
+country became part of the record.
+
+### Update history
+
+`d860406e` · 2026-10-03
+
 ### Money is whole before anything judges it, and only real currencies pass
 
 `9e455250` · 2026-10-03
