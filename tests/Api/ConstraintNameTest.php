@@ -100,15 +100,10 @@ final class ConstraintNameTest extends TestCase
 				'subdivisionRequired', 'subdivisionUsed', 'knownSubdivision',
 				'postalCodeRequired', 'postalCodeUsed', 'postalCodeFormat',
 			],
-			// `numberRequired` and `expiryRequired` name a part that was not sent, so a form can
-			// mark the box. There is no `expiryFormat` beside them: an expiry that *was* sent and
-			// cannot be read is a shape failure, the same way a bad amount is on Money.
-			'CreditCard' => [
-				'numberRequired', 'expiryRequired', 'nameRequired',
-				'numberFormat', 'numberChecksum',
-				'expiryInFuture', 'expiryWithinReach',
-				'securityCodeFormat',
-			],
+			// The two that ask what day it is. Everything else about a card is assembly — see
+			// below — and there is no `nameRequired`: the name is optional, like the security
+			// code.
+			'CreditCard' => ['expiryInFuture', 'expiryWithinReach'],
 
 			// A collection bounds the list and refuses repeats; each item is checked against the
 			// template and reports under the template field's own names.
@@ -157,6 +152,12 @@ final class ConstraintNameTest extends TestCase
 			// A number is only a number in a country, so whether it is valid *there* is part of
 			// whether it is a number at all.
 			'PhoneNumber' => ['numberRequired', 'countryRequired', 'numberFormat', 'knownCountry', 'numberInCountry'],
+			// A card number that fails Luhn is not a card number on any field there will ever
+			// be, so the checksum is assembly too.
+			'CreditCard' => [
+				'numberRequired', 'expiryRequired',
+				'numberFormat', 'numberChecksum', 'expiryFormat', 'nameFormat', 'securityCodeFormat',
+			],
 		];
 
 		foreach (SealedFieldTest::fields() as $short => [$class]) {

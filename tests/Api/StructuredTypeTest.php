@@ -412,7 +412,7 @@ final class StructuredTypeTest extends TestCase
 	public static function essentialParts(): iterable
 	{
 		yield 'Address' => [Field\Address::class, [Field\Address\Part::Country]];
-		yield 'CreditCard' => [Field\CreditCard::class, [Field\CreditCard\Part::Number, Field\CreditCard\Part::Expiry, Field\CreditCard\Part::Name]];
+		yield 'CreditCard' => [Field\CreditCard::class, [Field\CreditCard\Part::Number, Field\CreditCard\Part::Expiry]];
 		yield 'File' => [Field\File::class, [Field\File\Part::Name, Field\File\Part::Type, Field\File\Part::Size]];
 		yield 'Money' => [Field\Money::class, [Field\Money\Part::Currency, Field\Money\Part::Amount]];
 		yield 'PhoneNumber' => [Field\PhoneNumber::class, [Field\PhoneNumber\Part::Number, Field\PhoneNumber\Part::Country]];

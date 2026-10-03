@@ -13,14 +13,22 @@ use Brick\DateTime\Clock\SystemClock;
 use Brick\DateTime\Instant;
 use Brick\DateTime\LocalDate;
 use Brick\DateTime\TimeZone;
-use Closure;
 use SensitiveParameter;
 
 /**
  * A payment card, held as one {@see Value}.
  *
- * A number, an expiry and a name are required; the security code is not, because plenty of flows
- * never ask for one — a stored card being re-authorised, or a terminal reading the chip.
+ * A number and an expiry are required. The cardholder's name and the security code are not,
+ * because plenty of flows never ask for them — a stored card being re-authorised, a terminal
+ * reading the chip, a processor that does not want the name. Sent, they still have to be readable.
+ *
+ * ### A card is whole before it is judged
+ *
+ * Whether what arrived is a card at all — a number and an expiry there, the number shaped like one
+ * and passing its checksum, every part that was sent readable — is decided by
+ * {@see CreditCard\Input} before any constraint runs, and no configuration changes it. The two
+ * constraints below are the ones that ask what day it is, so a default is never refused for an
+ * expiry that was fine when the schema was written.
  *
  * ### What this checks, and what it cannot
  *
@@ -47,12 +55,6 @@ use SensitiveParameter;
  */
 final readonly class CreditCard extends AtomicField
 {
-	/** ISO/IEC 7812 allows 8 to 19 digits; no issuer in use is below 13. */
-	private const NUMBER_PATTERN = '/^\d{13,19}$/';
-
-	/** Three digits, or four for American Express. */
-	private const SECURITY_CODE_PATTERN = '/^\d{3,4}$/';
-
 	/**
 	 * How far ahead an expiry can plausibly be, in years.
 	 *
@@ -120,12 +122,15 @@ final readonly class CreditCard extends AtomicField
 	}
 
 	/**
+	 * The record read part by part. Whether the parts make a card is the input's to say, and the
+	 * lifecycle's to report — see {@see CreditCard\Input}.
+	 *
 	 * @param object|Value $value a record of the card's parts, or a {@see Value} already built
 	 */
-	protected function parse(#[SensitiveParameter] mixed $value): Value
+	protected function parse(#[SensitiveParameter] mixed $value): CreditCard\Input
 	{
 		if ($value instanceof Value) {
-			return $value;
+			return CreditCard\Input::of($value);
 		}
 
 		// An object is a record; an array is a list. A card has named parts, so it arrives as
@@ -134,31 +139,16 @@ final readonly class CreditCard extends AtomicField
 			throw MalformedValue::of(Value::class, 'a card is submitted as a record with a number, an expiry, a name and a security code');
 		}
 
-		// Whether a card with nothing in it is a card is the value's question now, and it
-		// answers no. A *partly* filled one still is, so it gets past and the required-part
-		// constraints say which halves are missing.
-		return new Value($value);
+		return new CreditCard\Input($value);
 	}
 
-
 	/**
-	 * Each part's own question, named for the part it is about.
-	 *
-	 * The mandatory parts report here rather than through the shape check so a form can mark the
-	 * field that is actually missing — a shape failure would only be able to say "that is not a
-	 * card".
+	 * The two questions that need a clock. Everything else about a card is decided before these
+	 * run, so each is handed a whole {@see Value} with an expiry to judge.
 	 */
 	protected function defineConstraints(): Constraint\Set
 	{
 		return new Constraint\Set(
-			// A part that was not sent is named, so a form marks the box. A part that was sent
-			// and cannot be read is a shape failure instead, as a bad amount is on Money — the
-			// value refuses it, and there is no half-readable card to report against.
-			new Constraint(CreditCard\Check::NumberRequired, $this->hasA('number'), true),
-			new Constraint(CreditCard\Check::ExpiryRequired, $this->hasA('expiry'), true),
-			new Constraint(CreditCard\Check::NameRequired, $this->hasA('name'), true),
-			new Constraint(CreditCard\Check::NumberFormat, $this->hasAWellFormedNumber(...), null),
-			new Constraint(CreditCard\Check::NumberChecksum, $this->passesLuhn(...), null),
 			// The bound is the instant it was judged against, so a message can say what "expired"
 			// was measured from rather than only that it was. Per request, because that is what a
 			// clock means.
@@ -175,7 +165,6 @@ final readonly class CreditCard extends AtomicField
 				self::MAX_YEARS_AHEAD,
 				timeRelative: true,
 			),
-			new Constraint(CreditCard\Check::SecurityCodeFormat, $this->hasAWellFormedSecurityCode(...), null),
 		);
 	}
 
@@ -205,68 +194,12 @@ final readonly class CreditCard extends AtomicField
 		return $this->clock->getTime();
 	}
 
-	private function hasAWellFormedNumber(Value $card): ?bool
-	{
-		// Skipped rather than failed when there is none: `numberRequired` reports that, and
-		// saying "this is not a card number" about a box nobody filled in is the wrong sentence.
-		return $card->number === null ? null : preg_match(self::NUMBER_PATTERN, $card->number) === 1;
-	}
-
 	/**
-	 * Skipped when the number is not yet in a state the checksum can speak to — `numberFormat`
-	 * reports that, and two failures for one mistake is one too many.
-	 */
-	private function passesLuhn(Value $card): ?bool
-	{
-		if (!$this->hasAWellFormedNumber($card)) {
-			return null;
-		}
-
-		$sum = 0;
-		$double = false;
-
-		// Right to left: double every second digit, and cast a resulting 10-18 back down by
-		// subtracting nine, which is the same as summing its two digits.
-		for ($i = strlen((string) $card->number) - 1; $i >= 0; $i--) {
-			$digit = (int) $card->number[$i];
-
-			if ($double) {
-				$digit *= 2;
-
-				if ($digit > 9) {
-					$digit -= 9;
-				}
-			}
-
-			$sum += $digit;
-			$double = !$double;
-		}
-
-		return $sum % 10 === 0;
-	}
-
-	/**
-	 * Whether the part is there at all.
-	 *
-	 * Absent and `null` both fail; one that was sent and cannot be read never reaches here,
-	 * because the value refuses it. So this asks one question, and the part it names is the
-	 * input a form should mark.
-	 *
-	 * @return Closure(Value): bool
-	 */
-	private function hasA(string $part): Closure
-	{
-		return static fn(Value $card): bool => ($card->parts()[$part] ?? null) !== null;
-	}
-
-	/**
-	 * Skipped unless asked for, and skipped when there is no expiry to judge — `expiryRequired`
-	 * reports an absent one, and an expiry that was given and cannot be read never gets this far:
-	 * the value refuses it, so the whole card is unreadable.
+	 * Skipped unless asked for.
 	 */
 	private function hasNotExpired(Value $card): ?bool
 	{
-		if (!$this->mustExpireInFuture || $card->expiry === null) {
+		if (!$this->mustExpireInFuture) {
 			return null;
 		}
 
@@ -278,28 +211,10 @@ final readonly class CreditCard extends AtomicField
 	 * Whether the expiry is close enough to now to be a real card.
 	 *
 	 * Always asked, unlike {@see self::hasNotExpired()}: a field capturing a card for later still
-	 * wants to know that `2099` was a typo. Skipped only when there is no expiry to judge, which
-	 * `expiryRequired` reports instead.
+	 * wants to know that `2099` was a typo.
 	 */
-	private function expiresWithinReach(Value $card): ?bool
+	private function expiresWithinReach(Value $card): bool
 	{
-		if ($card->expiry === null) {
-			return null;
-		}
-
 		return $card->expiry->isBeforeOrEqualTo($this->determineToday()->plusYears(self::MAX_YEARS_AHEAD));
-	}
-
-
-	/**
-	 * Skipped when none was given: it is the one optional part.
-	 */
-	private function hasAWellFormedSecurityCode(Value $card): ?bool
-	{
-		if ($card->securityCode === null) {
-			return null;
-		}
-
-		return preg_match(self::SECURITY_CODE_PATTERN, $card->securityCode) === 1;
 	}
 }

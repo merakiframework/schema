@@ -16,11 +16,13 @@ enum Part: string implements Field\Part
 	case SecurityCode = 'security_code';
 
 	/**
-	 * The security code is the one part a card may be without: plenty of flows never ask for one.
+	 * A number and an expiry, and nothing else. The name and the security code are optional:
+	 * plenty of flows never ask for either — a stored card being re-authorised, a terminal
+	 * reading the chip, a processor that does not want the name.
 	 */
 	public function isEssential(): bool
 	{
-		return $this !== self::SecurityCode;
+		return $this === self::Number || $this === self::Expiry;
 	}
 
 	public function isList(): bool

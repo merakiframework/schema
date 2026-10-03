@@ -182,7 +182,7 @@ $schema->addRule(
 
 $result = $schema->validate((object) [
     'pay_by' => 'card',
-    'card'   => (object) ['number' => '4111111111111111', 'expiry' => '2030-01'],
+    'card'   => (object) ['number' => '4111 1111 1111 1111', 'expiry' => '2030-13'],
 ]);
 ```
 
@@ -208,23 +208,29 @@ submitted  →  prefilled  →  the authored default  →  nothing
 Whichever won is recorded as `ValueSource`, so a form can show a prefilled box differently from
 one somebody typed into.
 
-**4. The field reads the value.** `parse()` turns raw input into a value object. It receives three
-guarantees and must keep one:
+**4. The field reads the value.** `parse()` turns raw input into a value object — or, for a value
+made of parts, into an *input*: each part as read, and what stops them making a value. It
+receives three guarantees and must keep one:
 
 - it is never given `null` — absence was settled in step 3
-- it returns a value object, **or raises** `MalformedValue`. Never `null`
-- whatever it returns is exactly what the constraints will see
+- it returns a value object or an input, **or raises** `MalformedValue`. Never `null`
+- whatever it returns — or the value its input assembles to — is exactly what the constraints
+  will see
 
-**5. The shape is judged.** `AtomicField::check()` decides between four cases:
+Here the card is read part by part: the number has its spaces removed and passes Luhn, and
+month 13 is not a month, so the input reports `expiryFormat` against the expiry.
+
+**5. The shape is judged.** `AtomicField::check()` decides between five cases:
 
 | | |
 | --- | --- |
 | nothing arrived, field is optional | shape **skipped**, constraints skipped |
 | nothing arrived, field is required | shape **missing**, constraints skipped |
 | something arrived, `parse()` refused it | shape **unreadable**, constraints skipped |
-| something arrived and parsed | shape **passes**, constraints run |
+| a record arrived, its parts make no value | shape **incomplete**, each part's problem reported against it, constraints skipped |
+| something arrived and made a value | shape **passes**, constraints run |
 
-Notice that constraints are *skipped* in the first three, never failed. A skipped constraint is
+Notice that constraints are *skipped* in the first four, never failed. A skipped constraint is
 not a quiet pass — it means the question was never asked.
 
 **6. Constraints run.** Each one gets the parsed value and answers `true`, `false`, or `null`.
@@ -236,25 +242,30 @@ allow-list was set.
 ```php
 $card = $result->forField('card');
 
-$card->shape->passed();                            // true
-$card->forConstraint('nameRequired')->failed();    // true — no cardholder name was sent
+$card->wasIncomplete();                     // true — its parts make no card
+$card->violations->first()?->code;          // CreditCard\Check::ExpiryFormat
+$card->violations->first()?->part;          // CreditCard\Part::Expiry — the box to mark
+$card->value;                               // null — there is no card until there is a whole one
 ```
 
-Printing every verdict for the card above shows all three answers at once:
+Printing every verdict for the card above:
 
 ```
-numberRequired       Passed
-expiryRequired       Passed
-nameRequired         Failed      ← the one real problem
-numberFormat         Passed
-numberChecksum       Passed
+shape                Failed      ← incomplete: expiryFormat, against the expiry
+expiryInFuture       Skipped     ← there is no card to ask about
+expiryWithinReach    Skipped
+```
+
+With `'expiry' => '2030-12'` the card is whole, and the same printout reads:
+
+```
+shape                Passed
 expiryInFuture       Skipped     ← opt-in; nobody called mustExpireInFuture()
 expiryWithinReach    Passed
-securityCodeFormat   Skipped     ← no security code was sent, and it is optional
 ```
 
-Two different reasons for *Skipped* there, and neither is a pass. One question was never
-turned on; the other had nothing to ask about.
+Three different reasons for *Skipped* across the two, and none of them is a pass. One question
+was never turned on; the others had nothing to ask about.
 
 **8. Messages, if asked.** Only if you passed a provider. Wording is applied *after* every verdict
 is settled, which is what makes "a missing translation can never change an outcome" true by
@@ -271,6 +282,7 @@ $result = $schema->validate($data, locale: 'en-AU', messages: $provider);
 | a whole request | `Definition::against()` |
 | a rule firing | `Rule\Application::of()` |
 | input becoming a value | your field's `parse()` |
+| a record's parts becoming a value | your field's `Input` |
 | the shape decision | `AtomicField::check()` |
 | one constraint | the closure in `defineConstraints()` |
 
@@ -396,7 +408,7 @@ produces an empty message set and leaves every verdict exactly as it was.
 
 ### 12. Sibling field types do not share code with each other
 
-`Money\Input` and `CreditCard\Value` both check for unknown keys, in six near-identical lines.
+`Money\Input` and `CreditCard\Input` both check for unknown keys, in six near-identical lines.
 That duplication is deliberate.
 
 *Why:* a shared helper makes two types move together forever. Fields are the part of this library

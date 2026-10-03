@@ -4,6 +4,10 @@ declare(strict_types=1);
 namespace Meraki\Schema\Field;
 
 use Meraki\Schema\Definition;
+use Meraki\Schema\Exception\InvalidDefault;
+use Meraki\Schema\Field\CreditCard\Check;
+use Meraki\Schema\Field\CreditCard\Input;
+use Meraki\Schema\Field\CreditCard\Part;
 use Meraki\Schema\Field\CreditCard\Value;
 use Meraki\Schema\FieldName;
 use Meraki\Schema\FieldTestCase;
@@ -22,6 +26,7 @@ use Stringable;
 
 #[Group('field')]
 #[CoversClass(CreditCard::class)]
+#[CoversClass(Input::class)]
 #[CoversClass(Value::class)]
 final class CreditCardTest extends FieldTestCase
 {
@@ -86,58 +91,47 @@ final class CreditCardTest extends FieldTestCase
 	}
 
 	#[Test]
-	public function each_constraint_names_the_part_it_is_about(): void
+	public function every_code_names_the_part_it_is_about(): void
 	{
 		$expected = [
 			'numberRequired' => 'number',
 			'expiryRequired' => 'expiry',
 			'numberFormat' => 'number',
 			'numberChecksum' => 'number',
+			'expiryFormat' => 'expiry',
+			'nameFormat' => 'name',
+			'securityCodeFormat' => 'security_code',
 			'expiryInFuture' => 'expiry',
 			'expiryWithinReach' => 'expiry',
-			'nameRequired' => 'name',
-			'securityCodeFormat' => 'security_code',
 		];
 
-		foreach ($this->createField()->constraints as $constraint) {
-			$this->assertSame($expected[$constraint->name], $constraint->part?->value, $constraint->name);
+		$this->assertSame(array_keys($expected), array_column($this->createField()->checks, 'value'));
+
+		foreach ($this->createField()->checks as $check) {
+			$this->assertSame($expected[$check->value], $check->part()->value, $check->value);
 		}
 	}
 
 	#[Test]
-	public function a_card_with_nothing_in_it_could_not_be_read_as_a_card(): void
+	#[DataProvider('notACard')]
+	public function a_card_with_nothing_in_it_could_not_be_read_as_a_card(object $given): void
 	{
 		// A composite with no parts at all is not a half-filled one; it is not one. So it fails the
 		// shape rather than every required part in turn, which says the real thing once instead of
-		// three times.
-		$result = $this->createField()->validate((object) []);
+		// twice.
+		$result = $this->createField()->validate($given);
 
-		$this->assertShapeFailed($result);
-		$this->assertConstraintValidationResultSkipped('numberFormat', $result);
+		$this->assertShapeUnreadable($result);
+		$this->assertConstraintValidationResultSkipped('expiryWithinReach', $result);
 	}
 
-	#[Test]
-	public function an_empty_card_cannot_be_built_at_all(): void
+	/** @return array<string, array{object}> */
+	public static function notACard(): array
 	{
-		// Stronger than it used to be. This asserted that an empty Value read the same way as an
-		// empty submission; now there is no empty Value to read, because the invariant moved into
-		// the constructor. Both routes still agree — they agree by refusing.
-		$this->assertShapeFailed($this->createField()->validate((object) []));
-
-		$this->expectException(MalformedValue::class);
-
-		Value::of();
-	}
-
-	#[Test]
-	public function a_partly_filled_card_is_still_a_card(): void
-	{
-		// Which is where the per-part constraints earn their keep: something was entered, so the
-		// report says which halves are missing rather than rejecting the lot.
-		$result = $this->createField()->validate((object) self::card(without: 'name'));
-
-		$this->assertShapePassed($result);
-		$this->assertConstraintValidationResultFailed('nameRequired', $result);
+		return [
+			'an empty record' => [(object) []],
+			'every part null' => [(object) ['number' => null, 'expiry' => null, 'name' => null, 'security_code' => null]],
+		];
 	}
 
 	#[Test]
@@ -145,51 +139,71 @@ final class CreditCardTest extends FieldTestCase
 	{
 		// Null is the only absent card: the field was never filled in, which is a different report
 		// from filling it in wrongly.
-		$this->assertShapeFailed($this->createField()->validate(null));
+		$this->assertShapeMissing($this->createField()->validate(null));
 	}
 
 	#[Test]
-	public function a_card_knows_whether_it_holds_the_three(): void
+	public function a_card_is_a_number_and_an_expiry(): void
 	{
-		$this->assertTrue($this->createField()->resolve((object) self::card())->value->isComplete());
-		$this->assertFalse((new Value((object) self::card(without: 'name')))->isComplete());
-		$this->assertFalse(Value::of(number: '4242424242424242')->isComplete());
-		// The security code is the one part a card can do without.
-		$this->assertTrue((new Value((object) self::card()))->isComplete());
-		$this->assertTrue((new Value((object) self::card(['security_code' => '123'])))->isComplete());
+		$this->assertSame([Part::Number, Part::Expiry], $this->createField()->essentialParts);
+
+		// Neither is ever null on a value, and the constructor still guards the number.
+		$value = new Value('4242424242424242', LocalDate::parse('2027-01-31'));
+
+		$this->assertNull($value->name);
+		$this->assertNull($value->securityCode);
+
+		$this->expectException(MalformedValue::class);
+
+		new Value('4242', LocalDate::parse('2027-01-31'));
 	}
 
-	// ── the three required parts ──────────────────────────────────────────────────────────
+	#[Test]
+	public function a_card_written_by_hand_is_read_the_way_a_form_is(): void
+	{
+		$this->assertSame('4242424242424242', Value::of('4242 4242 4242 4242', '2027-01')->number);
 
+		// The codes only: a message about a card must never carry what was typed.
+		$this->expectException(MalformedValue::class);
+		$this->expectExceptionMessage('it does not make a card: expiryFormat');
+
+		Value::of('4242424242424242', 'soon');
+	}
+
+	// ── the parts a card cannot be without ────────────────────────────────────────────────
+
+	/**
+	 * Reported against the part rather than as a shape failure, so a form can mark the field
+	 * that is actually missing — "that is not a card" could not say which.
+	 */
 	#[Test]
 	#[DataProvider('requiredParts')]
-	public function a_missing_required_part_is_reported_against_that_part(string $missing, string $constraint): void
+	public function a_missing_number_or_expiry_is_reported_against_that_part(string $missing, Check $code): void
 	{
-		// Reported here rather than as a shape failure so a form can mark the field that is
-		// actually missing — "that is not a card" could not say which.
-		$failed = $this->createField()->validate((object) self::card(without: $missing))->forConstraint($constraint);
+		$result = $this->expiring()->validate((object) self::card(without: $missing));
 
-		$this->assertTrue($failed->failed(), $constraint);
-		$this->assertSame($missing, $failed->part?->value);
+		$this->assertIncompleteWith([$code], $result);
+		$this->assertSame([Part::from($missing)], $result->missingParts);
 	}
 
-	/** @return array<string, array{string, string}> */
+	/** @return array<string, array{string, Check}> */
 	public static function requiredParts(): array
 	{
 		return [
-			'a number' => ['number', 'numberRequired'],
-			'an expiry' => ['expiry', 'expiryRequired'],
-			'a name' => ['name', 'nameRequired'],
+			'a number' => ['number', Check::NumberRequired],
+			'an expiry' => ['expiry', Check::ExpiryRequired],
 		];
 	}
 
 	#[Test]
-	public function the_security_code_is_the_one_optional_part(): void
+	public function the_name_and_the_security_code_are_optional(): void
 	{
-		$result = $this->createField()->validate((object) self::card());
+		// Plenty of flows never ask for either: a stored card being re-authorised, a terminal
+		// reading the chip, a processor that does not want the name.
+		$result = $this->createField()->validate((object) self::card(without: 'name'));
 
-		$this->assertConstraintValidationResultSkipped('securityCodeFormat', $result);
 		$this->assertFalse($result->anyFailed());
+		$this->assertNull($result->value?->name);
 	}
 
 	#[Test]
@@ -198,11 +212,11 @@ final class CreditCardTest extends FieldTestCase
 	{
 		$result = $this->createField()->validate((object) self::card(['security_code' => $code]));
 
-		$this->assertSame(
-			$valid,
-			$result->forConstraint('securityCodeFormat')->passed(),
-			"security code '{$code}'",
-		);
+		if ($valid) {
+			$this->assertFalse($result->anyFailed(), "security code '{$code}'");
+		} else {
+			$this->assertIncompleteWith([Check::SecurityCodeFormat], $result);
+		}
 	}
 
 	/** @return array<string, array{string, bool}> */
@@ -214,7 +228,33 @@ final class CreditCardTest extends FieldTestCase
 			'two digits' => ['12', false],
 			'five digits' => ['12345', false],
 			'letters' => ['abc', false],
+			'blank' => ['', false],
 		];
+	}
+
+	#[Test]
+	public function a_name_that_was_sent_has_to_hold_text(): void
+	{
+		// Optional is not the same as anything goes: `''` was a decision somebody made.
+		$this->assertIncompleteWith([Check::NameFormat], $this->createField()->validate((object) self::card(['name' => ''])));
+	}
+
+	#[Test]
+	public function every_part_in_the_way_is_reported_at_once(): void
+	{
+		$result = $this->createField()->validate((object) ['number' => '4242', 'expiry' => 'soon', 'security_code' => 'abc']);
+
+		$this->assertIncompleteWith([Check::NumberFormat, Check::ExpiryFormat, Check::SecurityCodeFormat], $result);
+		$this->assertSame([], $result->missingParts);
+	}
+
+	#[Test]
+	public function a_default_that_is_not_a_whole_card_is_refused_where_it_is_written(): void
+	{
+		$this->expectException(InvalidDefault::class);
+		$this->expectExceptionMessage('The default for "card" does not make a whole value: "expiryRequired" on its expiry.');
+
+		$this->createField()->defaultsTo((object) ['number' => '4242424242424242']);
 	}
 
 	// ── the number ────────────────────────────────────────────────────────────────────────
@@ -224,8 +264,8 @@ final class CreditCardTest extends FieldTestCase
 	{
 		// Every card number carries a Luhn digit, so one that fails it is not a card number. No
 		// processor would accept it, and catching it here saves a round trip.
-		$this->assertConstraintValidationResultFailed(
-			'numberChecksum',
+		$this->assertIncompleteWith(
+			[Check::NumberChecksum],
 			$this->createField()->validate((object) self::card(['number' => '4242424242424241'])),
 		);
 	}
@@ -234,12 +274,11 @@ final class CreditCardTest extends FieldTestCase
 	#[DataProvider('badlyFormedNumbers')]
 	public function a_number_that_is_not_digits_of_the_right_length_reports_once(string $number): void
 	{
-		// The checksum is skipped rather than also failing: two failures for one mistake is one
-		// too many.
-		$result = $this->createField()->validate((object) self::card(['number' => $number]));
-
-		$this->assertConstraintValidationResultFailed('numberFormat', $result);
-		$this->assertConstraintValidationResultSkipped('numberChecksum', $result);
+		// The checksum is not asked as well: two failures for one mistake is one too many.
+		$this->assertIncompleteWith(
+			[Check::NumberFormat],
+			$this->createField()->validate((object) self::card(['number' => $number])),
+		);
 	}
 
 	/** @return array<string, array{string}> */
@@ -303,13 +342,24 @@ final class CreditCardTest extends FieldTestCase
 	#[Test]
 	public function an_unreadable_expiry_reports_once(): void
 	{
-		// An expiry that was *given* and cannot be read is a shape failure, as a bad amount is on
-		// Money: there is no half-readable card left to report a constraint against. Absent is the
-		// other case, and `expiryRequired` names it.
-		$result = $this->expiring()->validate((object) self::card(['expiry' => 'soon']));
+		// An expiry that was *given* and cannot be read is wrong rather than missing, and it is
+		// reported against the expiry — the box a form should mark. Nothing asks whether it has
+		// passed, because there is no date to ask about.
+		$this->assertIncompleteWith(
+			[Check::ExpiryFormat],
+			$this->expiring()->validate((object) self::card(['expiry' => 'soon'])),
+		);
+	}
 
-		$this->assertShapeUnreadable($result);
-		$this->assertConstraintValidationResultSkipped('expiryInFuture', $result);
+	#[Test]
+	public function a_default_is_never_refused_for_the_date(): void
+	{
+		// Whether a card has expired changes without the schema changing, so it is judged per
+		// request — a default that was fine when the schema was written must not start throwing
+		// at boot years later.
+		$field = $this->expiring()->defaultsTo((object) self::card(['expiry' => '2020-01']));
+
+		$this->assertConstraintValidationResultFailed('expiryInFuture', $field->validate(null));
 	}
 
 	#[Test]
@@ -369,7 +419,6 @@ final class CreditCardTest extends FieldTestCase
 
 		$this->assertSame('4242424242424242', $value->number);
 		$this->assertSame('4242', $value->lastFourDigits());
-		$this->assertNull(Value::of(name: 'Kim Nguyen')->lastFourDigits());
 	}
 
 	#[Test]
@@ -389,16 +438,18 @@ final class CreditCardTest extends FieldTestCase
 		// The guard that replaces masking. A declaration test rather than a behavioural one on
 		// purpose: whether an argument reaches a trace depends on zend.exception_ignore_args, which
 		// is the host's setting and not ours — so the attribute being present is the part we own.
-		$sensitive = static function (string $method, int $at): bool {
-			$parameter = (new ReflectionMethod(Value::class, $method))->getParameters()[$at];
+		$sensitive = static function (string $class, string $method, int $at): bool {
+			$parameter = (new ReflectionMethod($class, $method))->getParameters()[$at];
 
 			return $parameter->getAttributes(SensitiveParameter::class) !== [];
 		};
 
-		$this->assertTrue($sensitive('__construct', 0), 'the submitted record holds both');
-		$this->assertTrue($sensitive('of', 0), '$number');
-		$this->assertTrue($sensitive('of', 3), '$securityCode');
-		$this->assertFalse($sensitive('of', 2), '$name is not a secret');
+		$this->assertTrue($sensitive(Input::class, '__construct', 0), 'the submitted record holds both');
+		$this->assertTrue($sensitive(Value::class, '__construct', 0), '$number');
+		$this->assertTrue($sensitive(Value::class, '__construct', 3), '$securityCode');
+		$this->assertTrue($sensitive(Value::class, 'of', 0), '$number');
+		$this->assertTrue($sensitive(Value::class, 'of', 3), '$securityCode');
+		$this->assertFalse($sensitive(Value::class, 'of', 2), '$name is not a secret');
 	}
 
 	#[Test]

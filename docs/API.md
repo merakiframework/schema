@@ -91,7 +91,7 @@ and the euro spans twenty.
 | `Address` | `allowCountries()`, `clearAllowedCountries()`, `minPrecisionOf()`, `mustBeVisitable()` | `countryRequired`, `allowedCountries`, `streetRequired`, `streetLineLimit`, `streetVisitable`, `localityRequired`, `localityUsed`, `dependentLocalityUsed`, `subdivisionRequired`, `subdivisionUsed`, `knownSubdivision`, `postalCodeRequired`, `postalCodeUsed`, `postalCodeFormat` | `Address\Value` |
 | `Boolean` | `mustBeAccepted()` | `accepted` | `Boolean\Value` |
 | `Collection` | `allowDuplicates()`, `maxCountOf()`, `minCountOf()` | `minCount`, `maxCount`, `unique` | `Collection\Value` |
-| `CreditCard` | `mustExpireInFuture()` | `numberRequired`, `expiryRequired`, `nameRequired`, `numberFormat`, `numberChecksum`, `expiryInFuture`, `expiryWithinReach`, `securityCodeFormat` | `CreditCard\Value` |
+| `CreditCard` | `mustExpireInFuture()` | `expiryInFuture`, `expiryWithinReach` | `CreditCard\Value` |
 | `Date` | `after()`, `atIntervalsOf()`, `from()`, `through()`, `until()` | `from`, `after`, `until`, `through`, `interval` | `Date\Value` |
 | `DateTime` | `after()`, `atIntervalsOf()`, `from()`, `through()`, `until()` | `from`, `after`, `until`, `through`, `interval`, `precision` | `DateTime\Value` |
 | `Duration` | `inIncrementsOf()`, `maxValueOf()`, `minValueOf()` | `minValue`, `maxValue`, `step` | `Duration\Value` |
@@ -117,6 +117,7 @@ them, and no constraint runs until they are clear — see
 | --- | --- |
 | `Money` | `currencyRequired`, `amountRequired`, `currencyFormat`, `amountFormat` |
 | `PhoneNumber` | `numberRequired`, `countryRequired`, `numberFormat`, `knownCountry`, `numberInCountry` |
+| `CreditCard` | `numberRequired`, `expiryRequired`, `numberFormat`, `numberChecksum`, `expiryFormat`, `nameFormat`, `securityCodeFormat` |
 
 **Shared by every field**, so not repeated above: `defaultsTo()`, `makeOptional()`,
 `makeRequired()`, `equals()`, `resolve()`, `validate()`, `resolvedValueFor()`, `resolvedInputFor()`.

@@ -404,6 +404,19 @@ $result = $price->validate((object) ['currency' => 'AUD']);
 | `PhoneNumber\Value` implemented `HasParts` | a rule reads the parts from `PhoneNumber\Input` |
 | `when(PartScope::of('phone', 'number'))->equals('0411 222 333')` never held — the part is E.164 | holds: the expectation is read in the submitted country |
 
+**`CreditCard`** reads its parts first, and its name becomes optional.
+
+| Was | Is |
+| --- | --- |
+| a number, an expiry and a name were required | a number and an expiry. `nameRequired` is gone; the name is optional, like the security code |
+| `numberRequired`, `expiryRequired`, `numberFormat`, `numberChecksum` and `securityCodeFormat` were constraints | reported while assembling; the result is incomplete and the expiry is not judged |
+| an expiry, name or security code that was sent and unreadable made the field unreadable — or, for a security code, failed a constraint | `expiryFormat`, `nameFormat` or `securityCodeFormat`, against that part |
+| a number that was not a string counted as absent | `numberFormat`: it was sent |
+| `expiryInFuture` and `expiryWithinReach` skipped when there was no expiry | they run only on a whole card, so there always is one |
+| every `CreditCard\Value` part could be null, `lastFourDigits()` returned `?string`, and `isComplete()` said whether the three were there | `$number` and `$expiry` are never null and `lastFourDigits()` returns `string`. `isComplete()` is gone: a value is always complete |
+| `CreditCard\Value::of()` took every part as optional | `of($number, $expiry, $name, $securityCode)`, read the way a form's card is |
+| `CreditCard\Value` implemented `HasParts` | a rule reads the parts from `CreditCard\Input` |
+
 ### A required part that was not sent names itself
 
 Every record-shaped field now answers the same three questions the same way. A **required** part
@@ -419,13 +432,11 @@ amount is gibberish", and could not mark anything, since no part was named.
 | Field | New codes | Reported |
 | --- | --- | --- |
 | `Money` | `currencyRequired`, `amountRequired` — and `currencyFormat`, `amountFormat` for a half that was sent and is not one | while the value is assembled: [see above](#a-value-made-of-parts-is-assembled-before-it-is-judged) |
-| `CreditCard` | `numberRequired`, `expiryRequired`, `nameRequired` | as constraints, with a blank part unreadable |
+| `CreditCard` | `numberRequired`, `expiryRequired` — and a `*Format` code for any part that was sent and is not one | while the value is assembled |
 | `PhoneNumber` | `numberRequired` — and `numberFormat` for a number that was sent and is not one | while the value is assembled |
 
-**`CreditCard::expiryFormat` is gone.** An expiry that was given and cannot be read is now a
-shape failure, the same way a bad amount already was on `Money`, so the constraint had nothing
-left to say that `expiryRequired` does not. A message pack with wording for `expiryFormat` keeps
-working — an unused key is not an error — but nothing will read it.
+**A card's name is optional,** like its security code, and `nameRequired` is gone: plenty of
+flows never ask for either. A name that *was* sent still has to hold text, or it is `nameFormat`.
 
 **`PhoneNumber` and `Address` report a missing country too,** as `countryRequired` — see the
 next section, which is where that changed.
