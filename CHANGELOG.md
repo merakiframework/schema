@@ -10,6 +10,77 @@ is a commit subject, with the body kept because the body is where the reasoning 
 
 ## Unreleased
 
+### Money is whole before anything judges it, and only real currencies pass
+
+`9e455250` · 2026-10-03
+
+Money\Value held a nullable currency and a nullable amount, so every
+constraint on it began by asking which half was there, and a blank or
+malformed half made the whole field unreadable with no box named.
+
+Money now reads its halves into Money\Input. currencyRequired and
+amountRequired move from the constraints to assembly, and a half that
+was sent and is not one is reported as currencyFormat or amountFormat
+against that half. Both halves are read whatever happens to the other,
+so a form hears about both at once. The constraints are handed a whole
+Money\Value, whose halves are never null.
+
+An unrestricted field took any three letters. It now reports
+knownCurrency for a code ISO 4217 does not describe. A code the standard
+does not describe is taken when it is named with its scale,
+allowCurrencies(['BTC' => 8]), because writing the scale out is the
+author vouching for it; a bare ['BTC'] is still refused.
+
+The language-pack vocabulary read codes from the constraints, so the
+codes that moved to assembly would have dropped out of it. It reads
+$field->checks now, and its methods are named for checks.
+
+A rule about the currency reads the input, so it holds while the amount
+is still empty, and compares in the stored spelling: equals('aud') on
+the currency part never held before. A rule about the amount part still
+never holds, before or after: it is a BigDecimal the rule engine cannot
+compare. That is B11 in LIMITATIONS.md, with a reproducer, and is left
+for a decision.
+
+ConstraintNameTest asserted a skipped verdict's name, because the
+wither's copy was thrown away; it is kept now and the failure asserted.
+
+### A value made of parts is assembled before any constraint judges it
+
+`fc0aaf26` · 2026-10-03
+
+Submitted input had two outcomes: a value, or nothing readable. A
+record that arrived half-filled had to be one or the other, so a
+structured value carried nullable halves, and every constraint began by
+asking which half was there.
+
+Now parse() may return a Field\Input: the parts as read, what stops them
+making a value, and the value when nothing does. The lifecycle assembles
+it between reading and the constraints. When the parts make no value the
+shape is incomplete (wasIncomplete(), $missingParts), the parts' own
+violations are the whole report, and no constraint runs. Trust waives
+constraints, never assembly, and a default whose parts make no value is
+refused where it is written.
+
+A rule about one part reads the input (resolvedInputFor()), so it holds
+on a half-filled form; a row's part is read from what the row submitted.
+A rule about the whole value reads the assembled one, and comparing it
+against half of one is refused when the rule is added, because it could
+only ever match nothing.
+
+No shipped field returns an input yet. They move one at a time, Money
+first. tests/Field/Fixture/Span is a complete example, and the lifecycle
+is tested against it, so moving a field cannot move those tests.
+
+Password reads through AtomicField::read(), now protected and final,
+instead of keeping its own copy. InconsistentInput is raised for an input
+that reports nothing wrong and makes nothing: a bug no submitter can
+cause, and an "incomplete" verdict nobody could explain.
+
+### Update history
+
+`8c2b7062` · 2026-10-03
+
 ### Every failure is a violation, and the sentence is the last thing it carries
 
 `a47540f1` · 2026-10-03
