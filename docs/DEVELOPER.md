@@ -153,7 +153,8 @@ Shared machinery sits beside them:
 | `Field/Definition.php` | the trait every field uses: configuration, copy-on-change, defaults |
 | `Field/Constraint.php` | one check: a name, a closure, the limit, the part it concerns |
 | `Field/ParsedValue.php` | the marker every value object implements |
-| `Field/HasParts.php` | implemented by a value made of named parts |
+| `Field/Input.php` | a record read part by part, and whether its parts make a value |
+| `Field/HasParts.php` | implemented by anything a rule can read a part from |
 | `Field/BuildsFields.php` | the `createTextField()` helpers on the definition |
 | `Field/ValueClass.php` | reads a field's value type off its `parse()` signature |
 

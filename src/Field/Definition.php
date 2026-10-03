@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace Meraki\Schema\Field;
 
 use Meraki\Schema\AtomicField;
+use Meraki\Schema\Exception\InconsistentInput;
 use Meraki\Schema\Exception\InvalidDefault;
 use Meraki\Schema\Exception\UnknownField;
 use Meraki\Schema\Field;
@@ -45,11 +46,12 @@ trait Definition
 	 * - **It never receives `null`.** Absence is settled before it runs — no input and no default
 	 *   means there is nothing to read, so the field is skipped or reported missing without this
 	 *   being called.
-	 * - **It returns a value, or raises {@see MalformedValue}.** There is no `null`, and no
-	 *   try/catch for a field author to write: who absorbs the refusal is decided by the
-	 *   lifecycle, below.
-	 * - **What it returns is what the constraints see.** So a constraint is typed `Number\Value`
-	 *   and has that be true by construction.
+	 * - **It returns a value, the {@see Input} a value is assembled from, or raises
+	 *   {@see MalformedValue}.** There is no `null`, and no try/catch for a field author to write:
+	 *   who absorbs the refusal is decided by the lifecycle, below.
+	 * - **What it returns is what the constraints see**: the value itself, or the one its input
+	 *   assembles to. So a constraint is typed `Number\Value` and has that be true by
+	 *   construction.
 	 * - **It always returns a value object this library defines.** Never a bare scalar, and never a
 	 *   third party's class — see below.
 	 *
@@ -69,6 +71,21 @@ trait Definition
 	 * because the reason had been discarded one frame earlier — while the constraint branch
 	 * beside it named the constraint that failed. The weaker message was the one whose audience
 	 * could have used it.
+	 *
+	 * ### A value made of parts returns its input
+	 *
+	 * A record can arrive half-filled, and half a value is not a value. So a field whose value has
+	 * parts returns an {@see Input}: the parts as read, what stops them making a value, and the
+	 * value when nothing does. The lifecycle does the rest:
+	 *
+	 * | The input says | What happens |
+	 * | --- | --- |
+	 * | nothing is wrong | its value goes to the constraints |
+	 * | something is | the shape is *incomplete*, the parts' violations are the report, and no constraint runs |
+	 *
+	 * Raising is still for a record that is not one at all. A string where money belongs, or a
+	 * record with nothing in it, cannot be read; a currency with no amount is a form somebody has
+	 * not finished.
 	 *
 	 * ### Most of this belongs to the value, not here
 	 *
@@ -115,12 +132,13 @@ trait Definition
 	 * It gets {@see Collection\Value} like everything else, because an exemption anywhere means
 	 * every consumer has to ask what kind of thing it is holding before it can do anything with it.
 	 *
-	 * So the return type is the whole contract: a value object, or nothing.
+	 * So the return type is the whole contract: a value object, an input that assembles to one,
+	 * or nothing. A field narrows it to the one it returns, `Text\Value` or `Money\Input`.
 	 *
 	 * @see ParsedValue  what every returned value implements
 	 * @see Comparable for the ordered ones, which the comparison matchers build on
 	 */
-	abstract protected function parse(mixed $value): ParsedValue;
+	abstract protected function parse(mixed $value): ParsedValue|Input;
 
 	/**
 	 * The instant this field's time-relative constraints were judged against, or `null` when it
@@ -327,12 +345,64 @@ trait Definition
 	 * The authored default goes through `parse()` too, so `defaultsTo('2026-01-01')` on a date
 	 * yields the same `LocalDate` that submitting that string would. It cannot fail here — a
 	 * default is checked against the field's own shape where it is declared.
+	 *
+	 * For a value made of parts this is the *assembled* value, so it is `null` while the parts
+	 * make none. The parts as read are {@see self::resolvedInputFor()}.
 	 */
 	final public function resolvedValueFor(mixed $given): ?ParsedValue
+	{
+		return self::valueFrom($this->reading($given));
+	}
+
+	/**
+	 * What a value made of parts read its parts as, whether or not they make a value.
+	 *
+	 * `null` when there was nothing to read, when it could not be read at all, and for a field
+	 * whose value is one thing, which has no parts to read separately.
+	 *
+	 * This is what a rule about one part reads. "When the billing country is AU" has an answer
+	 * while the street is still empty, and {@see self::resolvedValueFor()} has none to give until
+	 * every part is sound. A port that wants to show what each part was read as can ask here too.
+	 * What was *sent* is still the thing to echo into a form being redrawn.
+	 */
+	final public function resolvedInputFor(mixed $given): ?Input
+	{
+		$read = $this->reading($given);
+
+		return $read instanceof Input ? $read : null;
+	}
+
+	/**
+	 * Settles absence, then reads once. `null` when there was nothing to read, or nothing
+	 * readable.
+	 */
+	private function reading(mixed $given): ParsedValue|Input|null
 	{
 		$raw = $this->rawFor($given);
 
 		return $raw === null ? null : self::readable($this->parse(...), $raw);
+	}
+
+	/**
+	 * What a reading comes to: the value itself, the value an input assembles to, or `null` while
+	 * there is none.
+	 *
+	 * The one place an input's verdict is read, so the lifecycle, a rule and a default all agree
+	 * on whether a record made a value.
+	 *
+	 * @throws InconsistentInput if an input reports nothing wrong and still makes no value
+	 */
+	final protected static function valueFrom(ParsedValue|Input|null $read): ?ParsedValue
+	{
+		if (!$read instanceof Input) {
+			return $read;
+		}
+
+		if ($read->violations !== []) {
+			return null;
+		}
+
+		return $read->value ?? throw InconsistentInput::madeNoValueAndReportedNothing($read::class);
 	}
 
 	/**
@@ -395,9 +465,12 @@ trait Definition
 	 * lifecycle decision, and a field getting it differently from its neighbours would make
 	 * results inconsistent across a schema — see docs/FIELD-API.md.
 	 *
-	 * @param callable(mixed): ParsedValue $parse
+	 * An input whose parts make no value is not absorbed here, because it is not unreadable:
+	 * it is a reading, and what is wrong with it is the lifecycle's to report part by part.
+	 *
+	 * @param callable(mixed): (ParsedValue|Input) $parse
 	 */
-	final protected static function readable(callable $parse, mixed $raw): ?ParsedValue
+	final protected static function readable(callable $parse, mixed $raw): ParsedValue|Input|null
 	{
 		try {
 			return $parse($raw);
@@ -473,10 +546,18 @@ trait Definition
 		// unreadable, and this used to be the one message that could not say — while the
 		// constraint branch below it named the constraint that failed.
 		try {
-			$parsed = $this->parse($this->defaultValue);
+			$read = $this->parse($this->defaultValue);
 		} catch (MalformedValue $malformed) {
 			throw InvalidDefault::isNotAValueTheFieldCanHold((string) $this->name, $malformed);
 		}
+
+		// Assembly next, and for the same reason: it reads no configuration, so a default whose
+		// parts make no value makes none on every request there will ever be.
+		if ($read instanceof Input && $read->violations !== []) {
+			throw InvalidDefault::isNotAWholeValue((string) $this->name, $read->violations);
+		}
+
+		$parsed = self::valueFrom($read);
 
 		foreach ($this->constraints as $constraint) {
 			// A question about the calendar cannot be settled at definition time: the answer

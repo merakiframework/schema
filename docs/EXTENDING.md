@@ -276,8 +276,11 @@ Two optional interfaces:
 - `Stringable` — if your value has one canonical text form, which is what `contains` and
   `matches` read. Leave it off where there should not be one: `Password\Value` and
   `CreditCard\Value` have no `__toString()` precisely so that no rule can read a secret.
-- [`Field\HasParts`](../src/Field/HasParts.php) — if your value is made of named parts, so a rule
-  can address one: `#/fields/isbn/value/registrant`.
+- [`Field\Input`](../src/Field/Input.php) — if your value is made of named parts. `parse()`
+  returns the parts as read, and the input says whether they make a value, so a half-filled
+  record is reported part by part and no constraint ever sees half a value. A rule addresses
+  one part through it: `#/fields/isbn/value/registrant`. See
+  [FIELD-API.md](FIELD-API.md#a-value-made-of-parts).
 
 ## Wiring it in
 

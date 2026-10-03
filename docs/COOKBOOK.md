@@ -138,6 +138,8 @@ $field = $result->forField('bio');
 
 $field->wasMissing();       // nothing arrived for a required field
 $field->wasUnreadable();    // something arrived that is not this kind of thing
+$field->wasIncomplete();    // a record's parts arrived and make no value
+$field->missingParts;       // ...and which essential ones were not supplied
 
 $failed = $field->getFailedConstraints()->getFirst();
 

@@ -109,7 +109,7 @@ and the euro spans twenty.
 | `Uuid` | `allowVersions()`, `clearAllowedVersions()` | `allowedVersions` | `Uuid\Value` |
 
 **Shared by every field**, so not repeated above: `defaultsTo()`, `makeOptional()`,
-`makeRequired()`, `equals()`, `resolve()`, `validate()`, `resolvedValueFor()`.
+`makeRequired()`, `equals()`, `resolve()`, `validate()`, `resolvedValueFor()`, `resolvedInputFor()`.
 
 One row worth reading twice. **`Enum` reports no constraints** — the list of cases *is* the type, so a
 value outside it is a shape failure, the same way an unparseable string is for `Date`.
@@ -436,6 +436,8 @@ common readings have shorthand on the field, so you only reach for the objects w
 // the common case
 $field->wasMissing();
 $field->wasUnreadable();
+$field->wasIncomplete();      // a record's parts arrived and make no value
+$field->missingParts;         // which essential parts were not supplied
 $field->getFailedConstraints()->getFirst();
 
 // when you need more

@@ -51,6 +51,17 @@ interface FieldResult extends ValidationResult
 	/** Shorthand for `$shape->wasMissing()`. */
 	public function wasMissing(): bool;
 
+	/** Shorthand for `$shape->wasIncomplete()`: a record's parts arrived and make no value. */
+	public function wasIncomplete(): bool;
+
+	/**
+	 * The essential parts that were not supplied, when the parts make no value. Shorthand for
+	 * `$shape->missingParts`.
+	 *
+	 * @var list<Field\Part>
+	 */
+	public array $missingParts { get; }
+
 	/** Shorthand for `$constraints->getFailed()`. */
 	public function getFailedConstraints(): Field\ConstraintResults;
 

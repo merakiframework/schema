@@ -37,8 +37,9 @@ class ResolvedField extends AggregatedValidationResult implements FieldResult
 	 *        form must echo this back rather than anything coerced, or the user is shown
 	 *        something they did not type.
 	 * @param Field\ParsedValue|null $value what the field made of the input — the parsed form of
-	 *        whichever source won, or `null` when nothing valid could be read. Never the raw
-	 *        input: that is `$given`, and having both mean it made the type unusable.
+	 *        whichever source won, or `null` when nothing valid could be read or its parts make
+	 *        no value. Never the raw input: that is `$given`, and having both mean it made the
+	 *        type unusable.
 	 * @param list<AppliedOutcome> $appliedOutcomes which rules changed this field, and how.
 	 * @param ValueSource $source where `$value` came from — submitted, prefilled for this one
 	 *        user, the schema's own default, or nowhere.
@@ -154,8 +155,9 @@ class ResolvedField extends AggregatedValidationResult implements FieldResult
 	 * Whether the value could be read as this field's kind of thing at all.
 	 *
 	 * Separate from the constraints because it is not one: it is the gate that decides whether they
-	 * run. `Failed` means either that something arrived and could not be read, or that nothing
-	 * arrived and the field required it; `Skipped` means nothing arrived and that was acceptable.
+	 * run. `Failed` means that something arrived and could not be read, that a record's parts
+	 * make no value, or that nothing arrived and the field required it; `Skipped` means nothing
+	 * arrived and that was acceptable.
 	 *
 	 * `Pending` when validation has not run, which is also what an empty result reports.
 	 *
@@ -215,6 +217,33 @@ class ResolvedField extends AggregatedValidationResult implements FieldResult
 	public function wasMissing(): bool
 	{
 		return $this->shape->wasMissing();
+	}
+
+	/**
+	 * Whether a record's parts arrived and do not make a value — a currency with no amount, a
+	 * phone number with no country.
+	 *
+	 * Shorthand for `$field->shape->wasIncomplete()`. The parts' own violations say what is
+	 * wrong with each, and {@see self::$missingParts} which essential ones were not supplied.
+	 */
+	public function wasIncomplete(): bool
+	{
+		return $this->shape->wasIncomplete();
+	}
+
+	/**
+	 * The essential parts that were not supplied, in the order the value declares them — the
+	 * boxes a form still needs filled in before there is a value to judge.
+	 *
+	 * Empty unless the result {@see self::wasIncomplete()}. A part that was supplied and could
+	 * not be read is not here: it has a violation of its own.
+	 *
+	 *     $billing->resultIn($result)->missingParts;   // [Address\Part::Country]
+	 *
+	 * @var list<Field\Part>
+	 */
+	public array $missingParts {
+		get => $this->shape->missingParts;
 	}
 
 	/**

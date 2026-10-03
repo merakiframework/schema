@@ -331,6 +331,46 @@ nothing arrived or nothing could be read; `ShapeProblem` is a backed enum now, w
 a collection row's, by the field itself rather than by a string. `Password` and `Collection` narrow
 it to their own result types.
 
+### A value made of parts is assembled before it is judged
+
+A record's parts are read into a `Field\Input` before anything judges them, and the value is built
+only when they make one: every essential part there, every part readable, the parts agreeing with
+each other. When they do not, the result says so, part by part, and no constraint runs:
+
+```php
+$result->wasIncomplete();            // its parts arrived and make no value
+$result->missingParts;               // the essential parts that were not supplied, as Field\Part cases
+$result->forPart($part)->first();    // what is wrong with one of them
+$result->value;                      // null — there is no value until there is a whole one
+```
+
+**What a consumer sees:**
+
+- `FieldResult::wasIncomplete()` and `$missingParts` are new, beside `wasMissing()` and
+  `wasUnreadable()`. `ShapeProblem::Incomplete` is the shape's new problem. It is never a
+  violation's code, because the parts' own violations explain it, so a language pack has no
+  `shape.incomplete` to write.
+- `$result->value` and `$field->resolvedValueFor()` are the *assembled* value, so they are `null`
+  while the parts make none. `$field->resolvedInputFor($given)` is new: the parts as read,
+  whatever they make. What was sent is still `$given`.
+- A rule about **one part** reads the input, so "when the billing country is AU" holds while the
+  street is still empty. A rule about the **whole value** reads the assembled one: `isEmpty()` is
+  true of a half-filled record, as it already was of an unreadable one. Comparing a whole value
+  against half of one, `when($price)->equals((object) ['currency' => 'AUD'])`, is refused where
+  the rule is added, because it could only ever match nothing.
+- A default whose parts make no value raises `InvalidDefault` where it is written, naming each
+  problem and its part. A **trusted prefill must be complete**: trust waives what a field
+  accepts, never what counts as a value.
+
+**Writing a field:** `parse()` may return a `Field\Input` rather than a value — see
+[FIELD-API.md](docs/FIELD-API.md#a-value-made-of-parts). `AtomicField::read()` is `protected` and
+`final`, for a field that overrides `validate()` to return a richer result; `check()` takes what
+`read()` returns. An input that reports nothing wrong and makes no value raises
+`Exception\InconsistentInput`, because it is a bug no submitter can cause.
+
+The record-shaped fields move onto this one at a time, and each is listed here as it does. A field
+not listed still reads its value in one step, so `wasIncomplete()` is always false for it.
+
 ### A required part that was not sent names itself
 
 Every record-shaped field now answers the same three questions the same way. A **required** part

@@ -247,25 +247,21 @@ final readonly class Password extends AtomicField
 		ValueSource $givenAs = ValueSource::Submitted,
 		PrefillPolicy $policy = PrefillPolicy::Checked,
 	): Password\Result {
-		// rawFor() rather than `$given ?? $this->defaultValue`, which was a fourth private copy
-		// of it — identical today only because absentValue() answers null for an atomic field,
-		// and silently divergent the moment that stops being true.
-		$raw = $this->rawFor($given);
-
 		// Through the lifecycle's reader rather than calling parse() directly: this overrides
-		// validate() to report entropy, not to decide what an unreadable secret means.
-		$parsed = $raw === null ? null : self::readable($this->parse(...), $raw);
+		// validate() to report entropy, not to decide what an unreadable secret means. It used to
+		// keep a private copy of the reader, which matched only for as long as nobody changed one.
+		[$raw, $read] = $this->read($given);
 		$source = $this->sourceOf($given, $givenAs);
 
-		// `$parsed`, not `$parsed ?? $raw` — the same line {@see \Meraki\Schema\AtomicField} is
+		// The value, never the raw input — the same line {@see \Meraki\Schema\AtomicField} is
 		// careful about, for the same reason. A value is what the field made of the input, and
 		// null when it could make nothing of it; what was sent is on `$given`. This field was
 		// the one place in nineteen that handed the raw input back as `$value`, so a password
 		// submitted as an array came out of validate() as an array while every sibling, and
 		// this field's own resolve(), answered null. {@see \Meraki\Schema\ResolvedField::$value}
 		// states the contract: never the raw input.
-		return (new Password\Result($this, $given, $parsed, $appliedOutcomes, $source, $this->evaluatedAt()))
-			->withResults(...$this->check($raw, $parsed, $source, $policy));
+		return (new Password\Result($this, $given, self::valueFrom($read), $appliedOutcomes, $source, $this->evaluatedAt()))
+			->withResults(...$this->check($raw, $read, $source, $policy));
 	}
 
 	protected function parse(#[SensitiveParameter] mixed $value): Value

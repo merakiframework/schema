@@ -135,10 +135,12 @@ abstract class Comparison implements Condition, Scoped
 	 * against `QLD` and was false for every request there would ever be — accepted at authoring,
 	 * silently dead, and written in the very spelling the field accepts as input.
 	 *
-	 * Asked of the value rather than resolved here, because only the value knows what it did:
-	 * a subdivision needs its country to resolve, and the submitted value is the only thing that
-	 * has one. That is also why this happens at match time rather than when the rule is written —
-	 * with several countries allowed there is no single subdivision list to resolve against.
+	 * Asked of whatever the part was read from rather than resolved here, because only it knows
+	 * what it did: a subdivision needs its country to resolve, and the submitted parts are the only
+	 * thing that has one. That is also why this happens at match time rather than when the rule is
+	 * written — with several countries allowed there is no single subdivision list to resolve
+	 * against. It is the input, not the value, so an address whose postcode is wrong still
+	 * canonicalises its subdivision: the rule reads the input, and has to be read the same way.
 	 */
 	private function expectationAgainst(mixed $candidate, Field\Set $fields, ScopeResolver $resolver): mixed
 	{
@@ -148,11 +150,11 @@ abstract class Comparison implements Condition, Scoped
 			return $expected;
 		}
 
-		$owner = $resolver->resolve(new ValueScope($this->scope->in));
+		$holder = $resolver->partsHolderFor($this->scope);
 		$part = $this->partNamedBy($this->scope, $fields);
 
-		return ($owner instanceof Field\HasParts && $part !== null)
-			? $owner->canonicalPartValue($part, $expected)
+		return ($holder !== null && $part !== null)
+			? $holder->canonicalPartValue($part, $expected)
 			: $expected;
 	}
 
@@ -213,9 +215,13 @@ abstract class Comparison implements Condition, Scoped
 			// constraints is not this check's question: `equals('ab')` against a field with a
 			// three-character minimum is a perfectly sensible rule, because the point of the rule
 			// may well be to react to input that is going to fail.
+			//
+			// Parts that make no value count as unreadable here. The value the scope points at is
+			// always a whole one or nothing, so an expectation of half of one could only ever
+			// match nothing — which is `isEmpty()`, said far more clearly.
 			$result = $field->validate($expectation);
 
-			if ($result instanceof FieldResult && $result->shape->wasUnreadable()) {
+			if ($result instanceof FieldResult && ($result->shape->wasUnreadable() || $result->shape->wasIncomplete())) {
 				return sprintf(
 					'The rule compares "%s" against %s, which that field cannot hold — so the '
 					. 'comparison could never be true and the rule would never fire.',

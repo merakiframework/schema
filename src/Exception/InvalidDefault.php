@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace Meraki\Schema\Exception;
 
 use Meraki\Schema\Exception;
+use Meraki\Schema\Field\Violation;
 use InvalidArgumentException;
 use Throwable;
 
@@ -31,6 +32,28 @@ final class InvalidDefault extends InvalidArgumentException implements Exception
 			sprintf('The default for "%s" is not a value it can hold. %s', $field, $why->getMessage()),
 			previous: $why,
 		);
+	}
+
+	/**
+	 * The default is a record whose parts make no value: a currency with no amount, say.
+	 *
+	 * Each problem is named with the part it is about, because that is what the author has to
+	 * edit, and the codes are the ones a request would have been told.
+	 *
+	 * @param non-empty-list<Violation> $violations
+	 */
+	public static function isNotAWholeValue(string $field, array $violations): self
+	{
+		return new self(sprintf(
+			'The default for "%s" does not make a whole value: %s.',
+			$field,
+			implode(', ', array_map(
+				static fn(Violation $violation): string => $violation->part === null
+					? sprintf('"%s"', $violation->name)
+					: sprintf('"%s" on its %s', $violation->name, (string) $violation->part->value),
+				$violations,
+			)),
+		));
 	}
 
 	public static function failsItsOwnConstraint(string $field, string $constraint): self

@@ -162,6 +162,10 @@ complete implementation.
 | Nothing arrived, or nothing could be read | `EmailAddress.shape.unreadable` → `shape.unreadable` |
 | Any other violation | `Address.postal_code.postalCodeFormat` → `Address.postalCodeFormat` → `postal_code.postalCodeFormat` → `postalCodeFormat` |
 
+There is no `shape.incomplete`. When a record's parts arrive and make no value, each part that is
+wrong has a violation of its own — `amountRequired`, `postalCodeFormat` — and those are the whole
+report. A sentence about the value as a whole would only repeat them less usefully.
+
 So a pack writes one sentence for every `minLength` in the library and overrides it for `Password`,
 which is different advice even though it is the same constraint. A rung nobody fills in costs
 nothing, and a key nobody wrote produces no message rather than an error.

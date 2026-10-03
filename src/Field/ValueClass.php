@@ -6,6 +6,8 @@ namespace Meraki\Schema\Field;
 use Meraki\Schema\Field;
 use ReflectionMethod;
 use ReflectionNamedType;
+use ReflectionProperty;
+use ReflectionType;
 
 /**
  * What a field parses to, read off its own `parse()` signature.
@@ -15,6 +17,10 @@ use ReflectionNamedType;
  * the field, knowable without a request. A rule needs it where it is *written*: whether a value
  * has an order is a fact about its class, and an ordered question asked of one that does not is
  * refused there rather than quietly never holding.
+ *
+ * A field whose value has parts returns an {@see Input} from `parse()` instead, and the input says
+ * what it assembles to by narrowing {@see Input::$value} — so the class is read from there, and
+ * money is still known to have an order.
  *
  * It used to answer "which parts does this value have" as well, by calling static methods on the
  * class it found. That is {@see \Meraki\Schema\Field::$parts} now, declared by the field's own
@@ -51,10 +57,20 @@ final class ValueClass
 			return null;
 		}
 
-		$returns = (new ReflectionMethod($field, 'parse'))->getReturnType();
+		$class = self::classNamedBy((new ReflectionMethod($field, 'parse'))->getReturnType());
 
-		return ($returns instanceof ReflectionNamedType && !$returns->isBuiltin())
-			? $returns->getName()
+		// An input is not the value; it holds one, and its own declaration says which.
+		return ($class !== null && is_a($class, Input::class, true))
+			? self::classNamedBy((new ReflectionProperty($class, 'value'))->getType())
+			: $class;
+	}
+
+	/** @return class-string|null */
+	private static function classNamedBy(?ReflectionType $type): ?string
+	{
+		/** @var class-string|null */
+		return ($type instanceof ReflectionNamedType && !$type->isBuiltin())
+			? $type->getName()
 			: null;
 	}
 }

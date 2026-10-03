@@ -160,9 +160,24 @@ interface Field
 	 * redrawn. Keeping it here as well made `$value` a union of "the domain type" and "whatever
 	 * arrived", so nothing downstream could rely on its type.
 	 *
+	 * For a value made of parts it is the assembled value, so it is `null` while the parts make
+	 * none — see {@see self::resolvedInputFor()} for the parts themselves.
+	 *
 	 * @param AcceptedType|null $given
 	 */
 	public function resolvedValueFor(mixed $given): ?Field\ParsedValue;
+
+	/**
+	 * The parts of what this field was given, as read, whether or not they make a value; `null`
+	 * when nothing readable arrived, or when the value is one thing with no parts to read
+	 * separately.
+	 *
+	 * What a rule about one part reads, so "when the billing country is AU" holds on an address
+	 * whose street is still empty. See {@see Field\Input}.
+	 *
+	 * @param AcceptedType|null $given
+	 */
+	public function resolvedInputFor(mixed $given): ?Field\Input;
 
 	/**
 	 * Every part this field's value is made of, in the order a value is written — empty for a

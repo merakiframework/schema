@@ -4,12 +4,16 @@ declare(strict_types=1);
 namespace Meraki\Schema\Field;
 
 /**
- * A parsed value made of named parts, so a scope can read into it.
+ * Something made of named parts, so a scope can read into it.
  *
  * `#/fields/billing_address/value` is the whole address; `#/fields/billing_address/value/country`
- * is one part of it. This interface is what tells the two apart, and what makes the second
- * answerable: a value that does not implement it has nothing inside worth addressing, and a scope
- * asking for a part of one is refused where the rule is written.
+ * is one part of it. This interface is what makes the second answerable, and the thing that
+ * answers is the field's {@see Input}: the parts as read, whether or not they make a value yet. So
+ * a rule about one part holds on a form that is still half-filled. A field still reading its value
+ * in one step implements this on the value instead, and is asked there.
+ *
+ * Which parts there are is a fact about the field, not about any request: a scope asking for a
+ * part the field does not declare is refused where the rule is written.
  *
  * It is what lets a rule ask the questions a form actually has:
  *

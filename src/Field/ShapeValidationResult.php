@@ -27,22 +27,31 @@ use Meraki\Schema\ValidationStatus;
  *
  * ### Failing says which way it failed
  *
- * A failure carries a {@see ShapeProblem}: `Missing` when nothing was submitted for a field that
- * required something, `Unreadable` when something arrived that could not be read. These need
- * different sentences, and the only way to tell them apart used to be inspecting `$given` at the
- * call site.
+ * A failure carries a {@see ShapeProblem}:
+ *
+ * - `Missing` when nothing was submitted for a field that required something;
+ * - `Unreadable` when something arrived that could not be read;
+ * - `Incomplete` when a record's parts arrived and do not make a value. It carries the parts'
+ *   violations and names the essential parts that were not supplied.
+ *
+ * These need different sentences, and the only way to tell them apart used to be inspecting
+ * `$given` at the call site.
  */
 final class ShapeValidationResult implements ValidationResult
 {
 	/**
-	 * @param list<Violation> $violations what a person is told about it — one about the whole
-	 *        field when nothing arrived or nothing could be read, none when the shape passed
+	 * @param list<Violation> $violations what a person is told about it. That is one violation
+	 *        about the whole field when nothing arrived or nothing could be read, one per problem
+	 *        part when the parts make no value, and none when the shape passed.
+	 * @param list<Part> $missingParts the essential parts that were not supplied, when the parts
+	 *        make no value
 	 */
 	private function __construct(
 		public readonly ValidationStatus $status,
 		/** Why it failed, or `null` when it did not. */
 		public readonly ?ShapeProblem $problem = null,
 		public readonly array $violations = [],
+		public readonly array $missingParts = [],
 	) {
 	}
 
@@ -62,6 +71,21 @@ final class ShapeValidationResult implements ValidationResult
 	public static function unreadable(): self
 	{
 		return new self(ValidationStatus::Failed, ShapeProblem::Unreadable, [new Violation(ShapeProblem::Unreadable)]);
+	}
+
+	/**
+	 * Parts arrived and do not make a value.
+	 *
+	 * The violations are the parts' own, each naming its box, so nothing is said about the value
+	 * as a whole. See {@see ShapeProblem::Incomplete}.
+	 *
+	 * @param non-empty-list<Violation> $violations what stands in the way, from the field's
+	 *        {@see Input}
+	 * @param list<Part> $missingParts the essential parts that were not supplied
+	 */
+	public static function incomplete(array $violations, array $missingParts = []): self
+	{
+		return new self(ValidationStatus::Failed, ShapeProblem::Incomplete, $violations, $missingParts);
 	}
 
 	/** Nothing arrived and the field said that was acceptable. */
@@ -106,5 +130,16 @@ final class ShapeValidationResult implements ValidationResult
 	public function wasUnreadable(): bool
 	{
 		return $this->problem === ShapeProblem::Unreadable;
+	}
+
+	/**
+	 * Whether a record's parts arrived and do not make a value.
+	 *
+	 * Whichever part was at fault: the parts' own violations say which, and
+	 * {@see self::$missingParts} says which essential ones were not supplied at all.
+	 */
+	public function wasIncomplete(): bool
+	{
+		return $this->problem === ShapeProblem::Incomplete;
 	}
 }
