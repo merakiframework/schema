@@ -69,6 +69,125 @@ guess.
 
 ---
 
+## A value is assembled before it is judged
+
+A value with named parts — an amount and its currency, a number and its country, an address — is
+read in four steps, and only the last one involves the field's configuration:
+
+```
+record ──► input ──────────► assembly ────────► value ─────────► constraints
+           each part as       is this a value     complete, with   does this field
+           read, nothing      at all? every       nothing null     accept it?
+           judged yet         problem at once
+```
+
+- **The input** is the record read part by part. A part is canonicalised where a standard says
+  two spellings are one thing (`Australia` → `AU`, `QLD` → `AU-QLD`), and is `null` where it was
+  absent or could not be read. It exists for any record that arrives, half-filled or not.
+- **Assembly** decides whether those parts make a value: whether every *essential* part is there,
+  whether each part can be read, and whether the parts agree with each other — a phone number is
+  only a number *in a country*. Every problem is reported at once, against the part it is about.
+- **The value** exists only when assembly found nothing. Its essential parts are not nullable —
+  `Money\Value::$amount` is a `BigDecimal`, never a `?BigDecimal` — so PHP enforces them, rather
+  than a guard at the top of every check.
+- **Constraints** judge the value and nothing else. None of them ever sees half of one.
+
+This replaced values that could be half-filled. Since a missing country stopped being a shape
+failure, `PhoneNumber\Value` held a nullable number *and* a nullable country, `Money\Value` could
+be compared while holding no amount, and every check began by asking which half was there.
+That was a value that was not a value, and its constraints were paying for it.
+
+### Which checks are assembly, and which are constraints
+
+> **If no configuration can change the verdict, and it needs no clock, it is assembly.
+> Otherwise it is a constraint.**
+
+| Field | Assembly: is it a value? | Constraint: does this field accept it? |
+| --- | --- | --- |
+| `Money` | `currencyRequired`, `amountRequired`, `currencyFormat`, `amountFormat` | `knownCurrency`, `allowedCurrencies`, `minAmount`, `maxAmount`, `scale` |
+| `PhoneNumber` | `countryRequired`, `numberRequired`, `knownCountry`, `numberFormat`, `numberInCountry` | `allowedCountries`, `numberType` |
+| `CreditCard` | `numberRequired`, `expiryRequired`, `numberFormat`, `numberChecksum`, `expiryFormat`, `nameFormat`, `securityCodeFormat` | `expiryInFuture`, `expiryWithinReach` |
+| `Address` | `countryRequired`, `knownCountry`, `streetFormat`, `streetLineLimit`, `dependentLocalityFormat`, `dependentLocalityUsed`, `localityFormat`, `localityUsed`, `knownSubdivision`, `subdivisionUsed`, `postalCodeFormat`, `postalCodeUsed` | `allowedCountries`, `streetVisitable`, `streetRequired`, `localityRequired`, `subdivisionRequired`, `postalCodeRequired` |
+| `File` | `nameRequired`, `typeRequired`, `sizeRequired`, `nameFormat`, `typeFormat`, `sizeFormat` | `minSize`, `maxSize`, `allowedTypes`, `disallowedTypes` |
+
+The edge cases are where the rule earns its keep. ISO 4217 membership is a *constraint*
+(`knownCurrency`), because explicitly allowing a code with a scale — `['BTC' => 8]` — changes the
+verdict. A card's `expiryWithinReach` cannot be configured, but it asks what day it is, so it is a
+constraint too: a default checked when the schema is written must not start failing years later.
+
+The rule has a corollary, and it is the reason the line sits here: **rules change what a field
+accepts, never what counts as a value.** An outcome is configuration — `then($field->...)` — and
+assembly reads none. So assembly is a pure function of the input and the reference data, and it
+behaves identically for a default checked where the schema is written, for a trusted prefill, and
+on every request.
+
+### Essential parts and demanded parts
+
+Two different facts were both spelled "required", and only one of them is configuration:
+
+- **Essential** — no value of this kind exists without it, whatever any form wants: a phone
+  number's `number` and `country`, money's `currency` and `amount`, an address's `country`, a
+  card's `number` and `expiry`. The value's `Part` enum declares it, and a port reads it as
+  `$field->essentialParts`. A missing one is an assembly problem, reported as `countryRequired`
+  against the `country` part, and the result is *incomplete*.
+- **Demanded** — this field asks for it: an address's street, locality, subdivision and
+  postcode, as far down as `minPrecisionOf()` reaches and as far as the country's own format
+  requires. A missing one is a constraint failure, and a rule can change it.
+
+A card's name is neither. It is optional, like its security code.
+
+Moving a part from essential to demanded turns `public string $name` into `public ?string $name`
+on the value class, so it is a breaking change. That is intended: what a value cannot be without
+is part of its type.
+
+### Every failure is a violation
+
+Whichever step found it, a failure is a `Field\Violation`: a code, the part it concerns, the bound,
+and — once a language pack has had its say — the sentence. The code is a backed enum case the
+field declares, and its value is the key a pack writes a message under:
+
+```php
+$billingResult = $billing->resultIn($schema->validate($data));
+
+$billingResult->wasIncomplete();                              // true: its parts make no address
+$billingResult->missingParts;                                 // [Address\Part::Country]
+$billingResult->forPart(Address\Part::Country)[0]->code;      // Address\Check::CountryRequired
+$billingResult->forPart(Address\Part::Country)->first()?->message;  // "Choose a country."
+```
+
+Which step a violation came from is a fact about the *result* — `wasIncomplete()` — and not part
+of its code. So a check can move between assembly and the constraints without a language pack
+noticing, and a form marks the box the same way either way.
+
+There is no message about the whole field when its parts have their own. "That is not a valid
+address" was the sentence a form showed when the problem was the postcode.
+
+### Why rules still run before the constraints
+
+An outcome changes configuration, and constraints read configuration, so the constraints wait for
+the rules. Conditions wait for nothing: the input and the assembled value are both independent of
+configuration, so both are ready before the first rule runs.
+
+A condition on a **part** reads the input, so it works on the half-filled form it is most often
+written for — "when the billing country is AU, require an ABN" while the street is still empty. A
+condition on the **whole value** reads the assembled one, and an incomplete value answers as though
+nothing was submitted.
+
+Conditioning on a value the field has *accepted* would be circular, because a rule can change
+what is accepted. That is why it is on the roadmap rather than here.
+
+### What it costs
+
+- **More types per structured field**: a `Part` enum, a `Check` enum, the input, and the value.
+- **Errors can arrive in two rounds.** Constraints wait for a whole value, so on an address a bad
+  postcode (assembly) holds back "enter the street" (a demanded part, so a constraint) until the
+  form is submitted again. Letting a constraint run as soon as the parts it reads are sound
+  removes the second round without changing what a result looks like. Whether to is the one
+  decision this section leaves open — see [ROADMAP.md](ROADMAP.md#constraints-that-run-when-their-parts-are-ready).
+- **A trusted prefill must be complete.** Trust waives constraints, never assembly.
+
+---
+
 ## Every value is an object this library defines
 
 `parse()` returns a `Field\ParsedValue` — never a bare scalar, never a class from a dependency.

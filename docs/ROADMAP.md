@@ -69,6 +69,8 @@ Breaking by construction, so a major version regardless.
 | **Rules** | *Done.* [Matcher vocabulary](#rule-authoring), an else-branch, and rules built as values: `$f->when()->equals(…)->then($g->makeRequired())`, composed with `allOf()`/`anyOf()` and added with `addRule()`/`addRules()`. `whenAllMatch()`/`whenAnyMatch()` and both rule builders are gone. An outcome is now an *operation* — `applyTo(Field): Field` — which is what makes it work against an immutable field at all; every one of them was calling a wither and discarding the result, so rules had silently stopped doing anything. All twelve matchers exist, and a field offers only the ones its value can answer — `$text->when()` has no `isAtLeast` to call. An outcome is the field put through its own withers: `then($insurance->makeRequired()->mustBeAccepted())`, with the rule storing the difference. |
 | **API surface** | `addXField()` becomes `createXField()` plus an explicit add; `pairWith()` and `Field::$schema` are removed; `type` stops being reported as a constraint; every row in [API.md](API.md) confirmed and the public API frozen. |
 | **Messages** | Wording becomes part of the core, as *installable language packs* rather than strings in the library. One integration point — `$fieldResult->messages` — a `Message\Provider` and a locale, both passed to `validate()`. Packs are MessageFormat 2 data with no code in them, so every implementation of this library renders the same sentence. Entirely optional: with no provider the library behaves exactly as it did. See [MESSAGES.md](MESSAGES.md). |
+| **Values assembled before they are judged** | *In progress.* A structured value is read as an *input*, assembled into a value only when every essential part is there and readable, and only then judged by constraints. Constraints never see half a value, every failure is a `Field\Violation` with a code the field declares as a backed enum, and checks are sorted by one rule: no configuration and no clock means assembly. See [DESIGN.md](DESIGN.md#a-value-is-assembled-before-it-is-judged). Migrated field by field — `Money`, `PhoneNumber`, `CreditCard`, `Address`, `File` — before the beta. |
+| **Beta: the API freezes** | After the assembly work, the whole public API is reviewed once more, and `2.0.0-beta.1` is tagged as API-stable: from there, only a bug or an incorrect implementation changes it. |
 | **Retire the rewrite-era tests** | *Done.* A rewrite needs tests asserting the *old* behaviour is gone; they earn their keep while both shapes exist in living memory and become noise the moment `2.0` ships, since nobody writing against a 2.x API needs telling that a 1.x one is absent. Each was run one last time to confirm the removal, then deleted — four standalone tests plus `NamingTest`'s 31-row removal matrix. Tests asserting a *live* design boundary were kept, and the distinction is recorded in TODO.md. `AtomicField::getConstraints()` has gone too, with `constraints()` becoming the `$constraints` property. |
 
 ### `2.1`, `2.2`, … — feature releases
@@ -94,6 +96,60 @@ Additive, after the redesign has settled. Each is a minor version.
 
 Because these gate on newer PHP versions, they are minors rather than patches: `2.0`
 keeps the `2.0` floor, and a release that needs 8.5 or 8.6 says so.
+
+<a id="constraints-that-run-when-their-parts-are-ready"></a>
+
+### Decided before the beta: constraints that run when their parts are ready
+
+**Open.** The one decision [assembling a value](DESIGN.md#a-value-is-assembled-before-it-is-judged)
+leaves to be made, and the beta waits for it.
+
+Assembly already reports every part's problems in one pass — a missing country *and* an
+unreadable postcode, together. That is not in question. What is in question is the constraints:
+today they wait for a **whole** value, so anything assembly finds holds every one of them back to
+the next submission. The alternative lets a constraint **declare the parts it reads**, and run as
+soon as those parts assembled cleanly, whatever happened to the rest.
+
+| Submitted | Constraints wait for the whole value | Constraints wait for their own parts |
+| --- | --- | --- |
+| An Australian address with no street and the postcode `40000` | 1st: postcode format. 2nd: "enter the street" | 1st: both |
+| `Money` allowing AUD: `JPY` and no amount | 1st: "enter an amount". 2nd: "we do not take JPY" | 1st: both |
+| A card that must not have expired: a number failing Luhn, and last month's expiry | 1st: checksum. 2nd: "this card has expired" | 1st: both |
+| `PhoneNumber` allowing AU: a New Zealand number and no country | 1st: "choose a country" | 1st: "choose a country" — `allowedCountries` reads the *number's* region, which needs the country |
+
+**For waiting on parts.** Fewer rounds: every problem that does not depend on a broken part is
+reported on the first submission, which on an address — whose most common failures are demanded
+parts — removes most second rounds. It is the same principle at a finer grain: no check runs on a
+part that is not sound. And it changes nothing a result looks like, only how soon a violation
+appears, so it can be added after the beta without breaking anyone.
+
+**Against.** More to declare and more to get wrong. Every constraint names what it reads, and a
+check that runs before the value exists cannot be handed the value — it is handed the parts it
+declared, typed — so a field has two shapes of check rather than one. The runner gains a
+dependency step. And a declaration that is too narrow is a quiet bug: a constraint claiming to
+read only the country, while its answer also depends on the subdivision, would run on a
+subdivision assembly had already rejected. The test kit below would have to check declarations
+against what each check actually touches.
+
+**Recommendation: wait for the parts.** It is the friendlier of the two for the person filling
+the form in, it is the same rule applied more precisely rather than a new one, and it can arrive
+without changing a single thing a consumer reads.
+
+### `3.0` — a field declares; the core runs
+
+Directions rather than commitments. Each changes how a *field* is written, so they belong together
+in a major version rather than drip-fed into minors.
+
+| Theme | Notes |
+| --- | --- |
+| **`AtomicField` becomes an interface, and the core gets a runner** | Today a field inherits its lifecycle from an abstract base class. A field package depending on a base class breaks whenever the base class changes, and the split below makes that every package at once. The target: a field implements an interface — properties and methods only — and a core runner reads them and calls them in the right order. The assembly steps above are already shaped this way: the field declares its parts and its checks, and the core decides what runs when. |
+| **Attributes mark what a property is** | The public surface of a field is fuzzy today: whether `$minLength` is configuration, a constraint's bound, or both is a *naming convention* — the constraint and the property share a name. `#[Constraint(Text\Check::MinLength)]` on the property, and `#[Checks(Text\Check::MinLength)]` on the method that answers it, would make it a declared fact the runner reads and a conformance test can check. It removes `defineConstraints()`, the stored `$constraints`, and the second clone in every wither. The costs: reflection (once per class, cached); attribute misuse surfaces only when reflected, so a PHPStan rule and the test kit below must catch it; and behaviour driven by metadata is invisible to "go to definition". |
+| **A check is a method, and asks for what it needs** | `expiryWithinReach` needs a clock, which is why `Constraint::$timeRelative` exists. A check declared as a method could ask for one by type — `expiresWithinReach(CreditCard\Value $card, Clock $clock)` — and the runner would supply the schema's clock. "Time-relative" stops being a flag and becomes a parameter. |
+| **A result object per field** | `$billingResult->country[0]` rather than `->forPart(Address\Part::Country)[0]`: a result class per structured field, with one `Violations` property per part. Deferred on purpose: the generic result plus static analysis comes first, and a field gets its own result when it needs one. `Password\Result` and `Collection\Result` already exist for that reason. `$field->resultIn()` is the seam: a field that gains a result class narrows its return type. |
+| **Matchers per part** | A rule names a part with its enum — `PartScope::of('billing', Address\Part::Country)` — and is checked when it is written. What it cannot yet say is which questions *that part* can answer; a field should declare how each part compares, the way `$field->when()` declares it for the whole value. |
+| **Conditions that choose what they read** | A condition reads a part from the input and a whole value from the assembled value. Two more readings are worth having: the input *as a whole*, and the value *as accepted* — after its own constraints. The second is circular as things stand, because a rule can change what a field accepts, so it needs either the authored definition's verdict or an ordering the rules can declare. |
+| **Fields in their own packages** | The core keeps the runner and the contracts, and a field package requires only the core. What has to change first: the `create*Field()` builders leave `Definition`, since the core cannot build what it does not depend on, and `for()` and the clock reach a field another way; `Message\Vocabulary` finds fields through their `Check` and `Part` enums and Composer metadata rather than by globbing `src/Field`; a field package can ship its own wording, laid under the language pack's; and `Api\ConstraintNameTest` moves into each package. |
+| **A test kit for field packages** | A field registers with, or extends, a core test case that runs the contract every field must satisfy: its `Part` enum, input, value and result agree; `essentialParts` is a subset of its parts; every `Check` has vocabulary; `parse()` never raises on a request; and assembly answers the same for a default field as for a reconfigured one — which is what proves it reads no configuration. |
 
 ### Why `1.14` and not `1.0.0` or `0.14.0`
 

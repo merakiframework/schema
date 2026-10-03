@@ -10,7 +10,7 @@ worth more than a shorter page.
 The library is **pre-release**. See [ROADMAP.md](ROADMAP.md) for the release ladder and
 [the release verdict](ROADMAP.md#release-verdict) for why.
 
-- [Known defects](#known-defects) — all fixed; kept as the record of what they were
+- [Known defects](#known-defects) — one open; the rest fixed and kept as the record of what they were
 - [Design constraints](#design-constraints) — intentional behaviour that will surprise you
 - [Not yet implemented](#not-yet-implemented) — advertised but inert
 - [Recently fixed](#recently-fixed) — what changed, and what it was
@@ -18,6 +18,48 @@ The library is **pre-release**. See [ROADMAP.md](ROADMAP.md) for the release lad
 ---
 
 ## Known defects
+
+<a id="b10"></a>
+
+### B10 — two rules that each add to one map, and both fire: the second undoes the first
+
+**Open.** An outcome stores the properties a wither *changed*, compared against the field as the
+author registered it, and applies them by replacing each property whole. That composes for a
+property holding one thing — two rules making a field required and accepted touch different
+properties. It does not compose for a property holding a **map**, because each rule's copy of the
+map was taken from the authored field and knows nothing of the other's entry:
+
+```php
+$schema = new Meraki\Schema\Definition('shop');
+$price = $schema->createMoneyField('price', ['AUD' => 2, 'USD' => 2]);
+$a = $schema->createBooleanField('a');
+$b = $schema->createBooleanField('b');
+$schema->add($price, $a, $b);
+
+$schema->addRules(
+    $a->when()->equals(true)->then($price->minAmountOf('AUD', '10.00')),
+    $b->when()->equals(true)->then($price->minAmountOf('USD', '7.00')),
+);
+
+$result = $schema->validate((object) [
+    'a' => true, 'b' => true,
+    'price' => (object) ['currency' => 'AUD', 'amount' => '5.00'],
+])->forField('price');
+
+$result->field->minAmounts;                          // ['USD' => 7.00] — the AUD minimum is gone
+$result->forConstraint('minAmount')->status->name;   // 'Skipped' — and 5.00 AUD gets through
+```
+
+Nothing raises and nothing reports it. The same holds for every map- or list-valued property a
+wither adds to: `Money::$minAmounts` and `$maxAmounts`, and `allowCountries()` /
+`allowCurrencies()` on the fields that have them.
+
+**Until it is fixed,** put both entries in one outcome — a rule per combination of conditions —
+or configure the map on the authored field and let rules change only scalar properties.
+
+The fix belongs in `Rule\Outcome\Reconfigure`: either store an *operation* for a map ("add AUD's
+minimum") rather than the map it produced, or merge a map-valued change into the field as it
+stands rather than replacing it.
 
 <a id="b9"></a>
 
