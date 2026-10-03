@@ -10,6 +10,85 @@ is a commit subject, with the body kept because the body is where the reasoning 
 
 ## Unreleased
 
+### Every failure is a violation, and the sentence is the last thing it carries
+
+`a47540f1` · 2026-10-03
+
+A result reported failures in two places that did not meet. The verdicts
+said what failed and where; the message set said what to tell somebody,
+and held nothing else. So a form with no language pack installed knew a
+postcode had failed but could not be handed one list of what to mark, and
+a form with a pack got sentences it could not attach to anything without
+going back to match constraint names.
+
+Now every failure is a Field\Violation -- its code, the part it
+concerns, the bound and, when the request passed a provider, the sentence
+-- whichever step found it. $result->violations holds them in one order
+whatever ran first: the value as a whole, then each part as the value
+declares them. Violations reads like an array and refuses to be written
+to (Exception\ReadOnlyResult), first() is a method because it asks a
+question, and forPart() takes a Part case, so a misspelt part never gets
+as far as asking.
+
+ShapeProblem becomes a backed enum implementing Check, so "nothing
+arrived" and "nothing readable" are violations too, under the same
+shape.* keys a pack already writes. That collapses Message\Translator to
+one method, forViolation(), where forShape() and forConstraint() would
+have needed a third the day a third kind of failure arrived -- which the
+assembly step is about to be.
+
+$field->resultIn($results) finds a field's own result in a schema's
+results or a collection row's, by the field rather than by a string.
+Password and Collection narrow it to their own result types, so the
+entropy and the rows are typed by PHP rather than by a docblock.
+
+Removed: $result->messages, Message\Set, FlatSet and PartedSet. A
+violation deliberately carries no copy of what was submitted: $given
+already has it, and duplicating it would put card numbers and passwords
+into the objects most likely to be logged.
+
+### Every check is an enum case, and so is every part
+
+`8f04c5b2` · 2026-10-03
+
+A field named what it checks with a string typed at the point of use --
+new Constraint('minLength', ...) -- and a structured value listed its
+parts as strings from two static methods. A typo in either was a silent
+null: forConstraint('minLenght') answered exactly like a constraint the
+field does not have.
+
+Now each field declares a string-backed enum implementing Field\Check,
+and each structured value one implementing Field\Part. Both interfaces
+extend BackedEnum, so PHP itself refuses anything that is not an enum.
+The wire names are the case values and are unchanged, so no language pack
+key moves.
+
+- A Check case declares the part it concerns, so Constraint loses its
+  part argument: a check cannot be declared about one part and reported
+  against another. ConstraintValidationResult carries the code; its name
+  and part are read from it.
+- A Part case declares whether no value can exist without it and whether
+  it holds a list. HasParts::partNames() and listParts(), and ValueClass's
+  three helpers built on them, are replaced by $field->parts.
+- Every field gains $parts, $essentialParts and $checks, read once from
+  its enums. $essentialParts is what a port reads to know which inputs a
+  value needs together; it is a fact about the kind of value, so no
+  wither changes it.
+- Lookups take the case or its wire name: a serialised schema and a pack
+  hold names, and code should hold cases.
+
+No behaviour changes. The essential parts mirror what each field
+requires today -- including the card's name, which becomes optional
+when CreditCard moves onto the assembly lifecycle.
+
+phpstan.neon's existing entry for trait-initialised readonly properties
+grows to cover the three new declarations, for the reason it already
+gives.
+
+### Update history
+
+`7550211d` · 2026-10-03
+
 ### A value is assembled before it is judged: the decision, written down
 
 `447ffd14` · 2026-10-03
