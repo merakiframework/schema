@@ -10,6 +10,52 @@ is a commit subject, with the body kept because the body is where the reasoning 
 
 ## Unreleased
 
+### A part scope takes the part's case, so a rule names a part without a string
+
+`314a1f04` · 2026-10-03
+
+Parts became enum cases, and the one place code still wrote a part as a
+string was the scope a rule reads it through: ValueScope::of('billing',
+'country'). A misspelling there is refused where the rule is added, but
+a case cannot be misspelled at all.
+
+PartScope::of() and ValueScope::of() take a Field\Part as well as the
+wire name, and store the wire name, which is what a serialised scope
+holds. The README, API, cookbook and comparing-fields example now name
+parts by case.
+
+### An upload is described whole before anything judges it
+
+`73315891` · 2026-10-03
+
+File\Value refused a description with a part missing, null, empty or
+not a whole number of bytes outright, so the field came back unreadable
+and a port could not tell which part of its upload handling had failed
+to supply what.
+
+File now reads its parts into File\Input, the last of the five record
+fields to do so: nameRequired, typeRequired and sizeRequired for a part
+not sent, and nameFormat, typeFormat and sizeFormat for one sent and
+unreadable, each against its part. An earlier alpha left these out
+because no form draws a box for a file's type. That is still true, and a
+renderer shows them beside the one file input; but a missing part is
+part of whether there is an upload at all. minSize, maxSize,
+allowedTypes and disallowedTypes are unchanged and still about the
+upload as a whole, handed a File\Value whose parts are never null.
+
+With every record field moved, no value implements HasParts any more, so
+the resolver's fallback to a value's parts is gone: a part scope reads
+the field's input, through ScopeResolver::inputFor(). A custom field
+that wants its parts addressable returns an Input from parse().
+
+FileTest's "missing its name" cases were arrays, which are lists, so
+they were testing an unreadable list rather than a missing part; the
+record cases are new, beside them.
+
+### Update history
+
+`a8a4f22e` · 2026-10-03
+
 ### An address is read against its own country before anything judges it
 
 `4e28ba4c` · 2026-10-03
