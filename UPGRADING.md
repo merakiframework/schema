@@ -649,6 +649,9 @@ What changed underneath:
 - `Field\ValueClass::hasParts()`, `partNamesOf()` and `listPartsOf()` are gone: `$field->parts`
   answers all three.
 - New on every field: `$parts`, `$essentialParts` and `$checks`.
+- A part scope takes the case as well: `PartScope::of('billing', Address\Part::Country)` and
+  `ValueScope::of('billing', Address\Part::Country)`. The wire name still works, and is what a
+  stored scope holds.
 
 ### Rules
 

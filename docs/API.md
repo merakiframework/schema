@@ -684,9 +684,12 @@ reaches the field — rather than about the definition, so no wither expresses i
 ```php
 $schema->when(ValueScope::of('shipping'))->equals(ValueScope::of('billing'));
 
-$schema->when(ValueScope::of('shipping', 'country'))
-    ->equals(ValueScope::of('billing', 'country'));
+$schema->when(ValueScope::of('shipping', Address\Part::Country))
+    ->equals(ValueScope::of('billing', Address\Part::Country));
 ```
+
+A part is named by its case — `Address\Part::Country` — so a misspelled one does not compile. The
+wire name, `'country'`, works too, and is what a stored scope holds.
 
 **A collection's rows are addressable by name** — see [reaching into a collection](#reaching-into-a-collection)
 below. They were not, while a row could be positional: which row `0` is depended on what was

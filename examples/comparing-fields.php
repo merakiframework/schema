@@ -5,6 +5,7 @@ require_once __DIR__ . '/../vendor/autoload.php';
 
 use Meraki\Schema\Definition;
 use Meraki\Schema\Exception\InvalidRule;
+use Meraki\Schema\Field\Address;
 use Meraki\Schema\ValueScope;
 
 // A rule can compare two *fields*, not just a field and a constant — and it can compare one
@@ -32,8 +33,8 @@ $schema->addRule(
 
 // The weaker and more useful one: shipping somewhere else is fine, another country is paperwork.
 $schema->addRule(
-	$schema->when(ValueScope::of('shipping', 'country'))
-		->notEquals(ValueScope::of('billing', 'country'))
+	$schema->when(ValueScope::of('shipping', Address\Part::Country))
+		->notEquals(ValueScope::of('billing', Address\Part::Country))
 		->then($schema->fields->getByName('customs_declaration')->makeRequired()),
 );
 

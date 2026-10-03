@@ -232,6 +232,16 @@ final class ScopeTest extends TestCase
 	}
 
 	#[Test]
+	public function a_part_is_named_by_its_case_rather_than_a_string(): void
+	{
+		// The case is what code holds — a misspelled one does not compile — and the wire name is
+		// what a stored scope holds. Both build the same scope.
+		$this->assertSame('#/fields/billing/value/country', (string) PartScope::of('billing', Field\Address\Part::Country));
+		$this->assertEquals(PartScope::of('billing', 'country'), ValueScope::of('billing', Field\Address\Part::Country));
+		$this->assertSame('postal_code', PartScope::of('billing', Field\Address\Part::PostalCode)->part);
+	}
+
+	#[Test]
 	public function a_part_reached_either_way_is_the_same_scope(): void
 	{
 		$this->assertEquals(PartScope::of('billing', 'country'), ValueScope::of('billing', 'country'));

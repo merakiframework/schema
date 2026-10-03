@@ -327,6 +327,7 @@ itself.
 ## Comparing two fields
 
 ```php
+use Meraki\Schema\Field\Address;
 use Meraki\Schema\ValueScope;
 
 // is the shipping address the billing address?
@@ -335,10 +336,10 @@ $schema->addRule(
         ->then($confirmDifferent->makeRequired()),
 );
 
-// are they at least in the same country?
+// are they at least in the same country? A part is named by its case, so a typo does not compile.
 $schema->addRule(
-    $schema->when(ValueScope::of('shipping', 'country'))
-        ->notEquals(ValueScope::of('billing', 'country'))
+    $schema->when(ValueScope::of('shipping', Address\Part::Country))
+        ->notEquals(ValueScope::of('billing', Address\Part::Country))
         ->then($customsNote->makeRequired()),
 );
 ```
