@@ -460,12 +460,14 @@ final readonly class Value implements ParsedValue, HasParts
 			return $expected;
 		}
 
-		// The country is always there to resolve a subdivision against: the constructor refuses
-		// an address without one, for the reason it gives — a postcode, a subdivision list and a
-		// required set are all selected *by* the country.
 		return match ($part) {
 			'country' => self::codeFor($expected) ?? $expected,
-			'subdivision' => Requirements::subdivisionCodeIn($this->countryCode, $expected) ?? $expected,
+			// A subdivision only resolves against a country, and a form may be submitted before
+			// one is chosen. The stored side is kept as submitted in that case — see
+			// resolveSubdivision() — so the expectation is too, and both are compared as written.
+			'subdivision' => $this->countryCode === null
+				? $expected
+				: (Requirements::subdivisionCodeIn($this->countryCode, $expected) ?? $expected),
 			default => $expected,
 		};
 	}

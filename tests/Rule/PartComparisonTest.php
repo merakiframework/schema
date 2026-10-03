@@ -272,6 +272,30 @@ final class PartComparisonTest extends TestCase
 		$this->assertFalse($this->fired($schema, self::AU, self::AU));
 	}
 
+	/**
+	 * A subdivision only resolves against a country, and a form is often submitted before one is
+	 * chosen. Both sides are then compared as written rather than canonicalised.
+	 *
+	 * The expectation used to be resolved against the address's country regardless, which handed
+	 * a null country to a resolver that requires one — a `TypeError` out of `validate()`, on
+	 * exactly the half-filled form the address had just learned to report politely.
+	 */
+	#[Test]
+	public function a_subdivision_is_compared_as_written_until_there_is_a_country(): void
+	{
+		$schema = $this->schema();
+		$note = $schema->fields->getByName(new FieldName('note'));
+
+		$schema->addRule(
+			$schema->when(PartScope::of('billing', 'subdivision'))->equals('QLD')->then($note->makeOptional()),
+		);
+
+		$noCountry = array_diff_key(self::AU, ['country' => null]);
+
+		$this->assertTrue($this->fired($schema, $noCountry, self::AU));
+		$this->assertFalse($this->fired($schema, ['subdivision' => 'Queensland'] + $noCountry, self::AU));
+	}
+
 	// ── a part held as a list ──────────────────────────────────────────────────────────────
 
 	/**
