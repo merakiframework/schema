@@ -8,6 +8,67 @@ Entries are not sorted into "Added / Changed / Fixed". That classification lives
 head at commit time, and a script inferring it from a verb produces confident nonsense. Each entry
 is a commit subject, with the body kept because the body is where the reasoning is.
 
+## Unreleased
+
+### A missing country names the country box
+
+`d2553989` · 2026-10-03
+
+Address and PhoneNumber refused a value with no country, so a form offering
+several of them answered "That is not a valid address" to somebody who had
+not reached the dropdown yet. Both report countryRequired now, against the
+country part, exactly as Money has always reported currencyRequired.
+
+I argued the other way three weeks of commits ago, and the argument was
+wrong in a way worth writing down: a country does give the rest of an
+address its meaning, and so does a currency give an amount its meaning.
+Money names the part and skips what it cannot judge. "The library can
+compute nothing from here" and "the submitter has made an unreadable mess"
+are different statements, and only the second is a shape failure.
+
+It needed a field allowing several countries to show at all -- with one,
+the port supplies it and nobody sees the box -- which is why it survived
+two alphas with the reasoning intact in three docblocks.
+
+The skip machinery was already there: rulesFor() returns null for a country
+outside the allow-list and every dependent check skips on null, so a null
+country takes the same path. One mistake, one message.
+
+An unrecognised subdivision is reported rather than refused, which was the
+same bug wearing a different hat. One part had three behaviours decided by
+the country: subdivisionRequired when absent, knownSubdivision when
+unrecognised in a country that merely uses one, and the whole address
+unreadable when unrecognised in a country that requires one. A bad state is
+a bad state. The middle two are now one.
+
+The reason given for refusing was that China and Colombia put a postcode
+pattern on the subdivision, so an unresolvable one leaves the postcode
+undecidable. Checked rather than assumed: it falls back to the country's
+own pattern, so CN + "Banana" + "200000" passes the postcode and CN +
+"Banana" + "zzz" fails it. A bad state no longer hides a bad postcode.
+
+Two things deliberately unchanged. A country that was *given* and is not a
+country is still unreadable -- "Zorbia" is an answer nothing can use, not a
+box left empty -- and a bare string for a phone number is still a shape
+failure, because a string never described a pair. PhoneNumber also now
+refuses a record with neither half, which Money and Address already did.
+
+One asymmetry that is deliberate: with a number and no country,
+numberRequired is skipped rather than failed. libphonenumber cannot read
+the number without a region so it genuinely is unread, but telling somebody
+to enter a number they just entered is the wrong message.
+
+Two methods on Address\Value went with the throw -- requiresSubdivision()
+had no other caller, and formats() had no caller but it.
+
+Found in the schema-html port, where the symptom is the only one that
+matters: a form with a country dropdown and no way to tell the user which
+box to fix.
+
+### Update history
+
+`f264b5b8` · 2026-10-03
+
 ## v2.0.0-alpha.3 — 2026-10-02
 
 ### Update history
