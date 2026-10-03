@@ -280,6 +280,28 @@ $field->getFailedConstraints()->getFirst()->part;     // Address\Part::PostalCod
 So a renderer can attach each error to the right input instead of piling them above the fieldset.
 Part names are the same vocabulary the input used.
 
+### A record that is not whole yet
+
+Money with no amount is not money, so nothing about the field is judged until it is — the missing
+half is reported against its own box, and every constraint waits:
+
+```php
+use Meraki\Schema\Field\Money;
+
+$price = $schema->createMoneyField('price', ['AUD'])->minAmountOf('AUD', '10.00');
+$result = $price->validate((object) ['currency' => 'AUD']);
+
+$result->wasIncomplete();                                     // true
+$result->missingParts;                                        // [Money\Part::Amount]
+$result->forPart(Money\Part::Amount)->first()?->code;         // Money\Check::AmountRequired
+$result->forConstraint(Money\Check::MinAmount)?->skipped();   // true — no amount to compare
+```
+
+A half that was sent and is not one — `'abc'` for the amount — is reported the same way, as
+`amountFormat`. Both halves are read whatever happens to the other, so a form with both boxes wrong
+hears about both at once. Something that is not a record at all, a string where money belongs, is
+still `wasUnreadable()`.
+
 ## Repeatable rows
 
 ```php

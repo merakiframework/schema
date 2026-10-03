@@ -152,7 +152,7 @@ final class PackValidator
 
 	/**
 	 * The keys a pack needs for every failure to have *something* to say: the two shape problems,
-	 * every constraint name at its generic rung, and a name for every kind and part a message can
+	 * every code at its generic rung, and a name for every kind and part a message can
 	 * interpolate.
 	 *
 	 * Deliberately the generic rungs only. The specific ones — `Password.minLength` — exist so a
@@ -168,7 +168,7 @@ final class PackValidator
 			$keys[] = "shape.{$problem}";
 		}
 
-		foreach (Vocabulary::constraintNames() as $name) {
+		foreach (Vocabulary::checkNames() as $name) {
 			$keys[] = $name;
 		}
 

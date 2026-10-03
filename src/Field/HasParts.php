@@ -73,13 +73,14 @@ interface HasParts
 	 * `AU-QLD` against `QLD`, was false for every request there would ever be, and said nothing
 	 * — a rule written in the very spelling the field accepts as input.
 	 *
-	 * Asked of the value rather than worked out by the comparison, because only the value knows
-	 * what it did with the input. A subdivision needs its country to resolve, and the submitted
-	 * value is the only thing holding one.
+	 * Asked of the thing holding the parts rather than worked out by the comparison, because only
+	 * it knows what it did with the input. A subdivision needs its country to resolve, and the
+	 * submitted parts are the only thing holding one.
 	 *
 	 * Return the expectation unchanged for a part that is stored as it arrives, which is most of
-	 * them — {@see \Meraki\Schema\Field\Money\Value} canonicalises nothing, so it returns what it
-	 * was handed.
+	 * them — {@see \Meraki\Schema\Field\File\Value} canonicalises nothing, so it returns what it
+	 * was handed, while {@see \Meraki\Schema\Field\Money\Input} upper-cases a currency the way it
+	 * stored one.
 	 *
 	 * @param Part $part one of the field's {@see \Meraki\Schema\Field::$parts}
 	 * @param mixed $expected whatever the rule was written with

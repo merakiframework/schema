@@ -330,9 +330,13 @@ final class StructuredTypeTest extends TestCase
 		$this->assertNotSame([], $declared, $field::class . ' should report parts.');
 		$this->assertSame([], $undeliverable, sprintf('%s declares parts nothing can submit.', $field::class));
 
-		// And a resolved value agrees with the declaration, in the declared order — which is the
-		// order a PartedSet reads its sentences in.
-		$this->assertSame($declared, array_keys($field->resolve($payload)->value->parts()));
+		// And what a rule reads parts from agrees with the declaration, in the declared order —
+		// which is the order violations are read in. That is the input for a field that reads its
+		// parts before assembling a value, and the value for one that still reads it in one step.
+		$holder = $field->resolvedInputFor($payload) ?? $field->resolve($payload)->value;
+
+		$this->assertInstanceOf(Field\HasParts::class, $holder);
+		$this->assertSame($declared, array_keys($holder->parts()));
 	}
 
 	/** @return iterable<string, array{Field, object}> */

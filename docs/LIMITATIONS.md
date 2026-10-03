@@ -10,7 +10,7 @@ worth more than a shorter page.
 The library is **pre-release**. See [ROADMAP.md](ROADMAP.md) for the release ladder and
 [the release verdict](ROADMAP.md#release-verdict) for why.
 
-- [Known defects](#known-defects) — one open; the rest fixed and kept as the record of what they were
+- [Known defects](#known-defects) — two open; the rest fixed and kept as the record of what they were
 - [Design constraints](#design-constraints) — intentional behaviour that will surprise you
 - [Not yet implemented](#not-yet-implemented) — advertised but inert
 - [Recently fixed](#recently-fixed) — what changed, and what it was
@@ -18,6 +18,40 @@ The library is **pre-release**. See [ROADMAP.md](ROADMAP.md) for the release lad
 ---
 
 ## Known defects
+
+<a id="b11"></a>
+
+### B11 — a rule about a part that holds a number or a date never holds
+
+**Open.** A part scope resolves to whatever the value holds in that part, and three parts hold
+something the rule engine cannot compare: money's `amount` is a `BigDecimal`, a card's `expiry` a
+`LocalDate`, and a file's `size` an `int`. Equality compares objects that are not this library's
+by identity, and the ordered verbs need a `Comparison\Comparable`, so:
+
+```php
+$schema = new Meraki\Schema\Definition('order');
+$schema->add($schema->createMoneyField('price', ['AUD']));
+$schema->add($note = $schema->createTextField('note')->makeOptional());
+$schema->addRule(
+    $schema->when(Meraki\Schema\PartScope::of('price', 'amount'))->isAtLeast(10)
+        ->then($note->makeRequired()),
+);
+
+$schema->validate((object) ['price' => (object) ['currency' => 'AUD', 'amount' => '12.50']])
+    ->forField('note')->wasMissing();   // false — and `equals('12.50')` never holds either
+```
+
+The rule is accepted where it is written and never fires, which is the dead-rule failure the
+guards exist to stop. A rule about the *whole* value is unaffected: `$price->when()->isAtLeast(...)`
+compares two `Money\Value`s.
+
+**Until it is fixed,** compare the whole value, or a part that holds text.
+
+Two fixes, not exclusive. A part could hold this library's own value object — a `Number\Value`
+for an amount, a `Date\Value` for an expiry — and the input could read the expectation into the
+same type, the way an address reads `QLD` as `AU-QLD`; the ordered verbs would then have to read
+a part's expectation through the input too, as equality already does. Or a part could declare
+what it holds, so a comparison it cannot answer is refused where the rule is written.
 
 <a id="b10"></a>
 

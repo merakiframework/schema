@@ -371,23 +371,44 @@ $result->value;                      // null — there is no value until there i
 The record-shaped fields move onto this one at a time, and each is listed here as it does. A field
 not listed still reads its value in one step, so `wasIncomplete()` is always false for it.
 
+**`Money`** reads its halves first.
+
+```php
+$price = $schema->createMoneyField('price', ['AUD'])->minAmountOf('AUD', '10.00');
+$result = $price->validate((object) ['currency' => 'AUD']);
+
+// alpha.3 — shape passed; amountRequired failed; minAmount skipped
+// now     — incomplete; missingParts [Money\Part::Amount]; amountRequired on the amount;
+//           every constraint skipped
+```
+
+| Was | Is |
+| --- | --- |
+| `currencyRequired` and `amountRequired` were constraints | reported while assembling, as above |
+| a blank or malformed half made the whole field unreadable | `currencyFormat` or `amountFormat`, against that half |
+| a field naming no currencies took any three letters | `knownCurrency` fails for a code ISO 4217 does not describe |
+| `allowCurrencies(['ZZZ' => 2])` was refused | taken: a code named with its scale is the author vouching for it. A bare `['ZZZ']` is still refused, since the standard has no scale to give it |
+| `Money\Value::$currency` and `$amount` could be null | never null. Build one with `Money\Value::of('AUD', '10.00')`, or `new Money\Value('AUD', $decimal)` |
+| `Money\Value` implemented `HasParts` | a rule reads the halves from `Money\Input`, so `#/fields/price/value/currency` answers while the amount is still empty |
+| `when(PartScope::of('price', 'currency'))->equals('aud')` never held | holds: the expectation is read the way the currency was, upper-cased |
+
 ### A required part that was not sent names itself
 
 Every record-shaped field now answers the same three questions the same way. A **required** part
-that is absent, or present and `null`, fails that part's own `*Required` constraint and carries
-the part on the verdict, so a form can mark the box. A part that was *sent* and holds nothing is
-a shape failure — `''` was a decision somebody made, and reading it as absence would let
+that is absent, or present and `null`, is reported under that part's own `*Required` code and
+carries the part, so a form can mark the box. A part that was *sent* and holds nothing is wrong
+rather than absent — `''` was a decision somebody made, and reading it as absence would let
 whitespace satisfy a requiredness check.
 
 `Address` already behaved this way. `Money`, `CreditCard` and `PhoneNumber` collapsed all three
 cases into "unreadable", which is why a port could not tell "you left the amount out" from "the
 amount is gibberish", and could not mark anything, since no part was named.
 
-| Field | New constraints |
-| --- | --- |
-| `Money` | `currencyRequired`, `amountRequired` |
-| `CreditCard` | `numberRequired`, `expiryRequired`, `nameRequired` |
-| `PhoneNumber` | `numberRequired` |
+| Field | New codes | Reported |
+| --- | --- | --- |
+| `Money` | `currencyRequired`, `amountRequired` — and `currencyFormat`, `amountFormat` for a half that was sent and is not one | while the value is assembled: [see above](#a-value-made-of-parts-is-assembled-before-it-is-judged) |
+| `CreditCard` | `numberRequired`, `expiryRequired`, `nameRequired` | as constraints, with a blank part unreadable |
+| `PhoneNumber` | `numberRequired` | as a constraint, with a blank part unreadable |
 
 **`CreditCard::expiryFormat` is gone.** An expiry that was given and cannot be read is now a
 shape failure, the same way a bad amount already was on `Money`, so the constraint had nothing
@@ -515,9 +536,9 @@ $schema->validate((object) ['resume' => (object) [
 ```
 
 **What did not change:** a value under a key that *is* declared. `['amount' => 'twelve']` is still
-an ordinary unreadable value, reported as a verdict and rendered from a message pack. The line is
-which keys, not what is in them — only the first can be attributed to the builder without knowing
-the protocol.
+reported as a verdict — `amountFormat`, against the amount — and rendered from a message pack. The
+line is which keys, not what is in them — only the first can be attributed to the builder without
+knowing the protocol.
 
 ### A value reports the parts it is submitted with
 

@@ -191,6 +191,28 @@ abstract class FieldTestCase extends TestCase
 		$this->assertShapeProblemIs(ShapeProblem::Unreadable, $result);
 	}
 
+	/**
+	 * A record whose parts make no value, reported as these codes in reading order — and judged by
+	 * no constraint, because there was no value to judge.
+	 *
+	 * @param list<Field\Check> $codes
+	 */
+	public function assertIncompleteWith(array $codes, AggregatedValidationResult $result): void
+	{
+		$this->assertShapeProblemIs(ShapeProblem::Incomplete, $result);
+		$this->assertInstanceOf(FieldResult::class, $result);
+		$this->assertSame($codes, array_map(
+			static fn(Field\Violation $violation): Field\Check => $violation->code,
+			iterator_to_array($result->violations),
+		));
+
+		foreach ($result as $inner) {
+			if ($inner instanceof ConstraintValidationResult) {
+				$this->assertTrue($inner->skipped(), "{$inner->name} ran against a value that was never whole.");
+			}
+		}
+	}
+
 	public function assertShapeProblemIs(ShapeProblem $expected, AggregatedValidationResult $result): void
 	{
 		foreach ($result as $inner) {

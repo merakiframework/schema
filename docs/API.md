@@ -98,7 +98,7 @@ and the euro spans twenty.
 | `EmailAddress` | `allowDomains()`, `clearAllowedDomains()`, `clearDisallowedDomains()`, `disallowDomains()`, `maxLengthOf()`, `minLengthOf()` | `minLength`, `maxLength`, `allowedDomains`, `disallowedDomains` | `EmailAddress\Value` |
 | `Enum` | — | — | `Enum\Value` |
 | `File` | `allowDocuments()`, `allowImages()`, `allowTypes()`, `allowVideos()`, `clearAllowedTypes()`, `clearDisallowedTypes()`, `disallowScripts()`, `disallowTypes()`, `maxSizeOf()`, `minSizeOf()` | `minSize`, `maxSize`, `allowedTypes`, `disallowedTypes` | `File\Value` |
-| `Money` | `allowCurrencies()`, `clearAllowedCurrencies()`, `maxAmountOf()`, `minAmountOf()` | `currencyRequired`, `amountRequired`, `allowedCurrencies`, `minAmount`, `maxAmount`, `scale` | `Money\Value` |
+| `Money` | `allowCurrencies()`, `clearAllowedCurrencies()`, `maxAmountOf()`, `minAmountOf()` | `knownCurrency`, `allowedCurrencies`, `minAmount`, `maxAmount`, `scale` | `Money\Value` |
 | `Name` | `maxLengthOf()`, `minLengthOf()` | `minLength`, `maxLength` | `Name\Value` |
 | `Number` | `clearStep()`, `inIncrementsOf()`, `maxPrecisionOf()`, `maxValueOf()`, `minValueOf()`, `scaleTo()` | `minValue`, `maxValue`, `step`, `scale`, `maxPrecision` | `Number\Value` |
 | `Password` | `maxLengthOf()`, `minLengthOf()`, `minNumberOfDigits()`, `minNumberOfLowercaseChars()`, `minNumberOfSymbols()`, `minNumberOfUppercaseChars()`, `minStrengthOf()` | `minLength`, `maxLength`, `minStrength`, `minUppercaseChars`, `minLowercaseChars`, `minDigits`, `minSymbols` | `Password\Value` |
@@ -107,6 +107,15 @@ and the euro spans twenty.
 | `Time` | `after()`, `atIntervalsOf()`, `from()`, `through()`, `until()` | `from`, `after`, `until`, `through`, `interval`, `precision` | `Time\Value` |
 | `Uri` | `allowSchemes()`, `clearAllowedSchemes()`, `maxLengthOf()`, `minLengthOf()` | `minLength`, `maxLength`, `allowedSchemes` | `Uri\Value` |
 | `Uuid` | `allowVersions()`, `clearAllowedVersions()` | `allowedVersions` | `Uuid\Value` |
+
+**Checked before any constraint.** A field whose value has parts first decides whether they make
+a value at all, and reports these codes part by part when they do not. No configuration changes
+them, and no constraint runs until they are clear — see
+[DESIGN.md](DESIGN.md#a-value-is-assembled-before-it-is-judged).
+
+| Field | Codes |
+| --- | --- |
+| `Money` | `currencyRequired`, `amountRequired`, `currencyFormat`, `amountFormat` |
 
 **Shared by every field**, so not repeated above: `defaultsTo()`, `makeOptional()`,
 `makeRequired()`, `equals()`, `resolve()`, `validate()`, `resolvedValueFor()`, `resolvedInputFor()`.

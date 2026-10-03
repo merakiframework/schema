@@ -87,7 +87,10 @@ final class ConstraintNameTest extends TestCase
 			// Structured types: flat, and no longer prefixed with the field's own name. Each part
 			// a constraint concerns is carried on the result as `part` rather than spelled into
 			// the name, which is what let the dotted names go.
-			'Money' => ['currencyRequired', 'amountRequired', 'allowedCurrencies', 'minAmount', 'maxAmount', 'scale'],
+			//
+			// Whether the halves make money at all is assembly, so `currencyRequired` and its
+			// three siblings are not constraints — see the test below for every code.
+			'Money' => ['knownCurrency', 'allowedCurrencies', 'minAmount', 'maxAmount', 'scale'],
 			'Address' => [
 				'countryRequired',
 				'allowedCountries',
@@ -117,6 +120,43 @@ final class ConstraintNameTest extends TestCase
 
 		foreach ($names as $class => $expected) {
 			yield $class => [$class, $expected];
+		}
+	}
+
+	/**
+	 * The codes a field reports before any constraint runs — whether a record's parts make a value
+	 * at all — under the agreed names.
+	 *
+	 * Every code a field declares is either one of these or a constraint's, and a language pack
+	 * words both under the same kind of key: the step a code belongs to is a fact about the result,
+	 * never part of its name, so a check can move between them without a pack noticing.
+	 *
+	 * @param list<string> $expected
+	 */
+	#[Test]
+	#[DataProvider('assemblyCodes')]
+	public function a_field_reports_whether_its_parts_make_a_value_under_the_agreed_codes(string $class, array $expected): void
+	{
+		$field = self::build($class);
+		$constraints = $field->constraints->names;
+
+		$this->assertSame($expected, array_values(array_filter(
+			array_column($field->checks, 'value'),
+			static fn(string $code): bool => !in_array($code, $constraints, true),
+		)));
+	}
+
+	/** @return iterable<string, array{class-string<Field>, list<string>}> */
+	public static function assemblyCodes(): iterable
+	{
+		$codes = [
+			// Whether the halves make money at all. No configuration changes any of these, which
+			// is what makes them assembly rather than constraints — see docs/DESIGN.md.
+			'Money' => ['currencyRequired', 'amountRequired', 'currencyFormat', 'amountFormat'],
+		];
+
+		foreach (SealedFieldTest::fields() as $short => [$class]) {
+			yield $short => [$class, $codes[$short] ?? []];
 		}
 	}
 
@@ -204,11 +244,13 @@ final class ConstraintNameTest extends TestCase
 	{
 		// A structured type reports flat names and says which part failed, so a consumer
 		// never splits a string to find out. `cost.amount.min` becomes `minAmount` + a part.
-		$money = new Field\Money(new FieldName('cost'), ['AUD' => 2]);
-		$money->minAmountOf('AUD', '10.00');
+		// Assigned: a field is immutable, and a wither's copy that is thrown away bounds nothing —
+		// which left this asserting the name and part of a skipped verdict.
+		$money = (new Field\Money(new FieldName('cost'), ['AUD' => 2]))->minAmountOf('AUD', '10.00');
 
 		$failed = $money->validate((object)['currency' => 'AUD', 'amount' => '5.00'])->forConstraint('minAmount');
 
+		$this->assertTrue($failed->failed());
 		$this->assertSame('minAmount', $failed->name);
 		$this->assertSame(Field\Money\Part::Amount, $failed->part);
 	}

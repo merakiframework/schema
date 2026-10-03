@@ -135,16 +135,22 @@ src/
 
 ### The field directory
 
-Every field type is two files and a folder:
+Every field type is a file and a folder:
 
 ```
 Field/Money.php             the field: configuration, constraints, parse()
-Field/Money/Value.php       the value: what money IS, and what it refuses
+Field/Money/Check.php       every code it reports a failure under
+Field/Money/Part.php        the parts its value is made of — only for a value that has parts
+Field/Money/Input.php       the parts as read, and whether they make money — likewise
+Field/Money/Value.php       the value: whole money, which nothing downstream second-guesses
 ```
 
 The **field** knows about rules the author set — which currencies are allowed, what the minimum
-is. The **value** knows what money is at all. A currency code being three letters belongs to the
-value; a currency being one *this field accepts* belongs to the field.
+is. The **input** knows what money is at all: a currency code being three letters belongs to it,
+and so does an amount with no currency being no money. The **value** is what the input makes when
+nothing stands in its way. A currency being one *this field accepts* belongs to the field. A value
+that is one thing, like `Text\Value`, has no parts, so its field reads it in one step and has no
+input.
 
 Shared machinery sits beside them:
 
@@ -390,7 +396,7 @@ produces an empty message set and leaves every verdict exactly as it was.
 
 ### 12. Sibling field types do not share code with each other
 
-`Money\Value` and `CreditCard\Value` both check for unknown keys, in six near-identical lines.
+`Money\Input` and `CreditCard\Value` both check for unknown keys, in six near-identical lines.
 That duplication is deliberate.
 
 *Why:* a shared helper makes two types move together forever. Fields are the part of this library

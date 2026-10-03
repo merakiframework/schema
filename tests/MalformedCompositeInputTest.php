@@ -166,23 +166,78 @@ final class MalformedCompositeInputTest extends TestCase
 	/**
 	 * Every record-shaped field answers the same three questions the same way.
 	 *
-	 * The invariant: a **required** part that is absent, or present and `null`, fails that
-	 * part's `*Required` constraint and names the part, so a form can mark the box. A part that
-	 * was *sent* and holds nothing is `unreadable` instead — `''` was a decision somebody made,
-	 * and reading it as absence would let whitespace satisfy a requiredness check.
+	 * The invariant, for a part no value of the kind can be without:
 	 *
-	 * Only `Address` honoured this. `Money`, `CreditCard` and `PhoneNumber` collapsed all three
-	 * cases into `unreadable`, so "you left the amount out" and "the amount is gibberish" were
-	 * one verdict with no part on it — which is why `schema-html` ended up collapsing blank
-	 * records to null before handing them over.
+	 * - **absent, or present and `null`** — it is missing. The record is incomplete, the part's
+	 *   own `*Required` violation names it, and it is listed in `missingParts`, so a form can mark
+	 *   the box.
+	 * - **sent and holding nothing** — it is wrong rather than missing, and its `*Format`
+	 *   violation names it. `''` was a decision somebody made, and reading it as absence would let
+	 *   whitespace stand in for a value.
 	 *
-	 * One provider across all four, because the point is that they agree: a fifth record field
-	 * that disagrees fails here rather than being discovered by a port.
+	 * Either way the record is incomplete rather than unreadable, and no constraint runs.
+	 *
+	 * The history is why this is one test across the record fields. Only `Address` named its
+	 * parts at first; `Money`, `CreditCard` and `PhoneNumber` collapsed every case into
+	 * `unreadable`, so "you left the amount out" and "the amount is gibberish" were one verdict with
+	 * no part on it — which is why `schema-html` ended up collapsing blank records to null before
+	 * handing them over. A record field that disagrees fails here rather than being discovered by a
+	 * port.
 	 *
 	 * @param array<string, mixed> $complete
 	 */
 	#[Test]
-	#[DataProvider('recordFields')]
+	#[DataProvider('partsCheckedWhileAssembling')]
+	public function a_missing_essential_part_names_itself(
+		callable $make,
+		array $complete,
+		Field\Part $part,
+		Field\Check $required,
+		Field\Check $format,
+	): void {
+		$schema = new Definition('s');
+		$schema->add($make($schema));
+
+		$without = $complete;
+		unset($without[$part->value]);
+
+		foreach (['absent' => $without, 'null' => [$part->value => null] + $complete] as $how => $given) {
+			$result = $schema->validate((object) ['f' => (object) $given])->forField('f');
+
+			$this->assertTrue($result?->wasIncomplete(), "{$part->value}: {$how} should leave the record incomplete");
+			$this->assertSame([$part], $result->missingParts, "{$part->value}: {$how} should be missing");
+			$this->assertSame($required, $result->forPart($part)->first()?->code, "{$part->value}: {$how} should name the part");
+		}
+
+		$blank = $schema->validate((object) ['f' => (object) ([$part->value => ''] + $complete)])->forField('f');
+
+		$this->assertTrue($blank?->wasIncomplete(), "{$part->value}: blank should leave the record incomplete");
+		$this->assertSame([], $blank->missingParts, "{$part->value}: blank was sent, so it is not missing");
+		$this->assertSame($format, $blank->forPart($part)->first()?->code, "{$part->value}: blank should be wrong");
+	}
+
+	/** @return iterable<string, array{callable, array<string, mixed>, Field\Part, Field\Check, Field\Check}> */
+	public static function partsCheckedWhileAssembling(): iterable
+	{
+		yield 'Money' => [
+			static fn(Definition $s): Field => $s->createMoneyField('f', ['AUD' => 2]),
+			['currency' => 'AUD', 'amount' => '10.00'],
+			Field\Money\Part::Amount,
+			Field\Money\Check::AmountRequired,
+			Field\Money\Check::AmountFormat,
+		];
+	}
+
+	/**
+	 * The same questions, for a part a field checks among its constraints: the record is read, the
+	 * part's `*Required` constraint fails and names it, and a blank one is unreadable.
+	 *
+	 * A field leaves this provider when it moves onto assembly, and its row joins the one above.
+	 *
+	 * @param array<string, mixed> $complete
+	 */
+	#[Test]
+	#[DataProvider('partsCheckedAsConstraints')]
 	public function a_required_part_that_is_absent_names_itself(
 		callable $make,
 		array $complete,
@@ -208,6 +263,16 @@ final class MalformedCompositeInputTest extends TestCase
 		$blank = $schema->validate((object) ['f' => (object) ([$part => ''] + $complete)])->forField('f');
 
 		$this->assertTrue($blank->wasUnreadable(), "{$constraint}: blank should be unreadable");
+	}
+
+	/** @return iterable<string, array{callable, array<string, mixed>, string, string}> */
+	public static function partsCheckedAsConstraints(): iterable
+	{
+		foreach (self::recordFields() as $kind => $row) {
+			if ($kind !== 'Money') {
+				yield $kind => $row;
+			}
+		}
 	}
 
 	/** @return iterable<string, array{callable, array<string, mixed>, string, string}> */

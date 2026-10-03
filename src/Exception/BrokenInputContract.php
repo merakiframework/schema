@@ -50,7 +50,7 @@ use InvalidArgumentException;
  *
  * ### It is the type system's job, and the type system does not finish it
  *
- * Each record value's constructor documents its `@param` as an object shape —
+ * The constructor that reads each record documents its `@param` as an object shape —
  * `object{currency?: string|null, amount?: string|int|float|null}` — and PHPStan checks two of
  * the three ways a record can be wrong, at the call site, before anything runs:
  *
@@ -86,7 +86,10 @@ final class BrokenInputContract extends InvalidArgumentException implements Exce
 {
 	private function __construct(
 		string $message,
-		/** The value class that refused it, which is machine-readable where a name would not be. */
+		/**
+		 * The value class the record was being read as — whichever class did the reading — which
+		 * is machine-readable where a name would not be.
+		 */
 		public readonly string $valueClass,
 		/** @var list<string> the keys it does not accept, so a port can act without parsing English */
 		public readonly array $unknownKeys,
