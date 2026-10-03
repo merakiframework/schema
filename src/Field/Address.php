@@ -252,6 +252,9 @@ final readonly class Address extends AtomicField
 		$declared = $this->declaredRequirements();
 
 		return new Constraint\Set(
+			// First, because everything below it is read from the country's own published
+			// format: without one, each of them skips rather than guessing.
+			new Constraint('countryRequired', $this->namesACountry(...), true, 'country'),
 			new Constraint('allowedCountries', $this->isAnAllowedCountry(...), $this->allowedCountries, 'country'),
 
 			new Constraint(
@@ -341,12 +344,17 @@ final readonly class Address extends AtomicField
 	 * Null rather than an answer, because `allowedCountries` already reports it and deriving a
 	 * second failure from the same mistake turns one error into several.
 	 *
-	 * The country is always present and always recognised by the time a value exists — the value
-	 * refuses anything else — so there is no third case here.
+	 * A country that was given is always one ISO 3166-1 knows, because the value refuses
+	 * anything else. One that was *not* given is null, and answers null here — so every check
+	 * read from a country's format skips, and `countryRequired` is the single thing reported.
 	 */
 	private function rulesFor(Value $address): ?Requirements
 	{
 		$country = $address->countryCode;
+
+		if ($country === null) {
+			return null;
+		}
 
 		if ($this->allowedCountries !== [] && !in_array($country, $this->allowedCountries, true)) {
 			return null;
@@ -386,9 +394,16 @@ final readonly class Address extends AtomicField
 
 	// ── the checks ─────────────────────────────────────────────────────────────────────────
 
+	/** Whether a country was given at all. Everything else about an address depends on it. */
+	private function namesACountry(Value $address): bool
+	{
+		return $address->countryCode !== null;
+	}
+
 	private function isAnAllowedCountry(Value $address): ?bool
 	{
-		if ($this->allowedCountries === []) {
+		// Nothing was asked, or there is nothing to ask it of — `countryRequired` has that.
+		if ($this->allowedCountries === [] || $address->countryCode === null) {
 			return null;
 		}
 

@@ -91,6 +91,30 @@ final class PhoneNumberTest extends FieldTestCase
 		$this->assertConstraintValidationResultSkipped('allowedCountries', $resolved);
 	}
 
+	/**
+	 * And the mirror: a number typed before a country was picked.
+	 *
+	 * This was a shape failure until this release, because libphonenumber cannot parse a
+	 * number without a region. That is still true and is why the number stays unread — but
+	 * it is a fact about this library, not about the submitter. On a field offering several
+	 * countries the country is a box somebody fills in, and "that is not a valid phone
+	 * number" named neither the problem nor the box.
+	 */
+	#[Test]
+	public function a_number_with_no_country_yet_names_the_missing_country(): void
+	{
+		$resolved = (new PhoneNumber(new FieldName('phone'), ['AU', 'NZ']))
+			->validate((object) ['number' => '0411 222 333']);
+
+		$this->assertShapePassed($resolved);
+		$this->assertConstraintValidationResultFailed('countryRequired', $resolved);
+
+		// Not numberRequired as well: they did type a number, and one mistake earns one
+		// message. It is skipped until there is a country to read the number against.
+		$this->assertConstraintValidationResultSkipped('numberRequired', $resolved);
+		$this->assertConstraintValidationResultSkipped('allowedCountries', $resolved);
+	}
+
 	/** @return array<string, array{mixed}> */
 	public static function incompletePairs(): array
 	{
@@ -104,7 +128,6 @@ final class PhoneNumberTest extends FieldTestCase
 			'not a record at all' => [12345],
 
 			// A record, and still not a number and a country.
-			'a number with no country' => [(object) ['number' => '0411 222 333']],
 			'an empty country' => [(object) ['number' => '0411 222 333', 'country' => '']],
 			'an empty number' => [(object) ['number' => '', 'country' => 'AU']],
 			'neither' => [(object) []],

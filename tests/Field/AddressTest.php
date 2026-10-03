@@ -234,9 +234,10 @@ final class AddressTest extends FieldTestCase
 	#[Test]
 	public function a_country_whose_subdivisions_carry_their_own_postcode_pattern(): void
 	{
-		// China and Colombia are the only two, and both require a subdivision — which is
-		// exactly why an unresolvable one there makes the address unreadable rather than
-		// merely failing a constraint. Without the subdivision, the postcode is undecidable.
+		// China and Colombia are the only two. An unresolvable subdivision there used to make
+		// the whole address unreadable, on the grounds that the postcode became undecidable.
+		// It does not: the country's own pattern is still there to fall back on, so the bad
+		// subdivision is reported as a bad subdivision and the postcode is still judged.
 		$field = $this->createField();
 
 		$valid = $field->validate((object) [
@@ -249,7 +250,7 @@ final class AddressTest extends FieldTestCase
 
 		$this->assertTrue($valid->forConstraint('knownSubdivision')->passed());
 
-		$unreadable = $field->validate((object) [
+		$unknown = $field->validate((object) [
 			'street' => ['1 Nanjing Rd'],
 			'locality' => 'Shanghai Shi',
 			'subdivision' => 'Banana',
@@ -257,7 +258,19 @@ final class AddressTest extends FieldTestCase
 			'country' => 'CN',
 		]);
 
-		$this->assertTrue($unreadable->shape->wasUnreadable());
+		$this->assertTrue($unknown->shape->passed());
+		$this->assertTrue($unknown->forConstraint('knownSubdivision')->failed());
+		$this->assertTrue($unknown->forConstraint('postalCodeFormat')->passed());
+
+		$badPostcode = $field->validate((object) [
+			'street' => ['1 Nanjing Rd'],
+			'locality' => 'Shanghai Shi',
+			'subdivision' => 'Banana',
+			'postal_code' => 'zzz',
+			'country' => 'CN',
+		]);
+
+		$this->assertTrue($badPostcode->forConstraint('postalCodeFormat')->failed());
 	}
 
 	#[Test]

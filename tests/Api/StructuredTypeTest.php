@@ -286,7 +286,24 @@ final class StructuredTypeTest extends TestCase
 			'postal_code' => '4700',
 		]);
 
-		$this->assertTrue($resolved->shape->wasUnreadable());
+		// Reported, not refused. Leaving it out used to make the whole address unreadable, on
+		// the reasoning that a country gives the rest its meaning — which is true, and is just
+		// as true of the currency on `Money`, which has always named the part instead. The
+		// case that settles it is a field allowing several countries, where the country is a
+		// box somebody fills in rather than one the port supplies.
+		$this->assertTrue($resolved->shape->passed());
+		$this->assertTrue($resolved->forConstraint('countryRequired')->failed());
+		$this->assertSame('country', $resolved->forConstraint('countryRequired')->part);
+
+		// Everything read from a country's own format has nothing to read, so it skips rather
+		// than guessing — one mistake, one message.
+		foreach (['streetRequired', 'localityRequired', 'postalCodeFormat', 'knownSubdivision'] as $name) {
+			$this->assertTrue($resolved->forConstraint($name)->skipped(), $name);
+		}
+
+		// A country that *was* given and is not one stays unreadable: that is an answer
+		// nothing can use, not a box left empty.
+		$this->assertTrue($address->validate((object) ['locality' => 'X', 'country' => 'Zorbia'])->shape->wasUnreadable());
 
 		// And with one, it is stored as the code whatever spelling arrived.
 		$this->assertSame('AU', $address->validate(self::auAddress(['country' => 'Australia']))->value->countryCode);

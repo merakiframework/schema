@@ -288,11 +288,20 @@ final class ValueTest extends TestCase
 	}
 
 	#[Test]
-	public function an_address_with_no_country_cannot_be_read(): void
+	public function an_address_with_no_country_keeps_its_other_parts(): void
 	{
+		// Refused until this release, on the reasoning that a country gives the rest of an
+		// address its meaning. It does — and so does the currency on `Money`, which reports
+		// `currencyRequired` and skips what it cannot judge. The field names the part now.
+		$address = self::address([], 'country');
+
+		$this->assertNull($address->countryCode);
+		$this->assertSame('Emerald', $address->locality);
+
+		// A country that *was* given and is not one is still unreadable.
 		$this->expectException(MalformedValue::class);
 
-		self::address([], 'country');
+		self::address(['country' => 'Zorbia']);
 	}
 
 	// ── the subdivision ────────────────────────────────────────────────────────────────────
@@ -412,19 +421,20 @@ final class ValueTest extends TestCase
 	#[Test]
 	public function a_subdivision_prefixed_with_another_country_does_not_resolve(): void
 	{
-		// AU is the country, so US-CA is not a spelling of anything here. AU requires a
-		// subdivision, so an unresolvable one leaves the address unreadable.
-		$this->expectException(MalformedValue::class);
-
-		self::address(['subdivision' => 'US-CA']);
+		// AU is the country, so US-CA is not a spelling of anything here. It is kept as
+		// submitted and `knownSubdivision` reports it — see the test below for why that
+		// changed.
+		$this->assertSame('US-CA', self::address(['subdivision' => 'US-CA'])->subdivision);
 	}
 
 	#[Test]
-	public function an_unresolvable_subdivision_cannot_be_read_where_the_country_requires_one(): void
+	public function an_unresolvable_subdivision_is_kept_where_the_country_requires_one(): void
 	{
-		$this->expectException(MalformedValue::class);
-
-		self::address(['subdivision' => 'Banana']);
+		// It used to raise here and be kept where the country merely *uses* a subdivision,
+		// which gave one part three behaviours decided by the country: subdivisionRequired
+		// when absent, knownSubdivision when unrecognised in Ireland, and the whole address
+		// unreadable when unrecognised in Australia. A bad state is a bad state.
+		$this->assertSame('Banana', self::address(['subdivision' => 'Banana'])->subdivision);
 	}
 
 	#[Test]

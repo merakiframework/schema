@@ -321,6 +321,64 @@ no country is. The number is the half that reports.
 three inputs a form renders — no page has a "file type" box to mark — so `*Required` constraints
 there would have added three names nothing can act on.
 
+### A missing country names the country box
+
+`Address` and `PhoneNumber` both refused a value with no country: the whole field came back
+unreadable, so a form got *"That is not a valid address"* for somebody who had not reached the
+country dropdown yet. Both now report `countryRequired` against the `country` part, exactly as
+`Money` has always reported `currencyRequired`.
+
+```php
+$schema->validate((object) ['billing' => (object) [
+    'street' => ['1 Queen St'], 'locality' => 'Brisbane', 'subdivision' => 'QLD', 'postal_code' => '4000',
+]]);
+
+// before — shape unreadable, no part named: "That is not a valid address."
+// now    — countryRequired fails on part `country`:  "Choose a country."
+```
+
+The reasoning that put it there was that a country gives the rest of an address its meaning, so
+there is nothing to report against. That is true, and it is just as true of the currency on
+`Money` — which names the part and *skips* what it cannot judge. Everything read from a
+country's own published format now skips when there is no country, so one mistake earns one
+message.
+
+**It only shows on a field that allows several countries.** With one allowed country a port
+supplies it and nobody sees the box, which is why this survived two alphas.
+
+Two things did **not** change. A country that was *given* and is not a country —
+`'Zorbia'` — is still unreadable, because that is an answer nothing can use rather than a box
+left empty. And a bare string for a phone number is still a shape failure, because a string
+never described a pair.
+
+`PhoneNumber` gains one more wrinkle worth knowing: with a number but no country,
+`numberRequired` is **skipped** rather than failed. libphonenumber cannot read the number
+without a region, so it is unread — but telling somebody to enter a number they just entered is
+the wrong message. `countryRequired` reports the thing that is actually blocking it.
+
+### An unrecognised subdivision is reported, not refused
+
+The same part behaved three ways depending on the country. Absent gave `subdivisionRequired`;
+unrecognised in a country that merely *uses* one (Ireland) gave `knownSubdivision`; unrecognised
+in a country that *requires* one (Australia, China) made the whole address unreadable.
+
+Now the middle two are one: an unrecognised subdivision is kept as submitted and
+`knownSubdivision` reports it, whichever kind of country it is.
+
+```php
+// AU with subdivision 'ZZ'
+// before — shape unreadable: "That is not a valid address."
+// now    — knownSubdivision fails: "That is not a state we recognise for the country you chose."
+```
+
+For China and Colombia, whose subdivisions carry their own postcode patterns, the postcode is
+still judged — it falls back to the country's own pattern — so a bad state no longer hides a
+bad postcode.
+
+`Address\Value::$subdivision` therefore holds the ISO 3166-2 code when the subdivision resolved
+and the submitted text when it did not. It already behaved that way for Ireland; it is now
+consistent. Rules written against a part are unaffected, because the expectation is
+canonicalised through the same resolver as the stored value.
 ### A record raises on a key it does not declare
 
 **This is the change most likely to break a working port, so read it even if you skip the rest.**

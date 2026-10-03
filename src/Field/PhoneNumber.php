@@ -27,8 +27,15 @@ use libphonenumber\PhoneNumberUtil;
  * ['number' => '0411 222 333', 'country' => 'AU']
  * ```
  *
- * Both halves are required. A bare string is a shape failure, and so is a missing country —
- * there is nothing to report against, because the input never described a phone number.
+ * Both halves are required, and each reports itself: `numberRequired` and `countryRequired`
+ * name the box that is empty. A bare string is still a shape failure, because a string is not
+ * a record and never described a pair at all.
+ *
+ * The country used to be refused rather than reported, on the grounds that libphonenumber
+ * cannot parse a number without a region. That is true and is why the number stays unread, but
+ * it is a fact about this library rather than about the submitter: somebody part-way through a
+ * form offering several countries has not made a mistake, and "that is not a valid phone
+ * number" named neither the problem nor the box.
  *
  * This replaced an `unambiguous` constraint and a rule that resolved a national number against
  * the allow-list when exactly one country was on it. Both were machinery for guessing what the
@@ -131,14 +138,30 @@ final readonly class PhoneNumber extends AtomicField
 			// part is named rather than the whole value being called unreadable. The country has
 			// no counterpart here: a number cannot be read without one, so the value refuses it.
 			new Constraint('numberRequired', $this->hasANumber(...), true, 'number'),
+			// A number cannot be read without one, so everything below depends on it.
+			new Constraint('countryRequired', $this->namesACountry(...), true, 'country'),
 			new Constraint('allowedCountries', $this->isFromAnAllowedCountry(...), $this->allowedCountries, 'country'),
 			new Constraint('numberType', $this->isAnAllowedType(...), $this->numberType->value, 'number'),
 		);
 	}
 
-	private function hasANumber(Value $parsed): bool
+	private function hasANumber(Value $parsed): ?bool
 	{
+		// Skipped until there is a country, because without one the number could not be read
+		// whatever was typed — and "enter a number" is the wrong thing to tell somebody who
+		// entered one. `countryRequired` reports the thing that is actually blocking it, and
+		// one mistake earns one message.
+		if ($parsed->country === null) {
+			return null;
+		}
+
 		return $parsed->number !== null;
+	}
+
+	/** Whether a country was given at all. A number cannot be read without one. */
+	private function namesACountry(Value $parsed): bool
+	{
+		return $parsed->country !== null;
 	}
 
 	private function isFromAnAllowedCountry(Value $parsed): ?bool

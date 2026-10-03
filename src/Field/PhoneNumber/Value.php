@@ -42,7 +42,8 @@ final readonly class Value implements ParsedValue, HasParts
 	public ?LibPhoneNumber $number;
 
 	/** The country as submitted, upper-cased. Always present: the value refuses one without. */
-	public string $country;
+	/** ISO 3166-1 alpha-2, upper-cased; `null` when none was submitted. */
+	public ?string $country;
 
 	/**
 	 * Takes the record a field takes: a number and the country to read it in.
@@ -88,12 +89,27 @@ final readonly class Value implements ParsedValue, HasParts
 			}
 		}
 
-		// The country is to a phone number what it is to an address: the thing that gives the
-		// rest meaning. `0411 222 333` is a different number in a different country, and
-		// libphonenumber cannot parse one without a region — so this is refused rather than
-		// reported, exactly as a country-less address is.
-		if (!isset($parts['country']) || !is_string($parts['country'])) {
-			throw MalformedValue::of(self::class, 'it has no "country", and a number cannot be read without one');
+		// Absent is kept as null rather than refused, so `countryRequired` can name the box.
+		// It is true that libphonenumber cannot parse a number without a region, and that is
+		// why `$number` stays null here — but "nothing can be parsed" is not the same as "this
+		// is not a phone number". Somebody part-way through a form that offers several
+		// countries has not made a mistake, and telling them their number is invalid names
+		// neither the problem nor the box. `Money` has always treated its currency this way.
+		if (isset($parts['country']) && !is_string($parts['country'])) {
+			throw MalformedValue::of(self::class, 'a country is a string');
+		}
+
+		// Nothing in it at all is not a half-filled pair; it is not a phone number. The same
+		// line Money and Address draw for an empty record.
+		if (!isset($parts['country']) && !isset($parts['number'])) {
+			throw MalformedValue::of(self::class, 'it has neither a number nor a country');
+		}
+
+		if (!isset($parts['country'])) {
+			$this->country = null;
+			$this->number = null;
+
+			return;
 		}
 
 		// The number itself is kept absent rather than refused. A country chosen with nothing

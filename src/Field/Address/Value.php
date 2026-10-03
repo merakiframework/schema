@@ -8,7 +8,6 @@ use Meraki\Schema\Exception\BrokenInputContract;
 use Meraki\Schema\Field\HasParts;
 use Meraki\Schema\Field\MalformedValue;
 use Meraki\Schema\Field\ParsedValue;
-use CommerceGuys\Addressing\AddressFormat\AddressFormatRepository;
 use CommerceGuys\Addressing\Country\CountryRepository;
 
 /**
@@ -166,14 +165,22 @@ final readonly class Value implements ParsedValue, HasParts
 			throw MalformedValue::of(self::class, 'it has no parts at all');
 		}
 
-		if ($country === null) {
-			throw MalformedValue::of(self::class, 'it names no country, and an address without one describes no place');
-		}
+		// Absent is kept as null rather than refused, so `countryRequired` can name the box.
+		// This used to raise, on the reasoning that a country gives the rest of an address its
+		// meaning — which is true, and is equally true of the currency on `Money`, which
+		// reports `currencyRequired` and skips what it cannot judge. Refusing told somebody who
+		// had not reached the country dropdown yet that their address was not an address.
+		//
+		// A country that was *given* and is not one stays unreadable: "Zorbia" is not a box
+		// left empty, it is an answer nothing can use.
+		$countryCode = null;
 
-		$countryCode = self::codeFor($country);
+		if ($country !== null) {
+			$countryCode = self::codeFor($country);
 
-		if ($countryCode === null) {
-			throw MalformedValue::of(self::class, sprintf('"%s" is not a country ISO 3166-1 knows', $country));
+			if ($countryCode === null) {
+				throw MalformedValue::of(self::class, sprintf('"%s" is not a country ISO 3166-1 knows', $country));
+			}
 		}
 
 		$this->street = $street;
@@ -225,10 +232,12 @@ final readonly class Value implements ParsedValue, HasParts
 	 *
 	 * @throws MalformedValue if the country requires a subdivision and this is not one of its
 	 */
-	private static function resolveSubdivision(string $countryCode, ?string $subdivision): ?string
+	private static function resolveSubdivision(?string $countryCode, ?string $subdivision): ?string
 	{
-		if ($subdivision === null) {
-			return null;
+		// Nothing to resolve against until a country is known, and `countryRequired` is already
+		// reporting that. Kept as submitted so the form can show back what somebody typed.
+		if ($subdivision === null || $countryCode === null) {
+			return $subdivision;
 		}
 
 		// A country with none on file constrains nothing, whatever its format says it uses.
@@ -241,27 +250,13 @@ final readonly class Value implements ParsedValue, HasParts
 		// would eventually disagree, and the port reads its options from the same place.
 		$code = Requirements::subdivisionCodeIn($countryCode, $subdivision);
 
-		if ($code !== null) {
-			return $code;
-		}
-
-		if (self::requiresSubdivision($countryCode)) {
-			throw MalformedValue::of(self::class, sprintf('"%s" is not a subdivision of %s', $subdivision, $countryCode));
-		}
-
-		return $subdivision;
-	}
-
-	/**
-	 * Whether a country's own format says an address there needs a subdivision.
-	 *
-	 * The country's requirement, not the field's: whether a subdivision carries its own postcode
-	 * pattern is a fact about the country, and does not change because an author asked for less
-	 * depth.
-	 */
-	private static function requiresSubdivision(string $countryCode): bool
-	{
-		return in_array('administrativeArea', self::formats()->get($countryCode)->getRequiredFields(), true);
+		// Unresolvable is kept, whether or not the country requires one, and
+		// `knownSubdivision` reports it. This used to raise for a country that requires a
+		// subdivision, which made one part behave three different ways depending on the
+		// country: `subdivisionRequired` when absent, `knownSubdivision` when the country
+		// merely *uses* one, and the whole address unreadable when the country requires one.
+		// A bad state is a bad state.
+		return $code ?? $subdivision;
 	}
 
 	/**
@@ -371,14 +366,6 @@ final readonly class Value implements ParsedValue, HasParts
 		}
 
 		return $index;
-	}
-
-	/** Memoised: building the format list is not free and it never changes within a request. */
-	private static function formats(): AddressFormatRepository
-	{
-		static $repository = null;
-
-		return $repository ??= new AddressFormatRepository();
 	}
 
 	/**

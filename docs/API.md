@@ -88,7 +88,7 @@ and the euro spans twenty.
 
 | Field | Configuration | Constraint names | Value |
 | --- | --- | --- | --- |
-| `Address` | `allowCountries()`, `clearAllowedCountries()`, `minPrecisionOf()`, `mustBeVisitable()` | `allowedCountries`, `streetRequired`, `streetLineLimit`, `streetVisitable`, `localityRequired`, `localityUsed`, `dependentLocalityUsed`, `subdivisionRequired`, `subdivisionUsed`, `knownSubdivision`, `postalCodeRequired`, `postalCodeUsed`, `postalCodeFormat` | `Address\Value` |
+| `Address` | `allowCountries()`, `clearAllowedCountries()`, `minPrecisionOf()`, `mustBeVisitable()` | `countryRequired`, `allowedCountries`, `streetRequired`, `streetLineLimit`, `streetVisitable`, `localityRequired`, `localityUsed`, `dependentLocalityUsed`, `subdivisionRequired`, `subdivisionUsed`, `knownSubdivision`, `postalCodeRequired`, `postalCodeUsed`, `postalCodeFormat` | `Address\Value` |
 | `Boolean` | `mustBeAccepted()` | `accepted` | `Boolean\Value` |
 | `Collection` | `allowDuplicates()`, `maxCountOf()`, `minCountOf()` | `minCount`, `maxCount`, `unique` | `Collection\Value` |
 | `CreditCard` | `mustExpireInFuture()` | `numberRequired`, `expiryRequired`, `nameRequired`, `numberFormat`, `numberChecksum`, `expiryInFuture`, `expiryWithinReach`, `securityCodeFormat` | `CreditCard\Value` |
@@ -102,7 +102,7 @@ and the euro spans twenty.
 | `Name` | `maxLengthOf()`, `minLengthOf()` | `minLength`, `maxLength` | `Name\Value` |
 | `Number` | `clearStep()`, `inIncrementsOf()`, `maxPrecisionOf()`, `maxValueOf()`, `minValueOf()`, `scaleTo()` | `minValue`, `maxValue`, `step`, `scale`, `maxPrecision` | `Number\Value` |
 | `Password` | `maxLengthOf()`, `minLengthOf()`, `minNumberOfDigits()`, `minNumberOfLowercaseChars()`, `minNumberOfSymbols()`, `minNumberOfUppercaseChars()`, `minStrengthOf()` | `minLength`, `maxLength`, `minStrength`, `minUppercaseChars`, `minLowercaseChars`, `minDigits`, `minSymbols` | `Password\Value` |
-| `PhoneNumber` | `allowCountries()`, `clearAllowedCountries()`, `ofType()` | `numberRequired`, `allowedCountries`, `numberType` | `PhoneNumber\Value` |
+| `PhoneNumber` | `allowCountries()`, `clearAllowedCountries()`, `ofType()` | `numberRequired`, `countryRequired`, `allowedCountries`, `numberType` | `PhoneNumber\Value` |
 | `Text` | `maxLengthOf()`, `minLengthOf()`, `mustMatch()` | `minLength`, `maxLength`, `pattern` | `Text\Value` |
 | `Time` | `after()`, `atIntervalsOf()`, `from()`, `through()`, `until()` | `from`, `after`, `until`, `through`, `interval`, `precision` | `Time\Value` |
 | `Uri` | `allowSchemes()`, `clearAllowedSchemes()`, `maxLengthOf()`, `minLengthOf()` | `minLength`, `maxLength`, `allowedSchemes` | `Uri\Value` |

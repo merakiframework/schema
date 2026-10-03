@@ -72,7 +72,7 @@ final class ConstraintNameTest extends TestCase
 
 			// No `unambiguous`: a number is submitted with its country, so there is no ambiguity
 			// left for a constraint to report. The pairing settles it before any check runs.
-			'PhoneNumber' => ['numberRequired', 'allowedCountries', 'numberType'],
+			'PhoneNumber' => ['numberRequired', 'countryRequired', 'allowedCountries', 'numberType'],
 
 			// No `maxBytes`, and no composition *maximums*. What a hashing algorithm can swallow
 			// is the hashing layer's business — see Field\Password — and a maximum number of
@@ -89,6 +89,7 @@ final class ConstraintNameTest extends TestCase
 			// the name, which is what let the dotted names go.
 			'Money' => ['currencyRequired', 'amountRequired', 'allowedCurrencies', 'minAmount', 'maxAmount', 'scale'],
 			'Address' => [
+				'countryRequired',
 				'allowedCountries',
 				'streetRequired', 'streetLineLimit', 'streetVisitable',
 				'localityRequired', 'localityUsed', 'dependentLocalityUsed',
