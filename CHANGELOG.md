@@ -10,6 +10,91 @@ is a commit subject, with the body kept because the body is where the reasoning 
 
 ## Unreleased
 
+### A value is assembled before it is judged: the decision, written down
+
+`447ffd14` · 2026-10-03
+
+The record for the redesign that follows, before any of it lands, so the
+code can be checked against what was decided rather than the other way
+round.
+
+DESIGN.md gains the decision itself. A structured value is read as an
+input, assembled into a value only when every essential part is there and
+readable, and only then judged by constraints, which therefore never see
+half a value. Checks are sorted by one rule -- no configuration and no
+clock means assembly -- whose corollary is the one the rule engine was
+already meant to obey: rules change what a field accepts, never what
+counts as a value. It separates essential parts, a fact about the kind of
+value, from demanded parts, which are configuration; it makes every
+failure a Violation with a code the field declares as a backed enum; and
+it says why rules still run before the constraints.
+
+ROADMAP.md records the work as in progress, the beta as the point the API
+freezes, and the one decision still open -- whether a constraint waits
+for the whole value or only for the parts it reads -- with worked
+examples, the case each way, and a recommendation. It also collects the
+3.0 direction: AtomicField as an interface with a core runner, attributes
+marking what a property is, checks as methods that ask for a clock, a
+result object per field, matchers per part, conditions that choose what
+they read, and what the split into field packages needs first.
+
+LIMITATIONS.md gains B10, found while working out how per-part
+requirements would compose under rules, and reproduced: two rules that
+each add an entry to the same map-valued property silently keep only the
+second, so Money's AUD minimum vanishes when a USD one is added
+alongside. Documented with its workaround; not fixed here.
+
+### The docblocks that still said a country could not be missing
+
+`11460394` · 2026-10-03
+
+d255398 stopped Address and PhoneNumber refusing a value with no country,
+and left the reasoning for the old behaviour standing in nine places:
+
+- PhoneNumber\Value carried two docblocks on $country, the first still
+  promising it was always present, and its @throws said a missing country
+  was refused.
+- PhoneNumber said the country "has no counterpart" constraint, directly
+  above countryRequired.
+- Requirements::$requiredParts excluded the country "because the value
+  refuses one without it". The exclusion stands; the reason was gone.
+- Address\Value said every part but the country was optional, listed an
+  unresolvable required subdivision among the things it refuses (twice:
+  the constructor and resolveSubdivision()), and claimed subdivision
+  postcode patterns were not read yet, which stopped being true before
+  d255398 too.
+- UPGRADING.md said PhoneNumber has no countryRequired, deliberately,
+  one section before the section that adds it.
+
+Docblocks only. The refusals the constructor still makes are listed as
+they are now: no parts at all, a part sent empty, and a country that was
+given and names none.
+
+### A rule about a subdivision no longer stops a request without a country
+
+`15fd2b95` · 2026-10-03
+
+d255398 let an address arrive without a country, so a form part-way
+through could name the empty box instead of calling the whole address
+unreadable. canonicalPartValue() was not told: it still resolved the
+expectation against the address's country, and a rule such as
+
+    when(PartScope::of('billing', 'subdivision'))->equals('QLD')
+
+handed null to Requirements::subdivisionCodeIn(string), which threw a
+TypeError out of validate() on exactly the half-filled form that commit
+was for. Every subdivision test submitted a country, so nothing caught it.
+
+With no country there is nothing to resolve against, and the stored
+subdivision is already kept as submitted for the same reason, so the
+expectation is now kept as written too. Both sides compare as typed: 'QLD'
+matches 'QLD', and 'Queensland' does not, until a country arrives and
+both are canonicalised again.
+
+### Update history
+
+`3b00acd0` · 2026-10-03
+
 ### A missing country names the country box
 
 `d2553989` · 2026-10-03
