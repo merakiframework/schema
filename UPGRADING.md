@@ -392,6 +392,18 @@ $result = $price->validate((object) ['currency' => 'AUD']);
 | `Money\Value` implemented `HasParts` | a rule reads the halves from `Money\Input`, so `#/fields/price/value/currency` answers while the amount is still empty |
 | `when(PartScope::of('price', 'currency'))->equals('aud')` never held | holds: the expectation is read the way the currency was, upper-cased |
 
+**`PhoneNumber`** reads its number and country first, and reads the number *in* the country.
+
+| Was | Is |
+| --- | --- |
+| `numberRequired` and `countryRequired` were constraints | reported while assembling; the result is incomplete |
+| a blank number, a number that is not one, or one valid only elsewhere made the field unreadable | `numberFormat`, or `numberInCountry` with the country as its bound, against the number |
+| a country that is not a region made the field unreadable | `knownCountry`, against the country, and the number waits for one |
+| with a number and no country, `numberRequired` was skipped | the number is not judged at all until there is a country |
+| `PhoneNumber\Value::$number` and `$country` could be null, and `toE164()` returned `?string` | never null, and `toE164()` returns `string`. `new PhoneNumber\Value($parsed, 'AU')` refuses a number not valid in that country |
+| `PhoneNumber\Value` implemented `HasParts` | a rule reads the parts from `PhoneNumber\Input` |
+| `when(PartScope::of('phone', 'number'))->equals('0411 222 333')` never held — the part is E.164 | holds: the expectation is read in the submitted country |
+
 ### A required part that was not sent names itself
 
 Every record-shaped field now answers the same three questions the same way. A **required** part
@@ -408,7 +420,7 @@ amount is gibberish", and could not mark anything, since no part was named.
 | --- | --- | --- |
 | `Money` | `currencyRequired`, `amountRequired` — and `currencyFormat`, `amountFormat` for a half that was sent and is not one | while the value is assembled: [see above](#a-value-made-of-parts-is-assembled-before-it-is-judged) |
 | `CreditCard` | `numberRequired`, `expiryRequired`, `nameRequired` | as constraints, with a blank part unreadable |
-| `PhoneNumber` | `numberRequired` | as a constraint, with a blank part unreadable |
+| `PhoneNumber` | `numberRequired` — and `numberFormat` for a number that was sent and is not one | while the value is assembled |
 
 **`CreditCard::expiryFormat` is gone.** An expiry that was given and cannot be read is now a
 shape failure, the same way a bad amount already was on `Money`, so the constraint had nothing
@@ -447,15 +459,15 @@ message.
 **It only shows on a field that allows several countries.** With one allowed country a port
 supplies it and nobody sees the box, which is why this survived two alphas.
 
-Two things did **not** change. A country that was *given* and is not a country —
-`'Zorbia'` — is still unreadable, because that is an answer nothing can use rather than a box
-left empty. And a bare string for a phone number is still a shape failure, because a string
-never described a pair.
+A country that was *given* and is not a country — `'Zorbia'` — is wrong rather than missing. On
+`PhoneNumber` it is `knownCountry`, against the country box; on `Address` it is still unreadable
+until `Address` reads its parts first. A bare string for a phone number is still a shape failure,
+because a string never described a pair.
 
-`PhoneNumber` gains one more wrinkle worth knowing: with a number but no country,
-`numberRequired` is **skipped** rather than failed. libphonenumber cannot read the number
-without a region, so it is unread — but telling somebody to enter a number they just entered is
-the wrong message. `countryRequired` reports the thing that is actually blocking it.
+`PhoneNumber` gains one more wrinkle worth knowing: with a number but no country, the number is
+**not judged at all**. libphonenumber cannot read it without a region — but telling somebody to
+enter or fix a number they just typed is the wrong message. `countryRequired` reports the thing
+that is actually blocking it.
 
 ### An unrecognised subdivision is reported, not refused
 

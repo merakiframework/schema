@@ -4,12 +4,8 @@ declare(strict_types=1);
 namespace Meraki\Schema\Field\PhoneNumber;
 
 use Meraki\Schema\Comparison\Equality;
-use Meraki\Schema\Exception\BrokenInputContract;
-use Meraki\Schema\Field;
-use Meraki\Schema\Field\HasParts;
 use Meraki\Schema\Field\MalformedValue;
 use Meraki\Schema\Field\ParsedValue;
-use libphonenumber\NumberParseException;
 use libphonenumber\PhoneNumber as LibPhoneNumber;
 use libphonenumber\PhoneNumberFormat;
 use libphonenumber\PhoneNumberUtil;
@@ -30,123 +26,33 @@ use libphonenumber\PhoneNumberUtil;
  *
  * E.164 is the canonical form and the only one that settles it: it is what the number *is*, with
  * every question of spacing, national prefix and local convention already resolved.
+ *
+ * ### Always whole
+ *
+ * A number and the country it is valid in, neither of them null. A number typed before a country
+ * was picked, or a country picked before anything was typed, is an {@see Input} that has not made
+ * a value yet, and is reported part by part — so every constraint handed one of these has a number
+ * it can read.
  */
-final readonly class Value implements ParsedValue, HasParts
+final readonly class Value implements ParsedValue
 {
 	/**
-	 * The parsed number, which is what every comparison and constraint reads.
+	 * Built by {@see Input} from what was submitted. The constructor still guards the one thing
+	 * that makes a number and a country a pair, so a value made any other way cannot hold a number
+	 * from one country under another's name.
 	 *
-	 * `null` when a country was chosen and nothing typed yet — the ordinary state of a
-	 * half-filled form, which the field reports as `numberRequired` rather than calling the
-	 * whole value unreadable.
+	 * @param LibPhoneNumber $number the number, parsed — which is what every comparison and
+	 *        constraint reads
+	 * @param string $country ISO 3166-1 alpha-2, upper-cased: the country it was read in
+	 * @throws MalformedValue if the number is not a valid one in that country
 	 */
-	public ?LibPhoneNumber $number;
-
-	/** ISO 3166-1 alpha-2, upper-cased; `null` when none was submitted. */
-	public ?string $country;
-
-	/**
-	 * Takes the record a field takes: a number and the country to read it in.
-	 *
-	 * Both halves are required, and valid **for that region** rather than valid somewhere. It
-	 * is what stops an Australian number passing a field told it is a New Zealand one, and it
-	 * settles the international case too: libphonenumber ignores the region when a number is
-	 * already E.164, so `+61…` paired with `US` would otherwise sail through with the two
-	 * halves disagreeing.
-	 *
-	 * @param LibPhoneNumber|object{number?: string|null, country?: string|null} $number the pair a
-	 *        form submits, or an already-parsed number — which is how a field hands back a value
-	 *        it resolved using its own default country
-	 * @throws BrokenInputContract if it carries a key a phone number does not have
-	 * @throws MalformedValue if it holds neither half, or the pair does not describe a number.
-	 *         A missing half is deliberately not refused: it is kept absent so `numberRequired`
-	 *         and `countryRequired` can name the box a form should mark.
-	 */
-	public function __construct(object $number)
-	{
-		// Already parsed, by a field applying its own defaults for the country.
-		if ($number instanceof LibPhoneNumber) {
-			$this->number = $number;
-			$this->country = (string) PhoneNumberUtil::getInstance()->getRegionCodeForNumber($number);
-
-			return;
+	public function __construct(
+		public LibPhoneNumber $number,
+		public string $country,
+	) {
+		if (!PhoneNumberUtil::getInstance()->isValidNumberForRegion($number, $country)) {
+			throw MalformedValue::of(self::class, "it is not a valid number in {$country}");
 		}
-
-		$parts = get_object_vars($number);
-		$unknown = array_diff(array_keys($parts), self::partNames());
-
-		// Raised, not reported: a port still sending `e164` — which was a part until it stopped
-		// being one — is a port that needs changing, not a request that needs a message.
-		if ($unknown !== []) {
-			throw BrokenInputContract::recordHasKeysItDoesNotAccept(self::class, array_values($unknown), self::partNames());
-		}
-
-		// A part that was sent and holds nothing is unreadable, not absent — the rule every
-		// record-shaped value here follows. `''` was a decision somebody made.
-		foreach (['number', 'country'] as $key) {
-			if (is_string($parts[$key] ?? null) && trim($parts[$key]) === '') {
-				throw MalformedValue::of(self::class, "its {$key} was given but holds nothing");
-			}
-		}
-
-		// Absent is kept as null rather than refused, so `countryRequired` can name the box.
-		// It is true that libphonenumber cannot parse a number without a region, and that is
-		// why `$number` stays null here — but "nothing can be parsed" is not the same as "this
-		// is not a phone number". Somebody part-way through a form that offers several
-		// countries has not made a mistake, and telling them their number is invalid names
-		// neither the problem nor the box. `Money` has always treated its currency this way.
-		if (isset($parts['country']) && !is_string($parts['country'])) {
-			throw MalformedValue::of(self::class, 'a country is a string');
-		}
-
-		// Nothing in it at all is not a half-filled pair; it is not a phone number. The same
-		// line Money and Address draw for an empty record.
-		if (!isset($parts['country']) && !isset($parts['number'])) {
-			throw MalformedValue::of(self::class, 'it has neither a number nor a country');
-		}
-
-		if (!isset($parts['country'])) {
-			$this->country = null;
-			$this->number = null;
-
-			return;
-		}
-
-		// The number itself is kept absent rather than refused. A country chosen with nothing
-		// typed yet is the ordinary state of a half-filled form, and reporting the whole field
-		// unreadable named neither the problem nor the box to mark. `numberRequired` does both.
-		if (!isset($parts['number'])) {
-			$this->number = null;
-			$this->country = strtoupper($parts['country']);
-
-			return;
-		}
-
-		if (!is_string($parts['number'])) {
-			throw MalformedValue::of(self::class, 'a number is a string');
-		}
-
-		// Upper-cased because ISO 3166-1 defines the codes that way, so `au` and `AU` are one
-		// country. Not trimmed: `' AU '` is not a code, and libphonenumber agrees — it refuses it.
-		$region = strtoupper($parts['country']);
-		$util = PhoneNumberUtil::getInstance();
-
-		try {
-			$proto = $util->parse($parts['number'], $region);
-		} catch (NumberParseException) {
-			throw MalformedValue::of(self::class, sprintf('"%s" is not a phone number', $parts['number']));
-		}
-
-		if (!$util->isValidNumberForRegion($proto, $region)) {
-			throw MalformedValue::of(self::class, sprintf(
-				'"%s" is not a valid number in %s',
-				$parts['number'],
-				$region,
-			));
-		}
-
-		$this->number = $proto;
-		$this->country = $region;
 	}
 
 	/**
@@ -157,76 +63,22 @@ final readonly class Value implements ParsedValue, HasParts
 	 */
 	public function equals(Equality $other): bool
 	{
-		if (!$other instanceof self) {
-			return false;
-		}
-
-		// Two half-filled numbers are the same when the same half is missing and the country
-		// agrees, which keeps this total rather than comparing against nothing.
-		if ($this->number === null || $other->number === null) {
-			return $this->number === $other->number && $this->country === $other->country;
-		}
-
-		return $this->toE164() === $other->toE164();
+		return $other instanceof self && $this->toE164() === $other->toE164();
 	}
 
 	/**
-	 * The number in E.164 — `+61411222333` — or `null` when there is no number yet.
+	 * The number in E.164 — `+61411222333`.
 	 *
 	 * The one form that is the same everywhere, which is what makes it the right thing to store,
 	 * to send to a gateway, and to compare on.
 	 */
-	public function toE164(): ?string
+	public function toE164(): string
 	{
-		return $this->number === null
-			? null
-			: PhoneNumberUtil::getInstance()->format($this->number, PhoneNumberFormat::E164);
+		return PhoneNumberUtil::getInstance()->format($this->number, PhoneNumberFormat::E164);
 	}
 
 	public function __toString(): string
 	{
-		return $this->toE164() ?? '';
+		return $this->toE164();
 	}
-
-	/**
-	 * The parts as they arrive: a number and the country to read it in.
-	 *
-	 * These used to be `country` and `e164`, which is what the value *holds* rather than what it
-	 * is *given* — so a port could not derive its input names from them, and
-	 * asking for the number's messages raised on the one part a form definitely renders. Every
-	 * other value here names its input keys, and this is no longer the exception.
-	 *
-	 * E.164 has not gone anywhere; it is {@see self::toE164()}, a derived reading rather than a
-	 * part. The region libphonenumber resolved the number to is also still readable, as
-	 * {@see self::$number}, but `country` here is the country that was *submitted* — those differ
-	 * only for input the value would have refused anyway.
-	 *
-	 * @return list<string>
-	 */
-	private static function partNames(): array
-	{
-		return array_column(Part::cases(), 'value');
-	}
-
-	/**
-	 * @return array<string, mixed>
-	 */
-	public function parts(): array
-	{
-		return [
-			'number' => $this->toE164(),
-			'country' => $this->country,
-		];
-	}
-
-	/**
-	 * Nothing here is canonicalised, so a rule compares against exactly what it was written
-	 * with. {@see \Meraki\Schema\Field\Address\Value::canonicalPartValue()} is the one that
-	 * has work to do.
-	 */
-	public function canonicalPartValue(Field\Part $part, mixed $expected): mixed
-	{
-		return $expected;
-	}
-
 }

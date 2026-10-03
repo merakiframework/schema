@@ -475,8 +475,8 @@ public function a_country_with_no_number_yet_names_the_missing_number(): void
     // box to mark.
     $resolved = (new PhoneNumber(new FieldName('phone'), ['AU']))->validate((object) ['country' => 'AU']);
 
-    $this->assertShapePassed($resolved);
-    $this->assertConstraintValidationResultFailed('numberRequired', $resolved);
+    $this->assertIncompleteWith([PhoneNumber\Check::NumberRequired], $resolved);
+    $this->assertSame([PhoneNumber\Part::Number], $resolved->missingParts);
 }
 ```
 

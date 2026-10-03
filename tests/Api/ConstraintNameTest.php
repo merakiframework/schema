@@ -71,8 +71,9 @@ final class ConstraintNameTest extends TestCase
 			'Uuid' => ['allowedVersions'],
 
 			// No `unambiguous`: a number is submitted with its country, so there is no ambiguity
-			// left for a constraint to report. The pairing settles it before any check runs.
-			'PhoneNumber' => ['numberRequired', 'countryRequired', 'allowedCountries', 'numberType'],
+			// left for a constraint to report. The pairing settles it before any check runs —
+			// and whether the pair is a number at all is assembly, below.
+			'PhoneNumber' => ['allowedCountries', 'numberType'],
 
 			// No `maxBytes`, and no composition *maximums*. What a hashing algorithm can swallow
 			// is the hashing layer's business — see Field\Password — and a maximum number of
@@ -153,6 +154,9 @@ final class ConstraintNameTest extends TestCase
 			// Whether the halves make money at all. No configuration changes any of these, which
 			// is what makes them assembly rather than constraints — see docs/DESIGN.md.
 			'Money' => ['currencyRequired', 'amountRequired', 'currencyFormat', 'amountFormat'],
+			// A number is only a number in a country, so whether it is valid *there* is part of
+			// whether it is a number at all.
+			'PhoneNumber' => ['numberRequired', 'countryRequired', 'numberFormat', 'knownCountry', 'numberInCountry'],
 		];
 
 		foreach (SealedFieldTest::fields() as $short => [$class]) {

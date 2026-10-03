@@ -3,10 +3,16 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Field;
 
+use Meraki\Schema\Definition;
+use Meraki\Schema\Field\PhoneNumber\Check;
+use Meraki\Schema\Field\PhoneNumber\Input;
+use Meraki\Schema\Field\PhoneNumber\Part;
 use Meraki\Schema\Field\PhoneNumber\Type;
 use Meraki\Schema\Field\PhoneNumber\Value;
 use Meraki\Schema\FieldName;
 use Meraki\Schema\FieldTestCase;
+use Meraki\Schema\PartScope;
+use libphonenumber\PhoneNumberUtil;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Group;
@@ -15,6 +21,7 @@ use InvalidArgumentException;
 
 #[Group('field')]
 #[CoversClass(PhoneNumber::class)]
+#[CoversClass(Input::class)]
 #[CoversClass(PhoneNumber\Value::class)]
 #[CoversClass(Type::class)]
 final class PhoneNumberTest extends FieldTestCase
@@ -61,77 +68,76 @@ final class PhoneNumberTest extends FieldTestCase
 	}
 
 	#[Test]
-	#[DataProvider('incompletePairs')]
-	public function half_a_pair_never_described_a_number(mixed $given): void
+	#[DataProvider('notAPair')]
+	public function what_is_not_a_record_never_described_a_number(mixed $given): void
 	{
-		// A shape failure rather than a constraint one: there is nothing to report against,
-		// because the input did not describe a phone number at all. This replaced an
-		// `unambiguous` constraint whose only job was to ask for the missing half.
+		// Unreadable rather than incomplete: there is no box to mark, because the input did not
+		// describe a phone number at all. This replaced an `unambiguous` constraint whose only job
+		// was to ask for the missing half.
 		$resolved = (new PhoneNumber(new FieldName('phone'), ['AU']))->validate($given);
 
-		$this->assertShapeFailed($resolved);
-		$this->assertConstraintValidationResultSkipped('allowedCountries', $resolved);
-	}
-
-	/**
-	 * A country chosen with nothing typed yet is a half-filled form, not a non-number.
-	 *
-	 * It used to be a shape failure alongside the rest, which reported the whole field
-	 * unreadable for the most ordinary state a phone input passes through — and named neither
-	 * the problem nor the box to mark. The country still has no counterpart: a number cannot be
-	 * read without one, so that half stays refused.
-	 */
-	#[Test]
-	public function a_country_with_no_number_yet_names_the_missing_number(): void
-	{
-		$resolved = (new PhoneNumber(new FieldName('phone'), ['AU']))->validate((object) ['country' => 'AU']);
-
-		$this->assertShapePassed($resolved);
-		$this->assertConstraintValidationResultFailed('numberRequired', $resolved);
-		$this->assertConstraintValidationResultSkipped('allowedCountries', $resolved);
-	}
-
-	/**
-	 * And the mirror: a number typed before a country was picked.
-	 *
-	 * This was a shape failure until this release, because libphonenumber cannot parse a
-	 * number without a region. That is still true and is why the number stays unread — but
-	 * it is a fact about this library, not about the submitter. On a field offering several
-	 * countries the country is a box somebody fills in, and "that is not a valid phone
-	 * number" named neither the problem nor the box.
-	 */
-	#[Test]
-	public function a_number_with_no_country_yet_names_the_missing_country(): void
-	{
-		$resolved = (new PhoneNumber(new FieldName('phone'), ['AU', 'NZ']))
-			->validate((object) ['number' => '0411 222 333']);
-
-		$this->assertShapePassed($resolved);
-		$this->assertConstraintValidationResultFailed('countryRequired', $resolved);
-
-		// Not numberRequired as well: they did type a number, and one mistake earns one
-		// message. It is skipped until there is a country to read the number against.
-		$this->assertConstraintValidationResultSkipped('numberRequired', $resolved);
+		$this->assertShapeUnreadable($resolved);
 		$this->assertConstraintValidationResultSkipped('allowedCountries', $resolved);
 	}
 
 	/** @return array<string, array{mixed}> */
-	public static function incompletePairs(): array
+	public static function notAPair(): array
 	{
 		return [
 			// Not a record at all. Written as what arrives rather than cast in the test, because
 			// `(object) '0411 222 333'` is `{scalar: '0411 222 333'}` — a shape nothing sends,
-			// and one that now raises for its key rather than failing for not being a pair.
+			// and one that raises for its key rather than failing for not being a pair.
 			'a bare national string' => ['0411 222 333'],
 			'a bare E.164 string' => ['+61411222333'],
 			'a list' => [[]],
 			'not a record at all' => [12345],
-
-			// A record, and still not a number and a country.
-			'an empty country' => [(object) ['number' => '0411 222 333', 'country' => '']],
-			'an empty number' => [(object) ['number' => '', 'country' => 'AU']],
-			'neither' => [(object) []],
+			'neither half' => [(object) []],
 		];
+	}
+
+	/**
+	 * A pair that is not a number yet is reported against the box that is wrong, and judged by no
+	 * constraint.
+	 *
+	 * @param list<Check> $expected
+	 */
+	#[Test]
+	#[DataProvider('halfAPair')]
+	public function a_pair_that_is_not_a_number_names_the_half_in_the_way(object $given, array $expected): void
+	{
+		$this->assertIncompleteWith($expected, (new PhoneNumber(new FieldName('phone'), ['AU', 'NZ']))->validate($given));
+	}
+
+	/** @return array<string, array{object, list<Check>}> */
+	public static function halfAPair(): array
+	{
+		return [
+			// The ordinary half-filled form, from either end. A number typed before a country was
+			// picked is not judged at all: it cannot be read without one, and telling somebody to
+			// fix a number they typed correctly would be the wrong message.
+			'a country with no number yet' => [(object) ['country' => 'AU'], [Check::NumberRequired]],
+			'a number with no country yet' => [(object) ['number' => '0411 222 333'], [Check::CountryRequired]],
+			// Sent and holding nothing is not the same as not sent: `''` was a decision somebody
+			// made. A blank number is wrong in any country, so it is said even without one.
+			'a blank number' => [(object) ['number' => '', 'country' => 'AU'], [Check::NumberFormat]],
+			'a blank number and no country' => [(object) ['number' => ''], [Check::NumberFormat, Check::CountryRequired]],
+			'a number that is not a number' => [(object) ['number' => 'not a number', 'country' => 'AU'], [Check::NumberFormat]],
+			// A country that is not a region is wrong rather than missing, and the number waits
+			// for one.
+			'a blank country' => [(object) ['number' => '0411 222 333', 'country' => ''], [Check::KnownCountry]],
+			'a country that is not a region' => [(object) ['number' => '0411 222 333', 'country' => 'Zorbia'], [Check::KnownCountry]],
+			'an unassigned code' => [(object) ['number' => '0411 222 333', 'country' => 'ZZ'], [Check::KnownCountry]],
+		];
+	}
+
+	#[Test]
+	public function only_a_half_that_was_not_sent_is_missing(): void
+	{
+		$field = $this->createField();
+
+		$this->assertSame([Part::Number], $field->validate((object) ['country' => 'AU'])->missingParts);
+		$this->assertSame([Part::Country], $field->validate((object) ['number' => '0411 222 333'])->missingParts);
+		$this->assertSame([], $field->validate((object) ['number' => '0411 222 333', 'country' => 'Zorbia'])->missingParts);
 	}
 
 	#[Test]
@@ -144,6 +150,13 @@ final class PhoneNumberTest extends FieldTestCase
 		$resolved = $this->createField()->validate((object) self::pair($number, $country));
 
 		$this->assertSame($agrees, $resolved->shape->passed(), "{$number} as {$country}");
+
+		if (!$agrees) {
+			// Against the number, with the country it was read in as the bound, so a message can
+			// say "that is not a number in New Zealand" rather than only "that is not a number".
+			$this->assertIncompleteWith([Check::NumberInCountry], $resolved);
+			$this->assertSame($country, $resolved->violations->first()?->bound);
+		}
 	}
 
 	/** @return array<string, array{string, string, bool}> */
@@ -161,9 +174,46 @@ final class PhoneNumberTest extends FieldTestCase
 	}
 
 	#[Test]
-	public function a_number_that_is_not_a_number_fails_the_shape(): void
+	public function a_value_is_a_number_and_the_country_it_is_valid_in(): void
 	{
-		$this->assertShapeFailed($this->createField()->validate((object) self::pair('not a number')));
+		$util = PhoneNumberUtil::getInstance();
+
+		$this->assertSame('+61411222333', (new Value($util->parse('0411 222 333', 'AU'), 'AU'))->toE164());
+
+		// Neither half is ever null, and the constructor still guards the one thing that makes
+		// them a pair: an Australian number is not a New Zealand one.
+		$this->expectException(MalformedValue::class);
+
+		new Value($util->parse('0411 222 333', 'AU'), 'NZ');
+	}
+
+	#[Test]
+	public function a_rule_about_the_number_reads_it_in_the_submitted_country(): void
+	{
+		// The number is stored in E.164, and a rule written the way a person writes a number is
+		// read in the same country, so it means what it says.
+		$schema = new Definition('contact');
+		$schema->add(new PhoneNumber(new FieldName('phone'), ['AU']));
+		$schema->add($note = $schema->createTextField('note')->makeOptional());
+		$schema->addRule($schema->when(PartScope::of('phone', 'number'))->equals('0411 222 333')->then($note->makeRequired()));
+
+		$result = $schema->validate((object) ['phone' => (object) self::pair('+61411222333')]);
+
+		$this->assertTrue($result->forField('note')?->wasMissing());
+	}
+
+	#[Test]
+	public function a_rule_about_the_country_holds_before_there_is_a_number(): void
+	{
+		$schema = new Definition('contact');
+		$schema->add(new PhoneNumber(new FieldName('phone'), ['AU', 'NZ']));
+		$schema->add($note = $schema->createTextField('note')->makeOptional());
+		$schema->addRule($schema->when(PartScope::of('phone', 'country'))->equals('nz')->then($note->makeRequired()));
+
+		$result = $schema->validate((object) ['phone' => (object) ['country' => 'NZ']]);
+
+		$this->assertTrue($result->forField('phone')?->wasIncomplete());
+		$this->assertTrue($result->forField('note')?->wasMissing());
 	}
 
 	#[Test]

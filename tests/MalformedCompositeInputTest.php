@@ -226,6 +226,14 @@ final class MalformedCompositeInputTest extends TestCase
 			Field\Money\Check::AmountRequired,
 			Field\Money\Check::AmountFormat,
 		];
+
+		yield 'PhoneNumber' => [
+			static fn(Definition $s): Field => $s->createPhoneNumberField('f', ['AU']),
+			['number' => '0411222333', 'country' => 'AU'],
+			Field\PhoneNumber\Part::Number,
+			Field\PhoneNumber\Check::NumberRequired,
+			Field\PhoneNumber\Check::NumberFormat,
+		];
 	}
 
 	/**
@@ -269,7 +277,7 @@ final class MalformedCompositeInputTest extends TestCase
 	public static function partsCheckedAsConstraints(): iterable
 	{
 		foreach (self::recordFields() as $kind => $row) {
-			if ($kind !== 'Money') {
+			if (!in_array($kind, ['Money', 'PhoneNumber'], true)) {
 				yield $kind => $row;
 			}
 		}

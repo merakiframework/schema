@@ -37,6 +37,13 @@ use libphonenumber\PhoneNumberUtil;
  * form offering several countries has not made a mistake, and "that is not a valid phone
  * number" named neither the problem nor the box.
  *
+ * ### A number is whole before it is judged
+ *
+ * Whether what arrived is a phone number at all — both halves there, a country that is a region,
+ * a number that is valid *in it* — is decided by {@see PhoneNumber\Input} before any constraint
+ * runs, and no configuration changes it. The constraints below each receive a whole
+ * {@see Value}, so they ask only what this field accepts: which countries, and which kind.
+ *
  * This replaced an `unambiguous` constraint and a rule that resolved a national number against
  * the allow-list when exactly one country was on it. Both were machinery for guessing what the
  * submitter meant, and asking for the country outright removes the need for either.
@@ -51,8 +58,11 @@ use libphonenumber\PhoneNumberUtil;
 final readonly class PhoneNumber extends AtomicField
 {
 	/**
-	 * Allowed regions as ISO 3166-1 alpha-2 codes, upper-cased. Empty accepts any international
-	 * number and no national one.
+	 * Allowed regions as ISO 3166-1 alpha-2 codes, upper-cased. Empty accepts a number from any
+	 * region libphonenumber knows.
+	 *
+	 * Which countries a field *accepts*, and nothing more: the country a number is read in is
+	 * always the one submitted with it.
 	 *
 	 * @var list<string>
 	 */
@@ -80,9 +90,6 @@ final readonly class PhoneNumber extends AtomicField
 	/**
 	 * Adds to the acceptable countries. Accumulates, like every other `allow*()`.
 	 *
-	 * Note what this does *not* do: adding a second country stops national-format input from
-	 * resolving on its own, because there is no longer one obvious answer. See the class note.
-	 *
 	 * @throws InvalidConfiguration if a country is not a region libphonenumber knows
 	 */
 	public function allowCountries(string $country, string ...$countries): static
@@ -91,7 +98,7 @@ final readonly class PhoneNumber extends AtomicField
 	}
 
 	/**
-	 * Accepts any country again, which also means national-format input stops resolving.
+	 * Accepts a number from any country again.
 	 */
 	public function clearAllowedCountries(): static
 	{
@@ -114,12 +121,15 @@ final readonly class PhoneNumber extends AtomicField
 	}
 
 	/**
-	 * @param NumberAndCountry $value
+	 * The record read half by half. Whether the halves make a number is the input's to say, and
+	 * the lifecycle's to report — see {@see PhoneNumber\Input}.
+	 *
+	 * @param NumberAndCountry|Value $value
 	 */
-	protected function parse(mixed $value): Value
+	protected function parse(mixed $value): PhoneNumber\Input
 	{
 		if ($value instanceof Value) {
-			return $value;
+			return PhoneNumber\Input::of($value);
 		}
 
 		// An object is a record; an array is a list. A number and its country are named parts,
@@ -128,18 +138,12 @@ final readonly class PhoneNumber extends AtomicField
 			throw MalformedValue::of(Value::class, 'a phone number is submitted as a record with a number and a country');
 		}
 
-		return new Value($value);
+		return new PhoneNumber\Input($value);
 	}
 
 	protected function defineConstraints(): Constraint\Set
 	{
 		return new Constraint\Set(
-			// A country chosen with nothing typed yet is the ordinary half-filled form, so the
-			// part is named rather than the whole value being called unreadable. Skipped until
-			// there is a country, which `countryRequired` below reports instead.
-			new Constraint(PhoneNumber\Check::NumberRequired, $this->hasANumber(...), true),
-			// A number cannot be read without one, so everything below depends on it.
-			new Constraint(PhoneNumber\Check::CountryRequired, $this->namesACountry(...), true),
 			new Constraint(PhoneNumber\Check::AllowedCountries, $this->isFromAnAllowedCountry(...), $this->allowedCountries),
 			new Constraint(PhoneNumber\Check::NumberType, $this->isAnAllowedType(...), $this->numberType->value),
 		);
@@ -155,46 +159,18 @@ final readonly class PhoneNumber extends AtomicField
 		return PhoneNumber\Part::cases();
 	}
 
-	private function hasANumber(Value $parsed): ?bool
+	private function isFromAnAllowedCountry(Value $phone): ?bool
 	{
-		// Skipped until there is a country, because without one the number could not be read
-		// whatever was typed — and "enter a number" is the wrong thing to tell somebody who
-		// entered one. `countryRequired` reports the thing that is actually blocking it, and
-		// one mistake earns one message.
-		if ($parsed->country === null) {
-			return null;
-		}
-
-		return $parsed->number !== null;
+		return $this->allowedCountries === []
+			? null
+			: in_array(self::util()->getRegionCodeForNumber($phone->number), $this->allowedCountries, true);
 	}
 
-	/** Whether a country was given at all. A number cannot be read without one. */
-	private function namesACountry(Value $parsed): bool
+	private function isAnAllowedType(Value $phone): ?bool
 	{
-		return $parsed->country !== null;
-	}
-
-	private function isFromAnAllowedCountry(Value $parsed): ?bool
-	{
-		$number = $parsed->number;
-
-		// Nothing was asked, or nothing to ask it of.
-		if ($this->allowedCountries === [] || $number === null) {
-			return null;
-		}
-
-		return in_array(self::util()->getRegionCodeForNumber($number), $this->allowedCountries, true);
-	}
-
-	private function isAnAllowedType(Value $parsed): ?bool
-	{
-		$number = $parsed->number;
-
-		if ($this->numberType === Type::Any || $number === null) {
-			return null;
-		}
-
-		return $this->numberType->matches(self::util()->getNumberType($number));
+		return $this->numberType === Type::Any
+			? null
+			: $this->numberType->matches(self::util()->getNumberType($phone->number));
 	}
 
 	/**
