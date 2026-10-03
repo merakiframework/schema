@@ -5,6 +5,7 @@ namespace Meraki\Schema\Field\Address;
 
 use Meraki\Schema\Comparison\Equality;
 use Meraki\Schema\Exception\BrokenInputContract;
+use Meraki\Schema\Field;
 use Meraki\Schema\Field\HasParts;
 use Meraki\Schema\Field\MalformedValue;
 use Meraki\Schema\Field\ParsedValue;
@@ -51,8 +52,8 @@ final readonly class Value implements ParsedValue, HasParts
 	/**
 	 * Part names as they appear in submitted data, mapped to the property holding them.
 	 *
-	 * The one source of truth: {@see self::partNames()}, {@see self::parts()} and
-	 * {@see self::toArray()} all read it rather than repeating it.
+	 * Keyed by each {@see Part}'s value, which is the part list itself; {@see self::parts()} and
+	 * {@see self::toArray()} both read this rather than repeating it.
 	 *
 	 * @var array<string, string>
 	 */
@@ -407,17 +408,6 @@ final readonly class Value implements ParsedValue, HasParts
 	}
 
 	/**
-	 * The six parts, named as they arrive. `country` rather than `countryCode`, because that is
-	 * the key submitted input uses and the name the `allowedCountries` constraint reports under.
-	 *
-	 * @return list<string>
-	 */
-	public static function partNames(): array
-	{
-		return array_keys(self::PARTS);
-	}
-
-	/**
 	 * The parts as they are held, for a scope to resolve against.
 	 *
 	 * Unlike {@see self::toArray()} an absent street stays `[]`, because that is what the
@@ -452,30 +442,21 @@ final readonly class Value implements ParsedValue, HasParts
 	 * Anything unresolvable is returned unchanged, so it still fails to match — reporting *why*
 	 * belongs to `knownSubdivision` and `allowedCountries`, which say it better.
 	 */
-	public function canonicalPartValue(string $part, mixed $expected): mixed
+	public function canonicalPartValue(Field\Part $part, mixed $expected): mixed
 	{
 		if (!is_string($expected)) {
 			return $expected;
 		}
 
 		return match ($part) {
-			'country' => self::codeFor($expected) ?? $expected,
+			Part::Country => self::codeFor($expected) ?? $expected,
 			// A subdivision only resolves against a country, and a form may be submitted before
 			// one is chosen. The stored side is kept as submitted in that case — see
 			// resolveSubdivision() — so the expectation is too, and both are compared as written.
-			'subdivision' => $this->countryCode === null
+			Part::Subdivision => $this->countryCode === null
 				? $expected
 				: (Requirements::subdivisionCodeIn($this->countryCode, $expected) ?? $expected),
 			default => $expected,
 		};
-	}
-
-	/**
-	 * An address line is one of up to three, and nothing here joins them into delimited text —
-	 * a separator would have to be either CRLF or LF, and HTML and JSON disagree.
-	 */
-	public static function listParts(): array
-	{
-		return ['street'];
 	}
 }

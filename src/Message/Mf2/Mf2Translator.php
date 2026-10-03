@@ -85,7 +85,7 @@ final class Mf2Translator implements Translator
 	public function forConstraint(Field $field, Field\ConstraintValidationResult $constraint): ?string
 	{
 		$kind = self::kindOf($field);
-		$part = $constraint->part;
+		$part = $constraint->part?->value;
 		$name = $constraint->name;
 
 		$keys = $part === null

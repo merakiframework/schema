@@ -136,10 +136,15 @@ final readonly class Text extends AtomicField
 	protected function defineConstraints(): Constraint\Set
 	{
 		return new Constraint\Set(
-			new Constraint('minLength', $this->meetsMinimumLength(...), $this->minLength),
-			new Constraint('maxLength', $this->meetsMaximumLength(...), $this->maxLength),
-			new Constraint('pattern', $this->matchesPattern(...), $this->pattern),
+			new Constraint(Text\Check::MinLength, $this->meetsMinimumLength(...), $this->minLength),
+			new Constraint(Text\Check::MaxLength, $this->meetsMaximumLength(...), $this->maxLength),
+			new Constraint(Text\Check::Pattern, $this->matchesPattern(...), $this->pattern),
 		);
+	}
+
+	protected static function declaredChecks(): array
+	{
+		return Text\Check::cases();
 	}
 
 	private function meetsMinimumLength(Value $parsed): bool

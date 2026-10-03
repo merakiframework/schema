@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace Meraki\Schema\Field\Constraint;
 
 use Meraki\Schema\Exception\InvalidConstraint;
+use Meraki\Schema\Field\Check;
 use Meraki\Schema\Field\Constraint;
 use Meraki\Schema\Field\ConstraintValidationResult;
 use Countable;
@@ -67,18 +68,23 @@ final class Set implements IteratorAggregate, Countable
 		);
 	}
 
-	/** @return list<string> */
 	/**
-	 * One constraint by name, for reading the bound a message would interpolate without having
-	 * to validate a value first.
+	 * One constraint by its code, for reading the bound a message would interpolate without
+	 * having to validate a value first.
+	 *
+	 * Takes the code's wire name as well as the code itself, because a name is what a serialised
+	 * schema and a language pack hold. In code, pass the enum case: a typo is then a compile
+	 * error rather than a `null`.
 	 *
 	 * Named differently from {@see \Meraki\Schema\ResolvedField::forConstraint()} on purpose:
 	 * this hands back a constraint *definition*, that one a verdict about a value. `named()` also
 	 * reads as what it returns — the constraint named X — where the `for*()` methods read as what
 	 * they are looking up.
 	 */
-	public function named(string $name): ?Constraint
+	public function named(Check|string $code): ?Constraint
 	{
+		$name = $code instanceof Check ? (string) $code->value : $code;
+
 		foreach ($this->constraints as $constraint) {
 			if ($constraint->name === $name) {
 				return $constraint;

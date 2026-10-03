@@ -112,7 +112,7 @@ final class AddressTest extends FieldTestCase
 		$result = $this->australian()->validate(self::au());
 
 		foreach ($expected as $name => $part) {
-			$this->assertSame($part, $result->forConstraint($name)->part, $name);
+			$this->assertSame($part, $result->forConstraint($name)->part?->value, $name);
 		}
 	}
 
@@ -327,7 +327,7 @@ final class AddressTest extends FieldTestCase
 		$failed = $this->australian()->validate(self::au([], 'street'))->forConstraint('streetRequired');
 
 		$this->assertTrue($failed->failed());
-		$this->assertSame('street', $failed->part);
+		$this->assertSame(Address\Part::Street, $failed->part);
 	}
 
 	#[Test]
@@ -518,7 +518,7 @@ final class AddressTest extends FieldTestCase
 		// The whole point: a form knows which input to mark.
 		$this->assertSame(
 			['subdivisionUsed' => 'subdivision', 'dependentLocalityUsed' => 'dependent_locality', 'localityUsed' => 'locality', 'postalCodeUsed' => 'postal_code'][$constraint],
-			$failed->part,
+			$failed->part?->value,
 		);
 	}
 
@@ -657,7 +657,7 @@ final class AddressTest extends FieldTestCase
 		$failed = $this->australian()->validate(self::au(['postal_code' => '99']))->forConstraint('postalCodeFormat');
 
 		$this->assertTrue($failed->failed());
-		$this->assertSame('postal_code', $failed->part);
+		$this->assertSame(Address\Part::PostalCode, $failed->part);
 		$this->assertSame('\d{4}', $failed->bound);
 	}
 

@@ -525,7 +525,7 @@ than a parser:
 
 ```php
 $failed->name;    // 'minLength'     — what was checked
-$failed->part;    // 'postal_code'   — which piece of a structured value, or null
+$failed->part;    // Address\Part::PostalCode — which piece of a structured value, or null
 $failed->bound;   // 3               — the limit, ready to interpolate
 ```
 
@@ -571,9 +571,9 @@ A **part** belongs to a value, so it goes under `value`. The short form
 `#/fields/billing/country` reads better and is ambiguous: the third segment already means a
 definition property, and `#/fields/card/name` could be the field's name or the cardholder's.
 
-Only a value that says it has parts can be read into — [`Field\HasParts`](../src/Field/HasParts.php).
-Part names are the keys submitted input uses, which are also what a constraint reports as
-`$constraint->part`, so there is one vocabulary rather than three.
+Only a field that declares parts can be read into — its [`Field\Part`](../src/Field/Part.php) enum,
+listed as `$field->parts`. A part's name is the case's value, which is also the key submitted input
+uses, and `$constraint->part` is the case itself, so there is one vocabulary rather than three.
 
 ### Writing a rule
 

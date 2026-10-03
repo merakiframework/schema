@@ -456,6 +456,37 @@ E.164 was never submitted either. `#/fields/phone/value/e164` stops resolving an
 `Api\StructuredTypeTest` holds the rule both ways, so the next value that reports a derived
 reading fails there rather than in a port.
 
+### A code is an enum case, and so is a part
+
+Every field names what it checks with a string-backed enum of its own, and every structured value
+names its parts the same way. The wire names are unchanged — `Text\Check::MinLength` is
+`'minLength'`, `Address\Part::PostalCode` is `'postal_code'` — so a language pack keeps every key.
+
+```php
+// before
+$result->forConstraint('minLength');
+$failed->part === 'postal_code';
+
+// now — a misspelled case does not compile; a misspelled string was a silent null
+$result->forConstraint(Text\Check::MinLength);   // the wire name still works too
+$failed->part === Address\Part::PostalCode;      // `->part?->value` for the string
+```
+
+What changed underneath:
+
+- `ConstraintValidationResult` and `Constraint` carry `$code`, the enum case. `$name` is still
+  there and is the case's value; `$part` is read from the code, so it is `?Field\Part` rather
+  than `?string`.
+- **Writing a field:** `new Constraint(Text\Check::MinLength, …)` replaces
+  `new Constraint('minLength', …)`, the `part:` argument is gone — a code declares its own part —
+  and a field lists its codes by overriding `declaredChecks()`. A structured field lists its parts
+  with `declaredParts()`. See [EXTENDING.md](docs/EXTENDING.md).
+- `HasParts::partNames()` and `HasParts::listParts()` are gone. Read `$field->parts` and
+  `Field\Part::isList()`; `canonicalPartValue()` takes the `Field\Part` case.
+- `Field\ValueClass::hasParts()`, `partNamesOf()` and `listPartsOf()` are gone: `$field->parts`
+  answers all three.
+- New on every field: `$parts`, `$essentialParts` and `$checks`.
+
 ### Rules
 
 Rules are built as values and then added, instead of being declared inline through a closure

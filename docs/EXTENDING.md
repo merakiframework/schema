@@ -1,8 +1,8 @@
 # Adding your own field type
 
 A field type defined outside this package is not a second-class one. There is no registry to add
-to, no factory to teach, and no interface list to update — you write a class, and everything the
-built-in fields get, yours gets.
+to, no factory to teach, and no interface list to update — you write a class, an enum naming what
+it checks, and a value, and everything the built-in fields get, yours gets.
 
 This page is the whole of what that takes. The example below is
 [`examples/custom-field.php`](../examples/custom-field.php), which runs in CI — documentation that
@@ -15,6 +15,7 @@ An ISBN field. Sixty lines, in your own namespace, touching nothing in `meraki/s
 ```php
 namespace Acme;
 
+use Acme\Isbn\Check;
 use Acme\Isbn\Value;
 use Meraki\Schema\AtomicField;
 use Meraki\Schema\Field\Constraint;
@@ -66,11 +67,36 @@ final readonly class Isbn extends AtomicField
             // Returning null from a check means "nothing was asked", so it reports Skipped
             // rather than passing vacuously.
             new Constraint(
-                'isbn13',
+                Check::Isbn13,
                 fn(Value $v): ?bool => $this->thirteenOnly ? strlen($v->isbn) === 13 : null,
                 $this->thirteenOnly,
             ),
         );
+    }
+
+    /** Every code this field can report, so a pack or a port can list them without validating. */
+    protected static function declaredChecks(): array
+    {
+        return Check::cases();
+    }
+}
+```
+
+the codes it reports under — the case's value is the key a language pack writes a message under:
+
+```php
+namespace Acme\Isbn;
+
+use Meraki\Schema\Field;
+
+enum Check: string implements Field\Check
+{
+    case Isbn13 = 'isbn13';
+
+    /** An ISBN is one value, so no check is about a part of it. */
+    public function part(): null
+    {
+        return null;
     }
 }
 ```

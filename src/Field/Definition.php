@@ -187,6 +187,15 @@ trait Definition
 	 */
 	abstract protected function defineConstraints(): Constraint\Set;
 
+	/** @var list<Part> */
+	public readonly array $parts;
+
+	/** @var list<Part> */
+	public readonly array $essentialParts;
+
+	/** @var list<Check> */
+	public readonly array $checks;
+
 	/**
 	 * Sets the shared configuration to its defaults.
 	 *
@@ -197,6 +206,36 @@ trait Definition
 	{
 		$this->optional = self::initially(false);
 		$this->defaultValue = self::initially(null);
+
+		// Declarations rather than configuration: no wither changes them, so they are read once
+		// from the field's own enums and every copy carries the same lists.
+		$this->parts = static::declaredParts();
+		$this->essentialParts = array_values(array_filter(
+			$this->parts,
+			static fn(Part $part): bool => $part->isEssential(),
+		));
+		$this->checks = static::declaredChecks();
+	}
+
+	/**
+	 * The parts this field's value is made of: the cases of its {@see Part} enum, or nothing for
+	 * a value that is one thing.
+	 *
+	 * @return list<Part>
+	 */
+	protected static function declaredParts(): array
+	{
+		return [];
+	}
+
+	/**
+	 * Every code this field reports a failure under: the cases of its {@see Check} enum.
+	 *
+	 * @return list<Check>
+	 */
+	protected static function declaredChecks(): array
+	{
+		return [];
 	}
 
 	/**

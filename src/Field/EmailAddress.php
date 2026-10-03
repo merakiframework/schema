@@ -202,11 +202,16 @@ final readonly class EmailAddress extends AtomicField
 	protected function defineConstraints(): Constraint\Set
 	{
 		return new Constraint\Set(
-			new Constraint('minLength', $this->meetsMinimumLength(...), $this->minLength),
-			new Constraint('maxLength', $this->meetsMaximumLength(...), $this->maxLength),
-			new Constraint('allowedDomains', $this->isAnAllowedDomain(...), $this->allowedDomains),
-			new Constraint('disallowedDomains', $this->isNotADisallowedDomain(...), $this->disallowedDomains),
+			new Constraint(EmailAddress\Check::MinLength, $this->meetsMinimumLength(...), $this->minLength),
+			new Constraint(EmailAddress\Check::MaxLength, $this->meetsMaximumLength(...), $this->maxLength),
+			new Constraint(EmailAddress\Check::AllowedDomains, $this->isAnAllowedDomain(...), $this->allowedDomains),
+			new Constraint(EmailAddress\Check::DisallowedDomains, $this->isNotADisallowedDomain(...), $this->disallowedDomains),
 		);
+	}
+
+	protected static function declaredChecks(): array
+	{
+		return EmailAddress\Check::cases();
 	}
 
 	/**

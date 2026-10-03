@@ -203,16 +203,23 @@ class ResolvedField extends AggregatedValidationResult implements FieldResult
 	}
 
 	/**
-	 * The result for one constraint, by the name it is reported under.
+	 * The result for one constraint, by its code — or by the code's wire name, which is what a
+	 * serialised schema and a language pack hold.
+	 *
+	 * In code, pass the enum case: `forConstraint(Text\Check::MinLength)`. A misspelled case does
+	 * not compile; a misspelled name is a `null` that looks exactly like a constraint the field
+	 * does not have.
 	 */
-	public function forConstraint(string $constraintName): ?ConstraintValidationResult
+	public function forConstraint(Field\Check|string $code): ?ConstraintValidationResult
 	{
-		if ($constraintName === '') {
+		if ($code === '') {
 			throw InvalidConstraint::lookedUpWithNoName();
 		}
 
+		$name = $code instanceof Field\Check ? (string) $code->value : $code;
+
 		foreach ($this->results as $result) {
-			if ($result instanceof ConstraintValidationResult && $result->name === $constraintName) {
+			if ($result instanceof ConstraintValidationResult && $result->name === $name) {
 				return $result;
 			}
 		}

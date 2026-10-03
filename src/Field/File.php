@@ -244,11 +244,21 @@ final readonly class File extends AtomicField
 		// Bounds first, then the allow/disallow pair — the order every other field reports in, and
 		// the order a failure reads best in. EmailAddress is the exact parallel.
 		return new Constraint\Set(
-			new Constraint('minSize', $this->meetsMinSize(...), $this->minSize),
-			new Constraint('maxSize', $this->meetsMaxSize(...), $this->maxSize),
-			new Constraint('allowedTypes', $this->isAnAllowedType(...), $this->allowedTypes),
-			new Constraint('disallowedTypes', $this->isNotADisallowedType(...), $this->disallowedTypes),
+			new Constraint(File\Check::MinSize, $this->meetsMinSize(...), $this->minSize),
+			new Constraint(File\Check::MaxSize, $this->meetsMaxSize(...), $this->maxSize),
+			new Constraint(File\Check::AllowedTypes, $this->isAnAllowedType(...), $this->allowedTypes),
+			new Constraint(File\Check::DisallowedTypes, $this->isNotADisallowedType(...), $this->disallowedTypes),
 		);
+	}
+
+	protected static function declaredChecks(): array
+	{
+		return File\Check::cases();
+	}
+
+	protected static function declaredParts(): array
+	{
+		return File\Part::cases();
 	}
 
 	/**

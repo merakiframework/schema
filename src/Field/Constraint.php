@@ -3,7 +3,6 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Field;
 
-use Meraki\Schema\Exception\InvalidConstraint;
 use Closure;
 
 /**
@@ -14,6 +13,11 @@ use Closure;
  * or what limit was missed — had to go back to the field and guess, by splitting the name on
  * dots or by reading `$field->{$name}`. Both are gone; the constraint states it.
  *
+ * It is named by a {@see Check} — a case of the field's own enum — rather than a string, so a
+ * typo is a compile error and every code a field reports can be listed without validating
+ * anything. The part it concerns is the code's to say, so it cannot be declared one way here and
+ * another way where the same code is reported.
+ *
  * Some limits only exist once you know what was submitted — Money holds a minimum per currency,
  * Address a postcode pattern per country — so "the minimum" has no single answer until an amount
  * arrives naming one. {@see self::$boundFor} covers those. Declaring {@see self::$bound} alone
@@ -23,21 +27,30 @@ use Closure;
 final readonly class Constraint
 {
 	/**
-	 * @param string $name what is checked, and the name a failure is reported under
+	 * The part of a structured value this concerns, or null when it concerns the whole value.
+	 * Read off {@see self::$code}, which is where it is declared.
+	 */
+	public ?Part $part;
+
+	/**
+	 * The name a failure is reported under — the code's value, as a language pack writes it and
+	 * as a serialised schema carries it.
+	 */
+	public string $name;
+
+	/**
+	 * @param Check $code what is checked, and the code a failure is reported under
 	 * @param Closure(mixed): (bool|null) $check true passes, false fails, null skips
 	 * @param string|int|float|bool|list<string>|null $bound the limit that applies, ready for
 	 *        a message; null when there is nothing to interpolate, as for a PO-box check
-	 * @param string|null $part the part of a structured value this concerns, e.g. `postalCode`;
-	 *        null when it concerns the whole value
 	 * @param Closure(mixed): (string|int|float|bool|list<string>|null)|null $boundFor the bound
 	 *        that applies to a *particular* value, for a limit that only exists once you know what
 	 *        was submitted
 	 */
 	public function __construct(
-		public string $name,
+		public Check $code,
 		public Closure $check,
 		public string|int|float|bool|array|null $bound = null,
-		public ?string $part = null,
 		public ?Closure $boundFor = null,
 		/**
 		 * Whether the answer depends on *when* it is asked.
@@ -54,27 +67,22 @@ final readonly class Constraint
 		 */
 		public bool $timeRelative = false,
 	) {
-		if ($name === '') {
-			throw InvalidConstraint::mustBeNamed();
-		}
-
-		if ($part === '') {
-			throw InvalidConstraint::partCannotBeEmpty();
-		}
+		$this->part = $code->part();
+		$this->name = (string) $code->value;
 	}
 
 	/**
-	 * Runs the check and reports it, carrying the part and bound through so the caller does
-	 * not have to know them.
+	 * Runs the check and reports it, carrying the bound through so the caller does not have to
+	 * know it.
 	 */
 	public function against(mixed $value): ConstraintValidationResult
 	{
 		$bound = $this->boundFor === null ? $this->bound : ($this->boundFor)($value);
 
 		return match (($this->check)($value)) {
-			true => ConstraintValidationResult::pass($this->name, $this->part, $bound),
-			false => ConstraintValidationResult::fail($this->name, $this->part, $bound),
-			default => ConstraintValidationResult::skip($this->name, $this->part, $bound),
+			true => ConstraintValidationResult::pass($this->code, $bound),
+			false => ConstraintValidationResult::fail($this->code, $bound),
+			default => ConstraintValidationResult::skip($this->code, $bound),
 		};
 	}
 
@@ -88,6 +96,6 @@ final readonly class Constraint
 	 */
 	public function skipped(): ConstraintValidationResult
 	{
-		return ConstraintValidationResult::skip($this->name, $this->part, $this->bound);
+		return ConstraintValidationResult::skip($this->code, $this->bound);
 	}
 }

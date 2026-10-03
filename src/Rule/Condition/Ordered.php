@@ -51,7 +51,7 @@ use Meraki\Schema\ValueScope;
  *
  * For a {@see \Meraki\Schema\PartScope} the field's own class says nothing — a part resolves to
  * whatever the value put in it — with one exception the value *does* declare: a part held as a
- * **list** has no order either, and {@see Field\HasParts::listParts()} names those without needing
+ * **list** has no order either, and {@see Field\Part::isList()} names those without needing
  * a request. So `isAtLeast(3)` against an address's `street` is refused there too, and the message
  * points at the verbs a list does answer.
  */
@@ -99,7 +99,9 @@ abstract class Ordered extends Comparison
 		if ($this->scope instanceof PartScope) {
 			$field = (new ScopeResolver($fields))->fieldFor($this->scope);
 
-			if ($field !== null && in_array($this->scope->part, Field\ValueClass::listPartsOf($field), true)) {
+			$listParts = $field === null ? [] : array_filter($field->parts, static fn(Field\Part $part): bool => $part->isList());
+
+			if (in_array($this->scope->part, array_column($listParts, 'value'), true)) {
 				return sprintf(
 					'The rule asks where "%s" sits relative to %s, but that part holds a list of '
 					. 'entries, which has no order — so the comparison could never be true and the '

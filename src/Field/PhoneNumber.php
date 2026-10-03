@@ -137,12 +137,22 @@ final readonly class PhoneNumber extends AtomicField
 			// A country chosen with nothing typed yet is the ordinary half-filled form, so the
 			// part is named rather than the whole value being called unreadable. Skipped until
 			// there is a country, which `countryRequired` below reports instead.
-			new Constraint('numberRequired', $this->hasANumber(...), true, 'number'),
+			new Constraint(PhoneNumber\Check::NumberRequired, $this->hasANumber(...), true),
 			// A number cannot be read without one, so everything below depends on it.
-			new Constraint('countryRequired', $this->namesACountry(...), true, 'country'),
-			new Constraint('allowedCountries', $this->isFromAnAllowedCountry(...), $this->allowedCountries, 'country'),
-			new Constraint('numberType', $this->isAnAllowedType(...), $this->numberType->value, 'number'),
+			new Constraint(PhoneNumber\Check::CountryRequired, $this->namesACountry(...), true),
+			new Constraint(PhoneNumber\Check::AllowedCountries, $this->isFromAnAllowedCountry(...), $this->allowedCountries),
+			new Constraint(PhoneNumber\Check::NumberType, $this->isAnAllowedType(...), $this->numberType->value),
 		);
+	}
+
+	protected static function declaredChecks(): array
+	{
+		return PhoneNumber\Check::cases();
+	}
+
+	protected static function declaredParts(): array
+	{
+		return PhoneNumber\Part::cases();
 	}
 
 	private function hasANumber(Value $parsed): ?bool

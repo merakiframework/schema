@@ -25,7 +25,6 @@ use InvalidArgumentException;
 #[CoversClass(Set::class)]
 #[CoversClass(FlatSet::class)]
 #[CoversClass(PartedSet::class)]
-#[CoversClass(Field\ValueClass::class)]
 final class SetTest extends TestCase
 {
 	private static function translator(string $source): Mf2Translator

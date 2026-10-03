@@ -201,7 +201,7 @@ final class MalformedCompositeInputTest extends TestCase
 
 			$this->assertTrue($result->shape->passed(), "{$constraint}: {$how} should still be readable");
 			$this->assertTrue($failed->failed(), "{$constraint}: {$how} should fail");
-			$this->assertSame($part, $failed->part, "{$constraint}: {$how} should name the part");
+			$this->assertSame($part, $failed->part?->value, "{$constraint}: {$how} should name the part");
 		}
 
 		// Sent and holding nothing is the other case, and it is a shape failure.

@@ -200,7 +200,7 @@ final class StructuredTypeTest extends TestCase
 		$failed = $address->validate(self::area())->forConstraint('streetRequired');
 
 		$this->assertTrue($failed->failed());
-		$this->assertSame('street', $failed->part);
+		$this->assertSame(Field\Address\Part::Street, $failed->part);
 	}
 
 	#[Test]
@@ -293,7 +293,7 @@ final class StructuredTypeTest extends TestCase
 		// box somebody fills in rather than one the port supplies.
 		$this->assertTrue($resolved->shape->passed());
 		$this->assertTrue($resolved->forConstraint('countryRequired')->failed());
-		$this->assertSame('country', $resolved->forConstraint('countryRequired')->part);
+		$this->assertSame(Field\Address\Part::Country, $resolved->forConstraint('countryRequired')->part);
 
 		// Everything read from a country's own format has nothing to read, so it skips rather
 		// than guessing — one mistake, one message.
@@ -324,7 +324,7 @@ final class StructuredTypeTest extends TestCase
 	#[DataProvider('recordPayloads')]
 	public function every_part_a_value_reports_is_a_key_it_is_submitted_with(Field $field, object $payload): void
 	{
-		$declared = Field\ValueClass::partNamesOf($field);
+		$declared = array_column($field->parts, 'value');
 		$undeliverable = array_values(array_diff($declared, array_keys(get_object_vars($payload))));
 
 		$this->assertNotSame([], $declared, $field::class . ' should report parts.');
@@ -377,12 +377,56 @@ final class StructuredTypeTest extends TestCase
 		$reporting = [];
 
 		foreach (SealedFieldTest::fields() as $short => [$class]) {
-			if (Field\ValueClass::hasParts(self::build($class))) {
+			if (self::build($class)->parts !== []) {
 				$reporting[] = $short;
 			}
 		}
 
 		$this->assertSame(['Address', 'CreditCard', 'File', 'Money', 'PhoneNumber'], $reporting);
+	}
+
+	/**
+	 * What a value cannot be without is declared by its part enum, and read off the field.
+	 *
+	 * A fact about the kind of value rather than configuration, so it is the same on every field of
+	 * a kind and no wither changes it. A port reads it to know which inputs are required together.
+	 *
+	 * @param class-string<Field> $class
+	 * @param list<Field\Part> $essential
+	 */
+	#[Test]
+	#[DataProvider('essentialParts')]
+	public function a_field_declares_the_parts_its_value_cannot_be_without(string $class, array $essential): void
+	{
+		$field = self::build($class);
+
+		$this->assertSame($essential, $field->essentialParts);
+		$this->assertSame($essential, $field->makeOptional()->essentialParts, 'an optional field still needs them together');
+	}
+
+	/** @return iterable<string, array{class-string<Field>, list<Field\Part>}> */
+	public static function essentialParts(): iterable
+	{
+		yield 'Address' => [Field\Address::class, [Field\Address\Part::Country]];
+		yield 'CreditCard' => [Field\CreditCard::class, [Field\CreditCard\Part::Number, Field\CreditCard\Part::Expiry, Field\CreditCard\Part::Name]];
+		yield 'File' => [Field\File::class, [Field\File\Part::Name, Field\File\Part::Type, Field\File\Part::Size]];
+		yield 'Money' => [Field\Money::class, [Field\Money\Part::Currency, Field\Money\Part::Amount]];
+		yield 'PhoneNumber' => [Field\PhoneNumber::class, [Field\PhoneNumber\Part::Number, Field\PhoneNumber\Part::Country]];
+		yield 'Text' => [Field\Text::class, []];
+	}
+
+	/**
+	 * A part's name is the case's value and a string: the key input arrives under, and the
+	 * `part.*` key a language pack translates.
+	 */
+	#[Test]
+	public function every_part_is_named_by_a_string(): void
+	{
+		foreach (SealedFieldTest::fields() as [$class]) {
+			foreach (self::build($class)->parts as $part) {
+				$this->assertIsString($part->value, sprintf('%s::%s', $part::class, $part->name));
+			}
+		}
 	}
 
 	/** @param class-string<Field> $class */

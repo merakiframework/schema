@@ -148,6 +148,43 @@ interface Field
 	public function resolvedValueFor(mixed $given): ?Field\ParsedValue;
 
 	/**
+	 * Every part this field's value is made of, in the order a value is written — empty for a
+	 * value that is one thing.
+	 *
+	 * The cases of the value's own {@see Field\Part} enum, so a port can draw one input per part
+	 * and a rule can name one, before anything is submitted.
+	 *
+	 * @var list<Field\Part>
+	 */
+	public array $parts { get; }
+
+	/**
+	 * The parts no value of this kind can exist without, whatever this field asks for.
+	 *
+	 * A fact about the kind of value rather than configuration: a phone number needs its number
+	 * and its country on every field there will ever be, so no wither adds to this or takes from
+	 * it. A part a field merely *demands* — an address's street, above its precision floor — is
+	 * not here, because another field may decline it.
+	 *
+	 * On a field that is optional, these are required together or not at all: sending nothing is
+	 * fine, and sending anything needs all of them.
+	 *
+	 * @var list<Field\Part>
+	 */
+	public array $essentialParts { get; }
+
+	/**
+	 * Every code this field can report a failure under, besides the missing and unreadable shapes
+	 * every field shares.
+	 *
+	 * The cases of the field's own {@see Field\Check} enum. Listed so a language pack, a port or a
+	 * test can know every failure a field may produce without validating anything.
+	 *
+	 * @var list<Field\Check>
+	 */
+	public array $checks { get; }
+
+	/**
 	 * The checks this field makes, each carrying the name it reports under, the part of a
 	 * structured value it concerns, and the bound a message needs.
 	 *

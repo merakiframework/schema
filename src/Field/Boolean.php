@@ -75,8 +75,13 @@ final readonly class Boolean extends AtomicField
 	protected function defineConstraints(): Constraint\Set
 	{
 		return new Constraint\Set(
-			new Constraint('accepted', $this->wasAccepted(...), $this->requiresAcceptance),
+			new Constraint(Boolean\Check::Accepted, $this->wasAccepted(...), $this->requiresAcceptance),
 		);
+	}
+
+	protected static function declaredChecks(): array
+	{
+		return Boolean\Check::cases();
 	}
 
 	private function wasAccepted(Value $parsed): ?bool

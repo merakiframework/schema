@@ -209,11 +209,17 @@ final readonly class Collection implements Field
 	protected function defineConstraints(): Constraint\Set
 	{
 		return new Constraint\Set(
-			new Constraint('minCount', $this->holdsAtLeastTheMinimum(...), $this->minCount),
-			new Constraint('maxCount', $this->holdsAtMostTheMaximum(...), $this->maxCount),
+			new Constraint(Collection\Check::MinCount, $this->holdsAtLeastTheMinimum(...), $this->minCount),
+			new Constraint(Collection\Check::MaxCount, $this->holdsAtMostTheMaximum(...), $this->maxCount),
 			// No bound: "these two rows are the same" has nothing to interpolate.
-			new Constraint('unique', $this->holdsNoRepeats(...), null),
+			new Constraint(Collection\Check::Unique, $this->holdsNoRepeats(...), null),
 		);
+	}
+
+	/** @return list<Collection\Check> */
+	protected static function declaredChecks(): array
+	{
+		return Collection\Check::cases();
 	}
 
 	/**

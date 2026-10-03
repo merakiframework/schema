@@ -254,86 +254,86 @@ final readonly class Address extends AtomicField
 		return new Constraint\Set(
 			// First, because everything below it is read from the country's own published
 			// format: without one, each of them skips rather than guessing.
-			new Constraint('countryRequired', $this->namesACountry(...), true, 'country'),
-			new Constraint('allowedCountries', $this->isAnAllowedCountry(...), $this->allowedCountries, 'country'),
+			new Constraint(Address\Check::CountryRequired, $this->namesACountry(...), true),
+			new Constraint(Address\Check::AllowedCountries, $this->isAnAllowedCountry(...), $this->allowedCountries),
 
 			new Constraint(
-				'streetRequired',
+				Address\Check::StreetRequired,
 				$this->requires('street'),
 				$this->declaredRequirement($declared, 'street'),
-				'street',
 				$this->appliedRequirement('street'),
 			),
 			new Constraint(
-				'streetLineLimit',
+				Address\Check::StreetLineLimit,
 				$this->withinTheLineLimit(...),
 				$declared === null ? Requirements::genericStreetLineLimit() : $declared->streetLineLimit,
-				'street',
 				fn(Value $address): ?int => $this->rulesFor($address)?->streetLineLimit,
 			),
 			// No bound: "this must be somewhere you can go" has nothing to interpolate.
-			new Constraint('streetVisitable', $this->isVisitable(...), null, 'street'),
+			new Constraint(Address\Check::StreetVisitable, $this->isVisitable(...), null),
 			new Constraint(
-				'localityRequired',
+				Address\Check::LocalityRequired,
 				$this->requires('locality'),
 				$this->declaredRequirement($declared, 'locality'),
-				'locality',
 				$this->appliedRequirement('locality'),
 			),
 			new Constraint(
-				'localityUsed',
+				Address\Check::LocalityUsed,
 				$this->uses('locality'),
 				$this->declaredUse($declared, 'locality'),
-				'locality',
 				$this->appliedUse('locality'),
 			),
 			new Constraint(
-				'dependentLocalityUsed',
+				Address\Check::DependentLocalityUsed,
 				$this->uses('dependent_locality'),
 				$this->declaredUse($declared, 'dependent_locality'),
-				'dependent_locality',
 				$this->appliedUse('dependent_locality'),
 			),
 			new Constraint(
-				'subdivisionRequired',
+				Address\Check::SubdivisionRequired,
 				$this->requires('subdivision'),
 				$this->declaredRequirement($declared, 'subdivision'),
-				'subdivision',
 				$this->appliedRequirement('subdivision'),
 			),
 			new Constraint(
-				'subdivisionUsed',
+				Address\Check::SubdivisionUsed,
 				$this->uses('subdivision'),
 				$this->declaredUse($declared, 'subdivision'),
-				'subdivision',
 				$this->appliedUse('subdivision'),
 			),
 			// No bound: a country's subdivision list runs to sixty-odd entries for the United
 			// States, which no message wants interpolated into it. A port that wants the list
 			// reads it off `requirementsFor()`, which is where it lives.
-			new Constraint('knownSubdivision', $this->isAKnownSubdivision(...), null, 'subdivision'),
+			new Constraint(Address\Check::KnownSubdivision, $this->isAKnownSubdivision(...), null),
 			new Constraint(
-				'postalCodeRequired',
+				Address\Check::PostalCodeRequired,
 				$this->requires('postal_code'),
 				$this->declaredRequirement($declared, 'postal_code'),
-				'postal_code',
 				$this->appliedRequirement('postal_code'),
 			),
 			new Constraint(
-				'postalCodeUsed',
+				Address\Check::PostalCodeUsed,
 				$this->uses('postal_code'),
 				$this->declaredUse($declared, 'postal_code'),
-				'postal_code',
 				$this->appliedUse('postal_code'),
 			),
 			new Constraint(
-				'postalCodeFormat',
+				Address\Check::PostalCodeFormat,
 				$this->matchesPostalCodeFormat(...),
 				$declared?->postalCodeFormat,
-				'postal_code',
 				fn(Value $address): ?string => $this->rulesFor($address)?->postalCodeFormatFor($address->subdivision),
 			),
 		);
+	}
+
+	protected static function declaredChecks(): array
+	{
+		return Address\Check::cases();
+	}
+
+	protected static function declaredParts(): array
+	{
+		return Address\Part::cases();
 	}
 
 	// ── reading the country's rules ────────────────────────────────────────────────────────

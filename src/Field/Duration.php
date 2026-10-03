@@ -119,10 +119,15 @@ final readonly class Duration extends AtomicField
 	protected function defineConstraints(): Constraint\Set
 	{
 		return new Constraint\Set(
-			new Constraint('minValue', $this->checkMinValue(...), $this->minValue?->__toString()),
-			new Constraint('maxValue', $this->checkMaxValue(...), $this->maxValue?->__toString()),
-			new Constraint('step', $this->checkStep(...), $this->step?->__toString()),
+			new Constraint(Duration\Check::MinValue, $this->checkMinValue(...), $this->minValue?->__toString()),
+			new Constraint(Duration\Check::MaxValue, $this->checkMaxValue(...), $this->maxValue?->__toString()),
+			new Constraint(Duration\Check::Step, $this->checkStep(...), $this->step?->__toString()),
 		);
+	}
+
+	protected static function declaredChecks(): array
+	{
+		return Duration\Check::cases();
 	}
 
 	private function mustParse(mixed $value): DateTime\Duration

@@ -13,7 +13,7 @@ use Meraki\Schema\Exception\InvalidScope;
  * that away, and the only way back would be to parse the sentences.
  *
  * The grouping is the same vocabulary used everywhere else: the part names a value declares
- * through {@see \Meraki\Schema\Field\HasParts::partNames()}, which are also the keys input arrives
+ * through {@see \Meraki\Schema\Field::$parts}, which are also the keys input arrives
  * under and the values a constraint reports as its `part`. A consumer that has seen either already
  * knows these names.
  *

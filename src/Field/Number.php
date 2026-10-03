@@ -165,12 +165,17 @@ final readonly class Number extends AtomicField
 		return new Constraint\Set(
 			// The bounds stay null when unset rather than becoming '', so a message can tell
 			// "no minimum" from "a minimum of nothing".
-			new Constraint('minValue', $this->checkMinValue(...), $this->minValue?->__toString()),
-			new Constraint('maxValue', $this->checkMaxValue(...), $this->maxValue?->__toString()),
-			new Constraint('step', $this->checkStep(...), $this->step?->__toString()),
-			new Constraint('scale', $this->checkScale(...), $this->scale),
-			new Constraint('maxPrecision', $this->checkMaxPrecision(...), $this->maxPrecision),
+			new Constraint(Number\Check::MinValue, $this->checkMinValue(...), $this->minValue?->__toString()),
+			new Constraint(Number\Check::MaxValue, $this->checkMaxValue(...), $this->maxValue?->__toString()),
+			new Constraint(Number\Check::Step, $this->checkStep(...), $this->step?->__toString()),
+			new Constraint(Number\Check::Scale, $this->checkScale(...), $this->scale),
+			new Constraint(Number\Check::MaxPrecision, $this->checkMaxPrecision(...), $this->maxPrecision),
 		);
+	}
+
+	protected static function declaredChecks(): array
+	{
+		return Number\Check::cases();
 	}
 
 	/**

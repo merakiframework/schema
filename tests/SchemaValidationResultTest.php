@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace Meraki\Schema;
 
 use Meraki\Schema\Field\ConstraintValidationResult;
+use Meraki\Schema\Field\Text\Check;
 use Brick\DateTime\Instant;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Group;
@@ -39,26 +40,23 @@ final class SchemaValidationResultTest extends AggregatedValidationResultTestCas
 	 */
 	public function createPassedResult(): ConstraintValidationResult
 	{
-		return ConstraintValidationResult::pass('passed' . self::$seq++);
+		return ConstraintValidationResult::pass(Check::MinLength);
 	}
 
 	public function createFailedResult(): ConstraintValidationResult
 	{
-		return ConstraintValidationResult::fail('failed' . self::$seq++);
+		return ConstraintValidationResult::fail(Check::MinLength);
 	}
 
 	public function createSkippedResult(): ConstraintValidationResult
 	{
-		return ConstraintValidationResult::skip('skipped' . self::$seq++);
+		return ConstraintValidationResult::skip(Check::MinLength);
 	}
 
 	public function createPendingResult(): ConstraintValidationResult
 	{
-		return new ConstraintValidationResult(ValidationStatus::Pending, 'pending' . self::$seq++);
+		return new ConstraintValidationResult(ValidationStatus::Pending, Check::MinLength);
 	}
-
-	/** Keeps constraint names distinct, so nothing here depends on two results being tellable apart. */
-	private static int $seq = 0;
 
 	#[Test]
 	public function it_carries_the_instant_the_request_was_judged_at(): void

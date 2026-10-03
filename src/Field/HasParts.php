@@ -40,28 +40,21 @@ namespace Meraki\Schema\Field;
  * is derived from the parts rather than one of them, it is a method on the value —
  * `Value::toE164()`, `Value::__toString()`.
  *
- * ### Why the names are declarable without a value
+ * ### The names live on the part enum
  *
- * {@see self::partNames()} is static because {@see \Meraki\Schema\Definition::addRule()} validates a
- * scope when the rule is *written*, where there is no request and so no value to inspect. Without
- * it, `ValueScope::of('billing', 'ctry')` would be accepted at authoring time and silently resolve
- * to `null` on every request afterwards — which is the failure mode this library spends most of
- * its guards avoiding.
+ * Which parts a value has, whether one is essential and whether one holds a list are facts a rule
+ * needs where it is *written*, with no request and so no value to inspect — without them,
+ * `ValueScope::of('billing', 'ctry')` would be accepted at authoring time and silently resolve to
+ * `null` on every request afterwards. They used to be static methods here; they are the cases and
+ * methods of the value's {@see Part} enum now, read through {@see \Meraki\Schema\Field::$parts},
+ * so there is one place a part is described rather than three.
  */
 interface HasParts
 {
 	/**
-	 * Every part this kind of value has, whether or not any of them were submitted.
-	 *
-	 * Static, so a scope can be checked against a field before any request exists.
-	 *
-	 * @return list<string>
-	 */
-	public static function partNames(): array;
-
-	/**
-	 * This value's parts, by name. A part nobody supplied is present and `null` rather than
-	 * missing, so reading one is never a question about whether the key exists.
+	 * This value's parts, keyed by each {@see Part}'s value — `postal_code`. A part nobody
+	 * supplied is present and `null` rather than missing, so reading one is never a question about
+	 * whether the key exists.
 	 *
 	 * @return array<string, mixed>
 	 */
@@ -84,24 +77,8 @@ interface HasParts
 	 * them — {@see \Meraki\Schema\Field\Money\Value} canonicalises nothing, so it returns what it
 	 * was handed.
 	 *
-	 * @param string $part one of {@see self::partNames()}
+	 * @param Part $part one of the field's {@see \Meraki\Schema\Field::$parts}
 	 * @param mixed $expected whatever the rule was written with
 	 */
-	public function canonicalPartValue(string $part, mixed $expected): mixed;
-
-	/**
-	 * Which of {@see self::partNames()} hold a *list* rather than one string.
-	 *
-	 * Static, for the same reason `partNames()` is: a rule is checked when it is written, where
-	 * there is no value to inspect. `Address\Value::$street` is the only one today — an address
-	 * line is one of up to three, and nothing here joins them into delimited text.
-	 *
-	 * What it buys is an authoring-time refusal. A list has no order, so `isAtLeast(3)` against
-	 * one has no meaning to give it; without this it was accepted and then never fired, which is
-	 * indistinguishable from a condition that simply never held. The textual verbs fold over the
-	 * entries instead — see {@see \Meraki\Schema\Rule\Condition\Textual::textLinesAt()}.
-	 *
-	 * @return list<string>
-	 */
-	public static function listParts(): array;
+	public function canonicalPartValue(Part $part, mixed $expected): mixed;
 }

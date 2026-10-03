@@ -27,7 +27,7 @@ use Traversable;
  *   the part it concerns so a renderer can attach it to the right input instead of piling
  *   everything above the fieldset.
  *
- * Which one you get follows from the *field*, via {@see Field\ValueClass::hasParts()}, and not
+ * Which one you get follows from the *field*, via {@see Field::$parts}, and not
  * from what happened to fail. That matters: deciding it from the results would mean an address
  * whose only failure was on the whole value came back flat, and a consumer that checks the type
  * once would break on a request that happened to fail differently.
@@ -56,10 +56,10 @@ abstract class Set implements IteratorAggregate, Countable
 	public static function for(FieldResult $result, ?Translator $translator = null): self
 	{
 		$field = $result->field;
-		$parted = Field\ValueClass::hasParts($field);
+		$parted = $field->parts !== [];
 
 		if ($translator === null) {
-			return $parted ? new PartedSet(new FlatSet(), [], Field\ValueClass::partNamesOf($field)) : new FlatSet();
+			return $parted ? new PartedSet(new FlatSet(), [], array_column($field->parts, 'value')) : new FlatSet();
 		}
 
 		$whole = [];
@@ -83,7 +83,7 @@ abstract class Set implements IteratorAggregate, Countable
 			if ($constraint->part === null) {
 				$whole[] = $said;
 			} else {
-				$byPart[$constraint->part][] = $said;
+				$byPart[$constraint->part->value][] = $said;
 			}
 		}
 
@@ -100,7 +100,7 @@ abstract class Set implements IteratorAggregate, Countable
 		return new PartedSet(
 			new FlatSet(...$whole),
 			array_map(static fn(array $said): FlatSet => new FlatSet(...$said), $byPart),
-			Field\ValueClass::partNamesOf($field),
+			array_column($field->parts, 'value'),
 		);
 	}
 

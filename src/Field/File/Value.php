@@ -5,6 +5,7 @@ namespace Meraki\Schema\Field\File;
 
 use Meraki\Schema\Comparison\Equality;
 use Meraki\Schema\Exception\BrokenInputContract;
+use Meraki\Schema\Field;
 use Meraki\Schema\Field\HasParts;
 use Meraki\Schema\Field\MalformedValue;
 use Meraki\Schema\Field\ParsedValue;
@@ -130,9 +131,9 @@ final readonly class Value implements ParsedValue, HasParts
 	 *
 	 * @return list<string>
 	 */
-	public static function partNames(): array
+	private static function partNames(): array
 	{
-		return ['name', 'type', 'size'];
+		return array_column(Part::cases(), 'value');
 	}
 
 	/**
@@ -152,14 +153,9 @@ final readonly class Value implements ParsedValue, HasParts
 	 * with. {@see \Meraki\Schema\Field\Address\Value::canonicalPartValue()} is the one that
 	 * has work to do.
 	 */
-	public function canonicalPartValue(string $part, mixed $expected): mixed
+	public function canonicalPartValue(Field\Part $part, mixed $expected): mixed
 	{
 		return $expected;
 	}
 
-	/** Every part here is one string. @see HasParts::listParts() */
-	public static function listParts(): array
-	{
-		return [];
-	}
 }

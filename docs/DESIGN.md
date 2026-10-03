@@ -291,7 +291,7 @@ The core says *what* failed and *what the limit was*. It does not say it in Engl
 ```php
 $failed->name;    // 'minLength'
 $failed->bound;   // 3
-$failed->part;    // 'postal_code', or null
+$failed->part;    // Address\Part::PostalCode, or null
 ```
 
 Wording arrives separately, from an installable pack of MessageFormat 2 files with no code in
@@ -325,7 +325,7 @@ Three things, and each exists because writing the message without it meant guess
 $failed = $schema->validate($data)->forField('billing')->getFailedConstraints()->getFirst();
 
 $failed->name;    // 'postalCodeFormat'  — what was checked
-$failed->part;    // 'postal_code'       — which piece of the value it was about
+$failed->part;    // Address\Part::PostalCode — which piece of the value it was about
 $failed->bound;   // '\d{4}'             — the limit, ready to interpolate
 ```
 

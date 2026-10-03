@@ -154,7 +154,7 @@ $failed = $field->getFailedConstraints()->getFirst();
 
 $failed->name;    // 'minLength'
 $failed->bound;   // 3
-$failed->part;    // 'postal_code', or null for the whole value
+$failed->part;    // Address\Part::PostalCode, or null for the whole value
 ```
 
 That is enough to write your own sentence, and plenty of applications should. For the rest, wording

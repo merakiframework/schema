@@ -24,6 +24,9 @@ interface Field
     public bool $optional { get; }
     public mixed $defaultValue { get; }
     public Constraint\Set $constraints { get; }
+    public array $parts { get; }            // list<Field\Part>: empty for a value that is one thing
+    public array $essentialParts { get; }   // list<Field\Part>: the parts no value can be without
+    public array $checks { get; }           // list<Field\Check>: every code it can report under
 
     public function defaultsTo(mixed $value): static;
     public function makeOptional(): static;
@@ -55,7 +58,8 @@ name for what it holds.
 
 ## What a field author writes
 
-Four things. Here is the whole of `Field\Boolean`, which is the smallest real field:
+Five things: the field below, and an enum naming what it checks. Here is the whole of
+`Field\Boolean`, which is the smallest real field:
 
 ```php
 final readonly class Boolean extends AtomicField
@@ -93,13 +97,34 @@ final readonly class Boolean extends AtomicField
     protected function defineConstraints(): Constraint\Set // 5. what it checks
     {
         return new Constraint\Set(
-            new Constraint('accepted', $this->wasAccepted(...), $this->requiresAcceptance),
+            new Constraint(Boolean\Check::Accepted, $this->wasAccepted(...), $this->requiresAcceptance),
         );
+    }
+
+    protected static function declaredChecks(): array      //    ...and every code it reports
+    {
+        return Boolean\Check::cases();
     }
 
     private function wasAccepted(Value $parsed): ?bool
     {
         return $this->requiresAcceptance ? $parsed->answer === true : null;
+    }
+}
+```
+
+The codes are a string-backed enum implementing `Field\Check`. Each case's value is the name a
+failure is reported under and a language pack writes a message under; `part()` says which part
+of a structured value the check concerns, or `null`:
+
+```php
+enum Check: string implements Field\Check
+{
+    case Accepted = 'accepted';
+
+    public function part(): null
+    {
+        return null;
     }
 }
 ```
@@ -272,14 +297,16 @@ A constraint carries everything a message needs:
 
 ```php
 new Constraint(
-    name: 'minLength',          // reported under this, and matches the $minLength property
+    code: Text\Check::MinLength,  // reported under 'minLength', matching the $minLength property
     check: $this->longEnough(...),
-    bound: $this->minLength,    // what a message interpolates
-    part: null,                 // which part of a structured value, or null for the whole
-    boundFor: null,             // a per-request bound, when the limit depends on the value
-    timeRelative: false,        // whether the answer depends on when it is asked
+    bound: $this->minLength,      // what a message interpolates
+    boundFor: null,               // a per-request bound, when the limit depends on the value
+    timeRelative: false,          // whether the answer depends on when it is asked
 );
 ```
+
+The part a constraint concerns is not an argument: it is the code's own `part()`, so a check
+cannot be declared about one part here and reported against another there.
 
 **A constraint's name says where to read its bound**, and there are three cases:
 
@@ -299,9 +326,10 @@ new Constraint(
 was nothing to ask. A constraint nobody configured skips rather than passing, so "not asked" and
 "asked and fine" stay distinct in the result.
 
-**`part`** names which piece of a structured value a constraint is about — `street`, `amount` —
-rather than encoding it in the name. Names carry no field name and no path: it is `postalCodeFormat`
-with part `postal_code`, never `venue.postal_code.format`.
+**The part** names which piece of a structured value a constraint is about — `Address\Part::Street`,
+`Money\Part::Amount` — rather than encoding it in the name. Names carry no field name and no path:
+it is `postalCodeFormat` about `postal_code`, never `venue.postal_code.format`. It is read from the
+code, so `$constraint->part` and every verdict's `->part` agree by construction.
 
 **`boundFor`** is for a limit that depends on the submitted value. `Money`'s minimum is per
 currency, so the bound that *applied* is only known once the currency is. It is kept separate from

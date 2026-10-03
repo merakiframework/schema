@@ -190,34 +190,41 @@ final readonly class Money extends AtomicField
 			// A part that was not sent is named, so a form can mark the box rather than being told
 			// the whole amount is unreadable. A blank one is a shape failure instead: it was a
 			// decision somebody made, and the value refuses it.
-			new Constraint('currencyRequired', $this->hasA('currency'), true, 'currency'),
-			new Constraint('amountRequired', $this->hasA('amount'), true, 'amount'),
-			new Constraint('allowedCurrencies', $this->isAnAllowedCurrency(...), array_keys($this->allowedCurrencies), 'currency'),
+			new Constraint(Money\Check::CurrencyRequired, $this->hasA('currency'), true),
+			new Constraint(Money\Check::AmountRequired, $this->hasA('amount'), true),
+			new Constraint(Money\Check::AllowedCurrencies, $this->isAnAllowedCurrency(...), array_keys($this->allowedCurrencies)),
 			// Every bound here is per currency, so the declared one is only knowable when a single
 			// currency is allowed. `boundFor` supplies the one that actually applied, once the
 			// submitted amount has named its currency.
 			new Constraint(
-				'minAmount',
+				Money\Check::MinAmount,
 				$this->meetsMinimum(...),
 				$this->singleBound($this->minAmounts),
-				'amount',
 				fn(Value $money): ?string => $this->boundFor($this->minAmounts, $money),
 			),
 			new Constraint(
-				'maxAmount',
+				Money\Check::MaxAmount,
 				$this->meetsMaximum(...),
 				$this->singleBound($this->maxAmounts),
-				'amount',
 				fn(Value $money): ?string => $this->boundFor($this->maxAmounts, $money),
 			),
 			new Constraint(
-				'scale',
+				Money\Check::Scale,
 				$this->matchesScale(...),
 				$this->singleScale(),
-				'amount',
 				fn(Value $money): ?int => $money->currency === null ? null : ($this->allowedCurrencies[$money->currency] ?? null),
 			),
 		);
+	}
+
+	protected static function declaredChecks(): array
+	{
+		return Money\Check::cases();
+	}
+
+	protected static function declaredParts(): array
+	{
+		return Money\Part::cases();
 	}
 
 	/**

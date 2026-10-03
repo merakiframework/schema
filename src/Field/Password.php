@@ -272,14 +272,19 @@ final readonly class Password extends AtomicField
 	protected function defineConstraints(): Constraint\Set
 	{
 		return new Constraint\Set(
-			new Constraint('minLength', $this->atLeastCharacters(...), $this->minLength),
-			new Constraint('maxLength', $this->atMostCharacters(...), $this->maxLength),
-			new Constraint('minStrength', $this->isStrongEnough(...), $this->minStrength?->value),
-			new Constraint('minUppercaseChars', $this->atLeast('minUppercaseChars', self::UPPERCASE), $this->minUppercaseChars),
-			new Constraint('minLowercaseChars', $this->atLeast('minLowercaseChars', self::LOWERCASE), $this->minLowercaseChars),
-			new Constraint('minDigits', $this->atLeast('minDigits', self::DIGIT), $this->minDigits),
-			new Constraint('minSymbols', $this->atLeast('minSymbols', self::SYMBOL), $this->minSymbols),
+			new Constraint(Password\Check::MinLength, $this->atLeastCharacters(...), $this->minLength),
+			new Constraint(Password\Check::MaxLength, $this->atMostCharacters(...), $this->maxLength),
+			new Constraint(Password\Check::MinStrength, $this->isStrongEnough(...), $this->minStrength?->value),
+			new Constraint(Password\Check::MinUppercaseChars, $this->atLeast('minUppercaseChars', self::UPPERCASE), $this->minUppercaseChars),
+			new Constraint(Password\Check::MinLowercaseChars, $this->atLeast('minLowercaseChars', self::LOWERCASE), $this->minLowercaseChars),
+			new Constraint(Password\Check::MinDigits, $this->atLeast('minDigits', self::DIGIT), $this->minDigits),
+			new Constraint(Password\Check::MinSymbols, $this->atLeast('minSymbols', self::SYMBOL), $this->minSymbols),
 		);
+	}
+
+	protected static function declaredChecks(): array
+	{
+		return Password\Check::cases();
 	}
 
 	/**

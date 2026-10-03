@@ -100,7 +100,7 @@ final class CreditCardTest extends FieldTestCase
 		];
 
 		foreach ($this->createField()->constraints as $constraint) {
-			$this->assertSame($expected[$constraint->name], $constraint->part, $constraint->name);
+			$this->assertSame($expected[$constraint->name], $constraint->part?->value, $constraint->name);
 		}
 	}
 
@@ -170,7 +170,7 @@ final class CreditCardTest extends FieldTestCase
 		$failed = $this->createField()->validate((object) self::card(without: $missing))->forConstraint($constraint);
 
 		$this->assertTrue($failed->failed(), $constraint);
-		$this->assertSame($missing, $failed->part);
+		$this->assertSame($missing, $failed->part?->value);
 	}
 
 	/** @return array<string, array{string, string}> */

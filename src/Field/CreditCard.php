@@ -154,31 +154,39 @@ final readonly class CreditCard extends AtomicField
 			// A part that was not sent is named, so a form marks the box. A part that was sent
 			// and cannot be read is a shape failure instead, as a bad amount is on Money — the
 			// value refuses it, and there is no half-readable card to report against.
-			new Constraint('numberRequired', $this->hasA('number'), true, 'number'),
-			new Constraint('expiryRequired', $this->hasA('expiry'), true, 'expiry'),
-			new Constraint('nameRequired', $this->hasA('name'), true, 'name'),
-			new Constraint('numberFormat', $this->hasAWellFormedNumber(...), null, 'number'),
-			new Constraint('numberChecksum', $this->passesLuhn(...), null, 'number'),
+			new Constraint(CreditCard\Check::NumberRequired, $this->hasA('number'), true),
+			new Constraint(CreditCard\Check::ExpiryRequired, $this->hasA('expiry'), true),
+			new Constraint(CreditCard\Check::NameRequired, $this->hasA('name'), true),
+			new Constraint(CreditCard\Check::NumberFormat, $this->hasAWellFormedNumber(...), null),
+			new Constraint(CreditCard\Check::NumberChecksum, $this->passesLuhn(...), null),
 			// The bound is the instant it was judged against, so a message can say what "expired"
 			// was measured from rather than only that it was. Per request, because that is what a
 			// clock means.
 			new Constraint(
-				'expiryInFuture',
+				CreditCard\Check::ExpiryInFuture,
 				$this->hasNotExpired(...),
 				null,
-				'expiry',
 				fn(mixed $value): string => (string) $this->evaluatedAt(),
 				timeRelative: true,
 			),
 			new Constraint(
-				'expiryWithinReach',
+				CreditCard\Check::ExpiryWithinReach,
 				$this->expiresWithinReach(...),
 				self::MAX_YEARS_AHEAD,
-				'expiry',
 				timeRelative: true,
 			),
-			new Constraint('securityCodeFormat', $this->hasAWellFormedSecurityCode(...), null, 'security_code'),
+			new Constraint(CreditCard\Check::SecurityCodeFormat, $this->hasAWellFormedSecurityCode(...), null),
 		);
+	}
+
+	protected static function declaredChecks(): array
+	{
+		return CreditCard\Check::cases();
+	}
+
+	protected static function declaredParts(): array
+	{
+		return CreditCard\Part::cases();
 	}
 
 	/**

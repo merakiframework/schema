@@ -111,7 +111,7 @@ final class Vocabulary
 		foreach (self::fields() as $kind => $field) {
 			foreach ($field->constraints as $constraint) {
 				if ($constraint->part !== null) {
-					$parts[$kind][$constraint->name] = $constraint->part;
+					$parts[$kind][$constraint->name] = (string) $constraint->part->value;
 				}
 			}
 		}
@@ -132,7 +132,7 @@ final class Vocabulary
 		$parts = [];
 
 		foreach (self::fields() as $kind => $field) {
-			$names = Field\ValueClass::partNamesOf($field);
+			$names = array_column($field->parts, 'value');
 
 			if ($names !== []) {
 				$parts[$kind] = $names;

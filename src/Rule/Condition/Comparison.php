@@ -149,10 +149,28 @@ abstract class Comparison implements Condition, Scoped
 		}
 
 		$owner = $resolver->resolve(new ValueScope($this->scope->in));
+		$part = $this->partNamedBy($this->scope, $fields);
 
-		return $owner instanceof Field\HasParts
-			? $owner->canonicalPartValue($this->scope->part, $expected)
+		return ($owner instanceof Field\HasParts && $part !== null)
+			? $owner->canonicalPartValue($part, $expected)
 			: $expected;
+	}
+
+	/**
+	 * The part a scope names, as the field it points into declares it — or null when there is no
+	 * such field, which the guards have already refused by the time a request arrives.
+	 */
+	private function partNamedBy(PartScope $scope, Field\Set $fields): ?Field\Part
+	{
+		$field = (new ScopeResolver($fields))->fieldFor($scope);
+
+		foreach ($field === null ? [] : $field->parts as $part) {
+			if ($part->value === $scope->part) {
+				return $part;
+			}
+		}
+
+		return null;
 	}
 
 	/**

@@ -99,9 +99,14 @@ final readonly class Name extends AtomicField
 	protected function defineConstraints(): Constraint\Set
 	{
 		return new Constraint\Set(
-			new Constraint('minLength', $this->meetsMinLength(...), $this->minLength),
-			new Constraint('maxLength', $this->meetsMaxLength(...), $this->maxLength),
+			new Constraint(Name\Check::MinLength, $this->meetsMinLength(...), $this->minLength),
+			new Constraint(Name\Check::MaxLength, $this->meetsMaxLength(...), $this->maxLength),
 		);
+	}
+
+	protected static function declaredChecks(): array
+	{
+		return Name\Check::cases();
 	}
 
 	private function meetsMinLength(Value $parsed): bool

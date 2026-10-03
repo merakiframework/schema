@@ -45,7 +45,7 @@ final class ValueTest extends TestCase
 	{
 		$this->assertSame(
 			['street', 'dependent_locality', 'locality', 'subdivision', 'postal_code', 'country'],
-			Value::partNames(),
+			array_column(Part::cases(), 'value'),
 		);
 	}
 
@@ -54,29 +54,29 @@ final class ValueTest extends TestCase
 	{
 		// organization went the way givenName and familyName already had: an address
 		// identifies a place, not who is at it.
-		$this->assertNotContains('organization', Value::partNames());
+		$this->assertNotContains('organization', array_column(Part::cases(), 'value'));
 	}
 
 	#[Test]
 	public function the_address_lines_are_one_part_rather_than_two(): void
 	{
-		$this->assertNotContains('line1', Value::partNames());
-		$this->assertNotContains('line2', Value::partNames());
+		$this->assertNotContains('line1', array_column(Part::cases(), 'value'));
+		$this->assertNotContains('line2', array_column(Part::cases(), 'value'));
 	}
 
 	#[Test]
 	public function iso_3166_2_calls_it_a_subdivision(): void
 	{
-		$this->assertNotContains('administrative_area', Value::partNames());
+		$this->assertNotContains('administrative_area', array_column(Part::cases(), 'value'));
 	}
 
 	#[Test]
-	public function partNames_and_parts_and_toArray_agree(): void
+	public function the_part_enum_and_parts_and_toArray_agree(): void
 	{
 		$address = self::address();
 
-		$this->assertSame(Value::partNames(), array_keys($address->parts()));
-		$this->assertSame(Value::partNames(), array_keys($address->toArray()));
+		$this->assertSame(array_column(Part::cases(), 'value'), array_keys($address->parts()));
+		$this->assertSame(array_column(Part::cases(), 'value'), array_keys($address->toArray()));
 	}
 
 	// ── street is a list ───────────────────────────────────────────────────────────────────

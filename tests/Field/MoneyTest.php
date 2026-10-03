@@ -130,7 +130,7 @@ final class MoneyTest extends FieldTestCase
 		];
 
 		foreach ($this->createField()->constraints as $constraint) {
-			$this->assertSame($expected[$constraint->name], $constraint->part, $constraint->name);
+			$this->assertSame($expected[$constraint->name], $constraint->part?->value, $constraint->name);
 		}
 	}
 

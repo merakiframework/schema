@@ -34,10 +34,13 @@ final class ConstraintResults extends AggregatedValidationResult
 	}
 
 	/**
-	 * One verdict, by the name it was reported under.
+	 * One verdict, by its code — or by the code's wire name, which is what a serialised schema and
+	 * a language pack hold.
 	 */
-	public function named(string $name): ?ConstraintValidationResult
+	public function named(Check|string $code): ?ConstraintValidationResult
 	{
+		$name = $code instanceof Check ? (string) $code->value : $code;
+
 		foreach ($this->results as $result) {
 			if ($result->name === $name) {
 				return $result;

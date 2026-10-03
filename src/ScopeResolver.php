@@ -191,8 +191,8 @@ final class ScopeResolver
 	/**
 	 * One named part of what the field was given.
 	 *
-	 * The part *name* is checked against the value class rather than against a value, so a
-	 * mistyped part fails where the rule is written instead of resolving to `null` on every
+	 * The part *name* is checked against the field's declared parts rather than against a value,
+	 * so a mistyped part fails where the rule is written instead of resolving to `null` on every
 	 * request afterwards — which is the failure this library spends most of its guards avoiding,
 	 * and which is invisible precisely because `null` is a legitimate answer for a part nobody
 	 * filled in.
@@ -201,7 +201,7 @@ final class ScopeResolver
 	 */
 	private function partOf(Field $field, mixed $value, string $part): mixed
 	{
-		$parts = Field\ValueClass::partNamesOf($field);
+		$parts = array_column($field->parts, 'value');
 
 		if ($parts === []) {
 			throw InvalidScope::fieldHoldsNoParts((string) $field->name, $part);

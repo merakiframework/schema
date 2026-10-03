@@ -120,6 +120,85 @@ final class ConstraintNameTest extends TestCase
 		}
 	}
 
+	/**
+	 * A constraint is named by a case of the field's own enum, and the field lists every case.
+	 *
+	 * So a pack, a port or a test can know every failure a field may report without validating
+	 * anything — and a constraint can never be reported under a code its field does not declare.
+	 */
+	#[Test]
+	#[DataProvider('everyField')]
+	public function every_constraint_is_named_by_a_code_its_field_declares(string $class): void
+	{
+		$field = self::build($class);
+		$undeclared = [];
+
+		foreach ($field->constraints as $constraint) {
+			if (!in_array($constraint->code, $field->checks, true)) {
+				$undeclared[] = $constraint->name;
+			}
+		}
+
+		$this->assertSame([], $undeclared, "{$class} reports codes it does not declare.");
+	}
+
+	/**
+	 * The wire name is the case's value, and it is a string: a language pack's key, a serialised
+	 * schema's word. An int-backed enum would satisfy the interface and break both.
+	 */
+	#[Test]
+	#[DataProvider('everyField')]
+	public function every_code_is_named_by_a_string(string $class): void
+	{
+		$notStrings = array_values(array_filter(
+			self::build($class)->checks,
+			static fn(Field\Check $check): bool => !is_string($check->value),
+		));
+
+		$this->assertSame([], $notStrings, "{$class} has codes a language pack could not key a message by.");
+	}
+
+	/**
+	 * A code's part is one the field's value has — so a failure can always be put beside an
+	 * input the form actually drew.
+	 */
+	#[Test]
+	#[DataProvider('everyField')]
+	public function every_code_is_about_a_part_the_field_has_or_about_the_whole_value(string $class): void
+	{
+		$field = self::build($class);
+		$strays = [];
+
+		foreach ($field->checks as $check) {
+			$part = $check->part();
+
+			if ($part !== null && !in_array($part, $field->parts, true)) {
+				$strays[] = sprintf('%s::%s', $check::class, $check->name);
+			}
+		}
+
+		$this->assertSame([], $strays, "{$class} has codes about parts it does not have.");
+	}
+
+	/** @return iterable<string, array{class-string<Field>}> */
+	public static function everyField(): iterable
+	{
+		foreach (SealedFieldTest::fields() as $short => [$class]) {
+			yield $short => [$class];
+		}
+	}
+
+	#[Test]
+	public function a_constraint_can_be_looked_up_by_its_code_or_by_its_wire_name(): void
+	{
+		$text = (new Field\Text(new FieldName('bio')))->minLengthOf(10);
+		$result = $text->validate('short');
+
+		$this->assertSame($result->forConstraint(Field\Text\Check::MinLength), $result->forConstraint('minLength'));
+		$this->assertSame(Field\Text\Check::MinLength, $result->forConstraint('minLength')->code);
+		$this->assertSame(10, $text->constraints->named(Field\Text\Check::MinLength)->bound);
+	}
+
 	#[Test]
 	public function a_constraint_reports_the_part_it_belongs_to(): void
 	{
@@ -131,7 +210,7 @@ final class ConstraintNameTest extends TestCase
 		$failed = $money->validate((object)['currency' => 'AUD', 'amount' => '5.00'])->forConstraint('minAmount');
 
 		$this->assertSame('minAmount', $failed->name);
-		$this->assertSame('amount', $failed->part);
+		$this->assertSame(Field\Money\Part::Amount, $failed->part);
 	}
 
 	#[Test]
@@ -187,7 +266,7 @@ final class ConstraintNameTest extends TestCase
 
 		$this->assertTrue($failed->failed());
 		$this->assertNull($failed->bound);
-		$this->assertSame('street', $failed->part);
+		$this->assertSame(Field\Address\Part::Street, $failed->part);
 	}
 
 	private static function build(string $fqcn): Field

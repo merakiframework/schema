@@ -4,8 +4,9 @@ declare(strict_types=1);
 // A field type defined entirely outside meraki/schema.
 //
 // There is no registry to add to, no factory to teach, and no interface list to update. You
-// write a class, and everything the built-in fields get, yours gets — sealing, copy-on-change,
-// the shape/constraint split, the default check, rules, scopes, and the result shape.
+// write a class, an enum naming what it checks, and a value — and everything the built-in fields
+// get, yours gets: sealing, copy-on-change, the shape/constraint split, the default check, rules,
+// scopes, and the result shape.
 //
 // Braced namespaces only because this is one file; in a real project these are two.
 
@@ -14,8 +15,25 @@ namespace Acme\Isbn {
 	require_once __DIR__ . '/../vendor/autoload.php';
 
 	use Meraki\Schema\Comparison\Equality;
+	use Meraki\Schema\Field;
 	use Meraki\Schema\Field\MalformedValue;
 	use Meraki\Schema\Field\ParsedValue;
+
+	/**
+	 * What the field checks, by the code a failure is reported under. The case's value is the
+	 * key a language pack writes a message under, so a pack can word `isbn13` like any other —
+	 * and a consumer compares `Check::Isbn13` with `===` rather than matching a string.
+	 */
+	enum Check: string implements Field\Check
+	{
+		case Isbn13 = 'isbn13';
+
+		/** An ISBN is one value, so no check here is about a part of it. */
+		public function part(): null
+		{
+			return null;
+		}
+	}
 
 	/**
 	 * What the field parses to. Every field defines one, and it decides its own equality —
@@ -61,6 +79,7 @@ namespace Acme\Isbn {
 
 namespace Acme {
 
+	use Acme\Isbn\Check;
 	use Acme\Isbn\Value;
 	use Meraki\Schema\AtomicField;
 	use Meraki\Schema\Field\Constraint;
@@ -134,11 +153,17 @@ namespace Acme {
 				// Returning null from a check means "nothing was asked", so it reports Skipped
 				// rather than passing vacuously.
 				new Constraint(
-					'isbn13',
+					Check::Isbn13,
 					fn(Value $v): ?bool => $this->thirteenOnly ? strlen($v->isbn) === 13 : null,
 					$this->thirteenOnly,
 				),
 			);
+		}
+
+		/** Every code this field can report, so a language pack can list them without validating. */
+		protected static function declaredChecks(): array
+		{
+			return Check::cases();
 		}
 	}
 }
@@ -162,7 +187,7 @@ namespace Main {
 			'  %-20s shape %-8s isbn13 %-8s value %s' . PHP_EOL,
 			$submitted === null ? '(nothing)' : $submitted,
 			$field->shape->status->name,
-			$field->forConstraint('isbn13')->status->name,
+			$field->forConstraint(Isbn\Check::Isbn13)->status->name,
 			$field->value instanceof Isbn\Value ? (string) $field->value : '-',
 		);
 	}

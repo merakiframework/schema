@@ -143,7 +143,7 @@ $failed = $field->getFailedConstraints()->getFirst();
 
 $failed->name;    // 'minLength'
 $failed->bound;   // 10  — the limit that applied, ready to interpolate
-$failed->part;    // null, or 'postal_code' for part of a structured value
+$failed->part;    // null, or Address\Part::PostalCode for part of a structured value
 ```
 
 **Shape and constraints are different questions.** If a value could not be read at all, the
@@ -272,7 +272,7 @@ part they concern:
 $field = $result->forField('billing');
 
 $field->value->postalCode;                            // the parsed value, part by part
-$field->getFailedConstraints()->getFirst()->part;     // 'postal_code'
+$field->getFailedConstraints()->getFirst()->part;     // Address\Part::PostalCode
 ```
 
 So a renderer can attach each error to the right input instead of piling them above the fieldset.
