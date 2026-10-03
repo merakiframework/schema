@@ -312,10 +312,8 @@ shape failure, the same way a bad amount already was on `Money`, so the constrai
 left to say that `expiryRequired` does not. A message pack with wording for `expiryFormat` keeps
 working — an unused key is not an error — but nothing will read it.
 
-**`PhoneNumber` has no `countryRequired`,** and that is deliberate rather than an oversight.
-libphonenumber cannot parse a number without a region, and `0411 222 333` is a different number
-in a different country, so a phone number with no country is refused exactly as an address with
-no country is. The number is the half that reports.
+**`PhoneNumber` and `Address` report a missing country too,** as `countryRequired` — see the
+next section, which is where that changed.
 
 **`File` is unchanged.** Its `name`, `type` and `size` are one upload's metadata rather than
 three inputs a form renders — no page has a "file type" box to mark — so `*Required` constraints

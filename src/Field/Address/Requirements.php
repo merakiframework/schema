@@ -54,8 +54,8 @@ final readonly class Requirements
 	 * @param string $country the canonical ISO 3166-1 alpha-2 code, whatever spelling was asked
 	 * @param list<string> $requiredParts what this country asks for, minus anything below the
 	 *        field's precision floor. Never includes `country`: every address everywhere needs
-	 *        one, and the value refuses one without it, so it is a fact about the shape rather
-	 *        than something a country asks for.
+	 *        one, so it is a fact about addresses rather than something a country asks for, and
+	 *        the field reports its absence as `countryRequired` whatever the floor.
 	 * @param list<string> $usedParts what an address here may have at all, floor or no floor
 	 * @param array<string, string> $subdivisions full ISO 3166-2 code => name. Empty where a
 	 *        country has none on file, which includes eight that use one without publishing a

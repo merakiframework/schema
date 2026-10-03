@@ -135,8 +135,8 @@ final readonly class PhoneNumber extends AtomicField
 	{
 		return new Constraint\Set(
 			// A country chosen with nothing typed yet is the ordinary half-filled form, so the
-			// part is named rather than the whole value being called unreadable. The country has
-			// no counterpart here: a number cannot be read without one, so the value refuses it.
+			// part is named rather than the whole value being called unreadable. Skipped until
+			// there is a country, which `countryRequired` below reports instead.
 			new Constraint('numberRequired', $this->hasANumber(...), true, 'number'),
 			// A number cannot be read without one, so everything below depends on it.
 			new Constraint('countryRequired', $this->namesACountry(...), true, 'country'),

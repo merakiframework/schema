@@ -13,9 +13,10 @@ use CommerceGuys\Addressing\Country\CountryRepository;
 /**
  * One postal or street address, held whole.
  *
- * Six parts, and every one but the country is optional here: this object holds whatever was
- * submitted, including a half-filled form on its way to being reported as invalid. *How much*
- * of it is required is the field's business — see {@see Precision} — not this object's.
+ * Six parts, and every one is optional here, the country included: this object holds whatever
+ * was submitted, including a half-filled form on its way to being reported as invalid. *How
+ * much* of it is required is the field's business — see {@see Precision}, and the field's
+ * `countryRequired` — not this object's.
  *
  * The names come from three places, and each earns its keep:
  *
@@ -98,29 +99,26 @@ final readonly class Value implements ParsedValue, HasParts
 	 * than whether it is an acceptable one. A constraint judges an address that could be read;
 	 * these are the cases where there is nothing left to judge.
 	 *
+	 * - **A record with no parts at all.** That is not a half-filled address; it is not one.
 	 * - **A part that was sent and holds nothing.** `''` and `'   '` are not "no locality" —
 	 *   they were provided, so the part is not missing; it simply cannot be read. Answering
 	 *   "absent" would let whitespace satisfy a requiredness check, and answering "present"
 	 *   would let it satisfy one too. A port with no value for a part omits it.
-	 * - **A country that names no country.** A postcode means nothing without one — `4700` is
-	 *   Rockhampton in Australia and something else elsewhere — and the postcode pattern, the
-	 *   subdivision list and the required set are all selected *by* the country. Keeping an
-	 *   unrecognised one and letting every check skip is how an alpha-3 code used to pass
-	 *   entirely unvalidated.
-	 * - **A subdivision the country requires and does not have.** ISO 3166-2 is a closed list,
-	 *   so a value outside it is not a subdivision of that country. It is also the part the
-	 *   rest of the address leans on: 36 subdivisions across CN and CO carry their own
-	 *   postcode pattern, overriding the country's, and both countries require a
-	 *   subdivision. (Those patterns are not read yet — the postcode is still judged
-	 *   against the country's — so today this is the rule the data warrants rather than
-	 *   one the code has come to depend on.) Where a
-	 *   country uses a subdivision without requiring one, an unrecognised value is kept for
-	 *   `knownSubdivision` to report, because nothing downstream depends on it there.
+	 * - **A country that was given and names no country.** A postcode means nothing without
+	 *   one — `4700` is Rockhampton in Australia and something else elsewhere — and the
+	 *   postcode pattern, the subdivision list and the required set are all selected *by* the
+	 *   country. Keeping an unrecognised one and letting every check skip is how an alpha-3
+	 *   code used to pass entirely unvalidated.
+	 *
+	 * Two things it keeps rather than refuses, so the field can name the box. A country that was
+	 * *not* given is `null`, and the field reports `countryRequired`. A subdivision the country
+	 * does not have is kept as submitted, and the field reports `knownSubdivision` — whether the
+	 * country requires one or merely uses one, because a bad state is a bad state.
 	 *
 	 * @param object{street?: list<string>, dependent_locality?: string, locality?: string, subdivision?: string, postal_code?: string, country?: string} $address
 	 * @throws BrokenInputContract if it carries a key an address does not have
-	 * @throws MalformedValue if a part was sent empty, if it names no usable country, or if a
-	 *         required subdivision cannot be resolved
+	 * @throws MalformedValue if it has no parts, if a part was sent empty, or if a country was
+	 *         given that names no country
 	 */
 	public function __construct(object $address)
 	{
@@ -228,9 +226,9 @@ final readonly class Value implements ParsedValue, HasParts
 	}
 
 	/**
-	 * The subdivision as ISO 3166-2 writes it, or the value verbatim where it cannot be checked.
-	 *
-	 * @throws MalformedValue if the country requires a subdivision and this is not one of its
+	 * The subdivision as ISO 3166-2 writes it, or the value verbatim where it cannot be resolved —
+	 * because there is no country yet, the country has no list on file, or this is not one of
+	 * its subdivisions.
 	 */
 	private static function resolveSubdivision(?string $countryCode, ?string $subdivision): ?string
 	{

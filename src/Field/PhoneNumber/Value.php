@@ -41,7 +41,6 @@ final readonly class Value implements ParsedValue, HasParts
 	 */
 	public ?LibPhoneNumber $number;
 
-	/** The country as submitted, upper-cased. Always present: the value refuses one without. */
 	/** ISO 3166-1 alpha-2, upper-cased; `null` when none was submitted. */
 	public ?string $country;
 
@@ -54,13 +53,13 @@ final readonly class Value implements ParsedValue, HasParts
 	 * already E.164, so `+61…` paired with `US` would otherwise sail through with the two
 	 * halves disagreeing.
 	 *
-	 * @param LibPhoneNumber|object{number?: string|null, country: string} $number the pair a form
-	 *        submits, or an already-parsed number — which is how a field hands back a value it
-	 *        resolved using its own default country
+	 * @param LibPhoneNumber|object{number?: string|null, country?: string|null} $number the pair a
+	 *        form submits, or an already-parsed number — which is how a field hands back a value
+	 *        it resolved using its own default country
 	 * @throws BrokenInputContract if it carries a key a phone number does not have
-	 * @throws MalformedValue if the country is missing, or the pair does not describe a number.
-	 *         A missing *number* is deliberately not refused: it is kept absent so
-	 *         `numberRequired` can name the box a form should mark.
+	 * @throws MalformedValue if it holds neither half, or the pair does not describe a number.
+	 *         A missing half is deliberately not refused: it is kept absent so `numberRequired`
+	 *         and `countryRequired` can name the box a form should mark.
 	 */
 	public function __construct(object $number)
 	{
