@@ -308,8 +308,9 @@ the *locale* is passed to `validate()`, applied to the verdicts afterwards. The 
 point — ask for a language nobody has and you get every failure you would otherwise have got, with
 nothing to say about them. Nothing about wording can move an outcome.
 
-It is optional throughout, and a field validated on its own has no messages at all, because there
-is no schema to have carried a provider. See [MESSAGES.md](MESSAGES.md).
+It is optional throughout, and a field validated on its own has no sentences at all — its
+violations carry codes and parts, and nothing worded — because there is no schema to have carried
+a provider. See [MESSAGES.md](MESSAGES.md).
 
 **What it costs.** One language ships. And MessageFormat 2 has no PHP implementation yet, so the
 packs are written against a subset — variable expansion — with anything richer refused until a

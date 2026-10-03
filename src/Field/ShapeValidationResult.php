@@ -34,10 +34,15 @@ use Meraki\Schema\ValidationStatus;
  */
 final class ShapeValidationResult implements ValidationResult
 {
+	/**
+	 * @param list<Violation> $violations what a person is told about it — one about the whole
+	 *        field when nothing arrived or nothing could be read, none when the shape passed
+	 */
 	private function __construct(
 		public readonly ValidationStatus $status,
 		/** Why it failed, or `null` when it did not. */
 		public readonly ?ShapeProblem $problem = null,
+		public readonly array $violations = [],
 	) {
 	}
 
@@ -50,13 +55,13 @@ final class ShapeValidationResult implements ValidationResult
 	/** Nothing arrived, nothing stood in for it, and the field required one. */
 	public static function missing(): self
 	{
-		return new self(ValidationStatus::Failed, ShapeProblem::Missing);
+		return new self(ValidationStatus::Failed, ShapeProblem::Missing, [new Violation(ShapeProblem::Missing)]);
 	}
 
 	/** Something arrived and could not be read as this field's kind of thing. */
 	public static function unreadable(): self
 	{
-		return new self(ValidationStatus::Failed, ShapeProblem::Unreadable);
+		return new self(ValidationStatus::Failed, ShapeProblem::Unreadable, [new Violation(ShapeProblem::Unreadable)]);
 	}
 
 	/** Nothing arrived and the field said that was acceptable. */

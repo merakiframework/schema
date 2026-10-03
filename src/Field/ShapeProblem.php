@@ -4,7 +4,9 @@ declare(strict_types=1);
 namespace Meraki\Schema\Field;
 
 /**
- * Why a field had no usable value.
+ * Why a field had no usable value — and the code the violation saying so is reported under, which
+ * is why it is a {@see Check}: `missing` and `unreadable` are the keys a language pack words them
+ * by, under `shape.`.
  *
  * Two different problems that used to be one verdict. Both make the shape fail, and both stop
  * every constraint from running, but they are not the same thing and a form cannot say the same
@@ -15,7 +17,7 @@ namespace Meraki\Schema\Field;
  * was also not quite right, because a submitter can send a literal null, which is a value that
  * happens to be nothing rather than an absence.
  */
-enum ShapeProblem
+enum ShapeProblem: string implements Check
 {
 	/**
 	 * Nothing was submitted, no default stood in, and the field required one.
@@ -23,7 +25,7 @@ enum ShapeProblem
 	 * Note what this is not: a field that is *optional* and got nothing is skipped, not missing —
 	 * there is no problem to name.
 	 */
-	case Missing;
+	case Missing = 'missing';
 
 	/**
 	 * Something was submitted and could not be read as this field's kind of thing.
@@ -31,5 +33,13 @@ enum ShapeProblem
 	 * Including a submitted `null`, which is why this is not derivable from the given value: the
 	 * field was handed something, and that something was unusable.
 	 */
-	case Unreadable;
+	case Unreadable = 'unreadable';
+
+	/**
+	 * Always about the field as a whole. A problem with one part has that part's own code.
+	 */
+	public function part(): null
+	{
+		return null;
+	}
 }

@@ -5,6 +5,7 @@ namespace Meraki\Schema\Field;
 
 use Meraki\Schema\AtomicField;
 use Meraki\Schema\Exception\InvalidConfiguration;
+use Meraki\Schema\Exception\UnknownField;
 use Meraki\Schema\Field;
 use Meraki\Schema\Field\Collection\Item;
 use Meraki\Schema\Field\Collection\Result;
@@ -15,6 +16,7 @@ use Meraki\Schema\ResolvedField;
 use Meraki\Schema\Rule;
 use Meraki\Schema\Rule\Matcher;
 use Meraki\Schema\Rule\Quantifier;
+use Meraki\Schema\SchemaValidationResult;
 use Meraki\Schema\Scope;
 use Meraki\Schema\ValueScope;
 use Meraki\Schema\ValueSource;
@@ -352,6 +354,24 @@ final readonly class Collection implements Field
 		);
 	}
 
+
+	/**
+	 * Narrowed to {@see Result}, so a row is one hop away and typed:
+	 *
+	 *     $lines->resultIn($schema->validate($data))->itemAt('first_run');
+	 *
+	 * @throws UnknownField when the results hold nothing for this field
+	 */
+	public function resultIn(SchemaValidationResult|Item $results): Result
+	{
+		$result = $results->forField((string) $this->name);
+
+		// Anything else under this name is some other field's result — one from another schema
+		// that happens to share the name — and handing it back would be answering for a stranger.
+		return $result instanceof Result
+			? $result
+			: throw UnknownField::hasNoResultHere((string) $this->name);
+	}
 
 	/**
 	 * What a rule may ask about this field: a list is compared and counted, not ranked; isEmpty already reads its length.

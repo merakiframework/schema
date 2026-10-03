@@ -144,8 +144,8 @@ $schema->add((new Isbn(new FieldName('isbn')))->thirteenDigitsOnly());
 | **Defaults** | `defaultsTo()` is checked where it is written, against your constraints |
 | **Prefill** | submitted beats prefilled beats default, and the result says which won |
 | **Rules and scopes** | your field can be a rule's subject, and every public property is addressable |
-| **The result shape** | `given`, `value`, `source`, `shape`, one verdict per constraint |
-| **Messages** | `$result->messages` works for your field the moment a pack has wording for it — see below |
+| **The result shape** | `given`, `value`, `source`, `shape`, one verdict per constraint, and every failure as a violation |
+| **Messages** | each violation is worded the moment a pack has wording for your code — see below |
 | **Rule outcomes** | every wither you write is one: `then($yours->thirteenDigitsOnly())` needs nothing registered |
 
 The default check is the one worth dwelling on, because it catches a mistake you did not write
@@ -178,9 +178,9 @@ earlier one entry by entry, so you are not forking anybody's English to add one 
 There is deliberately no walk up the parent classes. A field extending `Text` does not thereby mean
 what `Text` means, and inheriting its wording would be a confident guess rather than a translation.
 
-If your value implements `HasParts`, your messages group by part with no further work —
-`Message\Set` reads the parts off the class, so `$messages->forPart('checksum')` works for a field
-this library has never heard of. See [MESSAGES.md](MESSAGES.md).
+If your value has parts, declare them as a `Field\Part` enum and override `declaredParts()`, and
+your violations group by part with no further work — `$result->forPart(Acme\Isbn\Part::Checksum)`
+works for a field this library has never heard of. See [MESSAGES.md](MESSAGES.md).
 
 ## The five things you must get right
 

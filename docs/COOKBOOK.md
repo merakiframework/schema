@@ -399,15 +399,16 @@ $provider = Mf2Provider::fromPackage('meraki/schema-language-english');
 
 $result = $schema->validate($input, locale: 'en-AU', messages: $provider);
 
-$result->forField('username')->messages->first;
+$username->resultIn($result)->violations->first()?->message;
 // "Use at least 3 characters."
 
-$result->forField('billing')->messages->forPart('postal_code')->first;
+$billing->resultIn($result)->forPart(Address\Part::PostalCode)->first()?->message;
 // "That is not a valid postcode for the country you chose."
 ```
 
-The provider and the locale both arrive **with the request**, so one schema serves every reader. A field whose value has
-named parts groups its messages by part; everything else gives a flat list.
+The provider and the locale both arrive **with the request**, so one schema serves every reader. Every
+failure is a violation carrying its sentence alongside its code and part, so a field whose value has
+named parts is read part by part and everything else as one list.
 
 Entirely optional — with no provider, every result carries an empty message set and nothing else
 changes. See [MESSAGES.md](MESSAGES.md).

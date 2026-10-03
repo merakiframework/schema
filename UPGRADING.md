@@ -287,7 +287,49 @@ a fact about a *definition* — the same data passes or fails identically in eve
 `resolve()` takes neither, because it reaches no verdict and only a failure has anything to say.
 
 Everything else is unchanged: no provider, an unsupported tag, or no tag at all still leaves
-every verdict exactly as it was and every message set empty.
+every verdict exactly as it was, and every violation unworded.
+
+### Every failure is a violation, and the sentence is the last thing it carries
+
+`$result->messages` and the `Message\Set` / `FlatSet` / `PartedSet` it held are gone. A result
+reports `$result->violations` instead: every failure, whichever step found it, each with its code,
+the part it concerns, the bound, and — when the request passed a provider — the sentence.
+
+```php
+// alpha.3
+$result->forField('billing')->messages->forPart('postal_code')->first;
+$result->forField('username')->messages->all;
+
+// now
+$billing->resultIn($result)->forPart(Address\Part::PostalCode)->first()?->message;
+$username->resultIn($result)->violations->messages;
+```
+
+| Was | Is |
+| --- | --- |
+| `$messages->first` | `$violations->first()?->message` — a method, because it asks which comes first |
+| `$messages->all` | `$violations->messages` |
+| `$messages->forPart('postal_code')` | `$result->forPart(Address\Part::PostalCode)` — the part is an enum case |
+| `$messages->whole` | `$violations->forWholeValue()` |
+| `$messages->parts` | `$violations->parts`, as `Field\Part` cases |
+| `$messages instanceof PartedSet` | `$field->parts !== []` |
+
+The difference that matters is what a consumer can do without a pack. A message set held sentences
+only, so with no provider it was empty and a form could not mark a box. Violations carry the code
+and the part with or without one: wording is the optional part, and nothing else is.
+
+They read in one order whatever ran first — the value as a whole, then each part in the order the
+value declares them — and they are read-only: `$violations[0]` reads like an array element, and
+writing to one raises `Exception\ReadOnlyResult`.
+
+**Writing a translator:** `Message\Translator` has one method now, `forViolation(Field, Violation)`,
+in place of `forShape()` and `forConstraint()`. A violation's code is a `Field\ShapeProblem` when
+nothing arrived or nothing could be read; `ShapeProblem` is a backed enum now, whose values are the
+`shape.*` suffixes a pack already uses.
+
+**Finding a result:** `$field->resultIn($results)` finds a field's result in a schema's results, or
+a collection row's, by the field itself rather than by a string. `Password` and `Collection` narrow
+it to their own result types.
 
 ### A required part that was not sent names itself
 
@@ -445,8 +487,8 @@ the protocol.
 | `PhoneNumber` | `country`, `e164` | `number`, `country` |
 
 Both were reporting a *reading* of the value rather than its inputs. An email address is one box
-on a form; `#/fields/email/value/domain` stops resolving, and the field's messages move from a
-`PartedSet` to a `FlatSet`. `$value->localPart` and `$value->domain` are unchanged, and a rule
+on a form; `#/fields/email/value/domain` stops resolving, and the field's failures stop being
+filed under parts. `$value->localPart` and `$value->domain` are unchanged, and a rule
 about a domain was always written as `matches('/@example\.test$/')` rather than through a part.
 
 E.164 was never submitted either. `#/fields/phone/value/e164` stops resolving and

@@ -61,7 +61,7 @@ final class SchemaMessagesTest extends TestCase
 	{
 		$result = $this->schema()->validate(self::payload(), locale: 'en', messages: self::pack());
 
-		$this->assertSame('Use at least 3 characters.', $result->forField('username')?->messages->first);
+		$this->assertSame('Use at least 3 characters.', $result->forField('username')?->violations->first()?->message);
 	}
 
 	#[Test]
@@ -74,16 +74,16 @@ final class SchemaMessagesTest extends TestCase
 		$english = $schema->validate(self::payload(), locale: 'en', messages: self::pack())->forField('billing');
 		$australian = $schema->validate(self::payload(), locale: 'en-AU', messages: self::pack())->forField('billing');
 
-		$this->assertInstanceOf(PartedSet::class, $english?->messages);
-		$this->assertInstanceOf(PartedSet::class, $australian?->messages);
+		$this->assertInstanceOf(FieldResult::class, $english);
+		$this->assertInstanceOf(FieldResult::class, $australian);
 
 		$this->assertSame(
 			'That is not a valid postal code for the country you chose.',
-			$english->messages->forPart('postal_code')->first,
+			$english->forPart(Field\Address\Part::PostalCode)->first()?->message,
 		);
 		$this->assertSame(
 			'That is not a valid postcode for the country you chose.',
-			$australian->messages->forPart('postal_code')->first,
+			$australian->forPart(Field\Address\Part::PostalCode)->first()?->message,
 		);
 	}
 
@@ -111,7 +111,8 @@ final class SchemaMessagesTest extends TestCase
 			$known->forField('billing')?->constraintNames,
 			$unknown->forField('billing')?->constraintNames,
 		);
-		$this->assertTrue($unknown->forField('username')?->messages->isEmpty());
+		$this->assertSame([], $unknown->forField('username')?->violations->messages);
+		$this->assertFalse($unknown->forField('username')?->violations->isEmpty(), 'still reported, only unworded');
 	}
 
 	#[Test]
@@ -120,7 +121,7 @@ final class SchemaMessagesTest extends TestCase
 		$result = $this->schema()->validate(self::payload(), locale: 'en');
 
 		$this->assertTrue($result->anyFailed());
-		$this->assertTrue($result->forField('username')?->messages->isEmpty());
+		$this->assertSame([], $result->forField('username')?->violations->messages);
 	}
 
 	#[Test]
@@ -129,7 +130,7 @@ final class SchemaMessagesTest extends TestCase
 		$result = $this->schema()->validate(self::payload(), messages: self::pack());
 
 		$this->assertTrue($result->anyFailed());
-		$this->assertTrue($result->forField('username')?->messages->isEmpty());
+		$this->assertSame([], $result->forField('username')?->violations->messages);
 	}
 
 	#[Test]
@@ -140,7 +141,7 @@ final class SchemaMessagesTest extends TestCase
 		$schema = $this->schema();
 		$field = $schema->fields->getByName('username');
 
-		$this->assertTrue($field->validate('ab')->messages->isEmpty());
+		$this->assertSame([], $field->validate('ab')->violations->messages);
 	}
 
 	#[Test]
@@ -164,16 +165,16 @@ final class SchemaMessagesTest extends TestCase
 		$this->assertInstanceOf(Field\Collection\Result::class, $lines);
 		$this->assertSame(
 			'Use at least 3 characters.',
-			$lines->itemAt('too_short')?->forField('sku')?->messages->first,
+			$lines->itemAt('too_short')?->forField('sku')?->violations->first()?->message,
 		);
-		$this->assertTrue($lines->itemAt('long_enough')?->forField('sku')?->messages->isEmpty());
+		$this->assertTrue($lines->itemAt('long_enough')?->forField('sku')?->violations->isEmpty());
 	}
 
 	#[Test]
 	public function a_collections_rows_agree_with_its_own_results(): void
 	{
 		// Rebuilding the items has to replace the copies held in `$results` too, or the same row
-		// read two ways would carry messages only once.
+		// read two ways would carry sentences only once.
 		$schema = new Definition('order');
 		$schema->add($schema->createCollectionField(
 			'lines',
@@ -200,40 +201,47 @@ final class SchemaMessagesTest extends TestCase
 		// What a result says is fixed at the moment it was judged. Two reads cannot disagree
 		// because somebody edited a pack in between.
 		//
-		// This used to read `assertSame($result->messages->all, $result->messages->all)`, which
-		// could not fail: `$all` is an array, so assertSame compares by value, and a set that
-		// re-rendered from a held translator on every read would have passed just as happily.
-		// What makes the claim testable is asserting the thing the name says — that the set
-		// holds sentences, and holds nothing that could produce a different one later.
+		// Asserted as the thing the name says — every violation holds a sentence, and nothing held
+		// could produce a different one later — rather than by reading twice and comparing, which
+		// could not fail: a set re-rendering from a held translator would compare equal too.
 		$result = $this->schema()->validate(self::payload(), locale: 'en', messages: self::pack())->forField('username');
 
 		$this->assertInstanceOf(FieldResult::class, $result);
-		$this->assertNotSame([], $result->messages->all);
+		$this->assertNotSame([], $result->violations->messages);
 
-		foreach ($result->messages->all as $said) {
-			$this->assertIsString($said);
+		foreach ($result->violations as $violation) {
+			$this->assertIsString($violation->message);
+
+			foreach (self::everythingHeldBy($violation) as $held) {
+				$this->assertNotInstanceOf(Message\Translator::class, $held);
+				$this->assertNotInstanceOf(Message\Provider::class, $held);
+			}
 		}
 
-		foreach (self::everythingHeldBy($result->messages) as $held) {
+		foreach (self::everythingHeldBy($result->violations) as $held) {
 			$this->assertNotInstanceOf(Message\Translator::class, $held);
 			$this->assertNotInstanceOf(Message\Provider::class, $held);
 		}
 	}
 
 	/**
-	 * Everything a message set holds, one level in, so a test can assert what is *not* there.
+	 * Everything an object holds, one level in, so a test can assert what is *not* there.
 	 *
-	 * A parted set holds a flat set per part, so this flattens one level rather than recursing:
-	 * a translator kept anywhere a sentence could come from would be at one of these two depths.
+	 * Flattens one level rather than recursing: a translator kept anywhere a sentence could come
+	 * from would be at one of these two depths.
 	 *
 	 * @return list<mixed>
 	 */
-	private static function everythingHeldBy(Message\Set $set): array
+	private static function everythingHeldBy(object $object): array
 	{
 		$held = [];
 
-		foreach ((new ReflectionObject($set))->getProperties() as $property) {
-			$value = $property->getValue($set);
+		foreach ((new ReflectionObject($object))->getProperties() as $property) {
+			if ($property->isVirtual()) {
+				continue;
+			}
+
+			$value = $property->getValue($object);
 			$held[] = $value;
 
 			foreach (is_array($value) ? $value : [] as $inner) {

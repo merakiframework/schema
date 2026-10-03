@@ -55,20 +55,24 @@ interface FieldResult extends ValidationResult
 	public function getFailedConstraints(): Field\ConstraintResults;
 
 	/**
-	 * What to tell somebody about this field, in the language the request asked for.
+	 * Everything wrong with this field, each failure with its code, its part, its bound and — when
+	 * a language pack had wording — its sentence.
 	 *
-	 * The whole of the messaging surface. Everything a language pack produces arrives here and
-	 * nowhere else, which is what lets messages be optional without any of the rest of the library
-	 * knowing they exist: with no provider registered the set is empty, and every other property on
-	 * this interface answers exactly as it did before.
-	 *
-	 * @see Message\Set for the two shapes it takes, and why a field with named parts always gets
-	 *      the parted one even when only the whole value failed
+	 * The whole of the reporting surface. Everything a language pack produces arrives here and
+	 * nowhere else, which is what lets wording be optional without any of the rest of the library
+	 * knowing it exists: with no provider every violation is still here, with a code and no
+	 * sentence, and every other property on this interface answers exactly as it would anyway.
 	 */
-	public Message\Set $messages { get; }
+	public Field\Violations $violations { get; }
 
 	/**
-	 * The same outcome with its messages rendered in one language.
+	 * What is wrong with one part of a structured value — shorthand for
+	 * `$violations->forPart($part)`.
+	 */
+	public function forPart(Field\Part $part): Field\Violations;
+
+	/**
+	 * The same outcome with its violations worded in one language.
 	 *
 	 * Plumbing rather than something a consumer calls: {@see Definition::validate()} resolves the
 	 * request's language once and hands the translator to each result. It is on the interface

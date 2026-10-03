@@ -120,7 +120,7 @@ final class Definition
 	 * both halves of the wording arrive here rather than being fixed when the schema is built:
 	 *
 	 *     $result = $schema->validate($data, locale: 'en-AU', messages: $provider);
-	 *     $result->forField('billing')->messages->forPart('postal_code')->first;
+	 *     $billing->resultIn($result)->forPart(Address\Part::PostalCode)->first()?->message;
 	 *
 	 * The locale always worked this way; the **provider** did not, and sat on the constructor
 	 * beside the fields. That made it part of the definition in every way that mattered: a schema
@@ -131,7 +131,7 @@ final class Definition
 	 *
 	 * Which means one schema serves every reader. It also means missing wording can never change
 	 * an outcome: no provider, an unsupported tag, or no tag at all leaves every result carrying
-	 * an empty {@see Message\Set} and every verdict exactly as it was.
+	 * the same violations with no sentences, and every verdict exactly as it was.
 	 *
 	 * {@see self::resolve()} takes neither, because it reaches no verdict and only a failure has
 	 * anything to say.
@@ -145,7 +145,8 @@ final class Definition
 	 * @param string|null $locale what language to report failures in, as a BCP 47 tag. Ignored
 	 *        without a provider to ask.
 	 * @param Message\Provider|null $messages where that wording comes from. Optional: without one
-	 *        every result carries an empty {@see Message\Set} and every verdict is unchanged.
+	 *        every violation is still reported, with its code and no sentence, and every verdict
+	 *        is unchanged.
 	 */
 	public function validate(
 		?object $data = null,

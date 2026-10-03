@@ -5,11 +5,13 @@ namespace Meraki\Schema\Field;
 
 use Meraki\Schema\AtomicField;
 use Meraki\Schema\Exception\InvalidConfiguration;
+use Meraki\Schema\Exception\UnknownField;
 use Meraki\Schema\Field\Password\Strength;
 use Meraki\Schema\Field\Password\Value;
 use Meraki\Schema\FieldName;
 use Meraki\Schema\PrefillPolicy;
 use Meraki\Schema\Rule\Matcher;
+use Meraki\Schema\SchemaValidationResult;
 use Meraki\Schema\ValueScope;
 use Meraki\Schema\ValueSource;
 use ZxcvbnPhp\Zxcvbn;
@@ -203,6 +205,24 @@ final readonly class Password extends AtomicField
 			$this->sourceOf($given, $givenAs),
 			$this->evaluatedAt(),
 		);
+	}
+
+	/**
+	 * Narrowed to {@see Password\Result}, so the measured entropy is typed and one hop away:
+	 *
+	 *     $secret->resultIn($schema->validate($data))->entropy;
+	 *
+	 * @throws UnknownField when the results hold nothing for this field
+	 */
+	public function resultIn(SchemaValidationResult|Collection\Item $results): Password\Result
+	{
+		$result = parent::resultIn($results);
+
+		// Anything else under this name is some other field's result — one from another schema
+		// that happens to share the name — and handing it back would be answering for a stranger.
+		return $result instanceof Password\Result
+			? $result
+			: throw UnknownField::hasNoResultHere((string) $this->name);
 	}
 
 	/**

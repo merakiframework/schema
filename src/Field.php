@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace Meraki\Schema;
 
 use Meraki\Schema\Exception\InvalidDefault;
+use Meraki\Schema\Exception\UnknownField;
 use Meraki\Schema\Field\Constraint;
 
 /**
@@ -134,6 +135,22 @@ interface Field
 		ValueSource $givenAs = ValueSource::Submitted,
 		PrefillPolicy $policy = PrefillPolicy::Checked,
 	): AggregatedValidationResult;
+
+	/**
+	 * This field's result among a schema's — or a collection row's — found by the field rather than
+	 * by a string.
+	 *
+	 *     $billing->resultIn($schema->validate($data))->forPart(Address\Part::Country);
+	 *
+	 * `forField('billing')` can only promise the base result type, because PHP cannot narrow a
+	 * return by the value of an argument. A field can: a field with a result of its own narrows
+	 * this method's return type — {@see Field\Password::resultIn()} hands back a
+	 * {@see Field\Password\Result} — which is the same move {@see self::when()} makes for rules.
+	 * It is also a typo that cannot happen, because there is no name to misspell.
+	 *
+	 * @throws UnknownField when the results hold nothing for this field
+	 */
+	public function resultIn(SchemaValidationResult|Field\Collection\Item $results): FieldResult;
 
 	/**
 	 * What this field would actually validate: the parsed value, or `null` when there is none.

@@ -193,7 +193,7 @@ final readonly class Value implements ParsedValue, HasParts
 	 *
 	 * These used to be `country` and `e164`, which is what the value *holds* rather than what it
 	 * is *given* — so a port could not derive its input names from them, and
-	 * `PartedSet::forPart('number')` raised on the one part a form definitely renders. Every
+	 * asking for the number's messages raised on the one part a form definitely renders. Every
 	 * other value here names its input keys, and this is no longer the exception.
 	 *
 	 * E.164 has not gone anywhere; it is {@see self::toE164()}, a derived reading rather than a

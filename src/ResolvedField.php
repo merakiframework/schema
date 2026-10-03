@@ -72,29 +72,44 @@ class ResolvedField extends AggregatedValidationResult implements FieldResult
 
 		$this->assertResultsAreUnique();
 
-		$this->messages = Message\Set::for($this, null);
+		$this->violations = $this->violationsFound();
 	}
 
 	/**
-	 * What to tell somebody about this field, in the language the request asked for.
+	 * Everything wrong with this field, in reading order — the value as a whole first, then each
+	 * part in the order the value declares them — each carrying its code, its part, its bound and,
+	 * once a language pack has had its say, its sentence.
 	 *
-	 * Empty unless a {@see Message\Provider} was registered on the schema *and* the request named
-	 * a language it has, which is why a field validated on its own always has nothing here: there
-	 * is no schema to have carried a provider. That is the trade, and it is deliberate — a field
-	 * is a definition, and a definition that knew about languages would be a definition that could
-	 * not be serialised the same way twice.
+	 * The one place a consumer learns what to tell somebody. Every failure is here, whichever step
+	 * found it: nothing arriving for a required field, a value that could not be read, a constraint
+	 * the value failed. Always a set, never null, so reading it needs no guard.
 	 *
-	 * Always a set, never null, so reading it needs no guard. {@see Message\Set} explains which of
-	 * the two shapes it takes and why the field rather than the failures decides.
+	 * Sentences are absent unless a {@see Message\Provider} was passed to the schema's `validate()`
+	 * with a language it has — which is why a field validated on its own has codes and no
+	 * sentences: there was no request to carry a provider. That is the trade, and it is deliberate
+	 * — a field is a definition, and a definition that knew about languages could not be
+	 * serialised the same way twice.
 	 */
-	public protected(set) Message\Set $messages;
+	public protected(set) Field\Violations $violations;
 
 	/**
-	 * The same field with its messages rendered in one language.
+	 * What is wrong with one part of a structured value — the box a form should mark.
+	 *
+	 * Shorthand for `$result->violations->forPart($part)`. Refuses a part the value does not have,
+	 * because "nothing is wrong" is a legitimate answer and a mistake that returned it would be
+	 * invisible forever.
+	 */
+	public function forPart(Field\Part $part): Field\Violations
+	{
+		return $this->violations->forPart($part);
+	}
+
+	/**
+	 * The same field with its violations worded in one language.
 	 *
 	 * Called by {@see Definition::validate()} once per field, after the verdicts are in, because
 	 * nothing about a language may change a verdict. A result that never goes through here keeps
-	 * the empty set it was built with.
+	 * the codes it was built with and no sentences.
 	 *
 	 * Rendering eagerly rather than holding the translator keeps the result a plain value: what it
 	 * says is fixed at the moment it was judged, and cannot come out differently on a second read
@@ -102,7 +117,37 @@ class ResolvedField extends AggregatedValidationResult implements FieldResult
 	 */
 	public function withMessagesFrom(?Message\Translator $translator): static
 	{
-		return clone($this, ['messages' => Message\Set::for($this, $translator)]);
+		if ($translator === null) {
+			return $this;
+		}
+
+		$field = $this->field;
+
+		return clone($this, ['violations' => $this->violations->worded(
+			static fn(Field\Violation $violation): ?string => $translator->forViolation($field, $violation),
+		)]);
+	}
+
+	/**
+	 * The failures among this field's own verdicts, as violations.
+	 *
+	 * The shape first, because "this is not a valid card number" comes before anything the number
+	 * would have been checked against; then every constraint that failed. Anything else among the
+	 * results — a collection's rows — reports through its own results, not here.
+	 */
+	private function violationsFound(): Field\Violations
+	{
+		$found = [];
+
+		foreach ($this->results as $result) {
+			if ($result instanceof Field\ShapeValidationResult) {
+				$found = [...$found, ...$result->violations];
+			} elseif ($result instanceof ConstraintValidationResult && $result->failed()) {
+				$found[] = Field\Violation::from($result);
+			}
+		}
+
+		return new Field\Violations($this->field->parts, ...$found);
 	}
 
 	/**

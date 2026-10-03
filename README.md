@@ -174,9 +174,13 @@ $provider = Mf2Provider::fromPackage('meraki/schema-language-english');
 
 $result = $schema->validate($data, locale: 'en-AU', messages: $provider);
 
-$result->forField('billing')->messages->forPart('postal_code')->first;
+$billing->resultIn($result)->forPart(Address\Part::PostalCode)->first()?->message;
 // "That is not a valid postcode for the country you chose."
 ```
+
+Every failure arrives as a **violation** — its code, the part it concerns, the bound and, when a
+pack had wording, the sentence — so a form can mark the right box whether or not a pack is
+installed.
 
 The pack is `.mfr` files in [ICU MessageFormat 2](https://unicode.org/reports/tr35/tr35-messageFormat.html)
 and nothing else — no PHP — so a Rust or JavaScript implementation of this library renders the same
@@ -189,8 +193,8 @@ Three things hold whether or not you use it:
   serves every reader.
 - **A missing language cannot change a verdict.** Ask for one nobody has and you get the same
   failures with nothing to say about them.
-- **It is entirely optional.** With no provider, every result carries an empty message set and the
-  library behaves as it did before messages existed.
+- **It is entirely optional.** With no provider, every violation is still reported, with its code
+  and no sentence, and every verdict is exactly what it would have been.
 
 [docs/MESSAGES.md](docs/MESSAGES.md) covers writing a pack, the specificity ladder, and using a
 format other than MF2.

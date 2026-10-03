@@ -9,13 +9,14 @@ use Meraki\Schema\Field;
  * A translator with nothing to say.
  *
  * What a {@see Provider} answers with for a language it does not have, and what a schema built
- * without a provider uses throughout. Every result still carries a {@see Set}; it is simply empty.
+ * without a provider uses throughout. Every result still carries its violations; they simply have
+ * no sentences.
  *
  * This is the shape of the guarantee rather than a convenience. Validating with no messages is a
  * supported way to use this library — it is how it worked before messages existed, and how a field
  * validated on its own still works — so "no wording" has to be an ordinary answer travelling the
  * ordinary path. Making it `null` instead would put a branch in front of every read of
- * `$result->messages`, and the one that got missed would be a fatal error on a page whose only job
+ * `$violation->message`, and the one that got missed would be a fatal error on a page whose only job
  * was to tell somebody their postcode was wrong.
  */
 final readonly class Silence implements Translator
@@ -43,12 +44,7 @@ final readonly class Silence implements Translator
 		return new self('');
 	}
 
-	public function forShape(Field $field, Field\ShapeValidationResult $shape): ?string
-	{
-		return null;
-	}
-
-	public function forConstraint(Field $field, Field\ConstraintValidationResult $constraint): ?string
+	public function forViolation(Field $field, Field\Violation $violation): ?string
 	{
 		return null;
 	}

@@ -411,7 +411,8 @@ $field = $schema->validate($data)->forField('email');
 | `$field->shape` | could this be read at all? |
 | `$field->constraints` | the constraint verdicts, on their own |
 | `$field->status` | `Passed` \| `Failed` \| `Skipped` \| `Pending` |
-| `$field->messages` | what to tell somebody, in the language the request asked for — empty unless the request passed a provider |
+| `$field->violations` | everything wrong, each with its code, part, bound and — when the request passed a provider — its sentence |
+| `$field->forPart($part)` | what is wrong with one part of a structured value |
 
 ### `given` and `value` mean one thing each
 
@@ -455,15 +456,15 @@ was a schema that could not be serialised whole, could not be shared between a s
 and a CLI command that wanted different packs, and could not change its wording for one caller.
 
 It also means a missing language cannot change an outcome: no provider, an unsupported tag, or no
-tag at all leaves every verdict as it was and every message set empty. A field validated on its
-own therefore has no messages, because nothing handed it a provider.
+tag at all leaves every verdict as it was and every violation unworded. A field validated on its
+own therefore has codes and no sentences, because nothing handed it a provider.
 
 `resolve()` takes neither, because it reaches no verdict and only a failure has anything to say.
 
-`$messages` is a [`FlatSet`](../src/Message/FlatSet.php) for a field holding one value and a
-[`PartedSet`](../src/Message/PartedSet.php) for one whose value has named parts — decided by the
-*field*, not by what happened to fail, so a consumer that checks the type once does not break on a
-request that failed differently. See [MESSAGES.md](MESSAGES.md).
+`$violations` reads the value as a whole first, then each part in the order the value declares
+them, whatever order the checks ran in. Each violation carries its code, its part, its bound and its
+sentence together, so a renderer can mark a box and say something without going back to the
+constraints. See [MESSAGES.md](MESSAGES.md#reading-the-messages).
 
 ### Default versus prefill
 

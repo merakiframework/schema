@@ -5,7 +5,10 @@ namespace Meraki\Schema\Field;
 
 use Meraki\Schema\AtomicField;
 use Meraki\Schema\Exception\InvalidDefault;
+use Meraki\Schema\Exception\UnknownField;
 use Meraki\Schema\Field;
+use Meraki\Schema\FieldResult;
+use Meraki\Schema\SchemaValidationResult;
 use Meraki\Schema\ValueSource;
 use Brick\DateTime\Instant;
 
@@ -285,6 +288,17 @@ trait Definition
 	public function makeRequired(): static
 	{
 		return $this->with(['optional' => false]);
+	}
+
+	/**
+	 * Looked up by this field's own name, so a renamed field can never be found under its old one.
+	 *
+	 * @throws UnknownField when the results hold nothing for this field
+	 */
+	public function resultIn(SchemaValidationResult|Collection\Item $results): FieldResult
+	{
+		return $results->forField((string) $this->name)
+			?? throw UnknownField::hasNoResultHere((string) $this->name);
 	}
 
 	/**

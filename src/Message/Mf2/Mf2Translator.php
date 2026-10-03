@@ -21,8 +21,8 @@ use Meraki\Schema\Message\Translator;
  *
  * | For | Keys, in order |
  * | --- | --- |
- * | A shape failure | `EmailAddress.shape.unreadable`, `shape.unreadable` |
- * | A constraint failure | `Address.postal_code.postalCodeFormat`, `Address.postalCodeFormat`, `postal_code.postalCodeFormat`, `postalCodeFormat` |
+ * | Nothing arrived, or nothing could be read | `EmailAddress.shape.unreadable`, `shape.unreadable` |
+ * | Any other violation | `Address.postal_code.postalCodeFormat`, `Address.postalCodeFormat`, `postal_code.postalCodeFormat`, `postalCodeFormat` |
  *
  * So a pack can write one sentence for every `minLength` in the library and then override it for
  * `Password`, which is a different kind of advice even though it is the same constraint. A rung
@@ -59,34 +59,24 @@ final class Mf2Translator implements Translator
 	) {
 	}
 
-	public function forShape(Field $field, Field\ShapeValidationResult $shape): ?string
+	public function forViolation(Field $field, Field\Violation $violation): ?string
 	{
-		$problem = match (true) {
-			$shape->wasMissing() => 'missing',
-			$shape->wasUnreadable() => 'unreadable',
-			default => null,
-		};
+		$kind = self::kindOf($field);
 
-		if ($problem === null) {
-			return null;
+		// Nothing arrived, or nothing could be read: the shape ladder, which has no part and no
+		// bound, because there was no value for either to be about.
+		if ($violation->code instanceof Field\ShapeProblem) {
+			return $this->render(
+				["{$kind}.shape.{$violation->name}", "shape.{$violation->name}"],
+				[
+					'field' => (string) $field->name,
+					'kind' => $this->nameOfKind($kind),
+				],
+			);
 		}
 
-		$kind = self::kindOf($field);
-
-		return $this->render(
-			["{$kind}.shape.{$problem}", "shape.{$problem}"],
-			[
-				'field' => (string) $field->name,
-				'kind' => $this->nameOfKind($kind),
-			],
-		);
-	}
-
-	public function forConstraint(Field $field, Field\ConstraintValidationResult $constraint): ?string
-	{
-		$kind = self::kindOf($field);
-		$part = $constraint->part?->value;
-		$name = $constraint->name;
+		$part = $violation->part === null ? null : (string) $violation->part->value;
+		$name = $violation->name;
 
 		$keys = $part === null
 			? ["{$kind}.{$name}", $name]
@@ -96,7 +86,7 @@ final class Mf2Translator implements Translator
 			'field' => (string) $field->name,
 			'kind' => $this->nameOfKind($kind),
 			'part' => $part === null ? '' : $this->nameOfPart($part),
-			'bound' => $this->boundAsText($constraint->bound),
+			'bound' => $this->boundAsText($violation->bound),
 		]);
 	}
 
