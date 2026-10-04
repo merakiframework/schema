@@ -5,7 +5,6 @@ namespace Meraki\Schema\Field\CreditCard;
 
 use Meraki\Schema\Exception\BrokenInputContract;
 use Meraki\Schema\Field;
-use Meraki\Schema\Field\MalformedValue;
 use Meraki\Schema\Field\Violation;
 use Brick\DateTime\DateTimeException;
 use Brick\DateTime\LocalDate;
@@ -74,9 +73,11 @@ final readonly class Input implements Field\Input
 	/**
 	 * Takes the record a field takes, so there is one answer to "what is a card here".
 	 *
+	 * A record with nothing in it is read like any other — the number and the expiry missing —
+	 * though a field never hands one over: to a field it is nothing submitted.
+	 *
 	 * @param object{number?: string|null, expiry?: string|null, name?: string|null, security_code?: string|null} $card
 	 * @throws BrokenInputContract if it carries a key a card does not have
-	 * @throws MalformedValue if it holds nothing at all
 	 */
 	public function __construct(#[SensitiveParameter] object $card)
 	{
@@ -88,11 +89,6 @@ final readonly class Input implements Field\Input
 		// type where a value is a card number.
 		if ($unknown !== []) {
 			throw BrokenInputContract::recordHasKeysItDoesNotAccept(Value::class, array_values($unknown), $names);
-		}
-
-		// Nothing in it at all is not a card somebody has half filled in; it is not a card.
-		if (array_filter($parts, static fn(mixed $part): bool => $part !== null) === []) {
-			throw MalformedValue::of(Value::class, 'it has no number, expiry, name or security code');
 		}
 
 		$violations = [];

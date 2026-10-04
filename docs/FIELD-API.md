@@ -32,11 +32,15 @@ interface Field
     public function makeOptional(): static;
     public function makeRequired(): static;
     public function equals(self $other): bool;
+    public function reconfiguredWith(array $changes): static;       // a rule outcome's changes, put back
+    public function when(): Rule\Matcher;                           // narrowed to the questions its value earns
 
     public function resolve(mixed $given, array $appliedOutcomes = [], ValueSource $givenAs = ValueSource::Submitted): AggregatedValidationResult;
     public function validate(mixed $given, array $appliedOutcomes = [], ValueSource $givenAs = ValueSource::Submitted, PrefillPolicy $policy = PrefillPolicy::Checked): AggregatedValidationResult;
+    public function resultIn(SchemaValidationResult|Field\Collection\Item $results): FieldResult;
     public function resolvedValueFor(mixed $given): ?Field\ParsedValue;
     public function resolvedInputFor(mixed $given): ?Field\Input;   // the parts as read
+    public function treatsAsAbsent(mixed $given): bool;             // null, or a record with nothing in it
 }
 ```
 
@@ -282,7 +286,7 @@ protected function parse(mixed $value): Widget\Input
     // former — see Definition::recordIn().
     $record = self::recordIn($value);
 
-    if ($record === null || $record === []) {
+    if ($record === null) {
         throw MalformedValue::of(Widget\Value::class, 'a widget is submitted as a record of its parts');
     }
 
@@ -293,6 +297,13 @@ protected function parse(mixed $value): Widget\Input
 The input takes the whole record rather than parts picked out for it, so there is one answer to
 "what is a widget here" instead of a field that reads input and a value that trusts whatever it is
 handed. `parse()` returns or raises; returning `null` for unreadable input is not a thing it does.
+
+**A record with nothing in it never arrives.** `{}`, or every part `null`, is what a form sends when
+nobody touched it, so the lifecycle reads it as nothing submitted — as it reads `null` — before
+`parse()` is asked: the field is missing or skipped, and a prefill or the default stands in. The
+rule is the core's, read off the field's declared parts by `treatsAsAbsent()`, so a field has
+nothing to write for it. A key the value does not declare is never nothing, so a record holding
+one still reaches the input, which refuses it.
 
 ---
 
@@ -344,6 +355,7 @@ parts, an optional one, a check the parts must agree on, and one constraint.
 
 | The input says | The result |
 | --- | --- |
+| *(never asked: the record has nothing in it)* | nothing was submitted — missing, or skipped when optional — and a prefill or the default stands in |
 | nothing is wrong | its value goes to the constraints |
 | something is | shape *incomplete*: `wasIncomplete()`, `$missingParts`, each part's own violations, every constraint skipped |
 | nothing is wrong, and it made no value | `Exception\InconsistentInput` is raised: the input has a bug |

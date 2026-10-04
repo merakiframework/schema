@@ -91,8 +91,16 @@ final class PhoneNumberTest extends FieldTestCase
 			'a bare E.164 string' => ['+61411222333'],
 			'a list' => [[]],
 			'not a record at all' => [12345],
-			'neither half' => [(object) []],
 		];
+	}
+
+	#[Test]
+	public function a_pair_with_neither_half_was_not_submitted(): void
+	{
+		$field = new PhoneNumber(new FieldName('phone'), ['AU']);
+
+		$this->assertShapeMissing($field->validate((object) []));
+		$this->assertShapeMissing($field->validate((object) ['number' => null, 'country' => null]));
 	}
 
 	/**

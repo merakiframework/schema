@@ -5,7 +5,6 @@ namespace Meraki\Schema\Field\PhoneNumber;
 
 use Meraki\Schema\Exception\BrokenInputContract;
 use Meraki\Schema\Field;
-use Meraki\Schema\Field\MalformedValue;
 use Meraki\Schema\Field\Violation;
 use libphonenumber\NumberParseException;
 use libphonenumber\PhoneNumber as LibPhoneNumber;
@@ -58,9 +57,11 @@ final readonly class Input implements Field\Input
 	/**
 	 * Takes the record a field takes: a number, and the country to read it in.
 	 *
+	 * A record with nothing in it is read like any other — both halves missing — though a field
+	 * never hands one over: to a field it is nothing submitted.
+	 *
 	 * @param object{number?: string|null, country?: string|null} $phone
 	 * @throws BrokenInputContract if it carries a key a phone number does not have
-	 * @throws MalformedValue if it holds nothing at all
 	 */
 	public function __construct(object $phone)
 	{
@@ -76,13 +77,6 @@ final readonly class Input implements Field\Input
 
 		$typed = $parts['number'] ?? null;
 		$country = $parts['country'] ?? null;
-
-		// Nothing in it at all is not a half-filled pair; it is not a phone number. The same line
-		// Money and Address draw for an empty record.
-		if ($typed === null && $country === null) {
-			throw MalformedValue::of(Value::class, 'it has neither a number nor a country');
-		}
-
 		$violations = [];
 		$missing = [];
 

@@ -4,7 +4,6 @@ declare(strict_types=1);
 namespace Meraki\Schema\Field\Address;
 
 use Meraki\Schema\Exception\BrokenInputContract;
-use Meraki\Schema\Field\MalformedValue;
 use Meraki\Schema\Field\Violation;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -185,11 +184,15 @@ final class InputTest extends TestCase
 	}
 
 	#[Test]
-	public function a_record_with_no_parts_at_all_is_not_an_address(): void
+	public function a_record_with_no_parts_at_all_is_read_like_any_other(): void
 	{
-		$this->expectException(MalformedValue::class);
+		// A field never hands one over — to a field it is nothing submitted — but read directly it
+		// is an address missing its country, and says so rather than raising.
+		$input = new Input((object) ['street' => null, 'country' => null]);
 
-		new Input((object) ['street' => null, 'country' => null]);
+		$this->assertNull($input->value);
+		$this->assertSame([Part::Country], $input->missingParts);
+		$this->assertSame([Check::CountryRequired], array_map(static fn(Violation $violation): Check => $violation->code, $input->violations));
 	}
 
 	#[Test]

@@ -5,6 +5,7 @@ namespace Meraki\Schema\Field;
 
 use Meraki\Schema\AtomicField;
 use Meraki\Schema\Definition;
+use Meraki\Schema\Exception\BrokenInputContract;
 use Meraki\Schema\Exception\InconsistentInput;
 use Meraki\Schema\Exception\InvalidDefault;
 use Meraki\Schema\Exception\InvalidRule;
@@ -17,8 +18,10 @@ use Meraki\Schema\Scope;
 use Meraki\Schema\ScopeResolver;
 use Meraki\Schema\ValidationStatus;
 use Meraki\Schema\ValueScope;
+use Meraki\Schema\ValueSource;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\CoversTrait;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
@@ -31,6 +34,7 @@ use PHPUnit\Framework\TestCase;
  */
 #[Group('field')]
 #[CoversClass(AtomicField::class)]
+#[CoversClass(Definition::class)]
 #[CoversTrait(\Meraki\Schema\Field\Definition::class)]
 #[CoversClass(ShapeValidationResult::class)]
 #[CoversClass(ScopeResolver::class)]
@@ -116,14 +120,108 @@ final class AssemblyTest extends TestCase
 		$this->assertTrue($span->validate((object) ['from' => 1])->wasIncomplete());
 	}
 
+	/**
+	 * A form that renders a box per part and was left alone submits every part empty. That is
+	 * nothing submitted, not an attempt: it was unreadable, so a prefill lost to it and an
+	 * optional field failed for being left alone.
+	 */
 	#[Test]
-	public function a_record_with_nothing_in_it_is_unreadable_rather_than_incomplete(): void
+	#[DataProvider('nothingInIt')]
+	public function a_record_with_nothing_in_it_was_not_submitted(object $given): void
 	{
-		$result = Span::named('window')->validate((object) []);
+		$span = Span::named('window');
 
-		$this->assertTrue($result->wasUnreadable());
-		$this->assertFalse($result->wasIncomplete());
-		$this->assertSame(ShapeProblem::Unreadable, $result->violations->first()?->code);
+		$this->assertTrue($span->treatsAsAbsent($given));
+		$this->assertTrue($span->validate($given)->wasMissing());
+		$this->assertFalse($span->validate($given)->wasIncomplete());
+		$this->assertTrue($span->makeOptional()->validate($given)->shape->skipped());
+		$this->assertNull($span->resolvedInputFor($given));
+	}
+
+	/** @return array<string, array{object}> */
+	public static function nothingInIt(): array
+	{
+		return [
+			'no keys' => [(object) []],
+			'every part null' => [(object) ['from' => null, 'to' => null, 'label' => null]],
+			'one part null' => [(object) ['label' => null]],
+		];
+	}
+
+	#[Test]
+	public function a_record_with_anything_in_it_was_submitted(): void
+	{
+		$span = Span::named('window');
+
+		// A part sent as '' or [] was sent: somebody decided to send it.
+		$this->assertFalse($span->treatsAsAbsent((object) ['label' => '']));
+		$this->assertFalse($span->treatsAsAbsent((object) ['from' => 1]));
+		$this->assertFalse($span->treatsAsAbsent('not a record'));
+		$this->assertTrue($span->treatsAsAbsent(null));
+
+		// A key the value does not have is never nothing, however empty: it is the port that is
+		// wrong, so the record is read and a shipped field refuses it for that, rather than letting
+		// it pass for a form left alone.
+		$this->assertFalse($span->treatsAsAbsent((object) ['till' => null]));
+		$this->expectException(BrokenInputContract::class);
+
+		(new Definition('s'))->createMoneyField('price', ['AUD'])->validate((object) ['ammount' => null]);
+	}
+
+	#[Test]
+	public function an_empty_record_is_something_to_a_field_without_parts(): void
+	{
+		$note = (new Definition('s'))->createTextField('note');
+
+		$this->assertFalse($note->treatsAsAbsent((object) []));
+		$this->assertTrue($note->validate((object) [])->wasUnreadable());
+	}
+
+	#[Test]
+	public function the_default_stands_in_for_a_record_with_nothing_in_it(): void
+	{
+		$result = Span::named('window')->defaultsTo((object) ['from' => 1, 'to' => 2])->validate((object) ['to' => null]);
+
+		$this->assertSame(ValueSource::Default, $result->source);
+		$this->assertEquals(new Span\Value(1, 2), $result->value);
+	}
+
+	#[Test]
+	public function a_prefill_stands_in_for_a_record_with_nothing_in_it(): void
+	{
+		$schema = new Definition('booking');
+		$schema->add(Span::named('window'));
+
+		$result = $schema->validate(
+			(object) ['window' => (object) ['from' => null, 'to' => null]],
+			(object) ['window' => (object) ['from' => 3, 'to' => 4]],
+		)->forField('window');
+
+		$this->assertSame(ValueSource::Prefilled, $result?->source);
+		$this->assertEquals(new Span\Value(3, 4), $result?->value);
+	}
+
+	#[Test]
+	public function what_was_sent_is_still_what_a_result_echoes(): void
+	{
+		$schema = new Definition('booking');
+		$schema->add(Span::named('window'));
+
+		$sent = (object) ['from' => null];
+		$result = $schema->validate((object) ['window' => $sent])->forField('window');
+
+		$this->assertSame($sent, $result?->given);
+		$this->assertSame(ValueSource::None, $result?->source);
+		$this->assertTrue($result?->wasMissing());
+	}
+
+	#[Test]
+	public function a_default_with_nothing_in_it_is_refused_where_it_is_written(): void
+	{
+		$this->expectException(InvalidDefault::class);
+		$this->expectExceptionMessage('The default for "window" is a record with no part in it');
+
+		Span::named('window')->defaultsTo((object) ['from' => null]);
 	}
 
 	#[Test]

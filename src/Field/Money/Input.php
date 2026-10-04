@@ -5,7 +5,6 @@ namespace Meraki\Schema\Field\Money;
 
 use Meraki\Schema\Exception\BrokenInputContract;
 use Meraki\Schema\Field;
-use Meraki\Schema\Field\MalformedValue;
 use Meraki\Schema\Field\Violation;
 use Brick\Math\BigDecimal;
 use Brick\Math\Exception\MathException;
@@ -53,9 +52,11 @@ final readonly class Input implements Field\Input
 	/**
 	 * Takes the record a field takes. {@see self::of()} is the way in from a whole value.
 	 *
+	 * A record with nothing in it is read like any other — both halves missing — though a field
+	 * never hands one over: to a field it is nothing submitted.
+	 *
 	 * @param object{currency?: string|null, amount?: string|int|float|null} $money
 	 * @throws BrokenInputContract if it carries a key money does not have
-	 * @throws MalformedValue if it holds nothing at all
 	 */
 	public function __construct(object $money)
 	{
@@ -72,13 +73,6 @@ final readonly class Input implements Field\Input
 
 		$currency = $parts['currency'] ?? null;
 		$amount = $parts['amount'] ?? null;
-
-		// Nothing in it at all is not money somebody has half written; it is not money. The field
-		// reads that as unreadable, exactly as an empty address or an empty card is read.
-		if ($currency === null && $amount === null) {
-			throw MalformedValue::of(Value::class, 'it has neither a currency nor an amount');
-		}
-
 		$violations = [];
 		$missing = [];
 

@@ -59,8 +59,15 @@ final class FileTest extends FieldTestCase
 			// testing a missing part, whatever they were called. The record cases are below.
 			'a list of files' => [[['name' => 'a.txt', 'type' => 'text/plain', 'size' => 1]]],
 			'a description as a list' => [['name' => 'a.txt', 'type' => 'text/plain', 'size' => 1]],
-			'a record with nothing in it' => [(object) []],
 		];
+	}
+
+	#[Test]
+	public function a_description_with_nothing_in_it_was_not_submitted(): void
+	{
+		// What a port hands over for a file input nobody used, when it builds the record anyway.
+		$this->assertShapeMissing($this->createField()->validate((object) []));
+		$this->assertShapeMissing($this->createField()->validate((object) ['name' => null, 'type' => null, 'size' => null]));
 	}
 
 	/**

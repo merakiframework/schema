@@ -5,7 +5,6 @@ namespace Meraki\Schema\Field\Address;
 
 use Meraki\Schema\Exception\BrokenInputContract;
 use Meraki\Schema\Field;
-use Meraki\Schema\Field\MalformedValue;
 use Meraki\Schema\Field\Violation;
 
 /**
@@ -88,7 +87,6 @@ final readonly class Input implements Field\Input
 	 *
 	 * @param object{street?: list<string>, dependent_locality?: string, locality?: string, subdivision?: string, postal_code?: string, country?: string} $address
 	 * @throws BrokenInputContract if it carries a key an address does not have
-	 * @throws MalformedValue if it has no parts at all
 	 */
 	public function __construct(object $address)
 	{
@@ -101,11 +99,6 @@ final readonly class Input implements Field\Input
 		// required" names the symptom while hiding the stale key that caused it.
 		if ($unknown !== []) {
 			throw BrokenInputContract::recordHasKeysItDoesNotAccept(Value::class, array_values($unknown), $names);
-		}
-
-		// A record with no parts at all is not a half-filled address; it is not one.
-		if (array_filter($parts, static fn(mixed $part): bool => $part !== null) === []) {
-			throw MalformedValue::of(Value::class, 'it has no parts at all');
 		}
 
 		$violations = [];

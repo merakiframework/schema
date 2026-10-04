@@ -80,10 +80,28 @@ final class MoneyTest extends FieldTestCase
 			'a bare number' => [12.50],
 			'a string' => ['AUD 12.50'],
 			'a list' => [[]],
+		];
+	}
 
-			// A record with nothing in it is not money somebody has half written.
-			'neither half' => [(object) []],
-			'neither half, as nulls' => [(object) ['currency' => null, 'amount' => null]],
+	/**
+	 * Two empty boxes are a form nobody filled in, not money somebody half wrote.
+	 */
+	#[Test]
+	#[DataProvider('neitherHalf')]
+	public function money_with_neither_half_was_not_submitted(object $given): void
+	{
+		$field = $this->createField();
+
+		$this->assertShapeMissing($field->validate($given));
+		$this->assertTrue($field->makeOptional()->validate($given)->shape->skipped());
+	}
+
+	/** @return array<string, array{object}> */
+	public static function neitherHalf(): array
+	{
+		return [
+			'no keys' => [(object) []],
+			'both null' => [(object) ['currency' => null, 'amount' => null]],
 		];
 	}
 

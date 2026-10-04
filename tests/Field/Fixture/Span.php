@@ -53,9 +53,10 @@ final readonly class Span extends AtomicField
 
 		$record = self::recordIn($value);
 
-		// Not a record, or a record with nothing in it: not a span somebody has half written, so
-		// unreadable rather than incomplete.
-		if ($record === null || $record === []) {
+		// Not a record: not a span somebody has half written, so unreadable rather than
+		// incomplete. A record with nothing in it never gets here — the lifecycle reads it as
+		// nothing submitted, as it reads null.
+		if ($record === null) {
 			throw MalformedValue::of(Span\Value::class, 'a span is a record with a from and a to');
 		}
 

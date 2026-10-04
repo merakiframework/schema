@@ -5,7 +5,6 @@ namespace Meraki\Schema\Field\File;
 
 use Meraki\Schema\Exception\BrokenInputContract;
 use Meraki\Schema\Field;
-use Meraki\Schema\Field\MalformedValue;
 use Meraki\Schema\Field\Violation;
 
 /**
@@ -55,7 +54,6 @@ final readonly class Input implements Field\Input
 	 *
 	 * @param object{name?: string|null, type?: string|null, size?: int<0, max>|numeric-string|null} $file
 	 * @throws BrokenInputContract if it carries a key no upload has
-	 * @throws MalformedValue if it holds nothing at all
 	 */
 	public function __construct(object $file)
 	{
@@ -68,10 +66,6 @@ final readonly class Input implements Field\Input
 		// something wrong — see {@see BrokenInputContract}.
 		if ($unknown !== []) {
 			throw BrokenInputContract::recordHasKeysItDoesNotAccept(Value::class, array_values($unknown), $names);
-		}
-
-		if (array_filter($parts, static fn(mixed $part): bool => $part !== null) === []) {
-			throw MalformedValue::of(Value::class, 'it has no name, type or size');
 		}
 
 		$violations = [];

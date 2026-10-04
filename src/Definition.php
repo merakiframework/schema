@@ -214,11 +214,15 @@ final class Definition
 			// Submitted beats prefilled, and a rule that ignores the field discards both: the
 			// point of ignoring is that nothing was meant for this field on this request, and a
 			// prefill standing in would quietly undo that.
+			//
+			// The field says what counts as nothing, so a record with no part in it loses to a
+			// prefill the way `null` does. It still reaches the field when nothing stands in, so
+			// the result echoes what was sent.
 			[$value, $source] = match (true) {
 				$ignored => [null, ValueSource::None],
-				($given[$name] ?? null) !== null => [$given[$name], ValueSource::Submitted],
-				($prefilled[$name] ?? null) !== null => [$prefilled[$name], ValueSource::Prefilled],
-				default => [null, ValueSource::None],
+				!$field->treatsAsAbsent($given[$name]) => [$given[$name], ValueSource::Submitted],
+				!$field->treatsAsAbsent($prefilled[$name] ?? null) => [$prefilled[$name], ValueSource::Prefilled],
+				default => [$given[$name], ValueSource::None],
 			};
 
 			// The field settles Default from here: only it knows whether it has one.

@@ -56,6 +56,19 @@ final class InvalidDefault extends InvalidArgumentException implements Exception
 		));
 	}
 
+	/**
+	 * The default is a record with no part in it. A request reads that as nothing submitted, so
+	 * as a default it would stand in for nothing with nothing — and keep the author from noticing
+	 * that whatever built it left every part out.
+	 */
+	public static function saysNothing(string $field): self
+	{
+		return new self(
+			"The default for \"{$field}\" is a record with no part in it, which reads as nothing submitted. "
+			. 'Leave the default out, or give it its parts.',
+		);
+	}
+
 	public static function failsItsOwnConstraint(string $field, string $constraint): self
 	{
 		return new self(sprintf(

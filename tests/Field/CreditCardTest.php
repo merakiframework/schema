@@ -113,33 +113,25 @@ final class CreditCardTest extends FieldTestCase
 	}
 
 	#[Test]
-	#[DataProvider('notACard')]
-	public function a_card_with_nothing_in_it_could_not_be_read_as_a_card(object $given): void
+	#[DataProvider('noCard')]
+	public function a_card_with_nothing_in_it_was_not_submitted(?object $given): void
 	{
-		// A composite with no parts at all is not a half-filled one; it is not one. So it fails the
-		// shape rather than every required part in turn, which says the real thing once instead of
-		// twice.
+		// Every box left empty is the field never filled in, which is a different report from
+		// filling it in wrongly: missing, once, rather than a required part at a time.
 		$result = $this->createField()->validate($given);
 
-		$this->assertShapeUnreadable($result);
+		$this->assertShapeMissing($result);
 		$this->assertConstraintValidationResultSkipped('expiryWithinReach', $result);
 	}
 
-	/** @return array<string, array{object}> */
-	public static function notACard(): array
+	/** @return array<string, array{?object}> */
+	public static function noCard(): array
 	{
 		return [
+			'nothing at all' => [null],
 			'an empty record' => [(object) []],
 			'every part null' => [(object) ['number' => null, 'expiry' => null, 'name' => null, 'security_code' => null]],
 		];
-	}
-
-	#[Test]
-	public function nothing_at_all_is_absent(): void
-	{
-		// Null is the only absent card: the field was never filled in, which is a different report
-		// from filling it in wrongly.
-		$this->assertShapeMissing($this->createField()->validate(null));
 	}
 
 	#[Test]

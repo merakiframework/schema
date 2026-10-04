@@ -122,7 +122,8 @@ them, and no constraint runs until they are clear — see
 | `File` | `nameRequired`, `typeRequired`, `sizeRequired`, `nameFormat`, `typeFormat`, `sizeFormat` |
 
 **Shared by every field**, so not repeated above: `defaultsTo()`, `makeOptional()`,
-`makeRequired()`, `equals()`, `resolve()`, `validate()`, `resolvedValueFor()`, `resolvedInputFor()`.
+`makeRequired()`, `equals()`, `resolve()`, `validate()`, `resolvedValueFor()`, `resolvedInputFor()`,
+`treatsAsAbsent()`.
 
 One row worth reading twice. **`Enum` reports no constraints** — the list of cases *is* the type, so a
 value outside it is a shape failure, the same way an unparseable string is for `Date`.

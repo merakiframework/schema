@@ -212,7 +212,8 @@ $result = $schema->validate($submitted, prefilledWith: $knownAboutThisUser);
 ```
 
 Precedence is submitted → prefilled → authored default, and `$resolved->source` tells you which
-one the judged value came from. `PrefillPolicy::Trusted` waives the constraints for a value that
+one the judged value came from. A record with nothing in it counts as nothing submitted, so a
+prefill stands in for it as it does for `null`. `PrefillPolicy::Trusted` waives the constraints for a value that
 actually survived as prefilled — trust attaches to the value, so it cannot excuse anything the
 user typed over the top.
 
@@ -361,6 +362,13 @@ $result->value;                      // null — there is no value until there i
 - A default whose parts make no value raises `InvalidDefault` where it is written, naming each
   problem and its part. A **trusted prefill must be complete**: trust waives what a field
   accepts, never what counts as a value.
+- **A record with nothing in it is nothing submitted.** `{}`, or every part `null`, is what a form
+  sends when nobody touched any of its boxes. It used to be *unreadable*, so a prefill lost to it
+  and an optional field failed for being left alone. Now it is *missing* on a required field and
+  skipped on an optional one, and a prefill or the authored default stands in for it as they do
+  for `null`. `$field->treatsAsAbsent($given)` asks the same question. A record carrying a key the
+  value does not declare is never nothing: it still raises, [below](#a-record-raises-on-a-key-it-does-not-declare).
+  `defaultsTo((object) [])` raises `InvalidDefault`, since it would be a default of nothing.
 
 **Writing a field:** `parse()` may return a `Field\Input` rather than a value — see
 [FIELD-API.md](docs/FIELD-API.md#a-value-made-of-parts). `AtomicField::read()` is `protected` and

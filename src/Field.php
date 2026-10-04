@@ -180,6 +180,23 @@ interface Field
 	public function resolvedInputFor(mixed $given): ?Field\Input;
 
 	/**
+	 * Whether `$given` says nothing at all, so that a prefill or the authored default may stand in
+	 * for it.
+	 *
+	 * `null` says nothing to every field. To a field whose value has parts, so does a record with
+	 * no part in it — `{}`, or every part `null` — because a form that renders one box per part
+	 * and was left alone submits exactly that. Reading it as an attempt made it *unreadable*, so a
+	 * prefill lost to it and an optional field failed for being left empty.
+	 *
+	 * Asked of the field rather than worked out by its caller, because the field is what knows its
+	 * parts. A record holding a key the value does not have is never nothing, even when that key is
+	 * `null`: it is read, and refused for the key — see {@see Exception\BrokenInputContract}.
+	 *
+	 * @param AcceptedType|null $given
+	 */
+	public function treatsAsAbsent(mixed $given): bool;
+
+	/**
 	 * Every part this field's value is made of, in the order a value is written — empty for a
 	 * value that is one thing.
 	 *

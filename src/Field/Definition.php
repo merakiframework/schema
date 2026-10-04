@@ -43,9 +43,9 @@ trait Definition
 	 *
 	 * Four things hold, and everything downstream depends on them:
 	 *
-	 * - **It never receives `null`.** Absence is settled before it runs — no input and no default
-	 *   means there is nothing to read, so the field is skipped or reported missing without this
-	 *   being called.
+	 * - **It never receives `null`, or a record with nothing in it.** Absence is settled before it
+	 *   runs — no input and no default means there is nothing to read, so the field is skipped or
+	 *   reported missing without this being called. See {@see self::treatsAsAbsent()}.
 	 * - **It returns a value, the {@see Input} a value is assembled from, or raises
 	 *   {@see MalformedValue}.** There is no `null`, and no try/catch for a field author to write:
 	 *   who absorbs the refusal is decided by the lifecycle, below.
@@ -83,9 +83,9 @@ trait Definition
 	 * | nothing is wrong | its value goes to the constraints |
 	 * | something is | the shape is *incomplete*, the parts' violations are the report, and no constraint runs |
 	 *
-	 * Raising is still for a record that is not one at all. A string where money belongs, or a
-	 * record with nothing in it, cannot be read; a currency with no amount is a form somebody has
-	 * not finished.
+	 * Raising is still for something that is not a record at all. A string where money belongs
+	 * cannot be read; a currency with no amount is a form somebody has not finished. A record with
+	 * nothing in it is neither, and never gets here: like `null`, it says nothing was submitted.
 	 *
 	 * ### Most of this belongs to the value, not here
 	 *
@@ -414,11 +414,43 @@ trait Definition
 	 * this one turned it into `null`, so a rule resolving `#/fields/lines/value` and the result
 	 * for that same field reported different things about the same request.
 	 *
+	 * "Nothing" is {@see self::treatsAsAbsent()}'s to say, so an empty record reaches neither
+	 * {@see self::parse()} nor a rule: the default stands in for it exactly as it does for `null`.
+	 *
 	 * @see self::absentValue() for the one part a field is allowed to vary
 	 */
 	final protected function rawFor(mixed $given): mixed
 	{
-		return $given ?? $this->defaultValue ?? $this->absentValue();
+		return $this->treatsAsAbsent($given) ? ($this->defaultValue ?? $this->absentValue()) : $given;
+	}
+
+	/**
+	 * `null`, or a record of this field's parts with none of them in it.
+	 *
+	 * Only `null` counts as a part left out. A part sent as `''` or `[]` was sent — a decision
+	 * somebody made — so a record holding one is read, and that part reported as wrong.
+	 */
+	final public function treatsAsAbsent(mixed $given): bool
+	{
+		if ($given === null) {
+			return true;
+		}
+
+		$record = self::recordIn($given);
+
+		if ($record === null || $this->parts === []) {
+			return false;
+		}
+
+		$names = array_column($this->parts, 'value');
+
+		foreach ($record as $key => $part) {
+			if ($part !== null || !in_array($key, $names, true)) {
+				return false;
+			}
+		}
+
+		return true;
 	}
 
 	/**
@@ -450,7 +482,7 @@ trait Definition
 	 */
 	protected function sourceOf(mixed $given, ValueSource $givenAs): ValueSource
 	{
-		if ($given !== null) {
+		if (!$this->treatsAsAbsent($given)) {
 			return $givenAs;
 		}
 
@@ -540,6 +572,12 @@ trait Definition
 		// No default is not an invalid one.
 		if ($this->defaultValue === null) {
 			return;
+		}
+
+		// An empty record is, though. It reads as nothing submitted, so the field would have no
+		// default while appearing to have one.
+		if ($this->treatsAsAbsent($this->defaultValue)) {
+			throw InvalidDefault::saysNothing((string) $this->name);
 		}
 
 		// Not absorbed, unlike the request path. An author can act on *why* their default is
