@@ -422,7 +422,7 @@ $field = $schema->validate($data)->forField('email');
 | `$field->given` | exactly what was submitted, unchanged |
 | `$field->value` | what the field made of it — a `ParsedValue`, or `null` |
 | `$field->source` | `Submitted` \| `Prefilled` \| `Default` \| `None` |
-| `$field->shape` | could this be read at all? |
+| `$field->shape` | could this be read at all, and do its parts make a value? |
 | `$field->constraints` | the constraint verdicts, on their own |
 | `$field->status` | `Passed` \| `Failed` \| `Skipped` \| `Pending` |
 | `$field->violations` | everything wrong, each with its code, part, bound and — when the request passed a provider — its sentence |
@@ -507,7 +507,8 @@ The example that makes the distinction concrete: a **nickname** can be changed, 
 default and the user may overwrite it. A **username** cannot, so it is prefilled from the database
 for this request and never written into the schema. Precedence is submitted, then prefilled, then
 the default — and `$field->source` says which won, so a form can mark a prefilled field differently
-from one the user typed into.
+from one the user typed into. A record with nothing in it — `{}`, or every part `null` — counts as
+nothing submitted, so a prefill or the default stands in for it as it does for `null`.
 
 `1.x` had `prefill()`, which wrote the values onto the fields. A schema shared across requests
 handed one user's details to the next.
@@ -532,8 +533,9 @@ $schema->validate($data, prefilledWith: $known, policy: PrefillPolicy::Trusted);
 
 `Checked` is the default and is usually right: a constraint tightens, and stored values that no
 longer satisfy it should surface so the user can fix them. `Trusted` is for a value the application
-vouches for and the user was never asked about — but note the shape still has to pass. Trust says a
-value meets the *rules*, not that the field can read it.
+vouches for and the user was never asked about — but note the shape still has to pass, and a
+record's parts still have to make a value. Trust says a value meets the *rules*, not that the field
+can read it or that it is whole.
 
 ## Constraints
 
@@ -541,9 +543,9 @@ A failed constraint carries everything a message needs, so a message provider is
 than a parser:
 
 ```php
-$failed->name;    // 'minLength'     — what was checked
-$failed->part;    // Address\Part::PostalCode — which piece of a structured value, or null
-$failed->bound;   // 3               — the limit, ready to interpolate
+$failed->code;    // Text\Check::MinLength — what was checked; ->name is the wire name, 'minLength'
+$failed->part;    // which piece of a structured value, as a Field\Part case — or null for the whole
+$failed->bound;   // 3 — the limit, ready to interpolate
 ```
 
 No name carries the field it came from. `postalCodeFormat`, not

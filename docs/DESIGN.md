@@ -271,14 +271,14 @@ A value with named parts arrives as an **object**. A value with many of somethin
 ```php
 $schema->validate((object) [
     'price' => (object) ['currency' => 'AUD', 'amount' => '12.50'],   // a record
-    'lines' => [$row, $row],                                          // a list
+    'lines' => ['first' => $row, 'second' => $row],                   // many, each under a name
 ]);
 ```
 
 PHP blurs this and nothing else will draw the line — an associative array and a list are the same
 type. Putting the distinction in the *shape* of the input buys something concrete: a collection
-can name its rows, `['line item 1' => …]`, because a string key on an array is no longer
-ambiguous with a record's field name.
+names its rows, `['line_1' => …]`, because a string key on an array is no longer ambiguous with a
+record's field name.
 
 **What it costs.** `$_POST` and `$_FILES` are arrays throughout, and `json_decode($body, true)`
 gives arrays. The port converts.

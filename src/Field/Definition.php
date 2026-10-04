@@ -169,7 +169,7 @@ trait Definition
 	 * same type, so `['amount' => …]` and `[$row1, $row2]` cannot be told apart by asking. The
 	 * rule puts the distinction in the *shape* of the input rather than in a guess about its keys.
 	 *
-	 * It buys something concrete. A collection can now key its items — `['line item 1' => …]` —
+	 * It buys something concrete. A collection can now key its items — `['line_1' => …]` —
 	 * because a string key on an array is no longer ambiguous with a record's field name. That was
 	 * impossible while both meant "named parts".
 	 *

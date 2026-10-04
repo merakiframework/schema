@@ -142,6 +142,7 @@ Field/Money.php             the field: configuration, constraints, parse()
 Field/Money/Check.php       every code it reports a failure under
 Field/Money/Part.php        the parts its value is made of — only for a value that has parts
 Field/Money/Input.php       the parts as read, and whether they make money — likewise
+Field/Money/Amount.php      a part a rule can order, as the field's own type — only where one is
 Field/Money/Value.php       the value: whole money, which nothing downstream second-guesses
 ```
 

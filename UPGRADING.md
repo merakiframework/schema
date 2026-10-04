@@ -13,10 +13,16 @@ know why.
 
 - **PHP 8.5 is required.** `2.0` uses clone-with and property hooks; there is no 8.4 fallback.
 - **The ports are not migrated yet.** `meraki/schema-html` and `meraki/schema-json` do not work
-  against `2.0.0-alpha.3`. If you depend on either, stay on `1.14.0` until they are tagged.
-- **Your stored documents still load.** The serialized form is unchanged: `#/fields/x/value` is
-  still the scope wire format, and conditions and outcomes keep their `type`/`action` shapes.
-  This is an API break, not a data break.
+  against `2.0` yet. If you depend on either, stay on `1.14.0` until they are tagged.
+- **Most stored documents still load.** `#/fields/x/value` is still the scope wire format, and
+  conditions and outcomes keep their `type`/`action` shapes. Three things in a stored rule stop it
+  loading, each refused where the rule is added rather than left to never fire: an `Address` part
+  under its `1.x` name ([migrate them](#address-was-rebuilt--new-parts-new-names-and-data-you-may-need-to-migrate)),
+  a part that was a reading of a value rather than a part of it — `e164`, `local_part`, `domain`
+  ([see below](#a-value-reports-the-parts-it-is-submitted-with)) — and a whole value compared
+  against a record holding only some of its parts
+  ([see below](#a-value-made-of-parts-is-assembled-before-it-is-judged)). Stored *submissions*
+  are covered field by field below.
 
 ### The one idea behind every change
 

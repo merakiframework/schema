@@ -382,7 +382,7 @@ A constraint carries everything a message needs:
 ```php
 new Constraint(
     code: Text\Check::MinLength,  // reported under 'minLength', matching the $minLength property
-    check: $this->longEnough(...),
+    check: $this->meetsMinimumLength(...),
     bound: $this->minLength,      // what a message interpolates
     boundFor: null,               // a per-request bound, when the limit depends on the value
     timeRelative: false,          // whether the answer depends on when it is asked

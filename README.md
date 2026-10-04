@@ -103,7 +103,7 @@ something is an array:
 ```php
 $schema->validate((object) [
     'price' => (object) ['currency' => 'AUD', 'amount' => '12.50'],   // a record
-    'lines' => [$row, $row],                                          // a list
+    'lines' => ['first' => $row, 'second' => $row],                   // many, each under a name
 ]);
 ```
 
@@ -127,7 +127,7 @@ Each field's result carries the same things, whatever kind of field it is:
 $field->given;        // exactly what was submitted, unchanged
 $field->value;        // what the field made of it — an EmailAddress\Value
 $field->source;       // Submitted | Prefilled | Default | None
-$field->shape;        // could this be read at all?
+$field->shape;        // could this be read at all, and do its parts make a value?
 $field->status;       // Passed | Failed | Skipped | Pending
 ```
 
@@ -152,9 +152,9 @@ A violation says *what* failed and *what the limit was*, with no wording attache
 ```php
 $failed = $field->violations->first();
 
-$failed->name;    // 'minLength'
+$failed->code;    // Text\Check::MinLength — and $failed->name is its wire name, 'minLength'
 $failed->bound;   // 3
-$failed->part;    // Address\Part::PostalCode, or null for the whole value
+$failed->part;    // a Field\Part case, such as Address\Part::PostalCode — or null for the whole value
 ```
 
 That is enough to write your own sentence, and plenty of applications should. For the rest, wording

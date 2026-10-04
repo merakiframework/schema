@@ -267,7 +267,7 @@ collection deciding whether two rows repeat, a rule deciding whether a field hol
 asking about. Without it the answer comes from PHP's `==`, which compares two objects property by
 property — reading the *private layout* of whatever class you returned.
 
-Two optional interfaces:
+Three optional interfaces:
 
 - [`Comparison\Comparable`](../src/Comparison/Comparable.php) — `compareTo(): Order`, if your
   value has an order. Numbers, dates and durations do; addresses and phone numbers do not.
@@ -279,7 +279,10 @@ Two optional interfaces:
 - [`Field\Input`](../src/Field/Input.php) — if your value is made of named parts. `parse()`
   returns the parts as read, and the input says whether they make a value, so a half-filled
   record is reported part by part and no constraint ever sees half a value. A rule addresses
-  one part through it: `#/fields/isbn/value/registrant`. See
+  one part through it: `#/fields/isbn/value/registrant`. A part a rule should be able to order —
+  a number, a date — holds a `Comparable` type of your field's own, and `canonicalPartValue()`
+  reads a rule's expectation into the same type; `Money\Amount` is the shipped example. A record
+  with nothing in it never reaches `parse()`: the core reads it as nothing submitted. See
   [FIELD-API.md](FIELD-API.md#a-value-made-of-parts).
 
 ## Wiring it in
