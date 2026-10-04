@@ -30,8 +30,10 @@ use SensitiveParameter;
  * assembly rather than constraints. Whether the card has expired is the field's to say once there
  * is a card to say it about — it needs a clock, and an author decides whether it matters.
  *
- * The name and the security code are optional: plenty of flows never ask for either. Sent, they
- * still have to be readable.
+ * The name and the security code are not essential: plenty of flows never ask for either, so a
+ * card is a card without them. Sent, they still have to be readable. A field that does ask for one
+ * says so with a constraint — `nameRequired`, `securityCodeRequired` — which another field may
+ * decline, so it is judged once there is a card rather than here.
  *
  * Nothing here is ever written into a message. A violation carries a code, never what was typed,
  * so a card number cannot reach a log through one.

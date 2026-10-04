@@ -22,6 +22,11 @@ use SensitiveParameter;
  * because plenty of flows never ask for them — a stored card being re-authorised, a terminal
  * reading the chip, a processor that does not want the name. Sent, they still have to be readable.
  *
+ * A flow that does ask for them says so: {@see self::makeNameRequired()} and
+ * {@see self::makeSecurityCodeRequired()}. That is a demand this field makes rather than something
+ * a card cannot be without, so it is a constraint — `nameRequired`, `securityCodeRequired` —
+ * judged once there is a card, and a rule may switch it on for one request.
+ *
  * ### A card is whole before it is judged
  *
  * Whether what arrived is a card at all — a number and an expiry there, the number shaped like one
@@ -74,6 +79,17 @@ final readonly class CreditCard extends AtomicField
 	public bool $mustExpireInFuture;
 
 	/**
+	 * Whether a card is refused without the cardholder's name. Off by default: a card is a card
+	 * without one, and plenty of flows never ask.
+	 */
+	public bool $nameRequired;
+
+	/**
+	 * Whether a card is refused without its security code. Off by default, for the same reason.
+	 */
+	public bool $securityCodeRequired;
+
+	/**
 	 * Where *now* comes from.
 	 *
 	 * A *source* of the instant, never an instant. {@see SystemClock} is stateless and safe on a
@@ -96,6 +112,8 @@ final readonly class CreditCard extends AtomicField
 		parent::__construct();
 
 		$this->mustExpireInFuture = self::initially(false);
+		$this->nameRequired = self::initially(false);
+		$this->securityCodeRequired = self::initially(false);
 		$this->clock = $clock ?? new SystemClock();
 		$this->constraints = $this->defineConstraints();
 	}
@@ -109,6 +127,32 @@ final readonly class CreditCard extends AtomicField
 	public function mustExpireInFuture(): static
 	{
 		return $this->with(['mustExpireInFuture' => true]);
+	}
+
+	/**
+	 * Refuses a card without the cardholder's name, as `nameRequired` against the name.
+	 */
+	public function makeNameRequired(): static
+	{
+		return $this->with(['nameRequired' => true]);
+	}
+
+	public function makeNameOptional(): static
+	{
+		return $this->with(['nameRequired' => false]);
+	}
+
+	/**
+	 * Refuses a card without its security code, as `securityCodeRequired` against the code.
+	 */
+	public function makeSecurityCodeRequired(): static
+	{
+		return $this->with(['securityCodeRequired' => true]);
+	}
+
+	public function makeSecurityCodeOptional(): static
+	{
+		return $this->with(['securityCodeRequired' => false]);
 	}
 
 	/**
@@ -143,8 +187,8 @@ final readonly class CreditCard extends AtomicField
 	}
 
 	/**
-	 * The two questions that need a clock. Everything else about a card is decided before these
-	 * run, so each is handed a whole {@see Value} with an expiry to judge.
+	 * The two questions that need a clock, and the two parts this field may demand. Whether there
+	 * is a card at all is decided before these run, so each is handed a whole {@see Value}.
 	 */
 	protected function defineConstraints(): Constraint\Set
 	{
@@ -165,6 +209,8 @@ final readonly class CreditCard extends AtomicField
 				self::MAX_YEARS_AHEAD,
 				timeRelative: true,
 			),
+			new Constraint(CreditCard\Check::NameRequired, $this->hasAName(...), $this->nameRequired),
+			new Constraint(CreditCard\Check::SecurityCodeRequired, $this->hasASecurityCode(...), $this->securityCodeRequired),
 		);
 	}
 
@@ -205,6 +251,23 @@ final readonly class CreditCard extends AtomicField
 
 		// The expiry is the last day of its month, so a card is good *through* that date.
 		return $card->expiry->isAfterOrEqualTo($this->determineToday());
+	}
+
+	/**
+	 * Skipped unless asked for. A name that was sent and holds no text never gets here — assembly
+	 * reports it — so absent is the only way to fail.
+	 */
+	private function hasAName(Value $card): ?bool
+	{
+		return $this->nameRequired ? $card->name !== null : null;
+	}
+
+	/**
+	 * Skipped unless asked for, and absent is the only way to fail, as for the name.
+	 */
+	private function hasASecurityCode(Value $card): ?bool
+	{
+		return $this->securityCodeRequired ? $card->securityCode !== null : null;
 	}
 
 	/**

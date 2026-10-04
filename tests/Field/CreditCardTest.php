@@ -103,6 +103,8 @@ final class CreditCardTest extends FieldTestCase
 			'securityCodeFormat' => 'security_code',
 			'expiryInFuture' => 'expiry',
 			'expiryWithinReach' => 'expiry',
+			'nameRequired' => 'name',
+			'securityCodeRequired' => 'security_code',
 		];
 
 		$this->assertSame(array_keys($expected), array_column($this->createField()->checks, 'value'));
@@ -196,6 +198,67 @@ final class CreditCardTest extends FieldTestCase
 
 		$this->assertFalse($result->anyFailed());
 		$this->assertNull($result->value?->name);
+	}
+
+	/**
+	 * A flow that does ask for them says so. A card without them is still a card, so it is a
+	 * constraint against the part rather than assembly — whole, and judged.
+	 */
+	#[Test]
+	public function a_field_may_demand_the_name(): void
+	{
+		$field = $this->createField()->makeNameRequired();
+		$result = $field->validate((object) self::card(without: 'name'));
+
+		$this->assertTrue($field->nameRequired);
+		$this->assertFalse($result->wasIncomplete());
+		$this->assertSame([], $result->missingParts);
+		$this->assertConstraintValidationResultFailed('nameRequired', $result);
+		$this->assertSame(Part::Name, $result->forPart(Part::Name)->first()?->part);
+		$this->assertFalse($field->validate((object) self::card())->anyFailed());
+	}
+
+	#[Test]
+	public function a_field_may_demand_the_security_code(): void
+	{
+		$field = $this->createField()->makeSecurityCodeRequired();
+
+		$this->assertConstraintValidationResultFailed('securityCodeRequired', $field->validate((object) self::card()));
+		$this->assertFalse($field->validate((object) self::card(['security_code' => '123']))->anyFailed());
+	}
+
+	#[Test]
+	public function neither_is_demanded_unless_asked_for(): void
+	{
+		$result = $this->createField()->validate((object) self::card(without: 'name'));
+
+		$this->assertConstraintValidationResultSkipped('nameRequired', $result);
+		$this->assertConstraintValidationResultSkipped('securityCodeRequired', $result);
+	}
+
+	#[Test]
+	public function a_demand_can_be_withdrawn(): void
+	{
+		$field = $this->createField()->makeNameRequired()->makeSecurityCodeRequired()
+			->makeNameOptional()->makeSecurityCodeOptional();
+
+		$this->assertFalse($field->nameRequired);
+		$this->assertFalse($field->securityCodeRequired);
+		$this->assertFalse($field->validate((object) self::card(without: 'name'))->anyFailed());
+	}
+
+	#[Test]
+	public function a_rule_may_demand_the_security_code_for_one_request(): void
+	{
+		$schema = new Definition('checkout');
+		$schema->add($card = $this->createField(), $saved = $schema->createBooleanField('use_saved_card'));
+		$schema->addRule($saved->when()->equals(false)->then($card->makeSecurityCodeRequired()));
+
+		$fresh = $schema->validate((object) ['card' => (object) self::card(), 'use_saved_card' => false]);
+		$stored = $schema->validate((object) ['card' => (object) self::card(), 'use_saved_card' => true]);
+
+		$this->assertTrue($fresh->forField('card')?->forConstraint('securityCodeRequired')?->failed());
+		$this->assertFalse($stored->forField('card')?->anyFailed());
 	}
 
 	#[Test]

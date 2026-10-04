@@ -100,10 +100,9 @@ final class ConstraintNameTest extends TestCase
 				'streetVisitable',
 				'streetRequired', 'localityRequired', 'subdivisionRequired', 'postalCodeRequired',
 			],
-			// The two that ask what day it is. Everything else about a card is assembly — see
-			// below — and there is no `nameRequired`: the name is optional, like the security
-			// code.
-			'CreditCard' => ['expiryInFuture', 'expiryWithinReach'],
+			// The two that ask what day it is, and the two parts a card can be without that a
+			// field may still demand. Everything else about a card is assembly — see below.
+			'CreditCard' => ['expiryInFuture', 'expiryWithinReach', 'nameRequired', 'securityCodeRequired'],
 
 			// A collection bounds the list and refuses repeats; each item is checked against the
 			// template and reports under the template field's own names.

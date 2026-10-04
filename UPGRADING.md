@@ -418,7 +418,7 @@ $result = $price->validate((object) ['currency' => 'AUD']);
 
 | Was | Is |
 | --- | --- |
-| a number, an expiry and a name were required | a number and an expiry. `nameRequired` is gone; the name is optional, like the security code |
+| a number, an expiry and a name were required | a number and an expiry. The name is optional by default, like the security code; `makeNameRequired()` and `makeSecurityCodeRequired()` demand them, as the constraints `nameRequired` and `securityCodeRequired` against the part |
 | `numberRequired`, `expiryRequired`, `numberFormat`, `numberChecksum` and `securityCodeFormat` were constraints | reported while assembling; the result is incomplete and the expiry is not judged |
 | an expiry, name or security code that was sent and unreadable made the field unreadable — or, for a security code, failed a constraint | `expiryFormat`, `nameFormat` or `securityCodeFormat`, against that part |
 | a number that was not a string counted as absent | `numberFormat`: it was sent |
@@ -483,8 +483,12 @@ amount is gibberish", and could not mark anything, since no part was named.
 | `CreditCard` | `numberRequired`, `expiryRequired` — and a `*Format` code for any part that was sent and is not one | while the value is assembled |
 | `PhoneNumber` | `numberRequired` — and `numberFormat` for a number that was sent and is not one | while the value is assembled |
 
-**A card's name is optional,** like its security code, and `nameRequired` is gone: plenty of
-flows never ask for either. A name that *was* sent still has to hold text, or it is `nameFormat`.
+**A card's name is optional by default,** like its security code: plenty of flows never ask for
+either, and a card is a card without them. A flow that does ask says so with
+`makeNameRequired()` or `makeSecurityCodeRequired()`, and a missing one fails `nameRequired` or
+`securityCodeRequired` against that part. Those are constraints rather than assembly, because
+another field may decline them, so they are judged once there is a whole card. A name that *was*
+sent still has to hold text, or it is `nameFormat`.
 
 **`PhoneNumber` and `Address` report a missing country too,** as `countryRequired` — see the
 next section, which is where that changed.

@@ -106,7 +106,7 @@ That was a value that was not a value, and its constraints were paying for it.
 | --- | --- | --- |
 | `Money` | `currencyRequired`, `amountRequired`, `currencyFormat`, `amountFormat` | `knownCurrency`, `allowedCurrencies`, `minAmount`, `maxAmount`, `scale` |
 | `PhoneNumber` | `countryRequired`, `numberRequired`, `knownCountry`, `numberFormat`, `numberInCountry` | `allowedCountries`, `numberType` |
-| `CreditCard` | `numberRequired`, `expiryRequired`, `numberFormat`, `numberChecksum`, `expiryFormat`, `nameFormat`, `securityCodeFormat` | `expiryInFuture`, `expiryWithinReach` |
+| `CreditCard` | `numberRequired`, `expiryRequired`, `numberFormat`, `numberChecksum`, `expiryFormat`, `nameFormat`, `securityCodeFormat` | `expiryInFuture`, `expiryWithinReach`, `nameRequired`, `securityCodeRequired` |
 | `Address` | `countryRequired`, `knownCountry`, `streetFormat`, `streetLineLimit`, `dependentLocalityFormat`, `dependentLocalityUsed`, `localityFormat`, `localityUsed`, `knownSubdivision`, `subdivisionUsed`, `postalCodeFormat`, `postalCodeUsed` | `allowedCountries`, `streetVisitable`, `streetRequired`, `localityRequired`, `subdivisionRequired`, `postalCodeRequired` |
 | `File` | `nameRequired`, `typeRequired`, `sizeRequired`, `nameFormat`, `typeFormat`, `sizeFormat` | `minSize`, `maxSize`, `allowedTypes`, `disallowedTypes` |
 
