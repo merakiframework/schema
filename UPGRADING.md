@@ -336,7 +336,8 @@ it to their own result types.
 
 A record's parts are read into a `Field\Input` before anything judges them, and the value is built
 only when they make one: every essential part there, every part readable, the parts agreeing with
-each other. When they do not, the result says so, part by part, and no constraint runs:
+each other. When they do not, the result says so, part by part, and a constraint that cannot be
+judged yet is skipped — in `2.0`, every one:
 
 ```php
 $result->wasIncomplete();            // its parts arrived and make no value
@@ -445,8 +446,10 @@ precision floor, so `streetRequired` and its three siblings stay constraints.
 
 The constraints that remain wait for a whole address, so a state typed into a New Zealand address
 on an Australia-only field reports `subdivisionUsed` first and `allowedCountries` on the next
-submission. Whether a constraint should run as soon as the parts it reads are sound is the open
-decision in [ROADMAP.md](docs/ROADMAP.md#constraints-that-run-when-their-parts-are-ready).
+submission. A constraint will run as soon as the parts it reads are sound from `2.1` — see
+[ROADMAP.md](docs/ROADMAP.md#constraints-that-run-when-their-parts-are-ready) — so do not count on
+every constraint being skipped while a value is incomplete, only on a skipped one meaning it could
+not be judged yet.
 
 **`File`** reads its three parts first.
 

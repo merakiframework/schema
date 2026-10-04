@@ -110,8 +110,8 @@ and the euro spans twenty.
 
 **Checked before any constraint.** A field whose value has parts first decides whether they make
 a value at all, and reports these codes part by part when they do not. No configuration changes
-them, and no constraint runs until they are clear — see
-[DESIGN.md](DESIGN.md#a-value-is-assembled-before-it-is-judged).
+them, and a constraint that cannot be judged until they are clear is skipped — in `2.0`, every
+one. See [DESIGN.md](DESIGN.md#a-value-is-assembled-before-it-is-judged).
 
 | Field | Codes |
 | --- | --- |

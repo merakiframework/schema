@@ -81,7 +81,7 @@ trait Definition
 	 * | The input says | What happens |
 	 * | --- | --- |
 	 * | nothing is wrong | its value goes to the constraints |
-	 * | something is | the shape is *incomplete*, the parts' violations are the report, and no constraint runs |
+	 * | something is | the shape is *incomplete*, the parts' violations are the report, and a constraint that cannot be judged yet is skipped — every one, for now |
 	 *
 	 * Raising is still for something that is not a record at all. A string where money belongs
 	 * cannot be read; a currency with no amount is a form somebody has not finished. A record with

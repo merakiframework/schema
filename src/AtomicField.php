@@ -164,6 +164,10 @@ abstract readonly class AtomicField implements Field
 			// Parts that make no value. Every constraint is skipped, because none of them is
 			// written for half a value — that is the point of assembling one first. The parts'
 			// own violations are the report, each against the box it is about.
+			//
+			// "Every" is today's answer, not the promise. What is promised is that a constraint
+			// that cannot be judged yet is skipped, so one that declares the parts it reads can run
+			// here once those are sound — decided for 2.1, see docs/ROADMAP.md.
 			return [
 				ShapeValidationResult::incomplete($read->violations, $read->missingParts),
 				...$this->constraints->allSkipped(),

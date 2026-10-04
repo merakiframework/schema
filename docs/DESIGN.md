@@ -182,8 +182,9 @@ what is accepted. That is why it is on the roadmap rather than here.
 - **Errors can arrive in two rounds.** Constraints wait for a whole value, so on an address a bad
   postcode (assembly) holds back "enter the street" (a demanded part, so a constraint) until the
   form is submitted again. Letting a constraint run as soon as the parts it reads are sound
-  removes the second round without changing what a result looks like. Whether to is the one
-  decision this section leaves open — see [ROADMAP.md](ROADMAP.md#constraints-that-run-when-their-parts-are-ready).
+  removes the second round without changing what a result looks like, and is decided for `2.1`
+  — see [ROADMAP.md](ROADMAP.md#constraints-that-run-when-their-parts-are-ready). `2.0` promises
+  only that a constraint that cannot be judged yet is skipped, so that is not a break.
 - **A trusted prefill must be complete.** Trust waives constraints, never assembly.
 
 ---

@@ -206,6 +206,8 @@ abstract class FieldTestCase extends TestCase
 			iterator_to_array($result->violations),
 		));
 
+		// Today every constraint waits for a whole value. When a constraint can declare the parts
+		// it reads (2.1), this narrows to the ones whose parts are not sound.
 		foreach ($result as $inner) {
 			if ($inner instanceof ConstraintValidationResult) {
 				$this->assertTrue($inner->skipped(), "{$inner->name} ran against a value that was never whole.");

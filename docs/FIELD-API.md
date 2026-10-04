@@ -357,7 +357,7 @@ parts, an optional one, a check the parts must agree on, and one constraint.
 | --- | --- |
 | *(never asked: the record has nothing in it)* | nothing was submitted — missing, or skipped when optional — and a prefill or the default stands in |
 | nothing is wrong | its value goes to the constraints |
-| something is | shape *incomplete*: `wasIncomplete()`, `$missingParts`, each part's own violations, every constraint skipped |
+| something is | shape *incomplete*: `wasIncomplete()`, `$missingParts`, each part's own violations, and each constraint that cannot be judged yet skipped — in `2.0`, every one |
 | nothing is wrong, and it made no value | `Exception\InconsistentInput` is raised: the input has a bug |
 
 **There is no message about the whole value when its parts have their own.** An incomplete result
@@ -472,7 +472,10 @@ owns them:
 2. **Read it once.** `parse()` runs exactly once per resolution. If it raises `MalformedValue`: shape
    *unreadable*, every constraint skipped.
 3. **Assemble**, when `parse()` returned an input. If its parts make no value: shape *incomplete*,
-   every constraint skipped. Not even trust skips this step.
+   and a constraint that cannot be judged yet is skipped — in `2.0`, every one; from `2.1`, only
+   those whose own parts are not sound (see
+   [ROADMAP.md](ROADMAP.md#constraints-that-run-when-their-parts-are-ready)). Not even trust skips
+   this step.
 4. **Waive the constraints for a trusted prefill**, which passes as it is.
 5. **Check the constraints** against the value.
 

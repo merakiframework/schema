@@ -69,7 +69,7 @@ Breaking by construction, so a major version regardless.
 | **Rules** | *Done.* [Matcher vocabulary](#rule-authoring), an else-branch, and rules built as values: `$f->when()->equals(…)->then($g->makeRequired())`, composed with `allOf()`/`anyOf()` and added with `addRule()`/`addRules()`. `whenAllMatch()`/`whenAnyMatch()` and both rule builders are gone. An outcome is now an *operation* — `applyTo(Field): Field` — which is what makes it work against an immutable field at all; every one of them was calling a wither and discarding the result, so rules had silently stopped doing anything. All twelve matchers exist, and a field offers only the ones its value can answer — `$text->when()` has no `isAtLeast` to call. An outcome is the field put through its own withers: `then($insurance->makeRequired()->mustBeAccepted())`, with the rule storing the difference. |
 | **API surface** | `addXField()` becomes `createXField()` plus an explicit add; `pairWith()` and `Field::$schema` are removed; `type` stops being reported as a constraint; every row in [API.md](API.md) confirmed and the public API frozen. |
 | **Messages** | Wording becomes part of the core, as *installable language packs* rather than strings in the library. One integration point — every failure is a violation on `$fieldResult->violations`, carrying its sentence — a `Message\Provider` and a locale, both passed to `validate()`. Packs are MessageFormat 2 data with no code in them, so every implementation of this library renders the same sentence. Entirely optional: with no provider the library behaves exactly as it did. See [MESSAGES.md](MESSAGES.md). |
-| **Values assembled before they are judged** | *Done.* A structured value is read as an *input*, assembled into a value only when every essential part is there and readable, and only then judged by constraints. Constraints never see half a value, every failure is a `Field\Violation` with a code the field declares as a backed enum, and checks are sorted by one rule: no configuration and no clock means assembly. See [DESIGN.md](DESIGN.md#a-value-is-assembled-before-it-is-judged). All five record-shaped fields — `Money`, `PhoneNumber`, `CreditCard`, `Address`, `File` — read their parts first, and a part scope always reads the input. One decision is left open, and is additive whichever way it goes: [whether a constraint runs as soon as the parts it reads are sound](#constraints-that-run-when-their-parts-are-ready). |
+| **Values assembled before they are judged** | *Done.* A structured value is read as an *input*, assembled into a value only when every essential part is there and readable, and only then judged by constraints. Constraints never see half a value, every failure is a `Field\Violation` with a code the field declares as a backed enum, and checks are sorted by one rule: no configuration and no clock means assembly. See [DESIGN.md](DESIGN.md#a-value-is-assembled-before-it-is-judged). All five record-shaped fields — `Money`, `PhoneNumber`, `CreditCard`, `Address`, `File` — read their parts first, and a part scope always reads the input. Whether a constraint runs as soon as the parts it reads are sound is decided: it will, in `2.1`, and `2.0` is worded so that is not a break — [see below](#constraints-that-run-when-their-parts-are-ready). |
 | **Beta: the API freezes** | After the assembly work, the whole public API is reviewed once more, and `2.0.0-beta.1` is tagged as API-stable: from there, only a bug or an incorrect implementation changes it. |
 | **Retire the rewrite-era tests** | *Done.* A rewrite needs tests asserting the *old* behaviour is gone; they earn their keep while both shapes exist in living memory and become noise the moment `2.0` ships, since nobody writing against a 2.x API needs telling that a 1.x one is absent. Each was run one last time to confirm the removal, then deleted — four standalone tests plus `NamingTest`'s 31-row removal matrix. Tests asserting a *live* design boundary were kept, and the distinction is recorded in TODO.md. `AtomicField::getConstraints()` has gone too, with `constraints()` becoming the `$constraints` property. |
 
@@ -79,6 +79,7 @@ Additive, after the redesign has settled. Each is a minor version.
 
 | Feature | Notes |
 | --- | --- |
+| **Constraints that wait only for their parts** | A constraint declares the parts it reads and runs as soon as those assembled cleanly, so a form hears about a missing street and a bad postcode on the same submission. [Decided](#constraints-that-run-when-their-parts-are-ready); additive, because `2.0` promises only that a constraint that cannot be judged yet is skipped. |
 | **Richer `Uri`** | Absolute and relative, URL and URN, RFC 3986 and WHATWG, and the plain shape check. Built on PHP's native `Uri\Rfc3986\Uri` and `Uri\WhatWg\Url` rather than a hand-rolled pattern — which is the "standards data over hand-typed tables" principle applied to the one field that most violates it. Requires PHP 8.5. |
 | **`Duration` on PHP's own class** | PHP 8.6 is expected to add a native duration type; adopt it in place of the current handling. Requires PHP 8.6. |
 | **Readonly property defaults** | [The RFC](https://wiki.php.net/rfc/readonly_property_defaults) is implemented for 8.6 and removes the only reason `AtomicField` has a constructor. `public bool $optional = false;` on the declaration replaces it, and the `parent::__construct()` call goes from all 18 fields that extend it — with it, the hazard that `tests/Api/SealedFieldTest::its_inherited_state_is_initialised()` exists to catch. Empty the constructor rather than deleting it, so the calls can be removed field by field instead of in one commit. Requires PHP 8.6. |
@@ -99,10 +100,14 @@ keeps the `2.0` floor, and a release that needs 8.5 or 8.6 says so.
 
 <a id="constraints-that-run-when-their-parts-are-ready"></a>
 
-### Decided before the beta: constraints that run when their parts are ready
+### Decided: constraints run when their parts are ready, in `2.1`
 
-**Open.** The one decision [assembling a value](DESIGN.md#a-value-is-assembled-before-it-is-judged)
-leaves to be made, and the beta waits for it.
+**Decided: wait for the parts, in `2.1`.** The one decision
+[assembling a value](DESIGN.md#a-value-is-assembled-before-it-is-judged) left open. `2.0` keeps
+waiting for the whole value, and promises only what both behaviours keep: **a constraint that
+cannot be judged yet is skipped.** In `2.0` that is every constraint while assembly finds anything;
+in `2.1` it narrows to the constraints whose own parts are not sound. Nothing a result looks like
+changes, only how soon a violation appears, so `2.1` adds it without a break.
 
 Assembly already reports every part's problems in one pass — a missing country *and* an
 unreadable postcode, together. That is not in question. What is in question is the constraints:
@@ -131,9 +136,11 @@ read only the country, while its answer also depends on the subdivision, would r
 subdivision assembly had already rejected. The test kit below would have to check declarations
 against what each check actually touches.
 
-**Recommendation: wait for the parts.** It is the friendlier of the two for the person filling
-the form in, it is the same rule applied more precisely rather than a new one, and it can arrive
-without changing a single thing a consumer reads.
+**Why waiting for the parts.** It is the friendlier of the two for the person filling the form
+in, it is the same rule applied more precisely rather than a new one, and it can arrive without
+changing a single thing a consumer reads. A consumer should therefore not count on *every*
+constraint being skipped while a value is incomplete — only on a skipped one meaning it could not
+be judged yet.
 
 ### `3.0` — a field declares; the core runs
 

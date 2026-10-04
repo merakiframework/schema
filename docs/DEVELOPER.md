@@ -327,10 +327,15 @@ next major version a breaking change for everybody.
 
 *Caught by:* `Api\ValueObjectTest`, and by every test that submits a value.
 
-### 4. Shape is asked before constraints, and a failed shape skips them all
+### 4. Shape is asked before constraints, and a constraint it leaves nothing to judge is skipped
 
 *Why:* one mistake should produce one report, naming the real problem. A value that could not be
 read has nothing for `minLength` to speak to.
+
+Missing and unreadable skip every constraint. An incomplete value skips every constraint in `2.0`
+too, but the promise is narrower — a constraint that cannot be judged yet — so a constraint whose
+own parts are sound can run in `2.1` without breaking it. See
+[ROADMAP.md](ROADMAP.md#constraints-that-run-when-their-parts-are-ready).
 
 *Caught by:* `MalformedCompositeInputTest::the_failure_is_reported_against_the_field_itself`,
 which asserts every constraint is skipped when the shape fails.
