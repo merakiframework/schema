@@ -159,8 +159,7 @@ Shared machinery sits beside them:
 | `Field/Definition.php` | the trait every field uses: configuration, copy-on-change, defaults |
 | `Field/Constraint.php` | one check: a name, a closure, the limit, the part it concerns |
 | `Field/ParsedValue.php` | the marker every value object implements |
-| `Field/Input.php` | a record read part by part, and whether its parts make a value |
-| `Field/HasParts.php` | implemented by anything a rule can read a part from |
+| `Field/Input.php` | a record read part by part, and whether its parts make a value; what a part scope reads |
 | `Field/BuildsFields.php` | the `createTextField()` helpers on the definition |
 | `Field/ValueClass.php` | reads a field's value type off its `parse()` signature |
 
@@ -348,8 +347,8 @@ reported.
 
 ### 6. A value reports the parts it is **submitted with**
 
-If `partNames()` lists it, something can send it. A derived reading — E.164 for a phone number,
-the whole string for an email — is a method on the value, not a part.
+If the value's `Part` enum has a case for it, something can send it. A derived reading — E.164 for
+a phone number, the whole string for an email — is a method on the value, not a part.
 
 *Why:* a port builds its inputs from the part names. A part nothing can submit is a box that
 cannot be drawn and a scope that resolves against nothing.

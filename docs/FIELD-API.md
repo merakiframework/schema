@@ -311,11 +311,14 @@ record ──► input ──────────► assembly ────�
 An input is the parts as read and a verdict on them:
 
 ```php
-interface Input extends HasParts
+interface Input
 {
     public array $violations { get; }      // list<Violation>: what stops the parts making a value
     public array $missingParts { get; }    // list<Part>: the essential parts not supplied
     public ?ParsedValue $value { get; }    // the value, exactly when $violations is empty
+
+    public function parts(): array;        // each part as read, keyed 'postal_code'; null when not read
+    public function canonicalPartValue(Part $part, mixed $expected): mixed;
 }
 ```
 

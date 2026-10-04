@@ -449,8 +449,10 @@ decision in [ROADMAP.md](docs/ROADMAP.md#constraints-that-run-when-their-parts-a
 `minSize`, `maxSize`, `allowedTypes` and `disallowedTypes` are unchanged, and still about the upload
 as a whole.
 
-**Every record-shaped field has moved,** so `HasParts` is implemented only by the inputs, and a
-part scope always reads one.
+**Every record-shaped field has moved,** so `HasParts` is gone. Its `parts()` and
+`canonicalPartValue()` are part of `Field\Input`, and a part scope always reads an input. A field
+of your own whose value implemented `HasParts` returns an input from `parse()` instead — see
+[FIELD-API.md](docs/FIELD-API.md#a-value-made-of-parts).
 
 ### A required part that was not sent names itself
 
@@ -604,7 +606,7 @@ knowing the protocol.
 
 | | parts before | parts now |
 | --- | --- | --- |
-| `EmailAddress` | `local_part`, `domain` | **none** — it no longer implements `HasParts` |
+| `EmailAddress` | `local_part`, `domain` | **none** — it is read in one step, so it has no input and no parts |
 | `PhoneNumber` | `country`, `e164` | `number`, `country` |
 
 Both were reporting a *reading* of the value rather than its inputs. An email address is one box
@@ -644,8 +646,9 @@ What changed underneath:
   `new Constraint('minLength', …)`, the `part:` argument is gone — a code declares its own part —
   and a field lists its codes by overriding `declaredChecks()`. A structured field lists its parts
   with `declaredParts()`. See [EXTENDING.md](docs/EXTENDING.md).
-- `HasParts::partNames()` and `HasParts::listParts()` are gone. Read `$field->parts` and
-  `Field\Part::isList()`; `canonicalPartValue()` takes the `Field\Part` case.
+- `HasParts::partNames()` and `HasParts::listParts()` are gone, and so is `HasParts`. Read
+  `$field->parts` and `Field\Part::isList()`; `canonicalPartValue()`, on `Field\Input` now, takes
+  the `Field\Part` case.
 - `Field\ValueClass::hasParts()`, `partNamesOf()` and `listPartsOf()` are gone: `$field->parts`
   answers all three.
 - New on every field: `$parts`, `$essentialParts` and `$checks`.

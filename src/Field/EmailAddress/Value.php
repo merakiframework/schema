@@ -33,10 +33,10 @@ use Meraki\Schema\Field\ParsedValue;
  *
  * ### One string, so no parts
  *
- * It does not implement {@see \Meraki\Schema\Field\HasParts}, which it used to. An address is
- * submitted as `kim@example.test` — one box on a form, one string in a payload — so `local_part`
- * and `domain` were never *inputs*. They are a reading of the one input, and reporting them as
- * parts told a port there were two things to render and two places to put a message.
+ * It used to report `local_part` and `domain` as parts. An address is submitted as
+ * `kim@example.test` — one box on a form, one string in a payload — so those were never *inputs*.
+ * They are a reading of the one input, and reporting them as parts told a port there were two
+ * things to render and two places to put a message.
  *
  * The rule that settles it: a value reports the parts it is **submitted with**. Both halves stay
  * readable as properties, which is what a rule matching on a domain actually needs —
