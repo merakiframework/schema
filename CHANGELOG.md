@@ -10,6 +10,80 @@ is a commit subject, with the body kept because the body is where the reasoning 
 
 ## Unreleased
 
+### A rule about an amount, an expiry or a size compares it as one
+
+`5aad91ee` · 2026-10-04
+
+Money's amount, a card's expiry and a file's size were a BigDecimal, a
+LocalDate and an int, and a part scope resolves to whatever the input
+holds. Equality asked an object that is not this library's and got
+false; the ordered verbs needed a Comparable and were handed the
+expectation as written. So when(PartScope::of('price', 'amount'))
+->isAtLeast(10) was accepted where it was written and never held (B11).
+
+Each of the three parts now holds a type of its own field's:
+Money\Amount, CreditCard\Expiry and File\Size, each knowing its
+equality and its order and printable for the textual verbs. They are
+per field rather than Number\Value or Date\Value, because sibling field
+types share no code. Each input reads a rule's expectation into the
+same type through canonicalPartValue(), so isAtLeast(10) compares two
+amounts, equals('2026-09') two expiries (a month is its last day on
+both sides), and '1048576' a size. The ordered verbs read a part's
+expectation through the input, as equality already did; an amount is
+not ranked against anything that is not one.
+
+An expectation a part cannot read still compares as written and never
+holds; refusing it where the rule is written needs each part to declare
+what it holds, and LIMITATIONS says so.
+
+### A record with nothing in it is nothing submitted
+
+`31d5dbbc` · 2026-10-04
+
+A form that renders one box per part and was left alone submits every
+part empty: {} from a JSON client, or every part null from a port that
+builds the record anyway. Each record field's input refused that as
+unreadable, so it counted as an attempt. A prefill lost to it, the
+authored default never stood in, and an optional field failed for being
+left alone.
+
+Absence is now the field's to say, through Field::treatsAsAbsent(): null
+for every field, and for a field with parts, a record of its declared
+parts with none of them in it. rawFor() and sourceOf() ask it, so the
+default stands in and the source says so; the schema asks it when it
+chooses between what was submitted and what was prefilled, so a prefill
+wins over an empty record as it does over null. What was sent still
+reaches the result as $given.
+
+A record holding a key the value does not declare is never absent, even
+when that key is null: it is the port that is wrong, and the input
+still refuses it. A part sent as '' or [] was sent, so a record holding
+one is read and that part reported. defaultsTo() with an empty record
+raises InvalidDefault::saysNothing(), since it would be a default of
+nothing.
+
+The five inputs drop their own empty-record refusals, which this makes
+unreachable from a field; read directly, an empty record is every
+essential part missing.
+
+### A record read part by part is one interface, not two
+
+`4fcb1749` · 2026-10-04
+
+Field\Input extended HasParts, and once every record field had moved its
+parts onto its input nothing implemented HasParts on its own: one
+contract with two names, and a reader of Input had to open a second file
+to find out what a part scope calls on it.
+
+parts() and canonicalPartValue() are declared on Input now, with the
+part-naming rules HasParts documented. HasParts is deleted. The resolver
+and the comparison already took an Input, so nothing calls differently;
+a custom field implements one interface where it implemented two.
+
+### Update history
+
+`7727e3db` · 2026-10-03
+
 ### A part scope takes the part's case, so a rule names a part without a string
 
 `314a1f04` · 2026-10-03
