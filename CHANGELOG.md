@@ -10,6 +10,69 @@ is a commit subject, with the body kept because the body is where the reasoning 
 
 ## Unreleased
 
+### The docs say what the code does after assembly
+
+`5b292a6a` · 2026-10-04
+
+A pass over every page against the code, with links, anchors, method
+names and class names checked mechanically, and the README examples run.
+What it found:
+
+- README and DESIGN showed a collection submitted as [$row, $row]; a
+  positional list has been refused since rows were named. DESIGN and a
+  Definition docblock named a row 'line item 1', which is not a name.
+- UPGRADING said every stored document still loads. Three things in a
+  stored rule are now refused where the rule is added: an Address part
+  under its 1.x name, a reading that stopped being a part (e164,
+  local_part, domain), and a whole value compared against half of one.
+- API showed a constraint by name and a part as a string; it is a code
+  and a Field\Part case. Trust did not say a prefill must be whole, and
+  precedence did not say an empty record is nothing submitted.
+- EXTENDING said "two optional interfaces" over a list of three, and did
+  not say how a part a rule should order is typed.
+- FIELD-API's example check named a method Text does not have.
+- DEVELOPER's field directory gains the part type, Money\Amount.
+
+### Promise only that a constraint that cannot be judged yet is skipped
+
+`d4706704` · 2026-10-04
+
+While a value is incomplete every constraint waits for the whole value,
+and the docs promised exactly that: "every constraint skipped", "no
+constraint runs". Letting a constraint run as soon as the parts it reads
+are sound is decided for 2.1, and against that wording it would have
+been a break: a consumer counting on every constraint skipping would
+see one run.
+
+The contract now says what both behaviours keep: a constraint that
+cannot be judged yet is skipped, which in 2.0 is every one. FIELD-API,
+API, DESIGN, DEVELOPER's invariant 4 and UPGRADING say so; ROADMAP
+records the decision and lists it under 2.1. Missing and unreadable
+still skip every constraint, since there is nothing to judge at all.
+Behaviour is unchanged.
+
+### A card field may demand the cardholder's name and the security code
+
+`62b28067` · 2026-10-04
+
+The name became optional when a card started being assembled before it
+is judged: a card is a card without one, so nameRequired could not be
+assembly. But a flow that charges a card often does want both, and had
+no way left to say so.
+
+makeNameRequired() and makeSecurityCodeRequired() say it, and
+makeNameOptional() and makeSecurityCodeOptional() take it back. Each
+sets a property named for its constraint, nameRequired and
+securityCodeRequired, both off by default. They are constraints rather
+than assembly because another field may decline them: judged once there
+is a whole card, reported against the part, skipped unless asked for,
+and switchable by a rule for one request. A missing name or code does
+not make the card incomplete or list the part as missing.
+
+### Update history
+
+`253f246b` · 2026-10-04
+
 ### A rule about an amount, an expiry or a size compares it as one
 
 `5aad91ee` · 2026-10-04
