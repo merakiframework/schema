@@ -400,6 +400,7 @@ $result = $price->validate((object) ['currency' => 'AUD']);
 | `Money\Value::$currency` and `$amount` could be null | never null. Build one with `Money\Value::of('AUD', '10.00')`, or `new Money\Value('AUD', $decimal)` |
 | `Money\Value` implemented `HasParts` | a rule reads the halves from `Money\Input`, so `#/fields/price/value/currency` answers while the amount is still empty |
 | `when(PartScope::of('price', 'currency'))->equals('aud')` never held | holds: the expectation is read the way the currency was, upper-cased |
+| the `amount` part was a `BigDecimal`, so `when(PartScope::of('price', 'amount'))->isAtLeast(10)` or `equals('12.50')` never held | it is a `Money\Amount`, and the expectation is read into one: both hold, compared as numbers whatever the currency |
 
 **`PhoneNumber`** reads its number and country first, and reads the number *in* the country.
 
@@ -425,6 +426,7 @@ $result = $price->validate((object) ['currency' => 'AUD']);
 | every `CreditCard\Value` part could be null, `lastFourDigits()` returned `?string`, and `isComplete()` said whether the three were there | `$number` and `$expiry` are never null and `lastFourDigits()` returns `string`. `isComplete()` is gone: a value is always complete |
 | `CreditCard\Value::of()` took every part as optional | `of($number, $expiry, $name, $securityCode)`, read the way a form's card is |
 | `CreditCard\Value` implemented `HasParts` | a rule reads the parts from `CreditCard\Input` |
+| the `expiry` part was a `LocalDate`, so no rule about it held | it is a `CreditCard\Expiry`, and `equals('2026-09')` or `isAtLeast('2027-01')` is read as one: a month is its last day on both sides |
 
 **`Address`** reads its parts first, against the submitted country's own format. Only the country
 is essential: how much of an address a field demands is still configuration, through its
@@ -453,6 +455,7 @@ decision in [ROADMAP.md](docs/ROADMAP.md#constraints-that-run-when-their-parts-a
 | a part absent, `null`, empty or not a whole number of bytes made the field unreadable | `nameRequired`, `typeRequired`, `sizeRequired`, `nameFormat`, `typeFormat` or `sizeFormat`, against that part |
 | `new File\Value((object) [...])` read a record | `new File\Value($name, $type, $size)`, or `File\Value::of()` as before; `File\Input` reads a record |
 | `File\Value` implemented `HasParts` | a rule reads the parts from `File\Input` |
+| the `size` part was an `int`, so `isAtMost(1048576)` against it never held | it is a `File\Size`, and `1048576` or `'1048576'` is read as one |
 
 `minSize`, `maxSize`, `allowedTypes` and `disallowedTypes` are unchanged, and still about the upload
 as a whole.

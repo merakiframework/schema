@@ -142,7 +142,7 @@ abstract class Comparison implements Condition, Scoped
 	 * against. It is the input, not the value, so an address whose postcode is wrong still
 	 * canonicalises its subdivision: the rule reads the input, and has to be read the same way.
 	 */
-	private function expectationAgainst(mixed $candidate, Field\Set $fields, ScopeResolver $resolver): mixed
+	final protected function expectationAgainst(mixed $candidate, Field\Set $fields, ScopeResolver $resolver): mixed
 	{
 		$expected = $this->readExpectation($candidate, $fields, $resolver);
 

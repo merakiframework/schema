@@ -144,23 +144,33 @@ final readonly class Input implements Field\Input
 	}
 
 	/**
+	 * The amount as an {@see Amount}, which a rule can compare and order; a bare `BigDecimal` it
+	 * could do neither with.
+	 *
 	 * @return array<string, mixed>
 	 */
 	public function parts(): array
 	{
 		return [
 			'currency' => $this->currency,
-			'amount' => $this->amount,
+			'amount' => $this->amount === null ? null : new Amount($this->amount),
 		];
 	}
 
 	/**
-	 * Read the way the currency was: a rule written `equals('aud')` is about AUD, which is how the
-	 * part is stored. The amount is compared numerically by the value it is compared against, so
-	 * it is handed back as written.
+	 * Read the way the parts were. A rule written `equals('aud')` is about AUD, which is how the
+	 * currency is stored; one written `isAtLeast(10)` or `equals('12.50')` is about an
+	 * {@see Amount}, so it is compared as a number. An expectation that cannot be read so is
+	 * handed back as written, and holds for nothing.
 	 */
 	public function canonicalPartValue(Field\Part $part, mixed $expected): mixed
 	{
-		return ($part === Part::Currency && is_string($expected)) ? strtoupper($expected) : $expected;
+		if ($part === Part::Currency) {
+			return is_string($expected) ? strtoupper($expected) : $expected;
+		}
+
+		$amount = $part === Part::Amount ? self::amountIn($expected) : null;
+
+		return $amount === null ? $expected : new Amount($amount);
 	}
 }

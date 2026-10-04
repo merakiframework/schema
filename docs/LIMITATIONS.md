@@ -10,7 +10,7 @@ worth more than a shorter page.
 The library is **pre-release**. See [ROADMAP.md](ROADMAP.md) for the release ladder and
 [the release verdict](ROADMAP.md#release-verdict) for why.
 
-- [Known defects](#known-defects) — two open; the rest fixed and kept as the record of what they were
+- [Known defects](#known-defects) — one open; the rest fixed and kept as the record of what they were
 - [Design constraints](#design-constraints) — intentional behaviour that will surprise you
 - [Not yet implemented](#not-yet-implemented) — advertised but inert
 - [Recently fixed](#recently-fixed) — what changed, and what it was
@@ -23,7 +23,23 @@ The library is **pre-release**. See [ROADMAP.md](ROADMAP.md) for the release lad
 
 ### B11 — a rule about a part that holds a number or a date never holds
 
-**Open.** A part scope resolves to whatever the value holds in that part, and three parts hold
+**Fixed in 2.0.** Each of the three parts now holds a type of its own field's that knows its
+equality and its order — `Money\Amount`, `CreditCard\Expiry` and `File\Size` — and the input
+reads a rule's expectation into the same type, so `isAtLeast(10)` compares two amounts and
+`equals('2026-09')` two expiries. The ordered verbs read a part's expectation through the input,
+as equality already did. The reproducer below is
+`Rule\OrderedPartTest::the_rule_compares_the_part_in_its_own_terms`, inverted.
+
+What remains is the second fix described at the end. An expectation a part cannot read —
+`isAtLeast('ten')` against an amount — is compared as written and never holds, and an ordered
+verb against a part that holds text, such as a currency, is accepted where it is written.
+Refusing both there needs each part to declare what it holds.
+
+The description below is kept as the record of what the defect was.
+
+---
+
+A part scope resolves to whatever the value holds in that part, and three parts hold
 something the rule engine cannot compare: money's `amount` is a `BigDecimal`, a card's `expiry` a
 `LocalDate`, and a file's `size` an `int`. Equality compares objects that are not this library's
 by identity, and the ordered verbs need a `Comparison\Comparable`, so:

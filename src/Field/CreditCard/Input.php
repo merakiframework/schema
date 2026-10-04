@@ -247,24 +247,38 @@ final readonly class Input implements Field\Input
 	 * holds, and withholding them would only send a caller to the properties instead. Nothing
 	 * about a part scope makes a card safe to log — see the value's note on that.
 	 *
+	 * The expiry is an {@see Expiry}, which a rule can compare and order; a bare `LocalDate` it
+	 * could do neither with.
+	 *
 	 * @return array<string, mixed>
 	 */
 	public function parts(): array
 	{
 		return [
 			'number' => $this->number,
-			'expiry' => $this->expiry,
+			'expiry' => $this->expiry === null ? null : new Expiry($this->expiry),
 			'name' => $this->name,
 			'security_code' => $this->securityCode,
 		];
 	}
 
 	/**
-	 * A number is compared without its grouping, the way it was stored; everything else as
-	 * written.
+	 * Read the way the parts were: a number without its grouping, and an expiry — `2026-09` or a
+	 * full date — as the {@see Expiry} it would have been stored as. Everything else, and anything
+	 * that cannot be read so, as written.
 	 */
 	public function canonicalPartValue(Field\Part $part, mixed $expected): mixed
 	{
-		return ($part === Part::Number && is_string($expected)) ? preg_replace('/\s+/', '', $expected) : $expected;
+		if (!is_string($expected)) {
+			return $expected;
+		}
+
+		if ($part === Part::Number) {
+			return preg_replace('/\s+/', '', $expected);
+		}
+
+		$expiry = $part === Part::Expiry ? self::expiryIn($expected) : null;
+
+		return $expiry === null ? $expected : new Expiry($expiry);
 	}
 }

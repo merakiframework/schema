@@ -139,6 +139,9 @@ final readonly class Input implements Field\Input
 	 * `type` is the MIME the *client* claimed, not a verified one — see {@see Value}'s own warning.
 	 * A rule reading it is reading an assertion by whoever uploaded the file.
 	 *
+	 * The size is a {@see Size}, which a rule can order; a bare `int` it could only test for
+	 * equality.
+	 *
 	 * @return array<string, mixed>
 	 */
 	public function parts(): array
@@ -146,17 +149,23 @@ final readonly class Input implements Field\Input
 		return [
 			'name' => $this->name,
 			'type' => $this->type,
-			'size' => $this->size,
+			'size' => $this->size === null ? null : new Size($this->size),
 		];
 	}
 
 	/**
-	 * Nothing here is canonicalised, so a rule compares against exactly what it was written
-	 * with. {@see \Meraki\Schema\Field\Address\Input::canonicalPartValue()} is the one that
-	 * has work to do.
+	 * A size is read the way the part was — `1024` or `'1024'` — into the {@see Size} it would
+	 * have been. A name and a type are kept as the client sent them, so a rule compares against
+	 * exactly what it was written with, as does anything that cannot be read as a size.
 	 */
 	public function canonicalPartValue(Field\Part $part, mixed $expected): mixed
 	{
-		return $expected;
+		if ($part !== Part::Size) {
+			return $expected;
+		}
+
+		[$size] = self::sizeIn($expected);
+
+		return $size === null ? $expected : new Size($size);
 	}
 }

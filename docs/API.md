@@ -692,6 +692,20 @@ $schema->when(ValueScope::of('shipping', Address\Part::Country))
 A part is named by its case — `Address\Part::Country` — so a misspelled one does not compile. The
 wire name, `'country'`, works too, and is what a stored scope holds.
 
+**A part is compared in its own terms.** The expectation is read the way the part was:
+`equals('qld')` against an Australian address's subdivision is about `AU-QLD`. A part that holds a
+number or a date holds a type of its field's own — `Money\Amount`, `CreditCard\Expiry`,
+`File\Size` — so the ordered verbs answer for it:
+
+```php
+$schema->when(PartScope::of('price', Money\Part::Amount))->isAtLeast(10);          // any currency
+$schema->when(PartScope::of('card', CreditCard\Part::Expiry))->isAtLeast('2027-01'); // to the end of January
+$schema->when(PartScope::of('upload', File\Part::Size))->isAtMost(1048576);
+```
+
+An expectation the part cannot read — `isAtLeast('ten')` — is compared as written and does not
+hold.
+
 **A collection's rows are addressable by name** — see [reaching into a collection](#reaching-into-a-collection)
 below. They were not, while a row could be positional: which row `0` is depended on what was
 submitted, so a stored rule naming one meant a different row on a different request. Rows are named
