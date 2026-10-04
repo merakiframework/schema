@@ -1,8 +1,8 @@
 # Adding your own field type
 
 A field type defined outside this package is not a second-class one. There is no registry to add
-to, no factory to teach, and no interface list to update — you write a class, and everything the
-built-in fields get, yours gets.
+to, no factory to teach, and no interface list to update — you write a class, an enum naming what
+it checks, and a value, and everything the built-in fields get, yours gets.
 
 This page is the whole of what that takes. The example below is
 [`examples/custom-field.php`](../examples/custom-field.php), which runs in CI — documentation that
@@ -15,6 +15,7 @@ An ISBN field. Sixty lines, in your own namespace, touching nothing in `meraki/s
 ```php
 namespace Acme;
 
+use Acme\Isbn\Check;
 use Acme\Isbn\Value;
 use Meraki\Schema\AtomicField;
 use Meraki\Schema\Field\Constraint;
@@ -66,11 +67,36 @@ final readonly class Isbn extends AtomicField
             // Returning null from a check means "nothing was asked", so it reports Skipped
             // rather than passing vacuously.
             new Constraint(
-                'isbn13',
+                Check::Isbn13,
                 fn(Value $v): ?bool => $this->thirteenOnly ? strlen($v->isbn) === 13 : null,
                 $this->thirteenOnly,
             ),
         );
+    }
+
+    /** Every code this field can report, so a pack or a port can list them without validating. */
+    protected static function declaredChecks(): array
+    {
+        return Check::cases();
+    }
+}
+```
+
+the codes it reports under — the case's value is the key a language pack writes a message under:
+
+```php
+namespace Acme\Isbn;
+
+use Meraki\Schema\Field;
+
+enum Check: string implements Field\Check
+{
+    case Isbn13 = 'isbn13';
+
+    /** An ISBN is one value, so no check is about a part of it. */
+    public function part(): null
+    {
+        return null;
     }
 }
 ```
@@ -118,8 +144,8 @@ $schema->add((new Isbn(new FieldName('isbn')))->thirteenDigitsOnly());
 | **Defaults** | `defaultsTo()` is checked where it is written, against your constraints |
 | **Prefill** | submitted beats prefilled beats default, and the result says which won |
 | **Rules and scopes** | your field can be a rule's subject, and every public property is addressable |
-| **The result shape** | `given`, `value`, `source`, `shape`, one verdict per constraint |
-| **Messages** | `$result->messages` works for your field the moment a pack has wording for it — see below |
+| **The result shape** | `given`, `value`, `source`, `shape`, one verdict per constraint, and every failure as a violation |
+| **Messages** | each violation is worded the moment a pack has wording for your code — see below |
 | **Rule outcomes** | every wither you write is one: `then($yours->thirteenDigitsOnly())` needs nothing registered |
 
 The default check is the one worth dwelling on, because it catches a mistake you did not write
@@ -152,9 +178,9 @@ earlier one entry by entry, so you are not forking anybody's English to add one 
 There is deliberately no walk up the parent classes. A field extending `Text` does not thereby mean
 what `Text` means, and inheriting its wording would be a confident guess rather than a translation.
 
-If your value implements `HasParts`, your messages group by part with no further work —
-`Message\Set` reads the parts off the class, so `$messages->forPart('checksum')` works for a field
-this library has never heard of. See [MESSAGES.md](MESSAGES.md).
+If your value has parts, declare them as a `Field\Part` enum and override `declaredParts()`, and
+your violations group by part with no further work — `$result->forPart(Acme\Isbn\Part::Checksum)`
+works for a field this library has never heard of. See [MESSAGES.md](MESSAGES.md).
 
 ## The five things you must get right
 
@@ -241,7 +267,7 @@ collection deciding whether two rows repeat, a rule deciding whether a field hol
 asking about. Without it the answer comes from PHP's `==`, which compares two objects property by
 property — reading the *private layout* of whatever class you returned.
 
-Two optional interfaces:
+Three optional interfaces:
 
 - [`Comparison\Comparable`](../src/Comparison/Comparable.php) — `compareTo(): Order`, if your
   value has an order. Numbers, dates and durations do; addresses and phone numbers do not.
@@ -250,8 +276,14 @@ Two optional interfaces:
 - `Stringable` — if your value has one canonical text form, which is what `contains` and
   `matches` read. Leave it off where there should not be one: `Password\Value` and
   `CreditCard\Value` have no `__toString()` precisely so that no rule can read a secret.
-- [`Field\HasParts`](../src/Field/HasParts.php) — if your value is made of named parts, so a rule
-  can address one: `#/fields/isbn/value/registrant`.
+- [`Field\Input`](../src/Field/Input.php) — if your value is made of named parts. `parse()`
+  returns the parts as read, and the input says whether they make a value, so a half-filled
+  record is reported part by part and no constraint ever sees half a value. A rule addresses
+  one part through it: `#/fields/isbn/value/registrant`. A part a rule should be able to order —
+  a number, a date — holds a `Comparable` type of your field's own, and `canonicalPartValue()`
+  reads a rule's expectation into the same type; `Money\Amount` is the shipped example. A record
+  with nothing in it never reaches `parse()`: the core reads it as nothing submitted. See
+  [FIELD-API.md](FIELD-API.md#a-value-made-of-parts).
 
 ## Wiring it in
 

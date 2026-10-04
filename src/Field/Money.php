@@ -13,7 +13,6 @@ use Brick\Math\BigDecimal;
 use Brick\Math\Exception\MathException;
 use Brick\Money\Exception\UnknownCurrencyException;
 use Brick\Money\ISOCurrencyProvider;
-use Closure;
 
 /**
  * An amount of money, held as one {@see Value} carrying both the currency and the amount.
@@ -49,17 +48,35 @@ use Closure;
  * amount finer than the currency allows is a typo far more often than it is intent, so it should
  * take a deliberate keystroke rather than being the default.
  *
- * @extends AtomicField<array<string, mixed>|Value|null>
+ * ### Only real currencies, unless you name one
+ *
+ * A field that names no currencies takes any currency ISO 4217 describes, and reports anything else
+ * as `knownCurrency` against the currency box. Three letters are not enough on their own: `ZZZ` is
+ * three letters and nobody's money.
+ *
+ * A currency the standard does not describe can still be taken, by naming it with its scale:
+ * `allowCurrencies(['BTC' => 8])`. The scale is what makes that a decision rather than a typo —
+ * there is no standard to take one from, so writing it out is the author vouching for the code.
+ *
+ * ### Money is whole before it is judged
+ *
+ * Whether what arrived is money at all — both halves there, a currency that is three letters, an
+ * amount that is a number — is decided by {@see Money\Input} before any constraint runs, and no
+ * configuration changes it. A half-filled amount is reported half by half, and the constraints
+ * below never meet one: each is handed a whole {@see Value}.
+ *
+ * @extends AtomicField<object|Value|null>
  */
 final readonly class Money extends AtomicField
 {
 	/**
 	 * Currencies this field accepts, mapped to the decimal places each may carry — the currency's
-	 * own ISO 4217 exponent unless the author overrode it.
+	 * own ISO 4217 exponent unless the author overrode it, and the author's own for a currency
+	 * the standard does not describe.
 	 *
-	 * Always the resolved map, whichever shape was written. Empty accepts any currency, and then
-	 * no scale or bound applies: free-form means free-form, so a currency typed into an
-	 * unrestricted field is data rather than a rule to start enforcing a scale with.
+	 * Always the resolved map, whichever shape was written. Empty accepts any currency ISO 4217
+	 * describes, and then no scale or bound applies: an unrestricted field checks that the
+	 * currency is real, and leaves the amount as it was written.
 	 *
 	 * @var array<string, int<0, max>>
 	 */
@@ -74,8 +91,8 @@ final readonly class Money extends AtomicField
 	/**
 	 * @param array<int|string, string|int> $allowedCurrencies see {@see self::allowCurrencies()}
 	 *        for the two shapes this takes
-	 * @throws InvalidConfiguration if a code is not a known ISO 4217 currency, or a scale
-	 *         override is not a whole number of zero or more
+	 * @throws InvalidConfiguration if a bare code is not a known ISO 4217 currency, a code is not
+	 *         three letters, or a scale is not a whole number of zero or more
 	 */
 	public function __construct(
 		public FieldName $name,
@@ -97,16 +114,18 @@ final readonly class Money extends AtomicField
 	 * ```php
 	 * $field->allowCurrencies(['AUD', 'JPY']);   // each currency's own ISO 4217 exponent
 	 * $field->allowCurrencies(['AUD' => 3]);     // an override, for a unit price
+	 * $field->allowCurrencies(['BTC' => 8]);     // a currency the standard does not describe
 	 * $field->allowCurrencies(['JPY', 'AUD' => 3]);
 	 * ```
 	 *
-	 * A bare entry is a currency code; a keyed entry names the code and gives it a scale. Allowing
-	 * the same currency twice keeps whichever was written last, so an override may follow a plain
-	 * mention.
+	 * A bare entry is a currency code, and has to be one ISO 4217 describes, because that is where
+	 * its scale comes from. A keyed entry names the code and gives it a scale, so it may be any
+	 * three letters: writing the scale out is the author vouching for the code. Allowing the same
+	 * currency twice keeps whichever was written last, so an override may follow a plain mention.
 	 *
 	 * @param array<int|string, string|int> $currencies
-	 * @throws InvalidConfiguration if a code is not a known ISO 4217 currency, or a scale
-	 *         override is not a whole number of zero or more
+	 * @throws InvalidConfiguration if a bare code is not a known ISO 4217 currency, a code is not
+	 *         three letters, or a scale is not a whole number of zero or more
 	 */
 	public function allowCurrencies(array $currencies): static
 	{
@@ -167,12 +186,13 @@ final readonly class Money extends AtomicField
 	}
 
 	/**
-	 * @param array<string, mixed>|Value $value
+	 * The record read half by half. Whether the halves make money is the input's to say, and the
+	 * lifecycle's to report — see {@see Money\Input}.
 	 */
-	protected function parse(mixed $value): Value
+	protected function parse(mixed $value): Money\Input
 	{
 		if ($value instanceof Value) {
-			return $value;
+			return Money\Input::of($value);
 		}
 
 		// An object is a record; an array is a list. Money has named parts, so it arrives as the
@@ -181,81 +201,76 @@ final readonly class Money extends AtomicField
 			throw MalformedValue::of(Value::class, 'money is submitted as a record with a currency and an amount');
 		}
 
-		return new Value($value);
+		return new Money\Input($value);
 	}
 
 	protected function defineConstraints(): Constraint\Set
 	{
 		return new Constraint\Set(
-			// A part that was not sent is named, so a form can mark the box rather than being told
-			// the whole amount is unreadable. A blank one is a shape failure instead: it was a
-			// decision somebody made, and the value refuses it.
-			new Constraint('currencyRequired', $this->hasA('currency'), true, 'currency'),
-			new Constraint('amountRequired', $this->hasA('amount'), true, 'amount'),
-			new Constraint('allowedCurrencies', $this->isAnAllowedCurrency(...), array_keys($this->allowedCurrencies), 'currency'),
+			new Constraint(Money\Check::KnownCurrency, $this->isAKnownCurrency(...)),
+			new Constraint(Money\Check::AllowedCurrencies, $this->isAnAllowedCurrency(...), array_keys($this->allowedCurrencies)),
 			// Every bound here is per currency, so the declared one is only knowable when a single
 			// currency is allowed. `boundFor` supplies the one that actually applied, once the
 			// submitted amount has named its currency.
 			new Constraint(
-				'minAmount',
+				Money\Check::MinAmount,
 				$this->meetsMinimum(...),
 				$this->singleBound($this->minAmounts),
-				'amount',
 				fn(Value $money): ?string => $this->boundFor($this->minAmounts, $money),
 			),
 			new Constraint(
-				'maxAmount',
+				Money\Check::MaxAmount,
 				$this->meetsMaximum(...),
 				$this->singleBound($this->maxAmounts),
-				'amount',
 				fn(Value $money): ?string => $this->boundFor($this->maxAmounts, $money),
 			),
 			new Constraint(
-				'scale',
+				Money\Check::Scale,
 				$this->matchesScale(...),
 				$this->singleScale(),
-				'amount',
-				fn(Value $money): ?int => $money->currency === null ? null : ($this->allowedCurrencies[$money->currency] ?? null),
+				fn(Value $money): ?int => $this->allowedCurrencies[$money->currency] ?? null,
 			),
 		);
 	}
 
-	/**
-	 * Whether the part is there at all.
-	 *
-	 * Absent and `null` both fail; a blank one never reaches here, because the value refuses it
-	 * as unreadable. So this asks one question — "did you give me one" — and the part it names
-	 * is the input a form should mark.
-	 *
-	 * @return Closure(Value): bool
-	 */
-	private function hasA(string $part): Closure
+	protected static function declaredChecks(): array
 	{
-		return static fn(Value $money): bool => ($money->parts()[$part] ?? null) !== null;
+		return Money\Check::cases();
+	}
+
+	protected static function declaredParts(): array
+	{
+		return Money\Part::cases();
+	}
+
+	/**
+	 * Whether ISO 4217 describes the currency, on a field that names none of its own.
+	 *
+	 * Skipped once the field names its currencies: `allowedCurrencies` answers then, and a code the
+	 * author named with a scale is one they vouched for, whether the standard has it or not.
+	 */
+	private function isAKnownCurrency(Value $money): ?bool
+	{
+		return $this->allowedCurrencies === [] ? self::isInTheStandard($money->currency) : null;
 	}
 
 	private function isAnAllowedCurrency(Value $money): ?bool
 	{
-		// Nothing to judge until there is a currency; `currencyRequired` reports its absence.
-		if ($money->currency === null || $this->allowedCurrencies === []) {
-			return null;
-		}
-
-		return isset($this->allowedCurrencies[$money->currency]);
+		return $this->allowedCurrencies === [] ? null : isset($this->allowedCurrencies[$money->currency]);
 	}
 
 	private function meetsMinimum(Value $money): ?bool
 	{
-		$min = $money->currency === null ? null : ($this->minAmounts[$money->currency] ?? null);
+		$min = $this->minAmounts[$money->currency] ?? null;
 
-		return ($min === null || $money->amount === null) ? null : $money->amount->isGreaterThanOrEqualTo($min);
+		return $min === null ? null : $money->amount->isGreaterThanOrEqualTo($min);
 	}
 
 	private function meetsMaximum(Value $money): ?bool
 	{
-		$max = $money->currency === null ? null : ($this->maxAmounts[$money->currency] ?? null);
+		$max = $this->maxAmounts[$money->currency] ?? null;
 
-		return ($max === null || $money->amount === null) ? null : $money->amount->isLessThanOrEqualTo($max);
+		return $max === null ? null : $money->amount->isLessThanOrEqualTo($max);
 	}
 
 	/**
@@ -267,11 +282,9 @@ final readonly class Money extends AtomicField
 	 */
 	private function matchesScale(Value $money): ?bool
 	{
-		$scale = $money->currency === null ? null : ($this->allowedCurrencies[$money->currency] ?? null);
+		$scale = $this->allowedCurrencies[$money->currency] ?? null;
 
-		return ($scale === null || $money->amount === null)
-			? null
-			: $money->amount->stripTrailingZeros()->getScale() <= $scale;
+		return $scale === null ? null : $money->amount->stripTrailingZeros()->getScale() <= $scale;
 	}
 
 	/**
@@ -299,7 +312,7 @@ final readonly class Money extends AtomicField
 	 */
 	private function boundFor(array $bounds, Value $money): ?string
 	{
-		$bound = $money->currency === null ? null : ($bounds[$money->currency] ?? null);
+		$bound = $bounds[$money->currency] ?? null;
 
 		return $bound === null ? null : (string) $bound;
 	}
@@ -343,8 +356,9 @@ final readonly class Money extends AtomicField
 	/**
 	 * Resolves both shapes {@see self::allowCurrencies()} accepts into the one map the field holds.
 	 *
-	 * An integer key means the entry is a bare currency code and the scale comes from ISO 4217; a
-	 * string key means the entry names the code and overrides the scale.
+	 * An integer key means the entry is a bare currency code and the scale comes from ISO 4217, so
+	 * the standard has to describe it; a string key means the entry names the code and gives the
+	 * scale, so any three letters will do.
 	 *
 	 * @param array<string, int<0, max>> $existing
 	 * @param array<int|string, string|int> $additional
@@ -359,13 +373,18 @@ final readonly class Money extends AtomicField
 					throw InvalidConfiguration::currencyCodeIsNotAString(get_debug_type($value));
 				}
 
-				$currency = self::knownCurrency($value);
+				$currency = self::threeLetters($value);
+
+				if (!self::isInTheStandard($currency)) {
+					throw InvalidConfiguration::currencyIsNotKnown($currency);
+				}
+
 				$existing[$currency] = self::isoScale($currency);
 
 				continue;
 			}
 
-			$currency = self::knownCurrency($key);
+			$currency = self::threeLetters($key);
 
 			if (!is_int($value)) {
 				throw InvalidConfiguration::currencyScaleIsNotAWholeNumber($currency, get_debug_type($value));
@@ -382,20 +401,20 @@ final readonly class Money extends AtomicField
 	}
 
 	/**
-	 * The upper-cased code, once ISO 4217 is known to have it.
+	 * The upper-cased code, once it is three letters.
 	 *
-	 * Checked here — where the author writes the definition — rather than per request, because an
-	 * unknown currency in an allow-list is a typo with no input that could satisfy it. A *submitted*
-	 * currency that is not real is a different matter: `allowedCurrencies` reports that, so the
-	 * failure names the right thing.
+	 * Checked here — where the author writes the definition — rather than per request, because a
+	 * malformed code in an allow-list is a typo with no input that could satisfy it. A *submitted*
+	 * currency that is not real is a different matter: `knownCurrency` or `allowedCurrencies`
+	 * reports that, so the failure names the box a form should mark.
 	 *
-	 * The three-letter guard runs first because {@see ISOCurrencyProvider} also resolves numeric
-	 * codes — `36` is AUD — and this field's whole surface is alpha-3. Accepting the numeric form
-	 * here would collide with the integer keys that mean "a bare code" in the input array.
+	 * Letters only because {@see ISOCurrencyProvider} also resolves numeric codes — `36` is AUD —
+	 * and this field's whole surface is alpha-3. Accepting the numeric form here would collide with
+	 * the integer keys that mean "a bare code" in the input array.
 	 *
 	 * @throws InvalidConfiguration
 	 */
-	private static function knownCurrency(string $currency): string
+	private static function threeLetters(string $currency): string
 	{
 		$currency = strtoupper(trim($currency));
 
@@ -403,13 +422,22 @@ final readonly class Money extends AtomicField
 			throw InvalidConfiguration::currencyCodeIsNotThreeLetters($currency);
 		}
 
+		return $currency;
+	}
+
+	/**
+	 * Whether ISO 4217 describes a three-letter code — the question a bare entry in an allow-list
+	 * and a currency submitted to an unrestricted field both have to answer.
+	 */
+	private static function isInTheStandard(string $currency): bool
+	{
 		try {
 			ISOCurrencyProvider::getInstance()->getCurrency($currency);
 		} catch (UnknownCurrencyException) {
-			throw InvalidConfiguration::currencyIsNotKnown($currency);
+			return false;
 		}
 
-		return $currency;
+		return true;
 	}
 
 	/**

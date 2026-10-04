@@ -6,13 +6,11 @@ namespace Meraki\Schema\Field\Money;
 use Meraki\Schema\Comparison\Comparable;
 use Meraki\Schema\Comparison\Equality;
 use Meraki\Schema\Comparison\Order;
-use Meraki\Schema\Exception\BrokenInputContract;
 use Meraki\Schema\Exception\IncomparableValues;
-use Meraki\Schema\Field\HasParts;
+use Meraki\Schema\Field;
 use Meraki\Schema\Field\MalformedValue;
 use Meraki\Schema\Field\ParsedValue;
 use Brick\Math\BigDecimal;
-use Brick\Math\Exception\MathException;
 
 /**
  * An amount of one currency, held together.
@@ -25,10 +23,16 @@ use Brick\Math\Exception\MathException;
  * a big enough number. How many decimal places a currency uses is the *field's* business — see
  * `Money::allowCurrencies()` — since it varies: JPY has none, USD two, BHD three.
  *
+ * ### Always whole
+ *
+ * Neither half is ever null. Money somebody has half filled in is an {@see Input} that has not made
+ * a value yet, and is reported part by part, so every constraint and every comparison handed one of
+ * these has both halves to work with and no reason to ask.
+ *
  * ### Normalised, and not for printing
  *
  * This is the field's *internal* representation: what arrived, cleaned up so that everything
- * downstream reads one shape. `"aud "` and `"AUD"` both land here as `AUD`, which is what makes a
+ * downstream reads one shape. `aud` and `AUD` both land here as `AUD`, which is what makes a
  * bound comparable against a submitted amount at all.
  *
  * So there is deliberately no `__toString()`. Rendering an amount is a locale's business — where
@@ -36,113 +40,47 @@ use Brick\Math\Exception\MathException;
  * here would be wrong in most of the world. An application that wants a string asks for one, from
  * something that knows the locale.
  */
-final readonly class Value implements ParsedValue, HasParts, Comparable
+final readonly class Value implements ParsedValue, Comparable
 {
-	/** ISO 4217 alpha-3, upper-cased; `null` when none was submitted. */
-	public ?string $currency;
-
 	/**
-	 * The amount, at whatever scale it was written with; `null` when none was submitted —
-	 * which the field reports as `amountRequired` rather than as an unreadable value.
-	 */
-	public ?BigDecimal $amount;
-
-	/**
-	 * Takes the record a field takes, which is the rule everywhere: a value is made of exactly
-	 * what the field accepts, so there is one answer to "what is money here" rather than a
-	 * field that reads input and a value that trusts whatever it is handed.
+	 * Built by {@see Input} from what was submitted, or by {@see self::of()} by hand. The
+	 * constructor still guards the one invariant it can see, so a value made any other way cannot
+	 * hold a currency spelled two ways.
 	 *
-	 * {@see self::of()} is the readable way to write one by hand — a rule's bound, a test —
-	 * and it is a convenience over this rather than a second way in.
-	 *
-	 * @param object{currency?: string|null, amount?: string|int|float|null} $money
-	 * @throws BrokenInputContract if it carries a key money does not have
-	 * @throws MalformedValue if either half is unreadable, or it holds neither
+	 * @param string $currency three upper-case letters
+	 * @throws MalformedValue if the currency is not three upper-case letters
 	 */
-	public function __construct(object $money)
-	{
-		$parts = get_object_vars($money);
-		$unknown = array_diff(array_keys($parts), self::partNames());
-
-		// Raised, not reported. A key nobody declared is a port writing to the wrong contract,
-		// and `ammount` is wrong on every request for every user — see
-		// {@see \Meraki\Schema\Exception\BrokenInputContract} for why that is not a shape failure.
-		if ($unknown !== []) {
-			throw BrokenInputContract::recordHasKeysItDoesNotAccept(self::class, array_values($unknown), self::partNames());
+	public function __construct(
+		public string $currency,
+		/** The amount, at whatever scale it was written with. */
+		public BigDecimal $amount,
+	) {
+		if (preg_match('/^[A-Z]{3}$/', $currency) !== 1) {
+			throw MalformedValue::of(self::class, sprintf('"%s" is not a currency code; three upper-case letters were expected', $currency));
 		}
-
-		// A part that was *sent* and holds nothing is unreadable, not absent — the same rule
-		// {@see \Meraki\Schema\Field\Address\Value} applies. `''` was a decision somebody made,
-		// so reading it as "no amount" would let it satisfy a requiredness check.
-		foreach (['currency', 'amount'] as $key) {
-			if (is_string($parts[$key] ?? null) && trim($parts[$key]) === '') {
-				throw MalformedValue::of(self::class, "its {$key} was given but holds nothing");
-			}
-		}
-
-		$currency = $parts['currency'] ?? null;
-		$amount = $parts['amount'] ?? null;
-
-		// Absent or null is kept as null rather than refused, so `amountRequired` can name the
-		// part a form should mark. Refusing here reported "this is not a readable amount" for a
-		// box somebody simply had not filled in yet, which names neither the problem nor the
-		// input.
-		if ($currency !== null) {
-			if (!is_string($currency)) {
-				throw MalformedValue::of(self::class, 'a currency is a string');
-			}
-
-			// Upper-cased because ISO 4217 defines the codes that way, so `aud` and `AUD` are one
-			// code. Not trimmed: `'AUD '` is not a code, and repairing it is the port's job.
-			$currency = strtoupper($currency);
-
-			if (preg_match('/^[A-Z]{3}$/', $currency) !== 1) {
-				throw MalformedValue::of(self::class, sprintf(
-					'"%s" is not an ISO 4217 currency code; three letters were expected',
-					$parts['currency'],
-				));
-			}
-		}
-
-		if ($amount !== null) {
-			if (!is_float($amount) && !is_int($amount) && !is_string($amount)) {
-				throw MalformedValue::of(self::class, 'an amount is a number or a string');
-			}
-
-			try {
-				$amount = BigDecimal::of($amount);
-			} catch (MathException) {
-				throw MalformedValue::of(self::class, sprintf('"%s" is not an amount', $parts['amount']));
-			}
-		}
-
-		// Nothing in it at all is not a half-filled amount; it is not an amount. The field reads
-		// that as unreadable, exactly as an empty address or an empty card is read.
-		if ($currency === null && $amount === null) {
-			throw MalformedValue::of(self::class, 'it has neither a currency nor an amount');
-		}
-
-		$this->currency = $currency;
-		$this->amount = $amount;
 	}
 
 	/**
 	 * The readable way to write an amount by hand.
 	 *
-	 *     $price->when()->isAtLeast(Money\\Value::of('AUD', '10.00'))
+	 *     $price->when()->isAtLeast(Money\Value::of('AUD', '10.00'))
 	 *
-	 * A convenience over the constructor, not a second way in: it builds the same record a
-	 * form would submit and hands it over, so there is one place where what money *is* gets
-	 * decided.
+	 * Read the way a form's money is, through {@see Input}, so there is one place where what money
+	 * *is* gets decided: `of('aud', '10')` is AUD, and `of('AUD', 'ten')` is refused.
 	 *
 	 * @throws MalformedValue if either half is unreadable
 	 */
 	public static function of(string $currency, BigDecimal|float|int|string $amount): self
 	{
-		return new self((object) [
+		$input = new Input((object) [
 			'currency' => $currency,
 			'amount' => $amount instanceof BigDecimal ? (string) $amount : $amount,
 		]);
+
+		return $input->value ?? throw MalformedValue::of(self::class, sprintf(
+			'it does not make an amount of money: %s',
+			implode(', ', array_map(static fn(Field\Violation $violation): string => $violation->name, $input->violations)),
+		));
 	}
 
 	/**
@@ -158,14 +96,9 @@ final readonly class Value implements ParsedValue, HasParts, Comparable
 	 */
 	public function equals(Equality $other): bool
 	{
-		// A half-filled amount equals another only if the same half is missing, which keeps this
-		// total: two values that both lack an amount are the same money, and one that lacks one
-		// is not the same as one that has it.
 		return $other instanceof self
 			&& $this->currency === $other->currency
-			&& ($this->amount === null
-				? $other->amount === null
-				: $other->amount !== null && $this->amount->isEqualTo($other->amount));
+			&& $this->amount->isEqualTo($other->amount);
 	}
 
 	/**
@@ -190,56 +123,9 @@ final readonly class Value implements ParsedValue, HasParts, Comparable
 		}
 
 		if ($this->currency !== $other->currency) {
-			throw IncomparableValues::moneyInDifferentCurrencies((string) $this->currency, (string) $other->currency);
-		}
-
-		// A half-filled amount is not ordered against anything — there is no number to rank.
-		// Unanswerable rather than raising, because {@see \Meraki\Schema\Rule\Condition\Ordered} reads null as "does not
-		// hold", and "is this at least ten" on an amount nobody entered is a question with an
-		// answer. The missing half is `amountRequired`'s to report.
-		if ($this->amount === null || $other->amount === null) {
-			throw IncomparableValues::money();
+			throw IncomparableValues::moneyInDifferentCurrencies($this->currency, $other->currency);
 		}
 
 		return Order::of($this->amount->compareTo($other->amount));
-	}
-
-	/**
-	 * The two halves, which are the whole of what money is. A rule comparing currencies
-	 * across two fields — "is the refund in the currency they paid in" — is the case this exists
-	 * for.
-	 *
-	 * @return list<string>
-	 */
-	public static function partNames(): array
-	{
-		return ['currency', 'amount'];
-	}
-
-	/**
-	 * @return array<string, mixed>
-	 */
-	public function parts(): array
-	{
-		return [
-			'currency' => $this->currency,
-			'amount' => $this->amount,
-		];
-	}
-
-	/**
-	 * Nothing here is canonicalised, so a rule compares against exactly what it was written
-	 * with. {@see \Meraki\Schema\Field\Address\Value::canonicalPartValue()} is the one that
-	 * has work to do.
-	 */
-	public function canonicalPartValue(string $part, mixed $expected): mixed
-	{
-		return $expected;
-	}
-
-	/** Every part here is one string. @see HasParts::listParts() */
-	public static function listParts(): array
-	{
-		return [];
 	}
 }

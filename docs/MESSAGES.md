@@ -20,7 +20,7 @@ $schema->add($schema->createAddressField('billing', ['AU']));
 
 $result = $schema->validate($data, locale: 'en-AU', messages: $provider);
 
-$result->forField('billing')->messages->forPart('postal_code')->first;
+$billing->resultIn($result)->forPart(Address\Part::PostalCode)->first()?->message;
 // "That is not a valid postcode for the country you chose."
 ```
 
@@ -42,16 +42,19 @@ A definition is the same in every language. The same data passes or fails identi
 reading, so language is applied to the verdicts rather than fed into the judging.
 
 That has a consequence worth stating plainly: **a missing language can never change an outcome.**
-Ask for `de-AT` from a pack that has only English and you get every verdict you would otherwise
-have got, with empty message sets. Not an exception, not a different set of failures. If you want
+Ask for `de-AT` from a pack that has only English and you get every verdict and every violation
+you would otherwise have got, with no sentences on them. Not an exception, not a different set of
+failures. If you want
 to refuse an unsupported language, that is a decision about the request, and `$provider->supports()`
 is there to make it before you validate anything.
 
-It also means **a field validated on its own has no messages**:
+It also means **a field validated on its own has no sentences**:
 
 ```php
-$field->validate($value)->messages->isEmpty();   // always true
+$field->validate($value)->violations->messages;   // always []
 ```
+
+Its violations are all still there, codes and parts and bounds; only the wording is absent.
 
 There is no schema to have carried a provider. This is deliberate rather than an oversight — a
 field that knew about languages could not be serialised the same way twice.
@@ -156,8 +159,12 @@ complete implementation.
 
 | For | Keys tried, in order |
 | --- | --- |
-| A shape failure | `EmailAddress.shape.unreadable` → `shape.unreadable` |
-| A constraint failure | `Address.postal_code.postalCodeFormat` → `Address.postalCodeFormat` → `postal_code.postalCodeFormat` → `postalCodeFormat` |
+| Nothing arrived, or nothing could be read | `EmailAddress.shape.unreadable` → `shape.unreadable` |
+| Any other violation | `Address.postal_code.postalCodeFormat` → `Address.postalCodeFormat` → `postal_code.postalCodeFormat` → `postalCodeFormat` |
+
+There is no `shape.incomplete`. When a record's parts arrive and make no value, each part that is
+wrong has a violation of its own — `amountRequired`, `postalCodeFormat` — and those are the whole
+report. A sentence about the value as a whole would only repeat them less usefully.
 
 So a pack writes one sentence for every `minLength` in the library and overrides it for `Password`,
 which is different advice even though it is the same constraint. A rung nobody fills in costs
@@ -170,38 +177,46 @@ thereby mean what `Text` means.
 
 ## Reading the messages
 
-One property, two shapes, and **the field decides which** — not what happened to fail.
+A sentence is not reported on its own. It is the last thing a **violation** carries, after what was
+wrong and where — so the same object answers "which box do I mark" and "what do I say", and a form
+with no pack installed still knows the first.
 
 ```php
-$messages = $result->forField('billing')->messages;
+$violations = $billing->resultIn($result)->violations;
 
-$messages->first;       // the one to show when there is room for one
-$messages->all;         // every sentence, in reading order
-$messages->isEmpty();
-count($messages);
-foreach ($messages as $said) { ... }
+$violations->first()?->message;   // the one to show when there is room for one
+$violations->messages;            // every sentence, in reading order
+$violations->isEmpty();
+count($violations);
+$violations[0];                   // read like an array; written to, it refuses
+foreach ($violations as $violation) {
+    $violation->code;             // Address\Check::PostalCodeFormat
+    $violation->part;             // Address\Part::PostalCode, or null for the whole value
+    $violation->bound;            // '\d{4}'
+    $violation->message;          // the pack's sentence, or null when it had none
+}
 ```
 
-A field holding one value gives a [`FlatSet`](../src/Message/FlatSet.php). A field whose value has
-named parts gives a [`PartedSet`](../src/Message/PartedSet.php), which adds:
+They read in one order whatever happened to run first: the value as a whole, then each part in the
+order the value declares them. For a value with parts:
 
 ```php
-$messages->whole;               // wrong with the value itself — an unreadable address
-$messages->parts;               // the parts that have something wrong, in declared order
-$messages->forPart('postal_code');
+$violations->forPart(Address\Part::PostalCode);   // what is wrong with one part
+$violations->forWholeValue();                     // what is wrong with the value as a whole
+$violations->parts;                               // the parts with something wrong, in order
 ```
 
-Deciding the shape from the *results* would mean an address that happened to fail only on the whole
-value came back flat, and a consumer that checked the type once would break on the request that
-failed the other way.
+`forPart()` refuses a part the value does not have, rather than answering emptily. "Nothing is
+wrong" is a legitimate answer for a part that is fine, so a mistake that returned it would be
+invisible forever. The part is an enum case, so a misspelling does not get as far as asking.
 
-`forPart()` refuses a part the value does not have, rather than answering emptily. "No messages" is
-a legitimate answer for a part that is fine, so a typo that returned it would be invisible forever.
+There is no message about the whole field when its parts have their own. "That is not a valid
+address" was the sentence a form showed when the problem was the postcode.
 
 Every row of a collection carries its own:
 
 ```php
-$result->forField('lines')->itemAt('first_run')->forField('sku')->messages->first;
+$sku->resultIn($lines->resultIn($result)->itemAt('first_run'))->violations->first()?->message;
 ```
 
 ## Writing a pack
@@ -272,14 +287,14 @@ interface Provider
 interface Translator
 {
     public string $locale { get; }
-    public function forShape(Field $field, Field\ShapeValidationResult $shape): ?string;
-    public function forConstraint(Field $field, Field\ConstraintValidationResult $constraint): ?string;
+    public function forViolation(Field $field, Field\Violation $violation): ?string;
 }
 ```
 
-A translator returns *strings*; the core does the grouping. That is deliberate — putting it the
-other way round would make every provider re-implement flat-versus-parted, and the first one to get
-it wrong would be indistinguishable from one that simply had less to say.
+One method for every kind of failure, because the violation already says which kind it is: its code
+is a `Field\ShapeProblem` when nothing arrived or nothing could be read, and a case of the field's
+own `Check` enum otherwise. A translator returns *strings*; the core does the ordering and the
+grouping by part, so no provider re-implements either and none can get them subtly wrong.
 
 `null` from a translator means "I have no wording for this". It is a real answer, not an error.
 

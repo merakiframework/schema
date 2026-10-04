@@ -5,16 +5,19 @@ namespace Meraki\Schema;
 
 use Meraki\Schema\Field\ConstraintValidationResult;
 use Meraki\Schema\Field\Definition;
+use Meraki\Schema\Field\Input;
+use Meraki\Schema\Field\ParsedValue;
 use Meraki\Schema\Field\ShapeValidationResult;
 
 /**
  * A field holding one value, checked against its own constraints.
  *
  * This is the ordinary lifecycle, and nearly every field wants it: normalise what was submitted,
- * fall back to the authored default if nothing usable was, check the shape, then check the
- * constraints. A field whose value is a *list* resolves differently — see {@see Field\Collection},
- * which implements {@see Field} directly and shares this class's configuration through
- * {@see Definition} rather than inheriting a lifecycle that does not fit.
+ * fall back to the authored default if nothing usable was, check the shape, assemble a value from
+ * its parts if it has any, then check the constraints. A field whose value is a *list* resolves
+ * differently — see {@see Field\Collection}, which implements {@see Field} directly and shares this
+ * class's configuration through {@see Definition} rather than inheriting a lifecycle that does not
+ * fit.
  *
  * Sealed by the language rather than by convention. `readonly` is inherited both ways — a
  * non-readonly class cannot extend this one — so every field below it is immutable whether or not
@@ -74,13 +77,17 @@ abstract readonly class AtomicField implements Field
 	 * Settles absence, then reads the input exactly once.
 	 *
 	 * `$raw` is what there was to read — the submission, or the authored default standing in for
-	 * it — and `null` means there was nothing. `$parsed` is what {@see Definition::parse()} made
-	 * of it, and `null` there means it could not be read. The two nulls are different facts, which
-	 * is why they are carried separately rather than collapsed into one value.
+	 * it — and `null` means there was nothing. `$read` is what {@see Definition::parse()} made
+	 * of it: a value, the {@see Input} a value is assembled from, or `null` when it could not be
+	 * read. The two nulls are different facts, which is why they are carried separately rather
+	 * than collapsed into one value.
 	 *
-	 * @return array{mixed, mixed}
+	 * Protected so a field that overrides {@see self::validate()} only to return a richer result
+	 * reads the way every other field does, rather than keeping a copy of this.
+	 *
+	 * @return array{mixed, ParsedValue|Input|null}
 	 */
-	private function read(mixed $given): array
+	final protected function read(mixed $given): array
 	{
 		$raw = $this->rawFor($given);
 
@@ -98,13 +105,14 @@ abstract readonly class AtomicField implements Field
 		PrefillPolicy $policy = PrefillPolicy::Checked,
 	): AggregatedValidationResult {
 		// Read once here rather than through resolve(), which would parse twice.
-		[$raw, $parsed] = $this->read($given);
+		[$raw, $read] = $this->read($given);
 		$source = $this->sourceOf($given, $givenAs);
 
-		// `$parsed`, not `$parsed ?? $raw`: a value is what the field made of the input, and `null`
-		// when it could make nothing of it. What was sent is on `$given`.
-		return (new ResolvedField($this, $given, $parsed, $appliedOutcomes, $source, $this->evaluatedAt()))
-			->withResults(...$this->check($raw, $parsed, $source, $policy));
+		// The assembled value, not `$read ?? $raw`: a value is what the field made of the input,
+		// and `null` when it could make nothing of it — including parts that make no value. What
+		// was sent is on `$given`.
+		return (new ResolvedField($this, $given, self::valueFrom($read), $appliedOutcomes, $source, $this->evaluatedAt()))
+			->withResults(...$this->check($raw, $read, $source, $policy));
 	}
 
 	/**
@@ -112,17 +120,23 @@ abstract readonly class AtomicField implements Field
 	 *
 	 * Shape first: if there is no usable value, the constraints have nothing to speak to and are
 	 * skipped rather than failed, so an error report names the real problem once instead of once
-	 * per constraint.
+	 * per constraint. In order:
+	 *
+	 * 1. nothing to read: *missing*, or skipped when the field is optional;
+	 * 2. nothing readable: *unreadable*;
+	 * 3. parts that make no value: *incomplete*, reported part by part;
+	 * 4. a prefill the application vouches for: passed, with the constraints waived;
+	 * 5. otherwise the constraints judge the value.
 	 *
 	 * @param mixed $raw what there was to read, or null when there was nothing
-	 * @param mixed $parsed what parse() made of it, or null when it could not be read
+	 * @param ParsedValue|Input|null $read what parse() made of it, or null when it could not be read
 	 * @param ValueSource $source where the judged value came from
 	 * @param PrefillPolicy $policy whether a prefilled value still has to satisfy the constraints
 	 * @return list<ConstraintValidationResult|ShapeValidationResult>
 	 */
 	protected function check(
 		mixed $raw,
-		mixed $parsed,
+		ParsedValue|Input|null $read,
 		ValueSource $source = ValueSource::Submitted,
 		PrefillPolicy $policy = PrefillPolicy::Checked,
 	): array {
@@ -135,7 +149,7 @@ abstract readonly class AtomicField implements Field
 			return [$shape, ...$this->constraints->allSkipped()];
 		}
 
-		if ($parsed === null) {
+		if ($read === null) {
 			// Something arrived and could not be read as this kind of value. The constraints have
 			// nothing to speak to, so they are skipped rather than failed — one report for one
 			// mistake, naming the real problem.
@@ -146,16 +160,34 @@ abstract readonly class AtomicField implements Field
 			return [ShapeValidationResult::unreadable(), ...$this->constraints->allSkipped()];
 		}
 
+		if ($read instanceof Input && $read->violations !== []) {
+			// Parts that make no value. Every constraint is skipped, because none of them is
+			// written for half a value — that is the point of assembling one first. The parts'
+			// own violations are the report, each against the box it is about.
+			//
+			// "Every" is today's answer, not the promise. What is promised is that a constraint
+			// that cannot be judged yet is skipped, so one that declares the parts it reads can run
+			// here once those are sound — decided for 2.1, see docs/ROADMAP.md.
+			return [
+				ShapeValidationResult::incomplete($read->violations, $read->missingParts),
+				...$this->constraints->allSkipped(),
+			];
+		}
+
+		$value = self::valueFrom($read);
+
 		// A value the application vouches for, which the user was never asked about and could not
-		// fix. The shape still had to pass to get here — trust says a value meets the rules, not
-		// that the field can read it — but the rules themselves are waived.
+		// fix. The shape still had to pass to get here, and so did assembly — trust says a value
+		// meets the rules, not that the field can read it or that its parts make one — but the
+		// rules themselves are waived.
 		if ($source === ValueSource::Prefilled && $policy === PrefillPolicy::Trusted) {
 			return [ShapeValidationResult::pass(), ...$this->constraints->allSkipped()];
 		}
 
-		// The parsed value goes straight to the constraints, which is what makes their parameter
-		// types honest: `checkMinValue(Number\Value $value)` is given one by construction
-		// rather than hoping a gate ran first.
+		// The value goes straight to the constraints, which is what makes their parameter types
+		// honest: `checkMinValue(Number\Value $value)` is given one by construction rather than
+		// hoping a gate ran first. For a value made of parts it is the assembled one, so a
+		// constraint on money never meets an amount with no currency.
 		//
 		// It is also what enforces parse()'s totality. Every accepted value in every test passes
 		// through this line, so a parse that raises fails the test that submitted the value —
@@ -163,9 +195,7 @@ abstract readonly class AtomicField implements Field
 		// fall out of step with the fields.
 		return [
 			ShapeValidationResult::pass(),
-			...$this->constraints->against($parsed),
+			...$this->constraints->against($value),
 		];
 	}
-
-
 }

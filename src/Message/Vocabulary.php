@@ -13,21 +13,27 @@ use ReflectionClass;
  *
  * This is what makes a data-only pack type-safe. A pack is `.mfr` files with no PHP in them, so
  * nothing about it can be checked by a compiler — but the *vocabulary* it is written against is
- * entirely knowable from this library: the field kinds, the name each constraint reports under, and
- * the parts a structured value has. Reading it off the classes rather than keeping a list means it
+ * entirely knowable from this library: the field kinds, the code each check reports under, and the
+ * parts a structured value has. Reading it off the classes rather than keeping a list means it
  * cannot go stale, which is the failure this is here to prevent: a pack quietly missing wording for
- * a constraint added two releases ago.
+ * a check added two releases ago.
  *
  *     vendor/bin/schema-lang validate .     # in a pack's own CI
  *     vendor/bin/schema-lang keys           # what a pack may define
  *
+ * ### Every code, whichever step reports it
+ *
+ * A code is read from the field's {@see Field::$checks}, not from its constraints. A field that
+ * assembles its value from parts reports `amountRequired` before any constraint runs, and a pack
+ * words it under the same key either way — so the vocabulary cannot depend on which step a check
+ * happens to belong to, or moving one would orphan a sentence.
+ *
  * ### Why it builds one of every field
  *
- * A field's constraints are assembled in its constructor, so there is no way to ask a *class* what
- * it reports under. Three fields need more than a name to build — a currency, a country, a set of
- * cases — and those are listed below with the smallest thing that satisfies them. A new field that
- * needs an argument and is not listed raises, which is the point: the vocabulary should refuse to
- * be quietly incomplete.
+ * A field's codes and parts are read off an instance, so there is one built of every field. Three
+ * need more than a name to build — a currency, a country, a set of cases — and those are listed
+ * below with the smallest thing that satisfies them. A new field that needs an argument and is not
+ * listed raises, which is the point: the vocabulary should refuse to be quietly incomplete.
  */
 final class Vocabulary
 {
@@ -40,8 +46,8 @@ final class Vocabulary
 	/** What a `shape.*` message may name. */
 	public const SHAPE_VARIABLES = ['field', 'kind'];
 
-	/** What a constraint message may name. */
-	public const CONSTRAINT_VARIABLES = ['field', 'kind', 'part', 'bound'];
+	/** What a message about any other code may name. */
+	public const CHECK_VARIABLES = ['field', 'kind', 'part', 'bound'];
 
 	/** @var array<string, Field>|null one of each, built once */
 	private static ?array $fields = null;
@@ -87,31 +93,36 @@ final class Vocabulary
 	}
 
 	/**
-	 * The names each kind reports its constraints under.
+	 * The codes each kind reports a failure under, whichever step reports it.
 	 *
 	 * @return array<string, list<string>>
 	 */
-	public static function constraintsByKind(): array
+	public static function checksByKind(): array
 	{
 		return array_map(
-			static fn(Field $field): array => $field->constraints->names,
+			static fn(Field $field): array => array_map(
+				static fn(Field\Check $check): string => (string) $check->value,
+				$field->checks,
+			),
 			self::fields(),
 		);
 	}
 
 	/**
-	 * The part each constraint concerns, for the constraints that concern one.
+	 * The part each code concerns, for the codes that concern one.
 	 *
-	 * @return array<string, array<string, string>> kind => constraint name => part
+	 * @return array<string, array<string, string>> kind => code => part
 	 */
-	public static function partsByConstraint(): array
+	public static function partsByCheck(): array
 	{
 		$parts = [];
 
 		foreach (self::fields() as $kind => $field) {
-			foreach ($field->constraints as $constraint) {
-				if ($constraint->part !== null) {
-					$parts[$kind][$constraint->name] = $constraint->part;
+			foreach ($field->checks as $check) {
+				$part = $check->part();
+
+				if ($part !== null) {
+					$parts[$kind][(string) $check->value] = (string) $part->value;
 				}
 			}
 		}
@@ -120,9 +131,9 @@ final class Vocabulary
 	}
 
 	/**
-	 * Every part any value has, whether or not a constraint mentions it.
+	 * Every part any value has, whether or not a code mentions it.
 	 *
-	 * Wider than {@see self::partsByConstraint()} on purpose: `{$part}` is translated through a
+	 * Wider than {@see self::partsByCheck()} on purpose: `{$part}` is translated through a
 	 * `part.*` entry, and a pack should be able to name a part that nothing currently fails on.
 	 *
 	 * @return array<string, list<string>>
@@ -132,7 +143,7 @@ final class Vocabulary
 		$parts = [];
 
 		foreach (self::fields() as $kind => $field) {
-			$names = Field\ValueClass::partNamesOf($field);
+			$names = array_column($field->parts, 'value');
 
 			if ($names !== []) {
 				$parts[$kind] = $names;
@@ -143,11 +154,11 @@ final class Vocabulary
 	}
 
 	/** @return list<string> */
-	public static function constraintNames(): array
+	public static function checkNames(): array
 	{
 		$names = [];
 
-		foreach (self::constraintsByKind() as $forKind) {
+		foreach (self::checksByKind() as $forKind) {
 			$names = [...$names, ...$forKind];
 		}
 
@@ -189,7 +200,7 @@ final class Vocabulary
 			$keys[] = "shape.{$problem}";
 		}
 
-		foreach (self::constraintNames() as $name) {
+		foreach (self::checkNames() as $name) {
 			$keys[] = $name;
 		}
 
@@ -197,9 +208,9 @@ final class Vocabulary
 			$keys[] = "part.{$part}";
 		}
 
-		$byConstraint = self::partsByConstraint();
+		$byCheck = self::partsByCheck();
 
-		foreach (self::constraintsByKind() as $kind => $names) {
+		foreach (self::checksByKind() as $kind => $names) {
 			$keys[] = "kind.{$kind}";
 
 			foreach (self::SHAPE_PROBLEMS as $problem) {
@@ -209,8 +220,8 @@ final class Vocabulary
 			foreach ($names as $name) {
 				$keys[] = "{$kind}.{$name}";
 
-				if (isset($byConstraint[$kind][$name])) {
-					$part = $byConstraint[$kind][$name];
+				if (isset($byCheck[$kind][$name])) {
+					$part = $byCheck[$kind][$name];
 					$keys[] = "{$kind}.{$part}.{$name}";
 					$keys[] = "{$part}.{$name}";
 				}
@@ -245,7 +256,7 @@ final class Vocabulary
 			return [];
 		}
 
-		return str_contains($key, 'shape.') ? self::SHAPE_VARIABLES : self::CONSTRAINT_VARIABLES;
+		return str_contains($key, 'shape.') ? self::SHAPE_VARIABLES : self::CHECK_VARIABLES;
 	}
 
 	/**

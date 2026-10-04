@@ -71,8 +71,9 @@ final class ConstraintNameTest extends TestCase
 			'Uuid' => ['allowedVersions'],
 
 			// No `unambiguous`: a number is submitted with its country, so there is no ambiguity
-			// left for a constraint to report. The pairing settles it before any check runs.
-			'PhoneNumber' => ['numberRequired', 'countryRequired', 'allowedCountries', 'numberType'],
+			// left for a constraint to report. The pairing settles it before any check runs —
+			// and whether the pair is a number at all is assembly, below.
+			'PhoneNumber' => ['allowedCountries', 'numberType'],
 
 			// No `maxBytes`, and no composition *maximums*. What a hashing algorithm can swallow
 			// is the hashing layer's business — see Field\Password — and a maximum number of
@@ -87,24 +88,21 @@ final class ConstraintNameTest extends TestCase
 			// Structured types: flat, and no longer prefixed with the field's own name. Each part
 			// a constraint concerns is carried on the result as `part` rather than spelled into
 			// the name, which is what let the dotted names go.
-			'Money' => ['currencyRequired', 'amountRequired', 'allowedCurrencies', 'minAmount', 'maxAmount', 'scale'],
+			//
+			// Whether the halves make money at all is assembly, so `currencyRequired` and its
+			// three siblings are not constraints — see the test below for every code.
+			'Money' => ['knownCurrency', 'allowedCurrencies', 'minAmount', 'maxAmount', 'scale'],
+			// What this field accepts: which countries, how much of the address its precision
+			// floor demands, and whether it must be somewhere a person can go. Whether the parts
+			// make an address in their own country is assembly, below.
 			'Address' => [
-				'countryRequired',
 				'allowedCountries',
-				'streetRequired', 'streetLineLimit', 'streetVisitable',
-				'localityRequired', 'localityUsed', 'dependentLocalityUsed',
-				'subdivisionRequired', 'subdivisionUsed', 'knownSubdivision',
-				'postalCodeRequired', 'postalCodeUsed', 'postalCodeFormat',
+				'streetVisitable',
+				'streetRequired', 'localityRequired', 'subdivisionRequired', 'postalCodeRequired',
 			],
-			// `numberRequired` and `expiryRequired` name a part that was not sent, so a form can
-			// mark the box. There is no `expiryFormat` beside them: an expiry that *was* sent and
-			// cannot be read is a shape failure, the same way a bad amount is on Money.
-			'CreditCard' => [
-				'numberRequired', 'expiryRequired', 'nameRequired',
-				'numberFormat', 'numberChecksum',
-				'expiryInFuture', 'expiryWithinReach',
-				'securityCodeFormat',
-			],
+			// The two that ask what day it is, and the two parts a card can be without that a
+			// field may still demand. Everything else about a card is assembly — see below.
+			'CreditCard' => ['expiryInFuture', 'expiryWithinReach', 'nameRequired', 'securityCodeRequired'],
 
 			// A collection bounds the list and refuses repeats; each item is checked against the
 			// template and reports under the template field's own names.
@@ -120,18 +118,158 @@ final class ConstraintNameTest extends TestCase
 		}
 	}
 
+	/**
+	 * The codes a field reports before any constraint runs — whether a record's parts make a value
+	 * at all — under the agreed names.
+	 *
+	 * Every code a field declares is either one of these or a constraint's, and a language pack
+	 * words both under the same kind of key: the step a code belongs to is a fact about the result,
+	 * never part of its name, so a check can move between them without a pack noticing.
+	 *
+	 * @param list<string> $expected
+	 */
+	#[Test]
+	#[DataProvider('assemblyCodes')]
+	public function a_field_reports_whether_its_parts_make_a_value_under_the_agreed_codes(string $class, array $expected): void
+	{
+		$field = self::build($class);
+		$constraints = $field->constraints->names;
+
+		$this->assertSame($expected, array_values(array_filter(
+			array_column($field->checks, 'value'),
+			static fn(string $code): bool => !in_array($code, $constraints, true),
+		)));
+	}
+
+	/** @return iterable<string, array{class-string<Field>, list<string>}> */
+	public static function assemblyCodes(): iterable
+	{
+		$codes = [
+			// Whether the halves make money at all. No configuration changes any of these, which
+			// is what makes them assembly rather than constraints — see docs/DESIGN.md.
+			'Money' => ['currencyRequired', 'amountRequired', 'currencyFormat', 'amountFormat'],
+			// A number is only a number in a country, so whether it is valid *there* is part of
+			// whether it is a number at all.
+			'PhoneNumber' => ['numberRequired', 'countryRequired', 'numberFormat', 'knownCountry', 'numberInCountry'],
+			// A card number that fails Luhn is not a card number on any field there will ever
+			// be, so the checksum is assembly too.
+			'CreditCard' => [
+				'numberRequired', 'expiryRequired',
+				'numberFormat', 'numberChecksum', 'expiryFormat', 'nameFormat', 'securityCodeFormat',
+			],
+			// A country's published format is reference data, the same for every field there will
+			// ever be. Only the country is essential; the street and the rest are demanded, by
+			// the precision floor, so their `*Required` codes are constraints.
+			'Address' => [
+				'countryRequired', 'knownCountry',
+				'streetFormat', 'streetLineLimit',
+				'dependentLocalityFormat', 'dependentLocalityUsed',
+				'localityFormat', 'localityUsed',
+				'knownSubdivision', 'subdivisionUsed',
+				'postalCodeFormat', 'postalCodeUsed',
+			],
+			// An upload described without its size is not described on any field.
+			'File' => ['nameRequired', 'typeRequired', 'sizeRequired', 'nameFormat', 'typeFormat', 'sizeFormat'],
+		];
+
+		foreach (SealedFieldTest::fields() as $short => [$class]) {
+			yield $short => [$class, $codes[$short] ?? []];
+		}
+	}
+
+	/**
+	 * A constraint is named by a case of the field's own enum, and the field lists every case.
+	 *
+	 * So a pack, a port or a test can know every failure a field may report without validating
+	 * anything — and a constraint can never be reported under a code its field does not declare.
+	 */
+	#[Test]
+	#[DataProvider('everyField')]
+	public function every_constraint_is_named_by_a_code_its_field_declares(string $class): void
+	{
+		$field = self::build($class);
+		$undeclared = [];
+
+		foreach ($field->constraints as $constraint) {
+			if (!in_array($constraint->code, $field->checks, true)) {
+				$undeclared[] = $constraint->name;
+			}
+		}
+
+		$this->assertSame([], $undeclared, "{$class} reports codes it does not declare.");
+	}
+
+	/**
+	 * The wire name is the case's value, and it is a string: a language pack's key, a serialised
+	 * schema's word. An int-backed enum would satisfy the interface and break both.
+	 */
+	#[Test]
+	#[DataProvider('everyField')]
+	public function every_code_is_named_by_a_string(string $class): void
+	{
+		$notStrings = array_values(array_filter(
+			self::build($class)->checks,
+			static fn(Field\Check $check): bool => !is_string($check->value),
+		));
+
+		$this->assertSame([], $notStrings, "{$class} has codes a language pack could not key a message by.");
+	}
+
+	/**
+	 * A code's part is one the field's value has — so a failure can always be put beside an
+	 * input the form actually drew.
+	 */
+	#[Test]
+	#[DataProvider('everyField')]
+	public function every_code_is_about_a_part_the_field_has_or_about_the_whole_value(string $class): void
+	{
+		$field = self::build($class);
+		$strays = [];
+
+		foreach ($field->checks as $check) {
+			$part = $check->part();
+
+			if ($part !== null && !in_array($part, $field->parts, true)) {
+				$strays[] = sprintf('%s::%s', $check::class, $check->name);
+			}
+		}
+
+		$this->assertSame([], $strays, "{$class} has codes about parts it does not have.");
+	}
+
+	/** @return iterable<string, array{class-string<Field>}> */
+	public static function everyField(): iterable
+	{
+		foreach (SealedFieldTest::fields() as $short => [$class]) {
+			yield $short => [$class];
+		}
+	}
+
+	#[Test]
+	public function a_constraint_can_be_looked_up_by_its_code_or_by_its_wire_name(): void
+	{
+		$text = (new Field\Text(new FieldName('bio')))->minLengthOf(10);
+		$result = $text->validate('short');
+
+		$this->assertSame($result->forConstraint(Field\Text\Check::MinLength), $result->forConstraint('minLength'));
+		$this->assertSame(Field\Text\Check::MinLength, $result->forConstraint('minLength')->code);
+		$this->assertSame(10, $text->constraints->named(Field\Text\Check::MinLength)->bound);
+	}
+
 	#[Test]
 	public function a_constraint_reports_the_part_it_belongs_to(): void
 	{
 		// A structured type reports flat names and says which part failed, so a consumer
 		// never splits a string to find out. `cost.amount.min` becomes `minAmount` + a part.
-		$money = new Field\Money(new FieldName('cost'), ['AUD' => 2]);
-		$money->minAmountOf('AUD', '10.00');
+		// Assigned: a field is immutable, and a wither's copy that is thrown away bounds nothing —
+		// which left this asserting the name and part of a skipped verdict.
+		$money = (new Field\Money(new FieldName('cost'), ['AUD' => 2]))->minAmountOf('AUD', '10.00');
 
 		$failed = $money->validate((object)['currency' => 'AUD', 'amount' => '5.00'])->forConstraint('minAmount');
 
+		$this->assertTrue($failed->failed());
 		$this->assertSame('minAmount', $failed->name);
-		$this->assertSame('amount', $failed->part);
+		$this->assertSame(Field\Money\Part::Amount, $failed->part);
 	}
 
 	#[Test]
@@ -187,7 +325,7 @@ final class ConstraintNameTest extends TestCase
 
 		$this->assertTrue($failed->failed());
 		$this->assertNull($failed->bound);
-		$this->assertSame('street', $failed->part);
+		$this->assertSame(Field\Address\Part::Street, $failed->part);
 	}
 
 	private static function build(string $fqcn): Field

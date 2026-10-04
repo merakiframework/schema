@@ -13,10 +13,16 @@ know why.
 
 - **PHP 8.5 is required.** `2.0` uses clone-with and property hooks; there is no 8.4 fallback.
 - **The ports are not migrated yet.** `meraki/schema-html` and `meraki/schema-json` do not work
-  against `2.0.0-alpha.3`. If you depend on either, stay on `1.14.0` until they are tagged.
-- **Your stored documents still load.** The serialized form is unchanged: `#/fields/x/value` is
-  still the scope wire format, and conditions and outcomes keep their `type`/`action` shapes.
-  This is an API break, not a data break.
+  against `2.0` yet. If you depend on either, stay on `1.14.0` until they are tagged.
+- **Most stored documents still load.** `#/fields/x/value` is still the scope wire format, and
+  conditions and outcomes keep their `type`/`action` shapes. Three things in a stored rule stop it
+  loading, each refused where the rule is added rather than left to never fire: an `Address` part
+  under its `1.x` name ([migrate them](#address-was-rebuilt--new-parts-new-names-and-data-you-may-need-to-migrate)),
+  a part that was a reading of a value rather than a part of it — `e164`, `local_part`, `domain`
+  ([see below](#a-value-reports-the-parts-it-is-submitted-with)) — and a whole value compared
+  against a record holding only some of its parts
+  ([see below](#a-value-made-of-parts-is-assembled-before-it-is-judged)). Stored *submissions*
+  are covered field by field below.
 
 ### The one idea behind every change
 
@@ -212,7 +218,8 @@ $result = $schema->validate($submitted, prefilledWith: $knownAboutThisUser);
 ```
 
 Precedence is submitted → prefilled → authored default, and `$resolved->source` tells you which
-one the judged value came from. `PrefillPolicy::Trusted` waives the constraints for a value that
+one the judged value came from. A record with nothing in it counts as nothing submitted, so a
+prefill stands in for it as it does for `null`. `PrefillPolicy::Trusted` waives the constraints for a value that
 actually survived as prefilled — trust attaches to the value, so it cannot excuse anything the
 user typed over the top.
 
@@ -287,39 +294,219 @@ a fact about a *definition* — the same data passes or fails identically in eve
 `resolve()` takes neither, because it reaches no verdict and only a failure has anything to say.
 
 Everything else is unchanged: no provider, an unsupported tag, or no tag at all still leaves
-every verdict exactly as it was and every message set empty.
+every verdict exactly as it was, and every violation unworded.
+
+### Every failure is a violation, and the sentence is the last thing it carries
+
+`$result->messages` and the `Message\Set` / `FlatSet` / `PartedSet` it held are gone. A result
+reports `$result->violations` instead: every failure, whichever step found it, each with its code,
+the part it concerns, the bound, and — when the request passed a provider — the sentence.
+
+```php
+// alpha.3
+$result->forField('billing')->messages->forPart('postal_code')->first;
+$result->forField('username')->messages->all;
+
+// now
+$billing->resultIn($result)->forPart(Address\Part::PostalCode)->first()?->message;
+$username->resultIn($result)->violations->messages;
+```
+
+| Was | Is |
+| --- | --- |
+| `$messages->first` | `$violations->first()?->message` — a method, because it asks which comes first |
+| `$messages->all` | `$violations->messages` |
+| `$messages->forPart('postal_code')` | `$result->forPart(Address\Part::PostalCode)` — the part is an enum case |
+| `$messages->whole` | `$violations->forWholeValue()` |
+| `$messages->parts` | `$violations->parts`, as `Field\Part` cases |
+| `$messages instanceof PartedSet` | `$field->parts !== []` |
+
+The difference that matters is what a consumer can do without a pack. A message set held sentences
+only, so with no provider it was empty and a form could not mark a box. Violations carry the code
+and the part with or without one: wording is the optional part, and nothing else is.
+
+They read in one order whatever ran first — the value as a whole, then each part in the order the
+value declares them — and they are read-only: `$violations[0]` reads like an array element, and
+writing to one raises `Exception\ReadOnlyResult`.
+
+**Writing a translator:** `Message\Translator` has one method now, `forViolation(Field, Violation)`,
+in place of `forShape()` and `forConstraint()`. A violation's code is a `Field\ShapeProblem` when
+nothing arrived or nothing could be read; `ShapeProblem` is a backed enum now, whose values are the
+`shape.*` suffixes a pack already uses.
+
+**Finding a result:** `$field->resultIn($results)` finds a field's result in a schema's results, or
+a collection row's, by the field itself rather than by a string. `Password` and `Collection` narrow
+it to their own result types.
+
+### A value made of parts is assembled before it is judged
+
+A record's parts are read into a `Field\Input` before anything judges them, and the value is built
+only when they make one: every essential part there, every part readable, the parts agreeing with
+each other. When they do not, the result says so, part by part, and a constraint that cannot be
+judged yet is skipped — in `2.0`, every one:
+
+```php
+$result->wasIncomplete();            // its parts arrived and make no value
+$result->missingParts;               // the essential parts that were not supplied, as Field\Part cases
+$result->forPart($part)->first();    // what is wrong with one of them
+$result->value;                      // null — there is no value until there is a whole one
+```
+
+**What a consumer sees:**
+
+- `FieldResult::wasIncomplete()` and `$missingParts` are new, beside `wasMissing()` and
+  `wasUnreadable()`. `ShapeProblem::Incomplete` is the shape's new problem. It is never a
+  violation's code, because the parts' own violations explain it, so a language pack has no
+  `shape.incomplete` to write.
+- `$result->value` and `$field->resolvedValueFor()` are the *assembled* value, so they are `null`
+  while the parts make none. `$field->resolvedInputFor($given)` is new: the parts as read,
+  whatever they make. What was sent is still `$given`.
+- A rule about **one part** reads the input, so "when the billing country is AU" holds while the
+  street is still empty. A rule about the **whole value** reads the assembled one: `isEmpty()` is
+  true of a half-filled record, as it already was of an unreadable one. Comparing a whole value
+  against half of one, `when($price)->equals((object) ['currency' => 'AUD'])`, is refused where
+  the rule is added, because it could only ever match nothing.
+- A default whose parts make no value raises `InvalidDefault` where it is written, naming each
+  problem and its part. A **trusted prefill must be complete**: trust waives what a field
+  accepts, never what counts as a value.
+- **A record with nothing in it is nothing submitted.** `{}`, or every part `null`, is what a form
+  sends when nobody touched any of its boxes. It used to be *unreadable*, so a prefill lost to it
+  and an optional field failed for being left alone. Now it is *missing* on a required field and
+  skipped on an optional one, and a prefill or the authored default stands in for it as they do
+  for `null`. `$field->treatsAsAbsent($given)` asks the same question. A record carrying a key the
+  value does not declare is never nothing: it still raises, [below](#a-record-raises-on-a-key-it-does-not-declare).
+  `defaultsTo((object) [])` raises `InvalidDefault`, since it would be a default of nothing.
+
+**Writing a field:** `parse()` may return a `Field\Input` rather than a value — see
+[FIELD-API.md](docs/FIELD-API.md#a-value-made-of-parts). `AtomicField::read()` is `protected` and
+`final`, for a field that overrides `validate()` to return a richer result; `check()` takes what
+`read()` returns. An input that reports nothing wrong and makes no value raises
+`Exception\InconsistentInput`, because it is a bug no submitter can cause.
+
+The five record-shaped fields — `Money`, `PhoneNumber`, `CreditCard`, `Address` and `File` — all
+read their parts this way. A field whose value is one thing reads it in one step, so
+`wasIncomplete()` is always false for it.
+
+**`Money`** reads its halves first.
+
+```php
+$price = $schema->createMoneyField('price', ['AUD'])->minAmountOf('AUD', '10.00');
+$result = $price->validate((object) ['currency' => 'AUD']);
+
+// alpha.3 — shape passed; amountRequired failed; minAmount skipped
+// now     — incomplete; missingParts [Money\Part::Amount]; amountRequired on the amount;
+//           every constraint skipped
+```
+
+| Was | Is |
+| --- | --- |
+| `currencyRequired` and `amountRequired` were constraints | reported while assembling, as above |
+| a blank or malformed half made the whole field unreadable | `currencyFormat` or `amountFormat`, against that half |
+| a field naming no currencies took any three letters | `knownCurrency` fails for a code ISO 4217 does not describe |
+| `allowCurrencies(['ZZZ' => 2])` was refused | taken: a code named with its scale is the author vouching for it. A bare `['ZZZ']` is still refused, since the standard has no scale to give it |
+| `Money\Value::$currency` and `$amount` could be null | never null. Build one with `Money\Value::of('AUD', '10.00')`, or `new Money\Value('AUD', $decimal)` |
+| `Money\Value` implemented `HasParts` | a rule reads the halves from `Money\Input`, so `#/fields/price/value/currency` answers while the amount is still empty |
+| `when(PartScope::of('price', 'currency'))->equals('aud')` never held | holds: the expectation is read the way the currency was, upper-cased |
+| the `amount` part was a `BigDecimal`, so `when(PartScope::of('price', 'amount'))->isAtLeast(10)` or `equals('12.50')` never held | it is a `Money\Amount`, and the expectation is read into one: both hold, compared as numbers whatever the currency |
+
+**`PhoneNumber`** reads its number and country first, and reads the number *in* the country.
+
+| Was | Is |
+| --- | --- |
+| `numberRequired` and `countryRequired` were constraints | reported while assembling; the result is incomplete |
+| a blank number, a number that is not one, or one valid only elsewhere made the field unreadable | `numberFormat`, or `numberInCountry` with the country as its bound, against the number |
+| a country that is not a region made the field unreadable | `knownCountry`, against the country, and the number waits for one |
+| with a number and no country, `numberRequired` was skipped | the number is not judged at all until there is a country |
+| `PhoneNumber\Value::$number` and `$country` could be null, and `toE164()` returned `?string` | never null, and `toE164()` returns `string`. `new PhoneNumber\Value($parsed, 'AU')` refuses a number not valid in that country |
+| `PhoneNumber\Value` implemented `HasParts` | a rule reads the parts from `PhoneNumber\Input` |
+| `when(PartScope::of('phone', 'number'))->equals('0411 222 333')` never held — the part is E.164 | holds: the expectation is read in the submitted country |
+
+**`CreditCard`** reads its parts first, and its name becomes optional.
+
+| Was | Is |
+| --- | --- |
+| a number, an expiry and a name were required | a number and an expiry. The name is optional by default, like the security code; `makeNameRequired()` and `makeSecurityCodeRequired()` demand them, as the constraints `nameRequired` and `securityCodeRequired` against the part |
+| `numberRequired`, `expiryRequired`, `numberFormat`, `numberChecksum` and `securityCodeFormat` were constraints | reported while assembling; the result is incomplete and the expiry is not judged |
+| an expiry, name or security code that was sent and unreadable made the field unreadable — or, for a security code, failed a constraint | `expiryFormat`, `nameFormat` or `securityCodeFormat`, against that part |
+| a number that was not a string counted as absent | `numberFormat`: it was sent |
+| `expiryInFuture` and `expiryWithinReach` skipped when there was no expiry | they run only on a whole card, so there always is one |
+| every `CreditCard\Value` part could be null, `lastFourDigits()` returned `?string`, and `isComplete()` said whether the three were there | `$number` and `$expiry` are never null and `lastFourDigits()` returns `string`. `isComplete()` is gone: a value is always complete |
+| `CreditCard\Value::of()` took every part as optional | `of($number, $expiry, $name, $securityCode)`, read the way a form's card is |
+| `CreditCard\Value` implemented `HasParts` | a rule reads the parts from `CreditCard\Input` |
+| the `expiry` part was a `LocalDate`, so no rule about it held | it is a `CreditCard\Expiry`, and `equals('2026-09')` or `isAtLeast('2027-01')` is read as one: a month is its last day on both sides |
+
+**`Address`** reads its parts first, against the submitted country's own format. Only the country
+is essential: how much of an address a field demands is still configuration, through its
+precision floor, so `streetRequired` and its three siblings stay constraints.
+
+| Was | Is |
+| --- | --- |
+| `countryRequired`, `streetLineLimit`, `knownSubdivision` and the four `*Used` were constraints | reported while assembling, against the submitted country's format — whether or not this field takes that country |
+| `postalCodeFormat` was a constraint | likewise: a postcode Australia's pattern refuses is not an Australian postcode on any field |
+| a part sent blank, a street that was not a list of lines, or a country that is not one made the field unreadable | `streetFormat`, `localityFormat`, `dependentLocalityFormat`, `knownSubdivision`, `postalCodeFormat` or `knownCountry`, against that part |
+| a part that was not text at all — `'locality' => 42` — was read as absent | wrong, the same way as a blank one: it was sent |
+| on a field allowing one country, the `*Used`, `postalCodeFormat` and `streetLineLimit` constraints declared that country's answer as their bound | read it from `requirementsFor()`, the one accessor for a country's format; a failure still carries the bound that applied |
+| `Address\Value::$countryCode` could be null | never null; `new Address\Value('AU', ['1 Denham St'], …)` refuses a country that is not an alpha-2 code |
+| `new Address\Value((object) [...])` read a record | `Address\Value::of(...)` for one written by hand; `Address\Input` reads a record, so a stored `toArray()` is read back with `(new Address\Input((object) $array))->value` |
+| `Address\Value` implemented `HasParts`, with `parts()` and `canonicalPartValue()` | a rule reads the parts from `Address\Input`, which canonicalises the country and subdivision the same way |
+
+The constraints that remain wait for a whole address, so a state typed into a New Zealand address
+on an Australia-only field reports `subdivisionUsed` first and `allowedCountries` on the next
+submission. A constraint will run as soon as the parts it reads are sound from `2.1` — see
+[ROADMAP.md](docs/ROADMAP.md#constraints-that-run-when-their-parts-are-ready) — so do not count on
+every constraint being skipped while a value is incomplete, only on a skipped one meaning it could
+not be judged yet.
+
+**`File`** reads its three parts first.
+
+| Was | Is |
+| --- | --- |
+| a part absent, `null`, empty or not a whole number of bytes made the field unreadable | `nameRequired`, `typeRequired`, `sizeRequired`, `nameFormat`, `typeFormat` or `sizeFormat`, against that part |
+| `new File\Value((object) [...])` read a record | `new File\Value($name, $type, $size)`, or `File\Value::of()` as before; `File\Input` reads a record |
+| `File\Value` implemented `HasParts` | a rule reads the parts from `File\Input` |
+| the `size` part was an `int`, so `isAtMost(1048576)` against it never held | it is a `File\Size`, and `1048576` or `'1048576'` is read as one |
+
+`minSize`, `maxSize`, `allowedTypes` and `disallowedTypes` are unchanged, and still about the upload
+as a whole.
+
+**Every record-shaped field has moved,** so `HasParts` is gone. Its `parts()` and
+`canonicalPartValue()` are part of `Field\Input`, and a part scope always reads an input. A field
+of your own whose value implemented `HasParts` returns an input from `parse()` instead — see
+[FIELD-API.md](docs/FIELD-API.md#a-value-made-of-parts).
 
 ### A required part that was not sent names itself
 
 Every record-shaped field now answers the same three questions the same way. A **required** part
-that is absent, or present and `null`, fails that part's own `*Required` constraint and carries
-the part on the verdict, so a form can mark the box. A part that was *sent* and holds nothing is
-a shape failure — `''` was a decision somebody made, and reading it as absence would let
+that is absent, or present and `null`, is reported under that part's own `*Required` code and
+carries the part, so a form can mark the box. A part that was *sent* and holds nothing is wrong
+rather than absent — `''` was a decision somebody made, and reading it as absence would let
 whitespace satisfy a requiredness check.
 
 `Address` already behaved this way. `Money`, `CreditCard` and `PhoneNumber` collapsed all three
 cases into "unreadable", which is why a port could not tell "you left the amount out" from "the
 amount is gibberish", and could not mark anything, since no part was named.
 
-| Field | New constraints |
-| --- | --- |
-| `Money` | `currencyRequired`, `amountRequired` |
-| `CreditCard` | `numberRequired`, `expiryRequired`, `nameRequired` |
-| `PhoneNumber` | `numberRequired` |
+| Field | New codes | Reported |
+| --- | --- | --- |
+| `Money` | `currencyRequired`, `amountRequired` — and `currencyFormat`, `amountFormat` for a half that was sent and is not one | while the value is assembled: [see above](#a-value-made-of-parts-is-assembled-before-it-is-judged) |
+| `CreditCard` | `numberRequired`, `expiryRequired` — and a `*Format` code for any part that was sent and is not one | while the value is assembled |
+| `PhoneNumber` | `numberRequired` — and `numberFormat` for a number that was sent and is not one | while the value is assembled |
 
-**`CreditCard::expiryFormat` is gone.** An expiry that was given and cannot be read is now a
-shape failure, the same way a bad amount already was on `Money`, so the constraint had nothing
-left to say that `expiryRequired` does not. A message pack with wording for `expiryFormat` keeps
-working — an unused key is not an error — but nothing will read it.
+**A card's name is optional by default,** like its security code: plenty of flows never ask for
+either, and a card is a card without them. A flow that does ask says so with
+`makeNameRequired()` or `makeSecurityCodeRequired()`, and a missing one fails `nameRequired` or
+`securityCodeRequired` against that part. Those are constraints rather than assembly, because
+another field may decline them, so they are judged once there is a whole card. A name that *was*
+sent still has to hold text, or it is `nameFormat`.
 
-**`PhoneNumber` has no `countryRequired`,** and that is deliberate rather than an oversight.
-libphonenumber cannot parse a number without a region, and `0411 222 333` is a different number
-in a different country, so a phone number with no country is refused exactly as an address with
-no country is. The number is the half that reports.
+**`PhoneNumber` and `Address` report a missing country too,** as `countryRequired` — see the
+next section, which is where that changed.
 
-**`File` is unchanged.** Its `name`, `type` and `size` are one upload's metadata rather than
-three inputs a form renders — no page has a "file type" box to mark — so `*Required` constraints
-there would have added three names nothing can act on.
+**`File` names its parts too, now.** An earlier alpha left it out, on the grounds that `name`,
+`type` and `size` are one upload's metadata rather than three inputs a form renders — no page has a
+"file type" box to mark. That is still true of the form, and a renderer shows these beside its one
+file input. What changed is that a missing part is part of whether there is an upload at all, and
+the code says which part a port's upload handling failed to supply.
 
 ### A missing country names the country box
 
@@ -334,27 +521,25 @@ $schema->validate((object) ['billing' => (object) [
 ]]);
 
 // before — shape unreadable, no part named: "That is not a valid address."
-// now    — countryRequired fails on part `country`:  "Choose a country."
+// now    — incomplete; countryRequired on part `country`:  "Choose a country."
 ```
 
 The reasoning that put it there was that a country gives the rest of an address its meaning, so
 there is nothing to report against. That is true, and it is just as true of the currency on
-`Money` — which names the part and *skips* what it cannot judge. Everything read from a
-country's own published format now skips when there is no country, so one mistake earns one
-message.
+`Money` — which names the part and judges nothing it cannot. Everything read from a country's own
+published format is not judged when there is no country, so one mistake earns one message.
 
 **It only shows on a field that allows several countries.** With one allowed country a port
 supplies it and nobody sees the box, which is why this survived two alphas.
 
-Two things did **not** change. A country that was *given* and is not a country —
-`'Zorbia'` — is still unreadable, because that is an answer nothing can use rather than a box
-left empty. And a bare string for a phone number is still a shape failure, because a string
-never described a pair.
+A country that was *given* and is not a country — `'Zorbia'` — is wrong rather than missing: on
+both fields it is `knownCountry`, against the country box. A bare string for a phone number is
+still a shape failure, because a string never described a pair.
 
-`PhoneNumber` gains one more wrinkle worth knowing: with a number but no country,
-`numberRequired` is **skipped** rather than failed. libphonenumber cannot read the number
-without a region, so it is unread — but telling somebody to enter a number they just entered is
-the wrong message. `countryRequired` reports the thing that is actually blocking it.
+`PhoneNumber` gains one more wrinkle worth knowing: with a number but no country, the number is
+**not judged at all**. libphonenumber cannot read it without a region — but telling somebody to
+enter or fix a number they just typed is the wrong message. `countryRequired` reports the thing
+that is actually blocking it.
 
 ### An unrecognised subdivision is reported, not refused
 
@@ -368,17 +553,19 @@ Now the middle two are one: an unrecognised subdivision is kept as submitted and
 ```php
 // AU with subdivision 'ZZ'
 // before — shape unreadable: "That is not a valid address."
-// now    — knownSubdivision fails: "That is not a state we recognise for the country you chose."
+// now    — knownSubdivision, on the subdivision: "That is not a state we recognise for the country you chose."
 ```
 
 For China and Colombia, whose subdivisions carry their own postcode patterns, the postcode is
 still judged — it falls back to the country's own pattern — so a bad state no longer hides a
 bad postcode.
 
-`Address\Value::$subdivision` therefore holds the ISO 3166-2 code when the subdivision resolved
-and the submitted text when it did not. It already behaved that way for Ireland; it is now
-consistent. Rules written against a part are unaffected, because the expectation is
-canonicalised through the same resolver as the stored value.
+`Address\Input::$subdivision` therefore holds the ISO 3166-2 code when the subdivision resolved
+and the submitted text when it did not, and a rule about the part reads it either way.
+`Address\Value::$subdivision` holds the code wherever the country publishes a list — an address
+with an unknown one is not whole — and the text where it does not. Rules written against a part
+are unaffected, because the expectation is canonicalised through the same resolver as the stored
+value.
 ### A record raises on a key it does not declare
 
 **This is the change most likely to break a working port, so read it even if you skip the rest.**
@@ -435,20 +622,20 @@ $schema->validate((object) ['resume' => (object) [
 ```
 
 **What did not change:** a value under a key that *is* declared. `['amount' => 'twelve']` is still
-an ordinary unreadable value, reported as a verdict and rendered from a message pack. The line is
-which keys, not what is in them — only the first can be attributed to the builder without knowing
-the protocol.
+reported as a verdict — `amountFormat`, against the amount — and rendered from a message pack. The
+line is which keys, not what is in them — only the first can be attributed to the builder without
+knowing the protocol.
 
 ### A value reports the parts it is submitted with
 
 | | parts before | parts now |
 | --- | --- | --- |
-| `EmailAddress` | `local_part`, `domain` | **none** — it no longer implements `HasParts` |
+| `EmailAddress` | `local_part`, `domain` | **none** — it is read in one step, so it has no input and no parts |
 | `PhoneNumber` | `country`, `e164` | `number`, `country` |
 
 Both were reporting a *reading* of the value rather than its inputs. An email address is one box
-on a form; `#/fields/email/value/domain` stops resolving, and the field's messages move from a
-`PartedSet` to a `FlatSet`. `$value->localPart` and `$value->domain` are unchanged, and a rule
+on a form; `#/fields/email/value/domain` stops resolving, and the field's failures stop being
+filed under parts. `$value->localPart` and `$value->domain` are unchanged, and a rule
 about a domain was always written as `matches('/@example\.test$/')` rather than through a part.
 
 E.164 was never submitted either. `#/fields/phone/value/e164` stops resolving and
@@ -457,6 +644,41 @@ E.164 was never submitted either. `#/fields/phone/value/e164` stops resolving an
 
 `Api\StructuredTypeTest` holds the rule both ways, so the next value that reports a derived
 reading fails there rather than in a port.
+
+### A code is an enum case, and so is a part
+
+Every field names what it checks with a string-backed enum of its own, and every structured value
+names its parts the same way. The wire names are unchanged — `Text\Check::MinLength` is
+`'minLength'`, `Address\Part::PostalCode` is `'postal_code'` — so a language pack keeps every key.
+
+```php
+// before
+$result->forConstraint('minLength');
+$failed->part === 'postal_code';
+
+// now — a misspelled case does not compile; a misspelled string was a silent null
+$result->forConstraint(Text\Check::MinLength);   // the wire name still works too
+$failed->part === Address\Part::PostalCode;      // `->part?->value` for the string
+```
+
+What changed underneath:
+
+- `ConstraintValidationResult` and `Constraint` carry `$code`, the enum case. `$name` is still
+  there and is the case's value; `$part` is read from the code, so it is `?Field\Part` rather
+  than `?string`.
+- **Writing a field:** `new Constraint(Text\Check::MinLength, …)` replaces
+  `new Constraint('minLength', …)`, the `part:` argument is gone — a code declares its own part —
+  and a field lists its codes by overriding `declaredChecks()`. A structured field lists its parts
+  with `declaredParts()`. See [EXTENDING.md](docs/EXTENDING.md).
+- `HasParts::partNames()` and `HasParts::listParts()` are gone, and so is `HasParts`. Read
+  `$field->parts` and `Field\Part::isList()`; `canonicalPartValue()`, on `Field\Input` now, takes
+  the `Field\Part` case.
+- `Field\ValueClass::hasParts()`, `partNamesOf()` and `listPartsOf()` are gone: `$field->parts`
+  answers all three.
+- New on every field: `$parts`, `$essentialParts` and `$checks`.
+- A part scope takes the case as well: `PartScope::of('billing', Address\Part::Country)` and
+  `ValueScope::of('billing', Address\Part::Country)`. The wire name still works, and is what a
+  stored scope holds.
 
 ### Rules
 
@@ -562,13 +784,15 @@ A key that is not a part is now refused by name. That is deliberate: a caller st
 `line1` would otherwise build an address with no street at all and be told "street is
 required", which names the symptom and hides the stale key.
 
-**Constraints.** `specific` → `streetRequired`, `line1Visitable` → `streetVisitable`,
+**Codes.** `specific` → `streetRequired`, `line1Visitable` → `streetVisitable`,
 `administrativeArea` → `knownSubdivision`. New: `streetLineLimit`, `localityRequired`,
-`subdivisionRequired`, `postalCodeRequired`, and four that report a part the submitted
+`subdivisionRequired`, `postalCodeRequired`, four that report a part the submitted
 country has no place for — `localityUsed`, `dependentLocalityUsed`, `subdivisionUsed`,
-`postalCodeUsed`. There is no `streetUsed`: all 206 countries use a street. The generated message-key list
-changes with them — `vendor/bin/schema-lang keys` prints the new set, and your `.mfr` packs
-need updating. None are bundled here.
+`postalCodeUsed` — and, for parts sent holding nothing, `streetFormat`, `localityFormat` and
+`dependentLocalityFormat`. There is no `streetUsed`: all 206 countries use a street. Which step
+reports each is [above](#a-value-made-of-parts-is-assembled-before-it-is-judged). The generated
+message-key list changes with them — `vendor/bin/schema-lang keys` prints the new set, and your
+`.mfr` packs need updating. None are bundled here.
 
 **Migrating stored addresses.** Three of these change persisted values, not just calls:
 
@@ -577,9 +801,9 @@ need updating. None are bundled here.
 - `organization` moves out of the address.
 
 **If you write a port, you now have an obligation**: omit a part you have no value for, and
-never submit `''`. An HTML form that posts empty strings for untouched inputs will make every
-such address unreadable, and the requiredness constraints will never fire — the submitter gets
-"this address cannot be read" instead of "suburb is required". Normalising request input was
+never submit `''`. An HTML form that posts empty strings for untouched inputs reports every such
+part as wrong, and the requiredness constraints never get to run — the submitter gets "that is
+not a valid suburb" instead of "suburb is required". Normalising request input was
 already a port's job; this makes it a requirement. Since the core no longer normalises
 anything, tidying is yours too: trimming, collapsing blank lines, and splitting a textarea into
 the list. There is no standard normal form for an address line, so any rule you choose is a

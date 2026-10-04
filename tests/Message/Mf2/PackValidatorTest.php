@@ -150,7 +150,11 @@ final class PackValidatorTest extends TestCase
 	{
 		// So it cannot go stale. A constraint added to a field is a key a pack may define the same
 		// day, with nothing here to update.
-		$this->assertContains('minLength', Vocabulary::constraintNames());
+		$this->assertContains('minLength', Vocabulary::checkNames());
+		// A code reported before any constraint runs is in the vocabulary all the same: a pack
+		// words it under the same keys whichever step reports it.
+		$this->assertContains('amountRequired', Vocabulary::checkNames());
+		$this->assertContains('Money.amount.amountFormat', Vocabulary::keys());
 		$this->assertContains('Address', Vocabulary::kinds());
 		$this->assertContains('postal_code', Vocabulary::partNames());
 		$this->assertContains('Address.postal_code.postalCodeFormat', Vocabulary::keys());

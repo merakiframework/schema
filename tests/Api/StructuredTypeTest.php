@@ -200,7 +200,7 @@ final class StructuredTypeTest extends TestCase
 		$failed = $address->validate(self::area())->forConstraint('streetRequired');
 
 		$this->assertTrue($failed->failed());
-		$this->assertSame('street', $failed->part);
+		$this->assertSame(Field\Address\Part::Street, $failed->part);
 	}
 
 	#[Test]
@@ -291,19 +291,23 @@ final class StructuredTypeTest extends TestCase
 		// as true of the currency on `Money`, which has always named the part instead. The
 		// case that settles it is a field allowing several countries, where the country is a
 		// box somebody fills in rather than one the port supplies.
-		$this->assertTrue($resolved->shape->passed());
-		$this->assertTrue($resolved->forConstraint('countryRequired')->failed());
-		$this->assertSame('country', $resolved->forConstraint('countryRequired')->part);
+		$this->assertTrue($resolved->wasIncomplete());
+		$this->assertSame([Field\Address\Part::Country], $resolved->missingParts);
 
-		// Everything read from a country's own format has nothing to read, so it skips rather
-		// than guessing — one mistake, one message.
-		foreach (['streetRequired', 'localityRequired', 'postalCodeFormat', 'knownSubdivision'] as $name) {
-			$this->assertTrue($resolved->forConstraint($name)->skipped(), $name);
-		}
+		// Everything read from a country's own format has nothing to read, so nothing else is
+		// said — one mistake, one message — and no constraint runs without an address.
+		$this->assertSame(
+			[Field\Address\Check::CountryRequired],
+			array_map(static fn(Field\Violation $violation): Field\Check => $violation->code, iterator_to_array($resolved->violations)),
+		);
+		$this->assertTrue($resolved->constraints->allSkipped());
 
-		// A country that *was* given and is not one stays unreadable: that is an answer
-		// nothing can use, not a box left empty.
-		$this->assertTrue($address->validate((object) ['locality' => 'X', 'country' => 'Zorbia'])->shape->wasUnreadable());
+		// A country that *was* given and is not one is wrong rather than missing: that is an
+		// answer nothing can use, not a box left empty.
+		$zorbia = $address->validate((object) ['locality' => 'X', 'country' => 'Zorbia']);
+
+		$this->assertSame(Field\Address\Check::KnownCountry, $zorbia->violations->first()?->code);
+		$this->assertSame([], $zorbia->missingParts);
 
 		// And with one, it is stored as the code whatever spelling arrived.
 		$this->assertSame('AU', $address->validate(self::auAddress(['country' => 'Australia']))->value->countryCode);
@@ -324,15 +328,18 @@ final class StructuredTypeTest extends TestCase
 	#[DataProvider('recordPayloads')]
 	public function every_part_a_value_reports_is_a_key_it_is_submitted_with(Field $field, object $payload): void
 	{
-		$declared = Field\ValueClass::partNamesOf($field);
+		$declared = array_column($field->parts, 'value');
 		$undeliverable = array_values(array_diff($declared, array_keys(get_object_vars($payload))));
 
 		$this->assertNotSame([], $declared, $field::class . ' should report parts.');
 		$this->assertSame([], $undeliverable, sprintf('%s declares parts nothing can submit.', $field::class));
 
-		// And a resolved value agrees with the declaration, in the declared order — which is the
-		// order a PartedSet reads its sentences in.
-		$this->assertSame($declared, array_keys($field->resolve($payload)->value->parts()));
+		// And what a rule reads parts from — the field's input — agrees with the declaration, in
+		// the declared order, which is the order violations are read in.
+		$input = $field->resolvedInputFor($payload);
+
+		$this->assertInstanceOf(Field\Input::class, $input);
+		$this->assertSame($declared, array_keys($input->parts()));
 	}
 
 	/** @return iterable<string, array{Field, object}> */
@@ -377,12 +384,56 @@ final class StructuredTypeTest extends TestCase
 		$reporting = [];
 
 		foreach (SealedFieldTest::fields() as $short => [$class]) {
-			if (Field\ValueClass::hasParts(self::build($class))) {
+			if (self::build($class)->parts !== []) {
 				$reporting[] = $short;
 			}
 		}
 
 		$this->assertSame(['Address', 'CreditCard', 'File', 'Money', 'PhoneNumber'], $reporting);
+	}
+
+	/**
+	 * What a value cannot be without is declared by its part enum, and read off the field.
+	 *
+	 * A fact about the kind of value rather than configuration, so it is the same on every field of
+	 * a kind and no wither changes it. A port reads it to know which inputs are required together.
+	 *
+	 * @param class-string<Field> $class
+	 * @param list<Field\Part> $essential
+	 */
+	#[Test]
+	#[DataProvider('essentialParts')]
+	public function a_field_declares_the_parts_its_value_cannot_be_without(string $class, array $essential): void
+	{
+		$field = self::build($class);
+
+		$this->assertSame($essential, $field->essentialParts);
+		$this->assertSame($essential, $field->makeOptional()->essentialParts, 'an optional field still needs them together');
+	}
+
+	/** @return iterable<string, array{class-string<Field>, list<Field\Part>}> */
+	public static function essentialParts(): iterable
+	{
+		yield 'Address' => [Field\Address::class, [Field\Address\Part::Country]];
+		yield 'CreditCard' => [Field\CreditCard::class, [Field\CreditCard\Part::Number, Field\CreditCard\Part::Expiry]];
+		yield 'File' => [Field\File::class, [Field\File\Part::Name, Field\File\Part::Type, Field\File\Part::Size]];
+		yield 'Money' => [Field\Money::class, [Field\Money\Part::Currency, Field\Money\Part::Amount]];
+		yield 'PhoneNumber' => [Field\PhoneNumber::class, [Field\PhoneNumber\Part::Number, Field\PhoneNumber\Part::Country]];
+		yield 'Text' => [Field\Text::class, []];
+	}
+
+	/**
+	 * A part's name is the case's value and a string: the key input arrives under, and the
+	 * `part.*` key a language pack translates.
+	 */
+	#[Test]
+	public function every_part_is_named_by_a_string(): void
+	{
+		foreach (SealedFieldTest::fields() as [$class]) {
+			foreach (self::build($class)->parts as $part) {
+				$this->assertIsString($part->value, sprintf('%s::%s', $part::class, $part->name));
+			}
+		}
 	}
 
 	/** @param class-string<Field> $class */

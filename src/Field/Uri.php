@@ -157,10 +157,15 @@ final readonly class Uri extends AtomicField
 	protected function defineConstraints(): Constraint\Set
 	{
 		return new Constraint\Set(
-			new Constraint('minLength', $this->meetsMinimumLength(...), $this->minLength),
-			new Constraint('maxLength', $this->meetsMaximumLength(...), $this->maxLength),
-			new Constraint('allowedSchemes', $this->isAnAllowedScheme(...), $this->allowedSchemes),
+			new Constraint(Uri\Check::MinLength, $this->meetsMinimumLength(...), $this->minLength),
+			new Constraint(Uri\Check::MaxLength, $this->meetsMaximumLength(...), $this->maxLength),
+			new Constraint(Uri\Check::AllowedSchemes, $this->isAnAllowedScheme(...), $this->allowedSchemes),
 		);
+	}
+
+	protected static function declaredChecks(): array
+	{
+		return Uri\Check::cases();
 	}
 
 	private function meetsMinimumLength(Value $parsed): bool

@@ -10,6 +10,528 @@ is a commit subject, with the body kept because the body is where the reasoning 
 
 ## Unreleased
 
+### The docs say what the code does after assembly
+
+`5b292a6a` · 2026-10-04
+
+A pass over every page against the code, with links, anchors, method
+names and class names checked mechanically, and the README examples run.
+What it found:
+
+- README and DESIGN showed a collection submitted as [$row, $row]; a
+  positional list has been refused since rows were named. DESIGN and a
+  Definition docblock named a row 'line item 1', which is not a name.
+- UPGRADING said every stored document still loads. Three things in a
+  stored rule are now refused where the rule is added: an Address part
+  under its 1.x name, a reading that stopped being a part (e164,
+  local_part, domain), and a whole value compared against half of one.
+- API showed a constraint by name and a part as a string; it is a code
+  and a Field\Part case. Trust did not say a prefill must be whole, and
+  precedence did not say an empty record is nothing submitted.
+- EXTENDING said "two optional interfaces" over a list of three, and did
+  not say how a part a rule should order is typed.
+- FIELD-API's example check named a method Text does not have.
+- DEVELOPER's field directory gains the part type, Money\Amount.
+
+### Promise only that a constraint that cannot be judged yet is skipped
+
+`d4706704` · 2026-10-04
+
+While a value is incomplete every constraint waits for the whole value,
+and the docs promised exactly that: "every constraint skipped", "no
+constraint runs". Letting a constraint run as soon as the parts it reads
+are sound is decided for 2.1, and against that wording it would have
+been a break: a consumer counting on every constraint skipping would
+see one run.
+
+The contract now says what both behaviours keep: a constraint that
+cannot be judged yet is skipped, which in 2.0 is every one. FIELD-API,
+API, DESIGN, DEVELOPER's invariant 4 and UPGRADING say so; ROADMAP
+records the decision and lists it under 2.1. Missing and unreadable
+still skip every constraint, since there is nothing to judge at all.
+Behaviour is unchanged.
+
+### A card field may demand the cardholder's name and the security code
+
+`62b28067` · 2026-10-04
+
+The name became optional when a card started being assembled before it
+is judged: a card is a card without one, so nameRequired could not be
+assembly. But a flow that charges a card often does want both, and had
+no way left to say so.
+
+makeNameRequired() and makeSecurityCodeRequired() say it, and
+makeNameOptional() and makeSecurityCodeOptional() take it back. Each
+sets a property named for its constraint, nameRequired and
+securityCodeRequired, both off by default. They are constraints rather
+than assembly because another field may decline them: judged once there
+is a whole card, reported against the part, skipped unless asked for,
+and switchable by a rule for one request. A missing name or code does
+not make the card incomplete or list the part as missing.
+
+### Update history
+
+`253f246b` · 2026-10-04
+
+### A rule about an amount, an expiry or a size compares it as one
+
+`5aad91ee` · 2026-10-04
+
+Money's amount, a card's expiry and a file's size were a BigDecimal, a
+LocalDate and an int, and a part scope resolves to whatever the input
+holds. Equality asked an object that is not this library's and got
+false; the ordered verbs needed a Comparable and were handed the
+expectation as written. So when(PartScope::of('price', 'amount'))
+->isAtLeast(10) was accepted where it was written and never held (B11).
+
+Each of the three parts now holds a type of its own field's:
+Money\Amount, CreditCard\Expiry and File\Size, each knowing its
+equality and its order and printable for the textual verbs. They are
+per field rather than Number\Value or Date\Value, because sibling field
+types share no code. Each input reads a rule's expectation into the
+same type through canonicalPartValue(), so isAtLeast(10) compares two
+amounts, equals('2026-09') two expiries (a month is its last day on
+both sides), and '1048576' a size. The ordered verbs read a part's
+expectation through the input, as equality already did; an amount is
+not ranked against anything that is not one.
+
+An expectation a part cannot read still compares as written and never
+holds; refusing it where the rule is written needs each part to declare
+what it holds, and LIMITATIONS says so.
+
+### A record with nothing in it is nothing submitted
+
+`31d5dbbc` · 2026-10-04
+
+A form that renders one box per part and was left alone submits every
+part empty: {} from a JSON client, or every part null from a port that
+builds the record anyway. Each record field's input refused that as
+unreadable, so it counted as an attempt. A prefill lost to it, the
+authored default never stood in, and an optional field failed for being
+left alone.
+
+Absence is now the field's to say, through Field::treatsAsAbsent(): null
+for every field, and for a field with parts, a record of its declared
+parts with none of them in it. rawFor() and sourceOf() ask it, so the
+default stands in and the source says so; the schema asks it when it
+chooses between what was submitted and what was prefilled, so a prefill
+wins over an empty record as it does over null. What was sent still
+reaches the result as $given.
+
+A record holding a key the value does not declare is never absent, even
+when that key is null: it is the port that is wrong, and the input
+still refuses it. A part sent as '' or [] was sent, so a record holding
+one is read and that part reported. defaultsTo() with an empty record
+raises InvalidDefault::saysNothing(), since it would be a default of
+nothing.
+
+The five inputs drop their own empty-record refusals, which this makes
+unreachable from a field; read directly, an empty record is every
+essential part missing.
+
+### A record read part by part is one interface, not two
+
+`4fcb1749` · 2026-10-04
+
+Field\Input extended HasParts, and once every record field had moved its
+parts onto its input nothing implemented HasParts on its own: one
+contract with two names, and a reader of Input had to open a second file
+to find out what a part scope calls on it.
+
+parts() and canonicalPartValue() are declared on Input now, with the
+part-naming rules HasParts documented. HasParts is deleted. The resolver
+and the comparison already took an Input, so nothing calls differently;
+a custom field implements one interface where it implemented two.
+
+### Update history
+
+`7727e3db` · 2026-10-03
+
+### A part scope takes the part's case, so a rule names a part without a string
+
+`314a1f04` · 2026-10-03
+
+Parts became enum cases, and the one place code still wrote a part as a
+string was the scope a rule reads it through: ValueScope::of('billing',
+'country'). A misspelling there is refused where the rule is added, but
+a case cannot be misspelled at all.
+
+PartScope::of() and ValueScope::of() take a Field\Part as well as the
+wire name, and store the wire name, which is what a serialised scope
+holds. The README, API, cookbook and comparing-fields example now name
+parts by case.
+
+### An upload is described whole before anything judges it
+
+`73315891` · 2026-10-03
+
+File\Value refused a description with a part missing, null, empty or
+not a whole number of bytes outright, so the field came back unreadable
+and a port could not tell which part of its upload handling had failed
+to supply what.
+
+File now reads its parts into File\Input, the last of the five record
+fields to do so: nameRequired, typeRequired and sizeRequired for a part
+not sent, and nameFormat, typeFormat and sizeFormat for one sent and
+unreadable, each against its part. An earlier alpha left these out
+because no form draws a box for a file's type. That is still true, and a
+renderer shows them beside the one file input; but a missing part is
+part of whether there is an upload at all. minSize, maxSize,
+allowedTypes and disallowedTypes are unchanged and still about the
+upload as a whole, handed a File\Value whose parts are never null.
+
+With every record field moved, no value implements HasParts any more, so
+the resolver's fallback to a value's parts is gone: a part scope reads
+the field's input, through ScopeResolver::inputFor(). A custom field
+that wants its parts addressable returns an Input from parse().
+
+FileTest's "missing its name" cases were arrays, which are lists, so
+they were testing an unreadable list rather than a missing part; the
+record cases are new, beside them.
+
+### Update history
+
+`a8a4f22e` · 2026-10-03
+
+### An address is read against its own country before anything judges it
+
+`4e28ba4c` · 2026-10-03
+
+Address\Value held every part as nullable, the country included, and a
+part its country could not read was judged by a constraint that first
+had to ask whether there was a country, and then whether the field took
+that country, before it could say anything. A part sent blank, a street
+that was not a list of lines, or a country that was not one made the
+whole address unreadable with no box named.
+
+Address now reads its parts into Address\Input, against the submitted
+country's own published format. The country is the one essential part.
+Whether each part is one that country has a place for and can read is
+assembly - countryRequired, knownCountry, streetFormat, streetLineLimit,
+the four *Used codes, knownSubdivision, postalCodeFormat, and new
+localityFormat and dependentLocalityFormat for a part sent holding
+nothing - because a postcode Australia's pattern refuses is not an
+Australian postcode on any field. The country is read first, and without
+one nothing read from its format is judged.
+
+What a field demands stays configuration: allowedCountries,
+streetVisitable and the four *Required, through the precision floor, are
+the constraints, handed an Address\Value whose country is never null.
+The bounds the *Used, postalCodeFormat and streetLineLimit constraints
+declared on a single-country field are read from requirementsFor() now,
+the one accessor for a country's format.
+
+The constraints wait for a whole address, so a state typed into a New
+Zealand address on an Australia-only field reports subdivisionUsed
+before allowedCountries. A test pins that, with a pointer to the open
+decision in ROADMAP.md about letting a constraint run once the parts it
+reads are sound.
+
+Address\ValueTest tested reading a record, which is the input's job
+now; it is split into InputTest and a ValueTest for the whole value.
+
+### Update history
+
+`60d22a6c` · 2026-10-03
+
+### A card is whole before anything judges it, and its name is optional
+
+`6b34a33c` · 2026-10-03
+
+CreditCard\Value held every part as nullable, and a required name sat
+beside the number and the expiry even though plenty of flows never ask
+for one. An expiry or a security code that was sent and unreadable made
+the whole card unreadable, or failed a constraint that then had to skip
+itself whenever a part was missing.
+
+CreditCard now reads its parts into CreditCard\Input. A card is a number
+and an expiry: numberRequired and expiryRequired are assembly, beside
+numberFormat, numberChecksum, expiryFormat, nameFormat and
+securityCodeFormat, every one reported against its own part. The name is
+optional like the security code, so nameRequired is gone; sent, either
+still has to be readable. No configuration changes any of these, so a
+card failing Luhn is not a card on any field.
+
+The two checks that ask what day it is, expiryInFuture and
+expiryWithinReach, stay constraints, so a default is never refused for
+an expiry that was fine when the schema was written. They are handed a
+whole CreditCard\Value, whose number and expiry are never null;
+lastFourDigits() returns a string, isComplete() is gone because a value
+always is, and Value::of() reads its arguments through the input so its
+refusals name codes and never what was typed.
+
+The developer guide's request walkthrough used the missing name as its
+one real problem; it now walks a card whose expiry is month 13, which
+shows the new step.
+
+### A phone number is read in its country before anything judges it
+
+`622275ec` · 2026-10-03
+
+PhoneNumber\Value held a nullable number and a nullable country, and
+anything wrong with a half that was sent - a blank number, a number valid
+only elsewhere, a country that is not a region - made the whole field
+unreadable with no box named.
+
+PhoneNumber now reads its halves into PhoneNumber\Input, the country
+first, because a number is only a number in one. numberRequired and
+countryRequired move to assembly, beside three new codes: numberFormat
+for a number that is not one, numberInCountry for one that is not valid
+in the submitted country (with the country as its bound, so a message can
+name it), and knownCountry for a country that is not a region. With no
+usable country the number is not judged at all: telling somebody to fix
+a number they typed correctly is the wrong message, and the country is
+what is in the way. The constraints, allowedCountries and numberType,
+are handed a whole PhoneNumber\Value, whose halves are never null.
+
+A rule about the number part compared its E.164 against whatever the
+rule was written with, so equals('0411 222 333') never held. The input
+reads the expectation in the submitted country now, and a rule about the
+country holds while the number is still empty.
+
+Three docblocks on the field still described the allow-list supplying
+the region for national numbers, which stopped being true when the
+country became part of the record.
+
+### Update history
+
+`d860406e` · 2026-10-03
+
+### Money is whole before anything judges it, and only real currencies pass
+
+`9e455250` · 2026-10-03
+
+Money\Value held a nullable currency and a nullable amount, so every
+constraint on it began by asking which half was there, and a blank or
+malformed half made the whole field unreadable with no box named.
+
+Money now reads its halves into Money\Input. currencyRequired and
+amountRequired move from the constraints to assembly, and a half that
+was sent and is not one is reported as currencyFormat or amountFormat
+against that half. Both halves are read whatever happens to the other,
+so a form hears about both at once. The constraints are handed a whole
+Money\Value, whose halves are never null.
+
+An unrestricted field took any three letters. It now reports
+knownCurrency for a code ISO 4217 does not describe. A code the standard
+does not describe is taken when it is named with its scale,
+allowCurrencies(['BTC' => 8]), because writing the scale out is the
+author vouching for it; a bare ['BTC'] is still refused.
+
+The language-pack vocabulary read codes from the constraints, so the
+codes that moved to assembly would have dropped out of it. It reads
+$field->checks now, and its methods are named for checks.
+
+A rule about the currency reads the input, so it holds while the amount
+is still empty, and compares in the stored spelling: equals('aud') on
+the currency part never held before. A rule about the amount part still
+never holds, before or after: it is a BigDecimal the rule engine cannot
+compare. That is B11 in LIMITATIONS.md, with a reproducer, and is left
+for a decision.
+
+ConstraintNameTest asserted a skipped verdict's name, because the
+wither's copy was thrown away; it is kept now and the failure asserted.
+
+### A value made of parts is assembled before any constraint judges it
+
+`fc0aaf26` · 2026-10-03
+
+Submitted input had two outcomes: a value, or nothing readable. A
+record that arrived half-filled had to be one or the other, so a
+structured value carried nullable halves, and every constraint began by
+asking which half was there.
+
+Now parse() may return a Field\Input: the parts as read, what stops them
+making a value, and the value when nothing does. The lifecycle assembles
+it between reading and the constraints. When the parts make no value the
+shape is incomplete (wasIncomplete(), $missingParts), the parts' own
+violations are the whole report, and no constraint runs. Trust waives
+constraints, never assembly, and a default whose parts make no value is
+refused where it is written.
+
+A rule about one part reads the input (resolvedInputFor()), so it holds
+on a half-filled form; a row's part is read from what the row submitted.
+A rule about the whole value reads the assembled one, and comparing it
+against half of one is refused when the rule is added, because it could
+only ever match nothing.
+
+No shipped field returns an input yet. They move one at a time, Money
+first. tests/Field/Fixture/Span is a complete example, and the lifecycle
+is tested against it, so moving a field cannot move those tests.
+
+Password reads through AtomicField::read(), now protected and final,
+instead of keeping its own copy. InconsistentInput is raised for an input
+that reports nothing wrong and makes nothing: a bug no submitter can
+cause, and an "incomplete" verdict nobody could explain.
+
+### Update history
+
+`8c2b7062` · 2026-10-03
+
+### Every failure is a violation, and the sentence is the last thing it carries
+
+`a47540f1` · 2026-10-03
+
+A result reported failures in two places that did not meet. The verdicts
+said what failed and where; the message set said what to tell somebody,
+and held nothing else. So a form with no language pack installed knew a
+postcode had failed but could not be handed one list of what to mark, and
+a form with a pack got sentences it could not attach to anything without
+going back to match constraint names.
+
+Now every failure is a Field\Violation -- its code, the part it
+concerns, the bound and, when the request passed a provider, the sentence
+-- whichever step found it. $result->violations holds them in one order
+whatever ran first: the value as a whole, then each part as the value
+declares them. Violations reads like an array and refuses to be written
+to (Exception\ReadOnlyResult), first() is a method because it asks a
+question, and forPart() takes a Part case, so a misspelt part never gets
+as far as asking.
+
+ShapeProblem becomes a backed enum implementing Check, so "nothing
+arrived" and "nothing readable" are violations too, under the same
+shape.* keys a pack already writes. That collapses Message\Translator to
+one method, forViolation(), where forShape() and forConstraint() would
+have needed a third the day a third kind of failure arrived -- which the
+assembly step is about to be.
+
+$field->resultIn($results) finds a field's own result in a schema's
+results or a collection row's, by the field rather than by a string.
+Password and Collection narrow it to their own result types, so the
+entropy and the rows are typed by PHP rather than by a docblock.
+
+Removed: $result->messages, Message\Set, FlatSet and PartedSet. A
+violation deliberately carries no copy of what was submitted: $given
+already has it, and duplicating it would put card numbers and passwords
+into the objects most likely to be logged.
+
+### Every check is an enum case, and so is every part
+
+`8f04c5b2` · 2026-10-03
+
+A field named what it checks with a string typed at the point of use --
+new Constraint('minLength', ...) -- and a structured value listed its
+parts as strings from two static methods. A typo in either was a silent
+null: forConstraint('minLenght') answered exactly like a constraint the
+field does not have.
+
+Now each field declares a string-backed enum implementing Field\Check,
+and each structured value one implementing Field\Part. Both interfaces
+extend BackedEnum, so PHP itself refuses anything that is not an enum.
+The wire names are the case values and are unchanged, so no language pack
+key moves.
+
+- A Check case declares the part it concerns, so Constraint loses its
+  part argument: a check cannot be declared about one part and reported
+  against another. ConstraintValidationResult carries the code; its name
+  and part are read from it.
+- A Part case declares whether no value can exist without it and whether
+  it holds a list. HasParts::partNames() and listParts(), and ValueClass's
+  three helpers built on them, are replaced by $field->parts.
+- Every field gains $parts, $essentialParts and $checks, read once from
+  its enums. $essentialParts is what a port reads to know which inputs a
+  value needs together; it is a fact about the kind of value, so no
+  wither changes it.
+- Lookups take the case or its wire name: a serialised schema and a pack
+  hold names, and code should hold cases.
+
+No behaviour changes. The essential parts mirror what each field
+requires today -- including the card's name, which becomes optional
+when CreditCard moves onto the assembly lifecycle.
+
+phpstan.neon's existing entry for trait-initialised readonly properties
+grows to cover the three new declarations, for the reason it already
+gives.
+
+### Update history
+
+`7550211d` · 2026-10-03
+
+### A value is assembled before it is judged: the decision, written down
+
+`447ffd14` · 2026-10-03
+
+The record for the redesign that follows, before any of it lands, so the
+code can be checked against what was decided rather than the other way
+round.
+
+DESIGN.md gains the decision itself. A structured value is read as an
+input, assembled into a value only when every essential part is there and
+readable, and only then judged by constraints, which therefore never see
+half a value. Checks are sorted by one rule -- no configuration and no
+clock means assembly -- whose corollary is the one the rule engine was
+already meant to obey: rules change what a field accepts, never what
+counts as a value. It separates essential parts, a fact about the kind of
+value, from demanded parts, which are configuration; it makes every
+failure a Violation with a code the field declares as a backed enum; and
+it says why rules still run before the constraints.
+
+ROADMAP.md records the work as in progress, the beta as the point the API
+freezes, and the one decision still open -- whether a constraint waits
+for the whole value or only for the parts it reads -- with worked
+examples, the case each way, and a recommendation. It also collects the
+3.0 direction: AtomicField as an interface with a core runner, attributes
+marking what a property is, checks as methods that ask for a clock, a
+result object per field, matchers per part, conditions that choose what
+they read, and what the split into field packages needs first.
+
+LIMITATIONS.md gains B10, found while working out how per-part
+requirements would compose under rules, and reproduced: two rules that
+each add an entry to the same map-valued property silently keep only the
+second, so Money's AUD minimum vanishes when a USD one is added
+alongside. Documented with its workaround; not fixed here.
+
+### The docblocks that still said a country could not be missing
+
+`11460394` · 2026-10-03
+
+d255398 stopped Address and PhoneNumber refusing a value with no country,
+and left the reasoning for the old behaviour standing in nine places:
+
+- PhoneNumber\Value carried two docblocks on $country, the first still
+  promising it was always present, and its @throws said a missing country
+  was refused.
+- PhoneNumber said the country "has no counterpart" constraint, directly
+  above countryRequired.
+- Requirements::$requiredParts excluded the country "because the value
+  refuses one without it". The exclusion stands; the reason was gone.
+- Address\Value said every part but the country was optional, listed an
+  unresolvable required subdivision among the things it refuses (twice:
+  the constructor and resolveSubdivision()), and claimed subdivision
+  postcode patterns were not read yet, which stopped being true before
+  d255398 too.
+- UPGRADING.md said PhoneNumber has no countryRequired, deliberately,
+  one section before the section that adds it.
+
+Docblocks only. The refusals the constructor still makes are listed as
+they are now: no parts at all, a part sent empty, and a country that was
+given and names none.
+
+### A rule about a subdivision no longer stops a request without a country
+
+`15fd2b95` · 2026-10-03
+
+d255398 let an address arrive without a country, so a form part-way
+through could name the empty box instead of calling the whole address
+unreadable. canonicalPartValue() was not told: it still resolved the
+expectation against the address's country, and a rule such as
+
+    when(PartScope::of('billing', 'subdivision'))->equals('QLD')
+
+handed null to Requirements::subdivisionCodeIn(string), which threw a
+TypeError out of validate() on exactly the half-filled form that commit
+was for. Every subdivision test submitted a country, so nothing caught it.
+
+With no country there is nothing to resolve against, and the stored
+subdivision is already kept as submitted for the same reason, so the
+expectation is now kept as written too. Both sides compare as typed: 'QLD'
+matches 'QLD', and 'Queensland' does not, until a country arrives and
+both are canonicalised again.
+
+### Update history
+
+`3b00acd0` · 2026-10-03
+
 ### A missing country names the country box
 
 `d2553989` · 2026-10-03

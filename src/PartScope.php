@@ -32,16 +32,29 @@ use Meraki\Schema\Exception\InvalidScope;
  */
 final readonly class PartScope extends Scope
 {
-	public function __construct(FieldName|Scope\Locator $in, public string $part)
+	/** The part's wire name — `postal_code` — which is what a stored scope holds. */
+	public string $part;
+
+	/**
+	 * @param Field\Part|string $part the part's case — `Address\Part::PostalCode` — or its wire
+	 *        name, which is what a serialised scope holds. In code, pass the case: a misspelled
+	 *        case does not compile, and a misspelled name is only refused where the rule is added.
+	 */
+	public function __construct(FieldName|Scope\Locator $in, Field\Part|string $part)
 	{
-		if ($part === '') {
+		$this->part = $part instanceof Field\Part ? (string) $part->value : $part;
+
+		if ($this->part === '') {
 			throw InvalidScope::partIsMissing();
 		}
 
 		parent::__construct($in);
 	}
 
-	public static function of(FieldName|string $field, string $part): self
+	/**
+	 *     PartScope::of('billing', Address\Part::Country)   // #/fields/billing/value/country
+	 */
+	public static function of(FieldName|string $field, Field\Part|string $part): self
 	{
 		return new self($field instanceof FieldName ? $field : new FieldName($field), $part);
 	}

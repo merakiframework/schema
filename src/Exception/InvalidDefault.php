@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace Meraki\Schema\Exception;
 
 use Meraki\Schema\Exception;
+use Meraki\Schema\Field\Violation;
 use InvalidArgumentException;
 use Throwable;
 
@@ -30,6 +31,41 @@ final class InvalidDefault extends InvalidArgumentException implements Exception
 		return new self(
 			sprintf('The default for "%s" is not a value it can hold. %s', $field, $why->getMessage()),
 			previous: $why,
+		);
+	}
+
+	/**
+	 * The default is a record whose parts make no value: a currency with no amount, say.
+	 *
+	 * Each problem is named with the part it is about, because that is what the author has to
+	 * edit, and the codes are the ones a request would have been told.
+	 *
+	 * @param non-empty-list<Violation> $violations
+	 */
+	public static function isNotAWholeValue(string $field, array $violations): self
+	{
+		return new self(sprintf(
+			'The default for "%s" does not make a whole value: %s.',
+			$field,
+			implode(', ', array_map(
+				static fn(Violation $violation): string => $violation->part === null
+					? sprintf('"%s"', $violation->name)
+					: sprintf('"%s" on its %s', $violation->name, (string) $violation->part->value),
+				$violations,
+			)),
+		));
+	}
+
+	/**
+	 * The default is a record with no part in it. A request reads that as nothing submitted, so
+	 * as a default it would stand in for nothing with nothing — and keep the author from noticing
+	 * that whatever built it left every part out.
+	 */
+	public static function saysNothing(string $field): self
+	{
+		return new self(
+			"The default for \"{$field}\" is a record with no part in it, which reads as nothing submitted. "
+			. 'Leave the default out, or give it its parts.',
 		);
 	}
 

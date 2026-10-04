@@ -167,12 +167,17 @@ final readonly class Date extends AtomicField
 	protected function defineConstraints(): Constraint\Set
 	{
 		return new Constraint\Set(
-			new Constraint('from', $this->isOnOrAfterFrom(...), $this->from?->__toString()),
-			new Constraint('after', $this->isAfterAfter(...), $this->after?->__toString()),
-			new Constraint('until', $this->isBeforeUntil(...), $this->until?->__toString()),
-			new Constraint('through', $this->isOnOrBeforeThrough(...), $this->through?->__toString()),
-			new Constraint('interval', $this->isOnAnInterval(...), (string) $this->interval),
+			new Constraint(Date\Check::From, $this->isOnOrAfterFrom(...), $this->from?->__toString()),
+			new Constraint(Date\Check::After, $this->isAfterAfter(...), $this->after?->__toString()),
+			new Constraint(Date\Check::Until, $this->isBeforeUntil(...), $this->until?->__toString()),
+			new Constraint(Date\Check::Through, $this->isOnOrBeforeThrough(...), $this->through?->__toString()),
+			new Constraint(Date\Check::Interval, $this->isOnAnInterval(...), (string) $this->interval),
 		);
+	}
+
+	protected static function declaredChecks(): array
+	{
+		return Date\Check::cases();
 	}
 
 	/**

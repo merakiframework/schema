@@ -205,13 +205,18 @@ final readonly class Time extends AtomicField
 	protected function defineConstraints(): Constraint\Set
 	{
 		return new Constraint\Set(
-			new Constraint('from', $this->isOnOrAfterFrom(...), $this->from?->__toString()),
-			new Constraint('after', $this->isAfterAfter(...), $this->after?->__toString()),
-			new Constraint('until', $this->isBeforeUntil(...), $this->until?->__toString()),
-			new Constraint('through', $this->isOnOrBeforeThrough(...), $this->through?->__toString()),
-			new Constraint('interval', $this->isOnAnInterval(...), (string) $this->interval),
-			new Constraint('precision', $this->hasAcceptablePrecision(...), $this->precision->value),
+			new Constraint(Time\Check::From, $this->isOnOrAfterFrom(...), $this->from?->__toString()),
+			new Constraint(Time\Check::After, $this->isAfterAfter(...), $this->after?->__toString()),
+			new Constraint(Time\Check::Until, $this->isBeforeUntil(...), $this->until?->__toString()),
+			new Constraint(Time\Check::Through, $this->isOnOrBeforeThrough(...), $this->through?->__toString()),
+			new Constraint(Time\Check::Interval, $this->isOnAnInterval(...), (string) $this->interval),
+			new Constraint(Time\Check::Precision, $this->hasAcceptablePrecision(...), $this->precision->value),
 		);
+	}
+
+	protected static function declaredChecks(): array
+	{
+		return Time\Check::cases();
 	}
 
 	/**

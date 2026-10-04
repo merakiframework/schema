@@ -24,8 +24,8 @@ final readonly class ValueScope extends Scope
 	/**
 	 * The whole value, or one named part of it.
 	 *
-	 *     ValueScope::of('billing')              // #/fields/billing/value
-	 *     ValueScope::of('billing', 'country')   // #/fields/billing/value/country
+	 *     ValueScope::of('billing')                           // #/fields/billing/value
+	 *     ValueScope::of('billing', Address\Part::Country)    // #/fields/billing/value/country
 	 *
 	 * One entry point, because a part is always *inside* a value and there is nowhere else it
 	 * could hang from. {@see PartScope::of()} still exists for building one directly; this is the
@@ -45,7 +45,7 @@ final readonly class ValueScope extends Scope
 	 *
 	 * @return ($part is null ? ValueScope : PartScope)
 	 */
-	public static function of(FieldName|string $field, ?string $part = null): ValueScope|PartScope
+	public static function of(FieldName|string $field, Field\Part|string|null $part = null): ValueScope|PartScope
 	{
 		$name = $field instanceof FieldName ? $field : new FieldName($field);
 

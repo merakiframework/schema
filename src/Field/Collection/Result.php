@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Field\Collection;
 
+use Meraki\Schema\Field;
 use Meraki\Schema\Field\Collection;
 use Meraki\Schema\Message;
 use Meraki\Schema\ResolvedField;
@@ -102,16 +103,16 @@ final class Result extends ResolvedField
 	}
 
 	/**
-	 * The collection's own messages, and every row's.
+	 * The collection's own violations worded, and every row's.
 	 *
 	 * A collection fails on two axes — the list is too short, *and* the third row's date is in the
 	 * past — and they need different sentences in different places. So this translates the
 	 * collection's own verdicts through the inherited path and then rebuilds every item so each
-	 * field inside a row carries its own messages.
+	 * field inside a row carries its own sentences.
 	 *
 	 * Rebuilt through the constructor rather than cloned piecemeal because the items are also spread
 	 * into `$results`, where they are what makes a failing row fail the collection. Replacing one
-	 * copy and not the other would leave a caller reading the same row twice and getting messages
+	 * copy and not the other would leave a caller reading the same row twice and getting sentences
 	 * only once.
 	 */
 	public function withMessagesFrom(?Message\Translator $translator): static
@@ -140,7 +141,15 @@ final class Result extends ResolvedField
 			...$own,
 		);
 
-		return clone($copy, ['messages' => Message\Set::for($copy, $translator)]);
+		if ($translator === null) {
+			return $copy;
+		}
+
+		$collection = $copy->field;
+
+		return clone($copy, ['violations' => $copy->violations->worded(
+			static fn(Field\Violation $violation): ?string => $translator->forViolation($collection, $violation),
+		)]);
 	}
 
 	/**

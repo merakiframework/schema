@@ -467,7 +467,7 @@ final class RequirementsTest extends TestCase
 	}
 
 	/**
-	 * What this method publishes, the value object accepts.
+	 * What this method publishes, an address reads back as one of the country's.
 	 *
 	 * The contract a port relies on: `subdivisions` is what it renders as options, and the
 	 * option the user picks comes straight back. Nothing else guarantees the two agree, and
@@ -491,7 +491,7 @@ final class RequirementsTest extends TestCase
 				++$checked;
 
 				try {
-					$address = new Value((object) [
+					$address = new Input((object) [
 						'street' => ['1 Main St'],
 						'locality' => 'Somewhere',
 						'subdivision' => $code,
@@ -500,6 +500,10 @@ final class RequirementsTest extends TestCase
 
 					if ($address->subdivision !== $code) {
 						$rejected[] = "{$code} became {$address->subdivision}";
+					}
+
+					if (in_array(Check::KnownSubdivision, array_column($address->violations, 'code'), true)) {
+						$rejected[] = "{$code} is not one of {$country}'s";
 					}
 				} catch (\Throwable $e) {
 					$rejected[] = "{$code}: " . $e->getMessage();

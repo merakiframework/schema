@@ -84,22 +84,22 @@ parameters:
         -
             message: '#Access to an uninitialized readonly property .+::\$optional\.#'
             path: src/Field/Collection.php
-        # Field\Definition is a *trait*, and initialiseDefinition() assigns $optional and
-        # $defaultValue from it. PHPStan models a readonly property as assignable only in the
-        # declaring class's own constructor, and a trait cannot satisfy that however the using
-        # class calls it.
+        # Field\Definition is a *trait*, and initialiseDefinition() assigns $optional,
+        # $defaultValue and the three declarations read from a field's enums — $parts,
+        # $essentialParts and $checks — from it. PHPStan models a readonly property as assignable
+        # only in the declaring class's own constructor, and a trait cannot satisfy that however
+        # the using class calls it.
         #
-        # The alternative is duplicating two assignments into all nineteen field constructors to
+        # The alternative is duplicating five assignments into all nineteen field constructors to
         # satisfy the analyser, which trades a real design — one shared half, one varying half —
         # for an inference detail.
         #
-        # PHP 8.6's readonly property defaults remove this entirely: `public bool $optional = false;`
-        # on the declaration replaces the initialiser and the call goes with it. Tracked in
-        # docs/ROADMAP.md. Until then, Api\SealedFieldTest checks at runtime that every field's
-        # inherited state really is initialised, which is the guarantee this entry is standing in
-        # for.
+        # PHP 8.6's readonly property defaults remove the first two: `public bool $optional =
+        # false;` on the declaration replaces the initialiser. Tracked in docs/ROADMAP.md. Until
+        # then, Api\SealedFieldTest checks at runtime that every field's inherited state really
+        # is initialised, which is the guarantee this entry is standing in for.
         -
-            message: '#Readonly property .+::\$(optional|defaultValue) is assigned outside of the constructor\.#'
+            message: '#Readonly property .+::\$(optional|defaultValue|parts|essentialParts|checks) is assigned outside of the constructor\.#'
             path: src/Field/Definition.php
 
         # ── phpstan-strict-rules, the three categories kept off ──────────────────────────

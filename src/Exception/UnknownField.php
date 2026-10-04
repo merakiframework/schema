@@ -23,6 +23,19 @@ final class UnknownField extends InvalidArgumentException implements Exception
 		return new self(sprintf('Field with name "%s" does not exist.', $name));
 	}
 
+	/**
+	 * A field asked for its result in results that hold none for it — a field from another
+	 * schema, or one added after this request was validated.
+	 */
+	public static function hasNoResultHere(string $name): self
+	{
+		return new self(sprintf(
+			'There is no result for "%s" here. A field finds its result in the results of the '
+			. 'schema it was added to, validated after it was added.',
+			$name,
+		));
+	}
+
 	public static function cannotBeRemoved(string $name): self
 	{
 		return new self(sprintf(

@@ -192,13 +192,18 @@ final readonly class DateTime extends AtomicField
 	protected function defineConstraints(): Constraint\Set
 	{
 		return new Constraint\Set(
-			new Constraint('from', $this->isOnOrAfterFrom(...), $this->from?->__toString()),
-			new Constraint('after', $this->isAfterAfter(...), $this->after?->__toString()),
-			new Constraint('until', $this->isBeforeUntil(...), $this->until?->__toString()),
-			new Constraint('through', $this->isOnOrBeforeThrough(...), $this->through?->__toString()),
-			new Constraint('interval', $this->isOnAnInterval(...), (string) $this->interval),
-			new Constraint('precision', $this->hasAcceptablePrecision(...), $this->precision->value),
+			new Constraint(DateTime\Check::From, $this->isOnOrAfterFrom(...), $this->from?->__toString()),
+			new Constraint(DateTime\Check::After, $this->isAfterAfter(...), $this->after?->__toString()),
+			new Constraint(DateTime\Check::Until, $this->isBeforeUntil(...), $this->until?->__toString()),
+			new Constraint(DateTime\Check::Through, $this->isOnOrBeforeThrough(...), $this->through?->__toString()),
+			new Constraint(DateTime\Check::Interval, $this->isOnAnInterval(...), (string) $this->interval),
+			new Constraint(DateTime\Check::Precision, $this->hasAcceptablePrecision(...), $this->precision->value),
 		);
+	}
+
+	protected static function declaredChecks(): array
+	{
+		return DateTime\Check::cases();
 	}
 
 	/**

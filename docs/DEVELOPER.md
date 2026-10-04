@@ -135,16 +135,23 @@ src/
 
 ### The field directory
 
-Every field type is two files and a folder:
+Every field type is a file and a folder:
 
 ```
 Field/Money.php             the field: configuration, constraints, parse()
-Field/Money/Value.php       the value: what money IS, and what it refuses
+Field/Money/Check.php       every code it reports a failure under
+Field/Money/Part.php        the parts its value is made of — only for a value that has parts
+Field/Money/Input.php       the parts as read, and whether they make money — likewise
+Field/Money/Amount.php      a part a rule can order, as the field's own type — only where one is
+Field/Money/Value.php       the value: whole money, which nothing downstream second-guesses
 ```
 
 The **field** knows about rules the author set — which currencies are allowed, what the minimum
-is. The **value** knows what money is at all. A currency code being three letters belongs to the
-value; a currency being one *this field accepts* belongs to the field.
+is. The **input** knows what money is at all: a currency code being three letters belongs to it,
+and so does an amount with no currency being no money. The **value** is what the input makes when
+nothing stands in its way. A currency being one *this field accepts* belongs to the field. A value
+that is one thing, like `Text\Value`, has no parts, so its field reads it in one step and has no
+input.
 
 Shared machinery sits beside them:
 
@@ -153,7 +160,7 @@ Shared machinery sits beside them:
 | `Field/Definition.php` | the trait every field uses: configuration, copy-on-change, defaults |
 | `Field/Constraint.php` | one check: a name, a closure, the limit, the part it concerns |
 | `Field/ParsedValue.php` | the marker every value object implements |
-| `Field/HasParts.php` | implemented by a value made of named parts |
+| `Field/Input.php` | a record read part by part, and whether its parts make a value; what a part scope reads |
 | `Field/BuildsFields.php` | the `createTextField()` helpers on the definition |
 | `Field/ValueClass.php` | reads a field's value type off its `parse()` signature |
 
@@ -175,7 +182,7 @@ $schema->addRule(
 
 $result = $schema->validate((object) [
     'pay_by' => 'card',
-    'card'   => (object) ['number' => '4111111111111111', 'expiry' => '2030-01'],
+    'card'   => (object) ['number' => '4111 1111 1111 1111', 'expiry' => '2030-13'],
 ]);
 ```
 
@@ -201,23 +208,29 @@ submitted  →  prefilled  →  the authored default  →  nothing
 Whichever won is recorded as `ValueSource`, so a form can show a prefilled box differently from
 one somebody typed into.
 
-**4. The field reads the value.** `parse()` turns raw input into a value object. It receives three
-guarantees and must keep one:
+**4. The field reads the value.** `parse()` turns raw input into a value object — or, for a value
+made of parts, into an *input*: each part as read, and what stops them making a value. It
+receives three guarantees and must keep one:
 
 - it is never given `null` — absence was settled in step 3
-- it returns a value object, **or raises** `MalformedValue`. Never `null`
-- whatever it returns is exactly what the constraints will see
+- it returns a value object or an input, **or raises** `MalformedValue`. Never `null`
+- whatever it returns — or the value its input assembles to — is exactly what the constraints
+  will see
 
-**5. The shape is judged.** `AtomicField::check()` decides between four cases:
+Here the card is read part by part: the number has its spaces removed and passes Luhn, and
+month 13 is not a month, so the input reports `expiryFormat` against the expiry.
+
+**5. The shape is judged.** `AtomicField::check()` decides between five cases:
 
 | | |
 | --- | --- |
 | nothing arrived, field is optional | shape **skipped**, constraints skipped |
 | nothing arrived, field is required | shape **missing**, constraints skipped |
 | something arrived, `parse()` refused it | shape **unreadable**, constraints skipped |
-| something arrived and parsed | shape **passes**, constraints run |
+| a record arrived, its parts make no value | shape **incomplete**, each part's problem reported against it, constraints skipped |
+| something arrived and made a value | shape **passes**, constraints run |
 
-Notice that constraints are *skipped* in the first three, never failed. A skipped constraint is
+Notice that constraints are *skipped* in the first four, never failed. A skipped constraint is
 not a quiet pass — it means the question was never asked.
 
 **6. Constraints run.** Each one gets the parsed value and answers `true`, `false`, or `null`.
@@ -229,25 +242,30 @@ allow-list was set.
 ```php
 $card = $result->forField('card');
 
-$card->shape->passed();                            // true
-$card->forConstraint('nameRequired')->failed();    // true — no cardholder name was sent
+$card->wasIncomplete();                     // true — its parts make no card
+$card->violations->first()?->code;          // CreditCard\Check::ExpiryFormat
+$card->violations->first()?->part;          // CreditCard\Part::Expiry — the box to mark
+$card->value;                               // null — there is no card until there is a whole one
 ```
 
-Printing every verdict for the card above shows all three answers at once:
+Printing every verdict for the card above:
 
 ```
-numberRequired       Passed
-expiryRequired       Passed
-nameRequired         Failed      ← the one real problem
-numberFormat         Passed
-numberChecksum       Passed
+shape                Failed      ← incomplete: expiryFormat, against the expiry
+expiryInFuture       Skipped     ← there is no card to ask about
+expiryWithinReach    Skipped
+```
+
+With `'expiry' => '2030-12'` the card is whole, and the same printout reads:
+
+```
+shape                Passed
 expiryInFuture       Skipped     ← opt-in; nobody called mustExpireInFuture()
 expiryWithinReach    Passed
-securityCodeFormat   Skipped     ← no security code was sent, and it is optional
 ```
 
-Two different reasons for *Skipped* there, and neither is a pass. One question was never
-turned on; the other had nothing to ask about.
+Three different reasons for *Skipped* across the two, and none of them is a pass. One question
+was never turned on; the others had nothing to ask about.
 
 **8. Messages, if asked.** Only if you passed a provider. Wording is applied *after* every verdict
 is settled, which is what makes "a missing translation can never change an outcome" true by
@@ -264,6 +282,7 @@ $result = $schema->validate($data, locale: 'en-AU', messages: $provider);
 | a whole request | `Definition::against()` |
 | a rule firing | `Rule\Application::of()` |
 | input becoming a value | your field's `parse()` |
+| a record's parts becoming a value | your field's `Input` |
 | the shape decision | `AtomicField::check()` |
 | one constraint | the closure in `defineConstraints()` |
 
@@ -309,10 +328,15 @@ next major version a breaking change for everybody.
 
 *Caught by:* `Api\ValueObjectTest`, and by every test that submits a value.
 
-### 4. Shape is asked before constraints, and a failed shape skips them all
+### 4. Shape is asked before constraints, and a constraint it leaves nothing to judge is skipped
 
 *Why:* one mistake should produce one report, naming the real problem. A value that could not be
 read has nothing for `minLength` to speak to.
+
+Missing and unreadable skip every constraint. An incomplete value skips every constraint in `2.0`
+too, but the promise is narrower — a constraint that cannot be judged yet — so a constraint whose
+own parts are sound can run in `2.1` without breaking it. See
+[ROADMAP.md](ROADMAP.md#constraints-that-run-when-their-parts-are-ready).
 
 *Caught by:* `MalformedCompositeInputTest::the_failure_is_reported_against_the_field_itself`,
 which asserts every constraint is skipped when the shape fails.
@@ -329,8 +353,8 @@ reported.
 
 ### 6. A value reports the parts it is **submitted with**
 
-If `partNames()` lists it, something can send it. A derived reading — E.164 for a phone number,
-the whole string for an email — is a method on the value, not a part.
+If the value's `Part` enum has a case for it, something can send it. A derived reading — E.164 for
+a phone number, the whole string for an email — is a method on the value, not a part.
 
 *Why:* a port builds its inputs from the part names. A part nothing can submit is a box that
 cannot be drawn and a scope that resolves against nothing.
@@ -389,7 +413,7 @@ produces an empty message set and leaves every verdict exactly as it was.
 
 ### 12. Sibling field types do not share code with each other
 
-`Money\Value` and `CreditCard\Value` both check for unknown keys, in six near-identical lines.
+`Money\Input` and `CreditCard\Input` both check for unknown keys, in six near-identical lines.
 That duplication is deliberate.
 
 *Why:* a shared helper makes two types move together forever. Fields are the part of this library
@@ -468,8 +492,8 @@ public function a_country_with_no_number_yet_names_the_missing_number(): void
     // box to mark.
     $resolved = (new PhoneNumber(new FieldName('phone'), ['AU']))->validate((object) ['country' => 'AU']);
 
-    $this->assertShapePassed($resolved);
-    $this->assertConstraintValidationResultFailed('numberRequired', $resolved);
+    $this->assertIncompleteWith([PhoneNumber\Check::NumberRequired], $resolved);
+    $this->assertSame([PhoneNumber\Part::Number], $resolved->missingParts);
 }
 ```
 

@@ -103,7 +103,7 @@ something is an array:
 ```php
 $schema->validate((object) [
     'price' => (object) ['currency' => 'AUD', 'amount' => '12.50'],   // a record
-    'lines' => [$row, $row],                                          // a list
+    'lines' => ['first' => $row, 'second' => $row],                   // many, each under a name
 ]);
 ```
 
@@ -127,7 +127,7 @@ Each field's result carries the same things, whatever kind of field it is:
 $field->given;        // exactly what was submitted, unchanged
 $field->value;        // what the field made of it — an EmailAddress\Value
 $field->source;       // Submitted | Prefilled | Default | None
-$field->shape;        // could this be read at all?
+$field->shape;        // could this be read at all, and do its parts make a value?
 $field->status;       // Passed | Failed | Skipped | Pending
 ```
 
@@ -147,14 +147,14 @@ address" are different sentences.
 
 ## Where error messages come from
 
-A verdict says *what* failed and *what the limit was*, with no wording attached:
+A violation says *what* failed and *what the limit was*, with no wording attached:
 
 ```php
-$failed = $field->getFailedConstraints()->getFirst();
+$failed = $field->violations->first();
 
-$failed->name;    // 'minLength'
+$failed->code;    // Text\Check::MinLength — and $failed->name is its wire name, 'minLength'
 $failed->bound;   // 3
-$failed->part;    // 'postal_code', or null for the whole value
+$failed->part;    // a Field\Part case, such as Address\Part::PostalCode — or null for the whole value
 ```
 
 That is enough to write your own sentence, and plenty of applications should. For the rest, wording
@@ -174,9 +174,13 @@ $provider = Mf2Provider::fromPackage('meraki/schema-language-english');
 
 $result = $schema->validate($data, locale: 'en-AU', messages: $provider);
 
-$result->forField('billing')->messages->forPart('postal_code')->first;
+$billing->resultIn($result)->forPart(Address\Part::PostalCode)->first()?->message;
 // "That is not a valid postcode for the country you chose."
 ```
+
+Every failure arrives as a **violation** — its code, the part it concerns, the bound and, when a
+pack had wording, the sentence — so a form can mark the right box whether or not a pack is
+installed.
 
 The pack is `.mfr` files in [ICU MessageFormat 2](https://unicode.org/reports/tr35/tr35-messageFormat.html)
 and nothing else — no PHP — so a Rust or JavaScript implementation of this library renders the same
@@ -189,8 +193,8 @@ Three things hold whether or not you use it:
   serves every reader.
 - **A missing language cannot change a verdict.** Ask for one nobody has and you get the same
   failures with nothing to say about them.
-- **It is entirely optional.** With no provider, every result carries an empty message set and the
-  library behaves as it did before messages existed.
+- **It is entirely optional.** With no provider, every violation is still reported, with its code
+  and no sentence, and every verdict is exactly what it would have been.
 
 [docs/MESSAGES.md](docs/MESSAGES.md) covers writing a pack, the specificity ladder, and using a
 format other than MF2.
@@ -273,14 +277,15 @@ rule is added.
 A rule can compare two *fields*, whole or part by part:
 
 ```php
+use Meraki\Schema\Field\Address;
 use Meraki\Schema\ValueScope;
 
 // is the shipping address the billing address?
 $schema->when(ValueScope::of('shipping'))->equals(ValueScope::of('billing'));
 
 // are they at least in the same country?
-$schema->when(ValueScope::of('shipping', 'country'))
-    ->equals(ValueScope::of('billing', 'country'));
+$schema->when(ValueScope::of('shipping', Address\Part::Country))
+    ->equals(ValueScope::of('billing', Address\Part::Country));
 ```
 
 Rules are checked when they are **written**, not when they fire — a field that does not exist, a

@@ -3,9 +3,13 @@ declare(strict_types=1);
 
 namespace Meraki\Schema\Field;
 
+use Meraki\Schema\Definition;
+use Meraki\Schema\Exception\InvalidDefault;
+use Meraki\Schema\Field\Money\Input;
 use Meraki\Schema\Field\Money\Value;
 use Meraki\Schema\FieldName;
 use Meraki\Schema\FieldTestCase;
+use Meraki\Schema\PartScope;
 use Brick\Math\BigDecimal;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -15,6 +19,7 @@ use InvalidArgumentException;
 
 #[Group('field')]
 #[CoversClass(Money::class)]
+#[CoversClass(Input::class)]
 #[CoversClass(Value::class)]
 final class MoneyTest extends FieldTestCase
 {
@@ -59,9 +64,9 @@ final class MoneyTest extends FieldTestCase
 
 	#[Test]
 	#[DataProvider('notMoney')]
-	public function it_rejects_what_cannot_be_read_as_money(mixed $given): void
+	public function it_cannot_read_what_is_not_a_record_of_money(mixed $given): void
 	{
-		$this->assertShapeFailed($this->createField()->validate($given));
+		$this->assertShapeUnreadable($this->createField()->validate($given));
 	}
 
 	/** @return array<string, array{mixed}> */
@@ -75,62 +80,98 @@ final class MoneyTest extends FieldTestCase
 			'a bare number' => [12.50],
 			'a string' => ['AUD 12.50'],
 			'a list' => [[]],
-
-			// A record, and still not money.
-			'neither half' => [(object) []],
-			'an amount that is not a number' => [(object) ['currency' => 'AUD', 'amount' => 'abc']],
-			'a currency that is not three letters' => [(object) ['currency' => 'AUSD', 'amount' => '1.00']],
-			// Sent and holding nothing is not the same as not sent: `''` was a decision somebody
-			// made, so reading it as "no amount" would let it satisfy `amountRequired`.
-			'a blank amount' => [(object) ['currency' => 'AUD', 'amount' => '']],
-			'a blank currency' => [(object) ['currency' => '', 'amount' => '1.00']],
 		];
 	}
 
 	/**
-	 * A half-filled amount names the half that is missing.
-	 *
-	 * `{currency: 'AUD'}` used to be refused outright, so a currency chosen with no amount
-	 * typed yet reported "this is not readable money" — which names neither the problem nor the
-	 * input a form should mark. It is a readable, incomplete amount now, and the part says so.
-	 *
-	 * @param array<string, mixed> $given
+	 * Two empty boxes are a form nobody filled in, not money somebody half wrote.
 	 */
 	#[Test]
-	#[DataProvider('halfFilledMoney')]
-	public function a_missing_half_is_reported_against_that_half(array $given, string $expected): void
+	#[DataProvider('neitherHalf')]
+	public function money_with_neither_half_was_not_submitted(object $given): void
 	{
-		$result = $this->createField()->validate((object) $given);
+		$field = $this->createField();
 
-		$this->assertShapePassed($result);
-		$this->assertConstraintValidationResultFailed($expected, $result);
+		$this->assertShapeMissing($field->validate($given));
+		$this->assertTrue($field->makeOptional()->validate($given)->shape->skipped());
 	}
 
-	/** @return array<string, array{array<string, mixed>, string}> */
-	public static function halfFilledMoney(): array
+	/** @return array<string, array{object}> */
+	public static function neitherHalf(): array
 	{
 		return [
-			'no amount' => [['currency' => 'AUD'], 'amountRequired'],
-			'a null amount' => [['currency' => 'AUD', 'amount' => null], 'amountRequired'],
-			'no currency' => [['amount' => '12.50'], 'currencyRequired'],
-			'a null currency' => [['currency' => null, 'amount' => '12.50'], 'currencyRequired'],
+			'no keys' => [(object) []],
+			'both null' => [(object) ['currency' => null, 'amount' => null]],
+		];
+	}
+
+	/**
+	 * Money that is not whole yet is reported half by half, against the box each half came from,
+	 * and judged by no constraint.
+	 *
+	 * Both halves are read whatever happens to the other, so a form with both boxes wrong hears
+	 * about both at once rather than one per submission.
+	 *
+	 * @param list<Money\Check> $expected
+	 */
+	#[Test]
+	#[DataProvider('halfMoney')]
+	public function money_that_is_not_whole_is_reported_half_by_half(object $given, array $expected): void
+	{
+		$this->assertIncompleteWith($expected, $this->createField()->minAmountOf('AUD', '1.00')->validate($given));
+	}
+
+	/** @return array<string, array{object, list<Money\Check>}> */
+	public static function halfMoney(): array
+	{
+		return [
+			'no amount' => [(object) ['currency' => 'AUD'], [Money\Check::AmountRequired]],
+			'a null amount' => [(object) ['currency' => 'AUD', 'amount' => null], [Money\Check::AmountRequired]],
+			'no currency' => [(object) ['amount' => '12.50'], [Money\Check::CurrencyRequired]],
+			'a null currency' => [(object) ['currency' => null, 'amount' => '12.50'], [Money\Check::CurrencyRequired]],
+			'an amount that is not a number' => [(object) ['currency' => 'AUD', 'amount' => 'abc'], [Money\Check::AmountFormat]],
+			'a currency that is not three letters' => [(object) ['currency' => 'AUSD', 'amount' => '1.00'], [Money\Check::CurrencyFormat]],
+			// Sent and holding nothing is not the same as not sent: `''` was a decision somebody
+			// made, so reading it as "no amount" would let it stand in for one.
+			'a blank amount' => [(object) ['currency' => 'AUD', 'amount' => ''], [Money\Check::AmountFormat]],
+			'a blank currency' => [(object) ['currency' => '', 'amount' => '1.00'], [Money\Check::CurrencyFormat]],
+			// Repairing it is the port's job.
+			'a currency with a space on the end' => [(object) ['currency' => 'AUD ', 'amount' => '1.00'], [Money\Check::CurrencyFormat]],
+			'both halves wrong' => [(object) ['currency' => 'AUSD', 'amount' => 'abc'], [Money\Check::CurrencyFormat, Money\Check::AmountFormat]],
+			'one wrong and one missing' => [(object) ['currency' => 'AUSD'], [Money\Check::CurrencyFormat, Money\Check::AmountRequired]],
 		];
 	}
 
 	#[Test]
-	public function each_constraint_names_the_half_it_is_about(): void
+	public function only_a_half_that_was_not_sent_is_missing(): void
+	{
+		$field = $this->createField();
+
+		$this->assertSame([Money\Part::Amount], $field->validate((object) ['currency' => 'AUD'])->missingParts);
+		// The currency was sent; it is wrong, not missing.
+		$this->assertSame([Money\Part::Amount], $field->validate((object) ['currency' => 'AUSD'])->missingParts);
+		$this->assertSame([], $field->validate((object) ['currency' => 'AUD', 'amount' => 'abc'])->missingParts);
+	}
+
+	#[Test]
+	public function every_code_names_the_half_it_is_about(): void
 	{
 		$expected = [
 			'currencyRequired' => 'currency',
 			'amountRequired' => 'amount',
+			'currencyFormat' => 'currency',
+			'amountFormat' => 'amount',
+			'knownCurrency' => 'currency',
 			'allowedCurrencies' => 'currency',
 			'minAmount' => 'amount',
 			'maxAmount' => 'amount',
 			'scale' => 'amount',
 		];
 
-		foreach ($this->createField()->constraints as $constraint) {
-			$this->assertSame($expected[$constraint->name], $constraint->part, $constraint->name);
+		$this->assertSame(array_keys($expected), array_column($this->createField()->checks, 'value'));
+
+		foreach ($this->createField()->checks as $check) {
+			$this->assertSame($expected[$check->value], $check->part()->value, $check->value);
 		}
 	}
 
@@ -157,12 +198,40 @@ final class MoneyTest extends FieldTestCase
 	}
 
 	#[Test]
-	public function any_currency_is_accepted_when_none_was_named(): void
+	public function a_field_that_names_no_currencies_takes_any_real_one(): void
 	{
 		$field = new Money(new FieldName('cost'));
 
-		$this->assertConstraintValidationResultSkipped('allowedCurrencies', $field->validate((object) self::amount('XYZ', '1.00')));
-		$this->assertConstraintValidationResultSkipped('scale', $field->validate((object) self::amount('XYZ', '1.00')));
+		$nzd = $field->validate((object) self::amount('NZD', '1.00'));
+
+		$this->assertConstraintValidationResultPassed('knownCurrency', $nzd);
+		$this->assertConstraintValidationResultSkipped('allowedCurrencies', $nzd);
+		// No scale is asked of an unrestricted field: the amount is kept as it was written.
+		$this->assertConstraintValidationResultSkipped('scale', $field->validate((object) self::amount('NZD', '1.005')));
+	}
+
+	#[Test]
+	public function three_letters_are_not_a_currency_on_their_own(): void
+	{
+		// ZZZ is three letters and nobody's money, so it is money — whole, and readable — that this
+		// field does not take, reported against the currency box.
+		$result = (new Money(new FieldName('cost')))->validate((object) self::amount('ZZZ', '1.00'));
+
+		$this->assertShapePassed($result);
+		$this->assertConstraintValidationResultFailed('knownCurrency', $result);
+		$this->assertSame(Money\Part::Currency, $result->violations->first()?->part);
+	}
+
+	#[Test]
+	public function a_currency_the_standard_does_not_describe_is_taken_when_named_with_a_scale(): void
+	{
+		// The scale is the author vouching for the code: there is no standard to take one from.
+		$field = new Money(new FieldName('cost'), ['BTC' => 8]);
+
+		$this->assertSame(['BTC' => 8], $field->allowedCurrencies);
+		$this->assertFalse($field->validate((object) self::amount('BTC', '0.00000001'))->anyFailed());
+		$this->assertConstraintValidationResultFailed('scale', $field->validate((object) self::amount('BTC', '0.000000001')));
+		$this->assertConstraintValidationResultSkipped('knownCurrency', $field->validate((object) self::amount('BTC', '1')));
 	}
 
 	#[Test]
@@ -234,10 +303,10 @@ final class MoneyTest extends FieldTestCase
 			'four letters' => [fn(): Money => new Money(new FieldName('c'), ['AUSD' => 2])],
 			'two letters' => [fn(): Money => new Money(new FieldName('c'), ['AU' => 2])],
 			'negative decimal places' => [fn(): Money => new Money(new FieldName('c'), ['AUD' => -1])],
-			// Three letters, and still not a currency. Only checkable now that the standard is
-			// actually consulted rather than the shape being taken for the substance.
+			// Three letters, and not a currency the standard describes — so there is no scale to
+			// take from it. Naming it with one, `['ZZZ' => 2]`, is how it is taken anyway.
 			'a code that is not a currency' => [fn(): Money => new Money(new FieldName('c'), ['ZZZ'])],
-			'the same, keyed' => [fn(): Money => new Money(new FieldName('c'), ['ZZZ' => 2])],
+			'four letters, even with a scale' => [fn(): Money => new Money(new FieldName('c'), ['USDT' => 2])],
 			'a scale that is not a number' => [fn(): Money => new Money(new FieldName('c'), ['AUD' => '2'])],
 			'a bare code that is not a string' => [fn(): Money => new Money(new FieldName('c'), [123])],
 			// The numeric ISO form: 036 is AUD, and the underlying provider would resolve it. This
@@ -256,6 +325,8 @@ final class MoneyTest extends FieldTestCase
 
 		$this->assertShapePassed($resolved);
 		$this->assertConstraintValidationResultFailed('allowedCurrencies', $resolved);
+		// The allow-list answers this and more, so the standard is not asked twice.
+		$this->assertConstraintValidationResultSkipped('knownCurrency', $resolved);
 	}
 
 	// ── scale is per currency ─────────────────────────────────────────────────────────────
@@ -482,5 +553,50 @@ final class MoneyTest extends FieldTestCase
 	public function it_has_no_default_value_by_default(): void
 	{
 		$this->assertNull($this->createField()->defaultValue);
+	}
+
+	#[Test]
+	public function a_value_is_never_half_of_one(): void
+	{
+		// The value's halves are not nullable, so nothing handed one has to ask which is there.
+		// What it can still check, it does: a currency spelled two ways is not one currency.
+		$this->expectException(MalformedValue::class);
+
+		new Value('aud', BigDecimal::of('1.00'));
+	}
+
+	#[Test]
+	public function money_written_by_hand_is_read_the_way_a_form_is(): void
+	{
+		$this->assertSame('AUD', Value::of('aud', 10)->currency);
+
+		$this->expectException(MalformedValue::class);
+		$this->expectExceptionMessage('it does not make an amount of money: amountFormat');
+
+		Value::of('AUD', 'ten');
+	}
+
+	#[Test]
+	public function a_default_that_is_not_whole_money_is_refused_where_it_is_written(): void
+	{
+		$this->expectException(InvalidDefault::class);
+		$this->expectExceptionMessage('The default for "cost" does not make a whole value: "amountRequired" on its amount.');
+
+		$this->createField()->defaultsTo((object) ['currency' => 'AUD']);
+	}
+
+	#[Test]
+	public function a_rule_about_the_currency_holds_before_there_is_an_amount(): void
+	{
+		// The currency box is often filled first, and what the form asks next can depend on it.
+		$schema = new Definition('order');
+		$schema->add($this->createField()->allowCurrencies(['NZD']));
+		$schema->add($gst = $schema->createTextField('gst_number')->makeOptional());
+		$schema->addRule($schema->when(PartScope::of('cost', 'currency'))->equals('aud')->then($gst->makeRequired()));
+
+		$result = $schema->validate((object) ['cost' => (object) ['currency' => 'AUD']]);
+
+		$this->assertTrue($result->forField('cost')?->wasIncomplete());
+		$this->assertTrue($result->forField('gst_number')?->wasMissing());
 	}
 }

@@ -44,7 +44,7 @@ final class ScopeResolver
 		$field = $this->fieldIn($scope->in);
 
 		return match (true) {
-			$scope instanceof PartScope => $this->partOf($field, $this->valueIn($scope->in, $field), $scope->part),
+			$scope instanceof PartScope => $this->partOf($field, $scope),
 			$scope instanceof ValueScope => $this->valueIn($scope->in, $field),
 			$scope instanceof PropertyScope => $this->propertyOf($field, $scope->property),
 			default => $field,
@@ -69,6 +69,25 @@ final class ScopeResolver
 		} catch (InvalidScope | UnknownField) {
 			return null;
 		}
+	}
+
+	/**
+	 * What a part scope reads its part from — the field's {@see Field\Input} — or null when there
+	 * is nothing to read.
+	 *
+	 * The parts as read, whether or not they make a value, so a rule about the country holds on an
+	 * address whose street is still empty.
+	 *
+	 * Public because a comparison needs the same thing a part is read from to canonicalise what
+	 * the rule was written with: an address stores `AU-QLD` for `QLD`, and only the thing holding
+	 * the country can say so. Null for a column, which is a part of every row rather than of one
+	 * thing.
+	 *
+	 * @throws InvalidScope if the scope reaches into a template without naming a row
+	 */
+	public function inputFor(PartScope $scope): ?Field\Input
+	{
+		return $scope->in instanceof Scope\Column ? null : $this->inputIn($scope->in, $this->fieldIn($scope->in));
 	}
 
 	/**
@@ -125,6 +144,45 @@ final class ScopeResolver
 			$in instanceof Scope\Template => throw InvalidScope::aTemplateValueNeedsARow((string) $in->field, (string) $in->addresses()),
 			default => $this->valueOf($field),
 		};
+	}
+
+	/**
+	 * What the field a locator is about read its parts as, or null when there is no such reading.
+	 *
+	 * A row is read the way the collection reads it, from the row as it was submitted: a row
+	 * the collection could not use, or one that is not there, has no parts to offer.
+	 *
+	 * @throws InvalidScope if a template value is asked for outside a row
+	 */
+	private function inputIn(Scope\Locator $in, Field $field): ?Field\Input
+	{
+		if ($in instanceof Scope\Template) {
+			throw InvalidScope::aTemplateValueNeedsARow((string) $in->field, (string) $in->addresses());
+		}
+
+		if (!$in instanceof Scope\Row) {
+			return $field->resolvedInputFor($this->given[(string) $field->name] ?? null);
+		}
+
+		$row = ($this->rowsOf($in->field)?->has($in->row) ?? false) ? $this->submittedRow($in) : null;
+
+		return $row === null ? null : $field->resolvedInputFor($row[(string) $in->addresses()] ?? null);
+	}
+
+	/**
+	 * One row as it was submitted, or as the collection's default holds it — a record of raw
+	 * values by template field — or null when it is not a record.
+	 *
+	 * @return array<string, mixed>|null
+	 */
+	private function submittedRow(Scope\Row $in): ?array
+	{
+		$rows = $this->given[(string) $in->field] ?? $this->fields->getByName($in->field)->defaultValue;
+		$row = is_array($rows) ? ($rows[$in->row] ?? null) : null;
+
+		// From outside the object, so only its public properties: a row is a record, and that is
+		// how every record is read — see Field\Definition::recordIn().
+		return is_object($row) ? get_object_vars($row) : null;
 	}
 
 	/**
@@ -189,32 +247,33 @@ final class ScopeResolver
 	}
 
 	/**
-	 * One named part of what the field was given.
+	 * One named part of what the field was given, as read — whether or not the parts make a
+	 * value, so a rule about one part answers while the form is half-filled.
 	 *
-	 * The part *name* is checked against the value class rather than against a value, so a
-	 * mistyped part fails where the rule is written instead of resolving to `null` on every
+	 * The part *name* is checked against the field's declared parts rather than against a value,
+	 * so a mistyped part fails where the rule is written instead of resolving to `null` on every
 	 * request afterwards — which is the failure this library spends most of its guards avoiding,
 	 * and which is invisible precisely because `null` is a legitimate answer for a part nobody
 	 * filled in.
 	 *
 	 * @throws InvalidScope if the field's value has no parts, or not that one
 	 */
-	private function partOf(Field $field, mixed $value, string $part): mixed
+	private function partOf(Field $field, PartScope $scope): mixed
 	{
-		$parts = Field\ValueClass::partNamesOf($field);
+		$parts = array_column($field->parts, 'value');
 
 		if ($parts === []) {
-			throw InvalidScope::fieldHoldsNoParts((string) $field->name, $part);
+			throw InvalidScope::fieldHoldsNoParts((string) $field->name, $scope->part);
 		}
 
-		if (!in_array($part, $parts, true)) {
-			throw InvalidScope::fieldHasNoSuchPart((string) $field->name, $part, $parts);
+		if (!in_array($scope->part, $parts, true)) {
+			throw InvalidScope::fieldHasNoSuchPart((string) $field->name, $scope->part, $parts);
 		}
 
 		// Nothing was submitted, so every part of it is absent. Not an error: a rule asking
 		// "is the shipping country the billing country" on a request that gave neither is
 		// answerable, and the answer is that they are both nothing.
-		return $value instanceof Field\HasParts ? ($value->parts()[$part] ?? null) : null;
+		return $this->inputFor($scope)?->parts()[$scope->part] ?? null;
 	}
 
 	/**

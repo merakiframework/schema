@@ -155,7 +155,7 @@ final class InvalidScope extends InvalidArgumentException implements Exception
 	public static function noSuchPartToReport(string $part, array $parts): self
 	{
 		return new self(sprintf(
-			'There is no part "%s" to have messages for. There is: %s.',
+			'There is no part "%s" to report on. There is: %s.',
 			$part,
 			implode(', ', $parts),
 		));

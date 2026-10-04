@@ -206,12 +206,19 @@ final class InvalidConfiguration extends InvalidArgumentException implements Exc
 
 	public static function currencyCodeIsNotThreeLetters(string $currency): self
 	{
-		return new self("'{$currency}' is not an ISO 4217 currency code; three letters were expected.");
+		return new self("'{$currency}' is not a currency code; three letters were expected.");
 	}
 
+	/**
+	 * A bare code takes its scale from ISO 4217, so the standard has to describe it. Naming one
+	 * with a scale is how a code the standard does not describe is taken anyway.
+	 */
 	public static function currencyIsNotKnown(string $currency): self
 	{
-		return new self("'{$currency}' is not a known ISO 4217 currency.");
+		return new self(
+			"'{$currency}' is not a known ISO 4217 currency, so there is no scale to take from the "
+			. "standard. Give it one to accept it anyway: ['{$currency}' => 2].",
+		);
 	}
 
 	public static function currencyScaleIsNotAWholeNumber(string $currency, string $given): self

@@ -104,8 +104,13 @@ final readonly class Uuid extends AtomicField
 	protected function defineConstraints(): Constraint\Set
 	{
 		return new Constraint\Set(
-			new Constraint('allowedVersions', $this->isAnAllowedVersion(...), $this->allowedVersions),
+			new Constraint(Uuid\Check::AllowedVersions, $this->isAnAllowedVersion(...), $this->allowedVersions),
 		);
+	}
+
+	protected static function declaredChecks(): array
+	{
+		return Uuid\Check::cases();
 	}
 
 	private function isAnAllowedVersion(Value $parsed): ?bool

@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace Meraki\Schema;
 
 use Meraki\Schema\Exception\InvalidDefault;
+use Meraki\Schema\Exception\UnknownField;
 use Meraki\Schema\Field\Constraint;
 
 /**
@@ -136,6 +137,22 @@ interface Field
 	): AggregatedValidationResult;
 
 	/**
+	 * This field's result among a schema's — or a collection row's — found by the field rather than
+	 * by a string.
+	 *
+	 *     $billing->resultIn($schema->validate($data))->forPart(Address\Part::Country);
+	 *
+	 * `forField('billing')` can only promise the base result type, because PHP cannot narrow a
+	 * return by the value of an argument. A field can: a field with a result of its own narrows
+	 * this method's return type — {@see Field\Password::resultIn()} hands back a
+	 * {@see Field\Password\Result} — which is the same move {@see self::when()} makes for rules.
+	 * It is also a typo that cannot happen, because there is no name to misspell.
+	 *
+	 * @throws UnknownField when the results hold nothing for this field
+	 */
+	public function resultIn(SchemaValidationResult|Field\Collection\Item $results): FieldResult;
+
+	/**
 	 * What this field would actually validate: the parsed value, or `null` when there is none.
 	 *
 	 * Always valid, or nothing. It never hands back input it could not read — that is on
@@ -143,9 +160,78 @@ interface Field
 	 * redrawn. Keeping it here as well made `$value` a union of "the domain type" and "whatever
 	 * arrived", so nothing downstream could rely on its type.
 	 *
+	 * For a value made of parts it is the assembled value, so it is `null` while the parts make
+	 * none — see {@see self::resolvedInputFor()} for the parts themselves.
+	 *
 	 * @param AcceptedType|null $given
 	 */
 	public function resolvedValueFor(mixed $given): ?Field\ParsedValue;
+
+	/**
+	 * The parts of what this field was given, as read, whether or not they make a value; `null`
+	 * when nothing readable arrived, or when the value is one thing with no parts to read
+	 * separately.
+	 *
+	 * What a rule about one part reads, so "when the billing country is AU" holds on an address
+	 * whose street is still empty. See {@see Field\Input}.
+	 *
+	 * @param AcceptedType|null $given
+	 */
+	public function resolvedInputFor(mixed $given): ?Field\Input;
+
+	/**
+	 * Whether `$given` says nothing at all, so that a prefill or the authored default may stand in
+	 * for it.
+	 *
+	 * `null` says nothing to every field. To a field whose value has parts, so does a record with
+	 * no part in it — `{}`, or every part `null` — because a form that renders one box per part
+	 * and was left alone submits exactly that. Reading it as an attempt made it *unreadable*, so a
+	 * prefill lost to it and an optional field failed for being left empty.
+	 *
+	 * Asked of the field rather than worked out by its caller, because the field is what knows its
+	 * parts. A record holding a key the value does not have is never nothing, even when that key is
+	 * `null`: it is read, and refused for the key — see {@see Exception\BrokenInputContract}.
+	 *
+	 * @param AcceptedType|null $given
+	 */
+	public function treatsAsAbsent(mixed $given): bool;
+
+	/**
+	 * Every part this field's value is made of, in the order a value is written — empty for a
+	 * value that is one thing.
+	 *
+	 * The cases of the value's own {@see Field\Part} enum, so a port can draw one input per part
+	 * and a rule can name one, before anything is submitted.
+	 *
+	 * @var list<Field\Part>
+	 */
+	public array $parts { get; }
+
+	/**
+	 * The parts no value of this kind can exist without, whatever this field asks for.
+	 *
+	 * A fact about the kind of value rather than configuration: a phone number needs its number
+	 * and its country on every field there will ever be, so no wither adds to this or takes from
+	 * it. A part a field merely *demands* — an address's street, above its precision floor — is
+	 * not here, because another field may decline it.
+	 *
+	 * On a field that is optional, these are required together or not at all: sending nothing is
+	 * fine, and sending anything needs all of them.
+	 *
+	 * @var list<Field\Part>
+	 */
+	public array $essentialParts { get; }
+
+	/**
+	 * Every code this field can report a failure under, besides the missing and unreadable shapes
+	 * every field shares.
+	 *
+	 * The cases of the field's own {@see Field\Check} enum. Listed so a language pack, a port or a
+	 * test can know every failure a field may produce without validating anything.
+	 *
+	 * @var list<Field\Check>
+	 */
+	public array $checks { get; }
 
 	/**
 	 * The checks this field makes, each carrying the name it reports under, the part of a

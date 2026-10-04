@@ -37,8 +37,9 @@ class ResolvedField extends AggregatedValidationResult implements FieldResult
 	 *        form must echo this back rather than anything coerced, or the user is shown
 	 *        something they did not type.
 	 * @param Field\ParsedValue|null $value what the field made of the input — the parsed form of
-	 *        whichever source won, or `null` when nothing valid could be read. Never the raw
-	 *        input: that is `$given`, and having both mean it made the type unusable.
+	 *        whichever source won, or `null` when nothing valid could be read or its parts make
+	 *        no value. Never the raw input: that is `$given`, and having both mean it made the
+	 *        type unusable.
 	 * @param list<AppliedOutcome> $appliedOutcomes which rules changed this field, and how.
 	 * @param ValueSource $source where `$value` came from — submitted, prefilled for this one
 	 *        user, the schema's own default, or nowhere.
@@ -72,29 +73,44 @@ class ResolvedField extends AggregatedValidationResult implements FieldResult
 
 		$this->assertResultsAreUnique();
 
-		$this->messages = Message\Set::for($this, null);
+		$this->violations = $this->violationsFound();
 	}
 
 	/**
-	 * What to tell somebody about this field, in the language the request asked for.
+	 * Everything wrong with this field, in reading order — the value as a whole first, then each
+	 * part in the order the value declares them — each carrying its code, its part, its bound and,
+	 * once a language pack has had its say, its sentence.
 	 *
-	 * Empty unless a {@see Message\Provider} was registered on the schema *and* the request named
-	 * a language it has, which is why a field validated on its own always has nothing here: there
-	 * is no schema to have carried a provider. That is the trade, and it is deliberate — a field
-	 * is a definition, and a definition that knew about languages would be a definition that could
-	 * not be serialised the same way twice.
+	 * The one place a consumer learns what to tell somebody. Every failure is here, whichever step
+	 * found it: nothing arriving for a required field, a value that could not be read, a constraint
+	 * the value failed. Always a set, never null, so reading it needs no guard.
 	 *
-	 * Always a set, never null, so reading it needs no guard. {@see Message\Set} explains which of
-	 * the two shapes it takes and why the field rather than the failures decides.
+	 * Sentences are absent unless a {@see Message\Provider} was passed to the schema's `validate()`
+	 * with a language it has — which is why a field validated on its own has codes and no
+	 * sentences: there was no request to carry a provider. That is the trade, and it is deliberate
+	 * — a field is a definition, and a definition that knew about languages could not be
+	 * serialised the same way twice.
 	 */
-	public protected(set) Message\Set $messages;
+	public protected(set) Field\Violations $violations;
 
 	/**
-	 * The same field with its messages rendered in one language.
+	 * What is wrong with one part of a structured value — the box a form should mark.
+	 *
+	 * Shorthand for `$result->violations->forPart($part)`. Refuses a part the value does not have,
+	 * because "nothing is wrong" is a legitimate answer and a mistake that returned it would be
+	 * invisible forever.
+	 */
+	public function forPart(Field\Part $part): Field\Violations
+	{
+		return $this->violations->forPart($part);
+	}
+
+	/**
+	 * The same field with its violations worded in one language.
 	 *
 	 * Called by {@see Definition::validate()} once per field, after the verdicts are in, because
 	 * nothing about a language may change a verdict. A result that never goes through here keeps
-	 * the empty set it was built with.
+	 * the codes it was built with and no sentences.
 	 *
 	 * Rendering eagerly rather than holding the translator keeps the result a plain value: what it
 	 * says is fixed at the moment it was judged, and cannot come out differently on a second read
@@ -102,15 +118,46 @@ class ResolvedField extends AggregatedValidationResult implements FieldResult
 	 */
 	public function withMessagesFrom(?Message\Translator $translator): static
 	{
-		return clone($this, ['messages' => Message\Set::for($this, $translator)]);
+		if ($translator === null) {
+			return $this;
+		}
+
+		$field = $this->field;
+
+		return clone($this, ['violations' => $this->violations->worded(
+			static fn(Field\Violation $violation): ?string => $translator->forViolation($field, $violation),
+		)]);
+	}
+
+	/**
+	 * The failures among this field's own verdicts, as violations.
+	 *
+	 * The shape first, because "this is not a valid card number" comes before anything the number
+	 * would have been checked against; then every constraint that failed. Anything else among the
+	 * results — a collection's rows — reports through its own results, not here.
+	 */
+	private function violationsFound(): Field\Violations
+	{
+		$found = [];
+
+		foreach ($this->results as $result) {
+			if ($result instanceof Field\ShapeValidationResult) {
+				$found = [...$found, ...$result->violations];
+			} elseif ($result instanceof ConstraintValidationResult && $result->failed()) {
+				$found[] = Field\Violation::from($result);
+			}
+		}
+
+		return new Field\Violations($this->field->parts, ...$found);
 	}
 
 	/**
 	 * Whether the value could be read as this field's kind of thing at all.
 	 *
 	 * Separate from the constraints because it is not one: it is the gate that decides whether they
-	 * run. `Failed` means either that something arrived and could not be read, or that nothing
-	 * arrived and the field required it; `Skipped` means nothing arrived and that was acceptable.
+	 * run. `Failed` means that something arrived and could not be read, that a record's parts
+	 * make no value, or that nothing arrived and the field required it; `Skipped` means nothing
+	 * arrived and that was acceptable.
 	 *
 	 * `Pending` when validation has not run, which is also what an empty result reports.
 	 *
@@ -173,6 +220,33 @@ class ResolvedField extends AggregatedValidationResult implements FieldResult
 	}
 
 	/**
+	 * Whether a record's parts arrived and do not make a value — a currency with no amount, a
+	 * phone number with no country.
+	 *
+	 * Shorthand for `$field->shape->wasIncomplete()`. The parts' own violations say what is
+	 * wrong with each, and {@see self::$missingParts} which essential ones were not supplied.
+	 */
+	public function wasIncomplete(): bool
+	{
+		return $this->shape->wasIncomplete();
+	}
+
+	/**
+	 * The essential parts that were not supplied, in the order the value declares them — the
+	 * boxes a form still needs filled in before there is a value to judge.
+	 *
+	 * Empty unless the result {@see self::wasIncomplete()}. A part that was supplied and could
+	 * not be read is not here: it has a violation of its own.
+	 *
+	 *     $billing->resultIn($result)->missingParts;   // [Address\Part::Country]
+	 *
+	 * @var list<Field\Part>
+	 */
+	public array $missingParts {
+		get => $this->shape->missingParts;
+	}
+
+	/**
 	 * The constraints that failed. Shorthand for `$field->constraints->getFailed()`.
 	 */
 	public function getFailedConstraints(): Field\ConstraintResults
@@ -203,16 +277,23 @@ class ResolvedField extends AggregatedValidationResult implements FieldResult
 	}
 
 	/**
-	 * The result for one constraint, by the name it is reported under.
+	 * The result for one constraint, by its code — or by the code's wire name, which is what a
+	 * serialised schema and a language pack hold.
+	 *
+	 * In code, pass the enum case: `forConstraint(Text\Check::MinLength)`. A misspelled case does
+	 * not compile; a misspelled name is a `null` that looks exactly like a constraint the field
+	 * does not have.
 	 */
-	public function forConstraint(string $constraintName): ?ConstraintValidationResult
+	public function forConstraint(Field\Check|string $code): ?ConstraintValidationResult
 	{
-		if ($constraintName === '') {
+		if ($code === '') {
 			throw InvalidConstraint::lookedUpWithNoName();
 		}
 
+		$name = $code instanceof Field\Check ? (string) $code->value : $code;
+
 		foreach ($this->results as $result) {
-			if ($result instanceof ConstraintValidationResult && $result->name === $constraintName) {
+			if ($result instanceof ConstraintValidationResult && $result->name === $name) {
 				return $result;
 			}
 		}

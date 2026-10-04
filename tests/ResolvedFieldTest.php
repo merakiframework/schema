@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace Meraki\Schema;
 
 use Meraki\Schema\Field\ConstraintValidationResult;
+use Meraki\Schema\Field\Text\Check;
 use Meraki\Schema\Rule\AppliedOutcome;
 use Meraki\Schema\Rule\Outcome;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -47,12 +48,14 @@ final class ResolvedFieldTest extends TestCase
 	#[Test]
 	public function it_reports_its_own_constraint_outcomes(): void
 	{
-		$field = $this->resolved('ab', 'ab', ConstraintValidationResult::pass('type'), ConstraintValidationResult::fail('min'));
+		$field = $this->resolved('ab', 'ab', ConstraintValidationResult::pass(Check::MaxLength), ConstraintValidationResult::fail(Check::MinLength));
 
 		$this->assertTrue($field->anyFailed());
 		$this->assertSame(ValidationStatus::Failed, $field->status);
-		$this->assertSame(ValidationStatus::Failed, $field->forConstraint('min')?->status);
-		$this->assertSame(ValidationStatus::Passed, $field->forConstraint('type')?->status);
+		$this->assertSame(ValidationStatus::Failed, $field->forConstraint(Check::MinLength)?->status);
+		$this->assertSame(ValidationStatus::Passed, $field->forConstraint(Check::MaxLength)?->status);
+		$this->assertSame(ValidationStatus::Passed, $field->forConstraint('maxLength')?->status, 'by its wire name too');
+		$this->assertNull($field->forConstraint(Check::Pattern));
 		$this->assertNull($field->forConstraint('nonexistent'));
 	}
 
@@ -61,13 +64,13 @@ final class ResolvedFieldTest extends TestCase
 	{
 		$this->expectException(InvalidArgumentException::class);
 
-		$this->resolved('ab', 'ab', ConstraintValidationResult::pass('min'), ConstraintValidationResult::fail('min'));
+		$this->resolved('ab', 'ab', ConstraintValidationResult::pass(Check::MinLength), ConstraintValidationResult::fail(Check::MinLength));
 	}
 
 	#[Test]
 	public function the_value_is_what_was_validated(): void
 	{
-		$field = $this->resolved('abc', 'abc', ConstraintValidationResult::pass('type'), ConstraintValidationResult::pass('min'));
+		$field = $this->resolved('abc', 'abc', ConstraintValidationResult::pass(Check::MaxLength), ConstraintValidationResult::pass(Check::MinLength));
 
 		$this->assertSame('abc', $field->value);
 	}
@@ -76,7 +79,7 @@ final class ResolvedFieldTest extends TestCase
 	public function the_value_is_null_when_nothing_was_supplied(): void
 	{
 		// Nothing was supplied and nothing was required, so there is legitimately no value.
-		$field = $this->resolved(null, null, ConstraintValidationResult::skip('type'), ConstraintValidationResult::skip('min'));
+		$field = $this->resolved(null, null, ConstraintValidationResult::skip(Check::MaxLength), ConstraintValidationResult::skip(Check::MinLength));
 
 		$this->assertNull($field->value);
 	}
@@ -87,7 +90,7 @@ final class ResolvedFieldTest extends TestCase
 		// It used to throw on a failure, which forced check-before-read ceremony on every consumer.
 		// Now a rejected field still hands back what it was judging, so a form redrawing it has
 		// something to show — and $given has the untouched submission besides.
-		$failed = $this->resolved('ab', 'ab', ConstraintValidationResult::pass('type'), ConstraintValidationResult::fail('min'));
+		$failed = $this->resolved('ab', 'ab', ConstraintValidationResult::pass(Check::MaxLength), ConstraintValidationResult::fail(Check::MinLength));
 		$pending = $this->resolved('abc', 'abc');
 
 		$this->assertSame('ab', $failed->value);
@@ -118,7 +121,7 @@ final class ResolvedFieldTest extends TestCase
 		// Resolution and validation are two steps, because a form is rendered before it is
 		// submitted.
 		$pending = $this->resolved('abc', 'abc');
-		$checked = $pending->withResults(ConstraintValidationResult::pass('type'));
+		$checked = $pending->withResults(ConstraintValidationResult::pass(Check::MaxLength));
 
 		$this->assertSame(ValidationStatus::Pending, $pending->status);
 		$this->assertSame(ValidationStatus::Passed, $checked->status);
@@ -131,7 +134,7 @@ final class ResolvedFieldTest extends TestCase
 	{
 		// getFailed() and friends clone; the identity of the field must survive that.
 		$field = $this->field();
-		$resolved = new ResolvedField($field, 'ab', 'ab', [], ValueSource::Submitted, null, ConstraintValidationResult::pass('type'), ConstraintValidationResult::fail('min'));
+		$resolved = new ResolvedField($field, 'ab', 'ab', [], ValueSource::Submitted, null, ConstraintValidationResult::pass(Check::MaxLength), ConstraintValidationResult::fail(Check::MinLength));
 
 		$failed = $resolved->getFailed();
 

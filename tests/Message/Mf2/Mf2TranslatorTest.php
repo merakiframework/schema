@@ -22,6 +22,14 @@ use PHPUnit\Framework\TestCase;
 #[CoversClass(Resource::class)]
 final class Mf2TranslatorTest extends TestCase
 {
+	/** The violation a failed verdict describes — refusing a verdict the field never reported. */
+	private static function violationOf(?Field\ConstraintValidationResult $verdict): Field\Violation
+	{
+		self::assertNotNull($verdict, 'the field should have reported this constraint');
+
+		return Field\Violation::from($verdict);
+	}
+
 	private static function translator(string $source): Mf2Translator
 	{
 		return new Mf2Translator('en', Resource::parse("@locale = en\n" . $source), new Formatter());
@@ -40,7 +48,7 @@ final class Mf2TranslatorTest extends TestCase
 
 		$this->assertSame(
 			'Use at least 10 characters.',
-			$translator->forConstraint($field, $field->validate('short')->forConstraint('minLength')),
+			$translator->forViolation($field, self::violationOf($field->validate('short')->forConstraint('minLength'))),
 		);
 	}
 
@@ -57,7 +65,7 @@ final class Mf2TranslatorTest extends TestCase
 
 		$this->assertSame(
 			'Choose a passphrase of at least 12 characters.',
-			$translator->forConstraint($field, $field->validate('short')->forConstraint('minLength')),
+			$translator->forViolation($field, self::violationOf($field->validate('short')->forConstraint('minLength'))),
 		);
 	}
 
@@ -65,7 +73,7 @@ final class Mf2TranslatorTest extends TestCase
 	public function a_part_specific_key_wins_over_the_field_specific_one(): void
 	{
 		$field = new Field\Address(new FieldName('billing'), ['AU']);
-		$result = $field->validate(self::rockhampton(postcode: '99'))->forConstraint('postalCodeFormat');
+		$violation = $field->validate(self::rockhampton(postcode: '99'))->violations->first();
 
 		$translator = self::translator(
 			"postalCodeFormat = generic\n"
@@ -73,7 +81,8 @@ final class Mf2TranslatorTest extends TestCase
 			. 'Address.postal_code.postalCodeFormat = by part',
 		);
 
-		$this->assertSame('by part', $translator->forConstraint($field, $result));
+		$this->assertNotNull($violation);
+		$this->assertSame('by part', $translator->forViolation($field, $violation));
 	}
 
 	#[Test]
@@ -83,7 +92,7 @@ final class Mf2TranslatorTest extends TestCase
 
 		$this->assertNull(
 			self::translator('maxLength = x')
-				->forConstraint($field, $field->validate('short')->forConstraint('minLength')),
+				->forViolation($field, self::violationOf($field->validate('short')->forConstraint('minLength'))),
 		);
 	}
 
@@ -100,7 +109,7 @@ final class Mf2TranslatorTest extends TestCase
 
 		$this->assertSame(
 			'That is not a valid email address.',
-			$translator->forShape($field, $field->validate('nope')->shape),
+			$translator->forViolation($field, new Field\Violation(Field\ShapeProblem::Unreadable)),
 		);
 	}
 
@@ -112,7 +121,7 @@ final class Mf2TranslatorTest extends TestCase
 		$this->assertSame(
 			'That is not a Text.',
 			self::translator('shape.unreadable = That is not a {$kind}.')
-				->forShape($field, Field\ShapeValidationResult::unreadable()),
+				->forViolation($field, new Field\Violation(Field\ShapeProblem::Unreadable)),
 		);
 	}
 
@@ -120,14 +129,15 @@ final class Mf2TranslatorTest extends TestCase
 	public function the_part_arrives_translated(): void
 	{
 		$field = new Field\Address(new FieldName('billing'), ['AU']);
-		$result = $field->validate(self::rockhampton(postcode: '99'))->forConstraint('postalCodeFormat');
+		$violation = $field->validate(self::rockhampton(postcode: '99'))->violations->first();
 
 		$translator = self::translator(
 			"part.postal_code = postcode\n"
 			. 'postalCodeFormat = That is not a valid {$part}.',
 		);
 
-		$this->assertSame('That is not a valid postcode.', $translator->forConstraint($field, $result));
+		$this->assertNotNull($violation);
+		$this->assertSame('That is not a valid postcode.', $translator->forViolation($field, $violation));
 	}
 
 	#[Test]
@@ -136,17 +146,17 @@ final class Mf2TranslatorTest extends TestCase
 		$field = self::text();
 		$translator = self::translator("shape.missing = required\nshape.unreadable = malformed");
 
-		$this->assertSame('required', $translator->forShape($field, Field\ShapeValidationResult::missing()));
-		$this->assertSame('malformed', $translator->forShape($field, Field\ShapeValidationResult::unreadable()));
+		$this->assertSame('required', $translator->forViolation($field, new Field\Violation(Field\ShapeProblem::Missing)));
+		$this->assertSame('malformed', $translator->forViolation($field, new Field\Violation(Field\ShapeProblem::Unreadable)));
 	}
 
 	#[Test]
 	public function a_shape_that_did_not_fail_has_nothing_to_say(): void
 	{
+		// Only a failure is a violation, so there is nothing to hand a translator at all.
 		$field = self::text();
-		$translator = self::translator('shape.missing = required');
 
-		$this->assertNull($translator->forShape($field, Field\ShapeValidationResult::pass()));
+		$this->assertTrue($field->validate('fine')->withMessagesFrom(self::translator('shape.missing = required'))->violations->isEmpty());
 	}
 
 	#[Test]
@@ -163,7 +173,7 @@ final class Mf2TranslatorTest extends TestCase
 
 		$this->assertSame(
 			'Start with https, http or ftp.',
-			$translator->forConstraint($field, $field->validate('gopher://x')->forConstraint('allowedSchemes')),
+			$translator->forViolation($field, self::violationOf($field->validate('gopher://x')->forConstraint('allowedSchemes'))),
 		);
 	}
 
@@ -179,7 +189,7 @@ final class Mf2TranslatorTest extends TestCase
 
 		$this->assertSame(
 			'Start with https or http.',
-			$translator->forConstraint($field, $field->validate('gopher://x')->forConstraint('allowedSchemes')),
+			$translator->forViolation($field, self::violationOf($field->validate('gopher://x')->forConstraint('allowedSchemes'))),
 		);
 	}
 
@@ -191,20 +201,21 @@ final class Mf2TranslatorTest extends TestCase
 
 		$this->assertSame(
 			'Answer yes.',
-			$translator->forConstraint($field, $field->validate(false)->forConstraint('accepted')),
+			$translator->forViolation($field, self::violationOf($field->validate(false)->forConstraint('accepted'))),
 		);
 	}
 
 	#[Test]
-	public function a_constraint_with_no_bound_renders_an_empty_one(): void
+	public function a_check_with_no_bound_renders_an_empty_one(): void
 	{
 		// Rather than raising. The message asking for a bound that does not exist is a pack bug,
 		// and the place to catch it is the pack's build, not somebody's form.
 		$field = new Field\Address(new FieldName('billing'), ['AU']);
-		$result = $field->validate(self::rockhampton(area: 'ZZ'))->forConstraint('knownSubdivision');
+		$violation = $field->validate(self::rockhampton(area: 'ZZ'))->violations->first();
 		$translator = self::translator('knownSubdivision = Not recognised.{$bound}');
 
-		$this->assertSame('Not recognised.', $translator->forConstraint($field, $result));
+		$this->assertSame(Field\Address\Check::KnownSubdivision, $violation?->code);
+		$this->assertSame('Not recognised.', $translator->forViolation($field, $violation));
 	}
 
 	#[Test]
@@ -215,7 +226,7 @@ final class Mf2TranslatorTest extends TestCase
 		$this->expectException(BadMessage::class);
 
 		self::translator('minLength = At least {$minimum}.')
-			->forConstraint($field, $field->validate('short')->forConstraint('minLength'));
+			->forViolation($field, self::violationOf($field->validate('short')->forConstraint('minLength')));
 	}
 
 	private static function rockhampton(string $postcode = '4700', ?string $area = null): object

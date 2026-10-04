@@ -10,7 +10,7 @@ worth more than a shorter page.
 The library is **pre-release**. See [ROADMAP.md](ROADMAP.md) for the release ladder and
 [the release verdict](ROADMAP.md#release-verdict) for why.
 
-- [Known defects](#known-defects) — all fixed; kept as the record of what they were
+- [Known defects](#known-defects) — one open; the rest fixed and kept as the record of what they were
 - [Design constraints](#design-constraints) — intentional behaviour that will surprise you
 - [Not yet implemented](#not-yet-implemented) — advertised but inert
 - [Recently fixed](#recently-fixed) — what changed, and what it was
@@ -18,6 +18,98 @@ The library is **pre-release**. See [ROADMAP.md](ROADMAP.md) for the release lad
 ---
 
 ## Known defects
+
+<a id="b11"></a>
+
+### B11 — a rule about a part that holds a number or a date never holds
+
+**Fixed in 2.0.** Each of the three parts now holds a type of its own field's that knows its
+equality and its order — `Money\Amount`, `CreditCard\Expiry` and `File\Size` — and the input
+reads a rule's expectation into the same type, so `isAtLeast(10)` compares two amounts and
+`equals('2026-09')` two expiries. The ordered verbs read a part's expectation through the input,
+as equality already did. The reproducer below is
+`Rule\OrderedPartTest::the_rule_compares_the_part_in_its_own_terms`, inverted.
+
+What remains is the second fix described at the end. An expectation a part cannot read —
+`isAtLeast('ten')` against an amount — is compared as written and never holds, and an ordered
+verb against a part that holds text, such as a currency, is accepted where it is written.
+Refusing both there needs each part to declare what it holds.
+
+The description below is kept as the record of what the defect was.
+
+---
+
+A part scope resolves to whatever the value holds in that part, and three parts hold
+something the rule engine cannot compare: money's `amount` is a `BigDecimal`, a card's `expiry` a
+`LocalDate`, and a file's `size` an `int`. Equality compares objects that are not this library's
+by identity, and the ordered verbs need a `Comparison\Comparable`, so:
+
+```php
+$schema = new Meraki\Schema\Definition('order');
+$schema->add($schema->createMoneyField('price', ['AUD']));
+$schema->add($note = $schema->createTextField('note')->makeOptional());
+$schema->addRule(
+    $schema->when(Meraki\Schema\PartScope::of('price', 'amount'))->isAtLeast(10)
+        ->then($note->makeRequired()),
+);
+
+$schema->validate((object) ['price' => (object) ['currency' => 'AUD', 'amount' => '12.50']])
+    ->forField('note')->wasMissing();   // false — and `equals('12.50')` never holds either
+```
+
+The rule is accepted where it is written and never fires, which is the dead-rule failure the
+guards exist to stop. A rule about the *whole* value is unaffected: `$price->when()->isAtLeast(...)`
+compares two `Money\Value`s.
+
+**Until it is fixed,** compare the whole value, or a part that holds text.
+
+Two fixes, not exclusive. A part could hold this library's own value object — a `Number\Value`
+for an amount, a `Date\Value` for an expiry — and the input could read the expectation into the
+same type, the way an address reads `QLD` as `AU-QLD`; the ordered verbs would then have to read
+a part's expectation through the input too, as equality already does. Or a part could declare
+what it holds, so a comparison it cannot answer is refused where the rule is written.
+
+<a id="b10"></a>
+
+### B10 — two rules that each add to one map, and both fire: the second undoes the first
+
+**Open.** An outcome stores the properties a wither *changed*, compared against the field as the
+author registered it, and applies them by replacing each property whole. That composes for a
+property holding one thing — two rules making a field required and accepted touch different
+properties. It does not compose for a property holding a **map**, because each rule's copy of the
+map was taken from the authored field and knows nothing of the other's entry:
+
+```php
+$schema = new Meraki\Schema\Definition('shop');
+$price = $schema->createMoneyField('price', ['AUD' => 2, 'USD' => 2]);
+$a = $schema->createBooleanField('a');
+$b = $schema->createBooleanField('b');
+$schema->add($price, $a, $b);
+
+$schema->addRules(
+    $a->when()->equals(true)->then($price->minAmountOf('AUD', '10.00')),
+    $b->when()->equals(true)->then($price->minAmountOf('USD', '7.00')),
+);
+
+$result = $schema->validate((object) [
+    'a' => true, 'b' => true,
+    'price' => (object) ['currency' => 'AUD', 'amount' => '5.00'],
+])->forField('price');
+
+$result->field->minAmounts;                          // ['USD' => 7.00] — the AUD minimum is gone
+$result->forConstraint('minAmount')->status->name;   // 'Skipped' — and 5.00 AUD gets through
+```
+
+Nothing raises and nothing reports it. The same holds for every map- or list-valued property a
+wither adds to: `Money::$minAmounts` and `$maxAmounts`, and `allowCountries()` /
+`allowCurrencies()` on the fields that have them.
+
+**Until it is fixed,** put both entries in one outcome — a rule per combination of conditions —
+or configure the map on the authored field and let rules change only scalar properties.
+
+The fix belongs in `Rule\Outcome\Reconfigure`: either store an *operation* for a map ("add AUD's
+minimum") rather than the map it produced, or merge a map-valued change into the field as it
+stands rather than replacing it.
 
 <a id="b9"></a>
 

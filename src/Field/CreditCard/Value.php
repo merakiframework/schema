@@ -4,20 +4,18 @@ declare(strict_types=1);
 namespace Meraki\Schema\Field\CreditCard;
 
 use Meraki\Schema\Comparison\Equality;
-use Meraki\Schema\Exception\BrokenInputContract;
-use Meraki\Schema\Field\HasParts;
+use Meraki\Schema\Field;
 use Meraki\Schema\Field\MalformedValue;
 use Meraki\Schema\Field\ParsedValue;
-use Brick\DateTime\DateTimeException;
 use Brick\DateTime\LocalDate;
 use SensitiveParameter;
 
 /**
  * One payment card, held whole.
  *
- * Every part is nullable, and that is not laxity: a card needs a number, an expiry and a name, and
- * reporting *which* of them is missing is more use than refusing to build the object at all. The
- * field's constraints say what is required; this says what arrived.
+ * A number and an expiry, neither of them null, and a name and a security code when they were
+ * given. A card somebody has half filled in is an {@see Input} that has not made a value yet, and
+ * is reported part by part, so nothing handed one of these has to ask which part is there.
  *
  * ### Two things this deliberately does not do
  *
@@ -36,106 +34,57 @@ use SensitiveParameter;
  * It does not guess the network. A number beginning `4` is probably a Visa, and "probably" is not
  * a thing to validate against — the ranges move, and the processor is the authority.
  */
-final readonly class Value implements ParsedValue, HasParts
+final readonly class Value implements ParsedValue
 {
 	/**
-	 * The PAN with its grouping removed, or null when none was given.
+	 * Built by {@see Input} from what was submitted, or by {@see self::of()} by hand. The
+	 * constructor still guards what it can see, so a value made any other way cannot hold a number
+	 * that is not one.
 	 *
-	 * No `#[SensitiveParameter]`: the attribute targets parameters, and PHP refuses it on a
-	 * property. The secrecy this type does carry is in what it withholds — there is no
-	 * `__toString()`, and no masking either, because a consumer may legitimately need the digits.
+	 * @param string $number the PAN, digits only — the grouping people type it in is a display
+	 *        convention rather than part of the number
+	 * @param LocalDate $expiry the last day of the stated month
+	 * @param string|null $name the cardholder's name as printed, or null when it was not asked for
+	 * @param string|null $securityCode null when it was not asked for — plenty of flows never do
+	 * @throws MalformedValue if the number is not 13 to 19 digits
 	 */
-	public ?string $number;
-
-	/** The last day of the stated month, or null. */
-	public ?LocalDate $expiry;
-
-	/** The cardholder's name as printed, or null. */
-	public ?string $name;
-
-	/** The only part a card may legitimately be missing, since it is not always asked for. */
-	public ?string $securityCode;
-
-	/**
-	 * Takes the record a field takes, so there is one answer to "what is a card here".
-	 *
-	 * Total about the *parts*: an absent or non-string part becomes null, because a
-	 * half-filled card is still a card and the required-part constraints are what say which
-	 * halves are missing. It refuses only a card with nothing in it at all, which is not a
-	 * vague card — it is not a card.
-	 *
-	 * @param object{number?: string|null, expiry?: string|null, name?: string|null, security_code?: string|null} $card
-	 * @throws BrokenInputContract if it carries a key a card does not have
-	 * @throws MalformedValue if every part is absent
-	 */
-	public function __construct(#[SensitiveParameter] object $card)
-	{
-		$parts = get_object_vars($card);
-		$unknown = array_diff(array_keys($parts), self::partNames());
-
-		// Raised, not reported. Only the key *names* reach the message — never a value, on a
-		// type where a value is a card number.
-		if ($unknown !== []) {
-			throw BrokenInputContract::recordHasKeysItDoesNotAccept(self::class, array_values($unknown), self::partNames());
-		}
-
-		// Absent or not a string is null. A part that was *sent* and holds nothing is unreadable
-		// rather than absent — the rule every record-shaped value here follows — because `''` was
-		// a decision somebody made, and reading it as "no expiry" would satisfy `expiryRequired`.
-		// Nothing is trimmed beyond that; repairing input is the port's job.
-		$text = static function (string $key) use ($parts): ?string {
-			$value = $parts[$key] ?? null;
-
-			if (!is_string($value)) {
-				return null;
-			}
-
-			if (trim($value) === '') {
-				throw MalformedValue::of(self::class, "its {$key} was given but holds nothing");
-			}
-
-			return $value;
-		};
-
-		$number = $text('number');
-
-		// The one thing that *is* canonicalised: ISO/IEC 7812 says a PAN is digits, so the
-		// grouping people type it in is a display convention rather than part of the number.
-		$this->number = $number === null ? null : preg_replace('/\s+/', '', $number);
-		$expiry = $text('expiry');
-		$this->expiry = $expiry === null ? null : self::readExpiry($expiry);
-
-		if ($expiry !== null && $this->expiry === null) {
-			throw MalformedValue::of(self::class, sprintf('"%s" is not an expiry date', $expiry));
-		}
-		$this->name = $text('name');
-		$this->securityCode = $text('security_code');
-
-		if ($this->number === null && $this->expiry === null && $this->name === null && $this->securityCode === null) {
-			throw MalformedValue::of(self::class, 'it has no number, expiry, name or security code');
+	public function __construct(
+		#[SensitiveParameter] public string $number,
+		public LocalDate $expiry,
+		public ?string $name = null,
+		#[SensitiveParameter] public ?string $securityCode = null,
+	) {
+		if (preg_match('/^\d{13,19}$/', $number) !== 1) {
+			throw MalformedValue::of(self::class, 'a card number is 13 to 19 digits');
 		}
 	}
 
 	/**
 	 * The readable way to write one by hand — a rule's bound, a test.
 	 *
-	 * A convenience over the constructor rather than a second way in: it builds the record a
-	 * form would submit and hands it over, so the invariant is enforced in one place.
+	 * Read the way a form's card is, through {@see Input}, so there is one place where what a card
+	 * *is* gets decided.
 	 *
-	 * @throws MalformedValue if every part is absent
+	 * @throws MalformedValue if what it is given does not make a card
 	 */
 	public static function of(
-		#[SensitiveParameter] ?string $number = null,
-		?string $expiry = null,
+		#[SensitiveParameter] string $number,
+		string $expiry,
 		?string $name = null,
 		#[SensitiveParameter] ?string $securityCode = null,
 	): self {
-		return new self((object) [
+		$input = new Input((object) [
 			'number' => $number,
 			'expiry' => $expiry,
 			'name' => $name,
 			'security_code' => $securityCode,
 		]);
+
+		// The codes only: a message here must never carry what was typed.
+		return $input->value ?? throw MalformedValue::of(self::class, sprintf(
+			'it does not make a card: %s',
+			implode(', ', array_map(static fn(Field\Violation $violation): string => $violation->name, $input->violations)),
+		));
 	}
 
 	/**
@@ -154,104 +103,14 @@ final readonly class Value implements ParsedValue, HasParts
 		return $other instanceof self
 			&& $this->number === $other->number
 			&& $this->name === $other->name
-			&& (
-				$this->expiry === null
-					? $other->expiry === null
-					: $other->expiry !== null && $this->expiry->isEqualTo($other->expiry)
-			);
+			&& $this->expiry->isEqualTo($other->expiry);
 	}
-
-	/**
-	 * The last day of the stated month, or `null` when there is no month to read.
-	 *
-	 * The last day rather than the first because a card expiring in `2026-09` is good until the end
-	 * of September. Taking the first would reject a valid card for up to thirty days.
-	 *
-	 * Either spelling is read: `YYYY-MM`, which is what `<input type="month">` submits, or a full
-	 * date. Anything else is `null` — unreadable input is something to report rather than raise
-	 * about, because this runs on what a stranger typed.
-	 */
-	private static function readExpiry(?string $expiry): ?LocalDate
-	{
-		if ($expiry === null) {
-			return null;
-		}
-
-		if (preg_match('/^(\d{4})-(\d{2})$/', $expiry, $parts) === 1) {
-			try {
-				return LocalDate::of((int) $parts[1], (int) $parts[2], 1)->withDay(1)->plusMonths(1)->minusDays(1);
-			} catch (DateTimeException) {
-				return null;
-			}
-		}
-
-		try {
-			return LocalDate::parse($expiry);
-		} catch (DateTimeException) {
-			return null;
-		}
-	}
-
-
 
 	/**
 	 * The last four digits, which is the most of a card number anything should ever show.
 	 */
-	public function lastFourDigits(): ?string
+	public function lastFourDigits(): string
 	{
-		return ($this->number === null || strlen($this->number) < 4) ? null : substr($this->number, -4);
-	}
-
-	/**
-	 * Whether this holds enough to be a card at all: a number, an expiry and a name. The security
-	 * code is the one part a card can do without — plenty of flows never ask for one.
-	 *
-	 * Which is why an empty card is *invalid* rather than absent: submitting a card means
-	 * submitting those three.
-	 */
-	public function isComplete(): bool
-	{
-		return $this->number !== null && $this->expiry !== null && $this->name !== null;
-	}
-
-	/**
-	 * The number and the security code are here because a part scope reads what the field
-	 * holds, and withholding them would only send a caller to the properties instead. Nothing
-	 * about a part scope makes a card safe to log — see this class's note on that.
-	 *
-	 * @return list<string>
-	 */
-	public static function partNames(): array
-	{
-		return ['number', 'expiry', 'name', 'security_code'];
-	}
-
-	/**
-	 * @return array<string, mixed>
-	 */
-	public function parts(): array
-	{
-		return [
-			'number' => $this->number,
-			'expiry' => $this->expiry,
-			'name' => $this->name,
-			'security_code' => $this->securityCode,
-		];
-	}
-
-	/**
-	 * Nothing here is canonicalised, so a rule compares against exactly what it was written
-	 * with. {@see \Meraki\Schema\Field\Address\Value::canonicalPartValue()} is the one that
-	 * has work to do.
-	 */
-	public function canonicalPartValue(string $part, mixed $expected): mixed
-	{
-		return $expected;
-	}
-
-	/** Every part here is one string. @see HasParts::listParts() */
-	public static function listParts(): array
-	{
-		return [];
+		return substr($this->number, -4);
 	}
 }

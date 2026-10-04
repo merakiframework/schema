@@ -5,7 +5,6 @@ require_once __DIR__ . '/../vendor/autoload.php';
 
 use Meraki\Schema\Definition;
 use Meraki\Schema\Message\Mf2\Mf2Provider;
-use Meraki\Schema\Message\PartedSet;
 
 // Messages are optional, installed rather than written, and never able to change a verdict.
 //
@@ -83,31 +82,19 @@ foreach (['en', 'en-AU', 'de-AT'] as $locale) {
 			continue;
 		}
 
-		$messages = $field->messages;
-
-		if ($messages->isEmpty()) {
-			printf('  %-10s (no wording for this language)%s', $field->field->name, PHP_EOL);
-			continue;
+		// Every failure is a violation: its code, the part it concerns, the bound that applied,
+		// and — when the pack had wording — its sentence. They read the value as a whole first,
+		// then part by part in the order the value declares them, so a renderer can put each
+		// sentence beside the input it belongs to.
+		foreach ($field->violations as $violation) {
+			printf(
+				'  %-10s %-14s %s%s',
+				$field->field->name,
+				$violation->part === null ? '' : $violation->part->value,
+				$violation->message ?? "({$violation->name}: no wording in this language)",
+				PHP_EOL,
+			);
 		}
-
-		// Two shapes, and the *field* decides which — not what happened to fail. A field holding
-		// one value gives a flat list; one whose value has named parts groups by part, so a
-		// renderer can put each sentence beside the input it belongs to.
-		if ($messages instanceof PartedSet) {
-			// `whole` is the half people forget: an address has parts, but "that is not a
-			// readable address" is about the whole value and belongs to none of them.
-			foreach ($messages->whole as $said) {
-				printf('  %-10s %-20s %s%s', $field->field->name, '(whole)', $said, PHP_EOL);
-			}
-
-			foreach ($messages->parts as $part) {
-				printf('  %-10s %-20s %s%s', $field->field->name, $part, $messages->forPart($part)->first, PHP_EOL);
-			}
-
-			continue;
-		}
-
-		printf('  %-10s %-20s %s%s', $field->field->name, '', $messages->first, PHP_EOL);
 	}
 }
 
@@ -124,11 +111,15 @@ printf(
 	PHP_EOL,
 );
 
-// A field validated on its own has no schema, so no provider, so no messages. Stated rather than
-// worked around: a definition that knew about languages could not be serialised the same way twice.
+// A field validated on its own has no schema, so no provider, so its violations carry codes and no
+// sentences. Stated rather than worked around: a definition that knew about languages could not be
+// serialised the same way twice.
+$alone = $schema->fields->getByName('secret')->validate('hunter2')->violations;
+
 printf(
-	'A field on its own has messages: %s%s',
-	$schema->fields->getByName('secret')->validate('hunter2')->messages->isEmpty() ? 'no' : 'yes',
+	'A field on its own: %d violation, %d sentences%s',
+	count($alone),
+	count($alone->messages),
 	PHP_EOL,
 );
 

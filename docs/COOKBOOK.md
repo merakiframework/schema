@@ -138,12 +138,14 @@ $field = $result->forField('bio');
 
 $field->wasMissing();       // nothing arrived for a required field
 $field->wasUnreadable();    // something arrived that is not this kind of thing
+$field->wasIncomplete();    // a record's parts arrived and make no value
+$field->missingParts;       // ...and which essential ones were not supplied
 
 $failed = $field->getFailedConstraints()->getFirst();
 
 $failed->name;    // 'minLength'
 $failed->bound;   // 10  — the limit that applied, ready to interpolate
-$failed->part;    // null, or 'postal_code' for part of a structured value
+$failed->part;    // null, or Address\Part::Locality for part of a structured value
 ```
 
 **Shape and constraints are different questions.** If a value could not be read at all, the
@@ -271,12 +273,34 @@ part they concern:
 ```php
 $field = $result->forField('billing');
 
-$field->value->postalCode;                            // the parsed value, part by part
-$field->getFailedConstraints()->getFirst()->part;     // 'postal_code'
+$field->value?->postalCode;               // the value, part by part, once it is whole
+$field->violations->first()?->part;       // Address\Part::PostalCode — whichever step found it
 ```
 
 So a renderer can attach each error to the right input instead of piling them above the fieldset.
 Part names are the same vocabulary the input used.
+
+### A record that is not whole yet
+
+Money with no amount is not money, so nothing about the field is judged until it is — the missing
+half is reported against its own box, and every constraint waits:
+
+```php
+use Meraki\Schema\Field\Money;
+
+$price = $schema->createMoneyField('price', ['AUD'])->minAmountOf('AUD', '10.00');
+$result = $price->validate((object) ['currency' => 'AUD']);
+
+$result->wasIncomplete();                                     // true
+$result->missingParts;                                        // [Money\Part::Amount]
+$result->forPart(Money\Part::Amount)->first()?->code;         // Money\Check::AmountRequired
+$result->forConstraint(Money\Check::MinAmount)?->skipped();   // true — no amount to compare
+```
+
+A half that was sent and is not one — `'abc'` for the amount — is reported the same way, as
+`amountFormat`. Both halves are read whatever happens to the other, so a form with both boxes wrong
+hears about both at once. Something that is not a record at all, a string where money belongs, is
+still `wasUnreadable()`.
 
 ## Repeatable rows
 
@@ -303,6 +327,7 @@ itself.
 ## Comparing two fields
 
 ```php
+use Meraki\Schema\Field\Address;
 use Meraki\Schema\ValueScope;
 
 // is the shipping address the billing address?
@@ -311,10 +336,10 @@ $schema->addRule(
         ->then($confirmDifferent->makeRequired()),
 );
 
-// are they at least in the same country?
+// are they at least in the same country? A part is named by its case, so a typo does not compile.
 $schema->addRule(
-    $schema->when(ValueScope::of('shipping', 'country'))
-        ->notEquals(ValueScope::of('billing', 'country'))
+    $schema->when(ValueScope::of('shipping', Address\Part::Country))
+        ->notEquals(ValueScope::of('billing', Address\Part::Country))
         ->then($customsNote->makeRequired()),
 );
 ```
@@ -399,15 +424,16 @@ $provider = Mf2Provider::fromPackage('meraki/schema-language-english');
 
 $result = $schema->validate($input, locale: 'en-AU', messages: $provider);
 
-$result->forField('username')->messages->first;
+$username->resultIn($result)->violations->first()?->message;
 // "Use at least 3 characters."
 
-$result->forField('billing')->messages->forPart('postal_code')->first;
+$billing->resultIn($result)->forPart(Address\Part::PostalCode)->first()?->message;
 // "That is not a valid postcode for the country you chose."
 ```
 
-The provider and the locale both arrive **with the request**, so one schema serves every reader. A field whose value has
-named parts groups its messages by part; everything else gives a flat list.
+The provider and the locale both arrive **with the request**, so one schema serves every reader. Every
+failure is a violation carrying its sentence alongside its code and part, so a field whose value has
+named parts is read part by part and everything else as one list.
 
 Entirely optional — with no provider, every result carries an empty message set and nothing else
 changes. See [MESSAGES.md](MESSAGES.md).

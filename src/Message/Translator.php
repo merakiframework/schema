@@ -14,8 +14,7 @@ use Meraki\Schema\Field;
  *
  * It answers about verdicts, not about fields. A translator is never asked "what is this field
  * called" — the core has no labels, because a label is a presentation concern and belongs to
- * whatever draws the form. It is asked what to say about a shape that failed and a constraint that
- * failed, and nothing else.
+ * whatever draws the form. It is asked what to say about a violation, and nothing else.
  *
  * ### Returning null is a real answer
  *
@@ -36,22 +35,18 @@ interface Translator
 	public string $locale { get; }
 
 	/**
-	 * What to say when a value could not be read as this field's kind of thing at all, or when
-	 * nothing arrived for a field that required something.
+	 * What to say about one violation of one field.
 	 *
-	 * The two are deliberately one method taking a {@see Field\ShapeValidationResult}, because the
-	 * result already distinguishes them — `wasMissing()` against `wasUnreadable()` — and splitting
-	 * it here would mean adding a method the day a third kind of shape failure appears.
-	 */
-	public function forShape(Field $field, Field\ShapeValidationResult $shape): ?string;
-
-	/**
-	 * What to say when one constraint rejected a value.
+	 * One method for every kind of failure — nothing arriving, nothing readable, a constraint the
+	 * value failed, a part a value cannot be without — because the violation already says which:
+	 * its code is a {@see Field\ShapeProblem} for the first two and a case of the field's own
+	 * {@see Field\Check} enum for the rest. It carries everything a sentence needs without reaching
+	 * back into the field: the code, the part it concerns, and the bound that applied — including
+	 * a bound that only exists once a value names it, like a postcode pattern for one country.
 	 *
-	 * The result carries everything a sentence needs without reaching back to the field: the name
-	 * that failed, the part of a structured value it concerns, and the bound that applied —
-	 * including a bound that only exists once a value names it, like a postcode pattern for one
-	 * country.
+	 * It used to be two methods, one for the shape and one for a constraint. A third kind of
+	 * failure would have meant a third, and every translator ever written would have had to grow
+	 * it.
 	 */
-	public function forConstraint(Field $field, Field\ConstraintValidationResult $constraint): ?string;
+	public function forViolation(Field $field, Field\Violation $violation): ?string;
 }

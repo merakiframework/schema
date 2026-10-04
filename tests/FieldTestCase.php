@@ -191,6 +191,67 @@ abstract class FieldTestCase extends TestCase
 		$this->assertShapeProblemIs(ShapeProblem::Unreadable, $result);
 	}
 
+	/**
+	 * A record whose parts make no value, reported as these codes in reading order — and judged by
+	 * no constraint, because there was no value to judge.
+	 *
+	 * @param list<Field\Check> $codes
+	 */
+	public function assertIncompleteWith(array $codes, AggregatedValidationResult $result): void
+	{
+		$this->assertShapeProblemIs(ShapeProblem::Incomplete, $result);
+		$this->assertInstanceOf(FieldResult::class, $result);
+		$this->assertSame($codes, array_map(
+			static fn(Field\Violation $violation): Field\Check => $violation->code,
+			iterator_to_array($result->violations),
+		));
+
+		// Today every constraint waits for a whole value. When a constraint can declare the parts
+		// it reads (2.1), this narrows to the ones whose parts are not sound.
+		foreach ($result as $inner) {
+			if ($inner instanceof ConstraintValidationResult) {
+				$this->assertTrue($inner->skipped(), "{$inner->name} ran against a value that was never whole.");
+			}
+		}
+	}
+
+	/**
+	 * Whether a code was reported, whichever step reported it.
+	 *
+	 * The step is a fact about the result rather than part of the code, so a test asking "was the
+	 * postcode wrong" reads the same whether the postcode is judged while the value is assembled
+	 * or by a constraint after it.
+	 */
+	public function assertReported(Field\Check|string $code, AggregatedValidationResult $result): void
+	{
+		$this->assertContains(self::nameOf($code), self::reportedCodes($result));
+	}
+
+	public function assertNotReported(Field\Check|string $code, AggregatedValidationResult $result): void
+	{
+		$this->assertNotContains(self::nameOf($code), self::reportedCodes($result));
+	}
+
+	/**
+	 * Every code reported against a result, in reading order.
+	 *
+	 * @return list<string>
+	 */
+	public static function reportedCodes(AggregatedValidationResult $result): array
+	{
+		self::assertInstanceOf(FieldResult::class, $result);
+
+		return array_map(
+			static fn(Field\Violation $violation): string => $violation->name,
+			iterator_to_array($result->violations),
+		);
+	}
+
+	private static function nameOf(Field\Check|string $code): string
+	{
+		return $code instanceof Field\Check ? (string) $code->value : $code;
+	}
+
 	public function assertShapeProblemIs(ShapeProblem $expected, AggregatedValidationResult $result): void
 	{
 		foreach ($result as $inner) {

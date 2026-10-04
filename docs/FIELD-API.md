@@ -24,15 +24,23 @@ interface Field
     public bool $optional { get; }
     public mixed $defaultValue { get; }
     public Constraint\Set $constraints { get; }
+    public array $parts { get; }            // list<Field\Part>: empty for a value that is one thing
+    public array $essentialParts { get; }   // list<Field\Part>: the parts no value can be without
+    public array $checks { get; }           // list<Field\Check>: every code it can report under
 
     public function defaultsTo(mixed $value): static;
     public function makeOptional(): static;
     public function makeRequired(): static;
     public function equals(self $other): bool;
+    public function reconfiguredWith(array $changes): static;       // a rule outcome's changes, put back
+    public function when(): Rule\Matcher;                           // narrowed to the questions its value earns
 
     public function resolve(mixed $given, array $appliedOutcomes = [], ValueSource $givenAs = ValueSource::Submitted): AggregatedValidationResult;
     public function validate(mixed $given, array $appliedOutcomes = [], ValueSource $givenAs = ValueSource::Submitted, PrefillPolicy $policy = PrefillPolicy::Checked): AggregatedValidationResult;
-    public function resolvedValueFor(mixed $given): mixed;
+    public function resultIn(SchemaValidationResult|Field\Collection\Item $results): FieldResult;
+    public function resolvedValueFor(mixed $given): ?Field\ParsedValue;
+    public function resolvedInputFor(mixed $given): ?Field\Input;   // the parts as read
+    public function treatsAsAbsent(mixed $given): bool;             // null, or a record with nothing in it
 }
 ```
 
@@ -55,7 +63,8 @@ name for what it holds.
 
 ## What a field author writes
 
-Four things. Here is the whole of `Field\Boolean`, which is the smallest real field:
+Five things: the field below, and an enum naming what it checks. Here is the whole of
+`Field\Boolean`, which is the smallest real field:
 
 ```php
 final readonly class Boolean extends AtomicField
@@ -93,13 +102,34 @@ final readonly class Boolean extends AtomicField
     protected function defineConstraints(): Constraint\Set // 5. what it checks
     {
         return new Constraint\Set(
-            new Constraint('accepted', $this->wasAccepted(...), $this->requiresAcceptance),
+            new Constraint(Boolean\Check::Accepted, $this->wasAccepted(...), $this->requiresAcceptance),
         );
+    }
+
+    protected static function declaredChecks(): array      //    ...and every code it reports
+    {
+        return Boolean\Check::cases();
     }
 
     private function wasAccepted(Value $parsed): ?bool
     {
         return $this->requiresAcceptance ? $parsed->answer === true : null;
+    }
+}
+```
+
+The codes are a string-backed enum implementing `Field\Check`. Each case's value is the name a
+failure is reported under and a language pack writes a message under; `part()` says which part
+of a structured value the check concerns, or `null`:
+
+```php
+enum Check: string implements Field\Check
+{
+    case Accepted = 'accepted';
+
+    public function part(): null
+    {
+        return null;
     }
 }
 ```
@@ -120,7 +150,7 @@ constraints are built *from* those properties. A field that gets this wrong fail
 ## `parse()` — the one hook
 
 ```php
-abstract protected function parse(mixed $value): ParsedValue;
+abstract protected function parse(mixed $value): ParsedValue|Input;
 ```
 
 It replaced `process()`, `validateValue()` and `transform()`, which between them parsed most values
@@ -129,8 +159,10 @@ depends on them:
 
 - **It never receives `null`.** Absence is settled before it runs — no input and no default means
   there is nothing to read, so the field is skipped or reported missing without this being called.
-- **It returns a value, or raises `Field\MalformedValue`.** There is no `null`, and no try/catch
-  for you to write: who absorbs the refusal is the lifecycle's decision, not the field's.
+- **It returns a value, the `Field\Input` a value is assembled from, or raises
+  `Field\MalformedValue`.** There is no `null`, and no try/catch for you to write: who absorbs the
+  refusal is the lifecycle's decision, not the field's. A value made of parts returns its input —
+  see [A value made of parts](#a-value-made-of-parts).
 - **A field still never raises on a request.** `Definition::readable()` catches and reports an
   unreadable shape. What raising bought is the *definition-time* path, where `defaultsTo()` lets
   the reason through to the author — the one message that could not say why, while the
@@ -138,8 +170,9 @@ depends on them:
 - **Most of the work is the value's.** Its constructor enforces the invariant and canonicalises,
   so `parse()` narrows `mixed` and hands over. `Enum` and `Collection` keep more, because
   membership of a case list and a row template are facts about the *field*.
-- **What it returns is what the constraints see.** So a constraint is typed `Number\Value` and has
-  that be true by construction rather than by hoping a gate ran first.
+- **What it returns is what the constraints see** — the value, or the one its input assembles
+  to. So a constraint is typed `Number\Value` and has that be true by construction rather than by
+  hoping a gate ran first.
 - **It always returns a value object this library defines.** Never a bare scalar, and never a third
   party's class. See below.
 
@@ -243,26 +276,102 @@ value that is many of something arrives as an array. `Definition::recordIn()` is
 accepts objects only. The full reasoning is in [CODING-STYLE.md](CODING-STYLE.md).
 
 ```php
-protected function parse(mixed $value): Value
+protected function parse(mixed $value): Widget\Input
 {
-    if ($value instanceof Value) {
-        return $value;                       // already this field's own type
+    if ($value instanceof Widget\Value) {
+        return Widget\Input::of($value);     // already a whole widget
     }
 
     // An object is a record; an array is a list. A value with named parts arrives as the
     // former — see Definition::recordIn().
-    if (!is_object($value)) {
-        throw MalformedValue::of(Value::class, 'a widget is submitted as a record of its parts');
+    $record = self::recordIn($value);
+
+    if ($record === null) {
+        throw MalformedValue::of(Widget\Value::class, 'a widget is submitted as a record of its parts');
     }
 
-    return new Value($value);                // the value reads the record it is handed
+    return Widget\Input::read($record);      // the input reads the record it is handed
 }
 ```
 
-The value takes the whole record rather than parts picked out for it, so there is one answer to
+The input takes the whole record rather than parts picked out for it, so there is one answer to
 "what is a widget here" instead of a field that reads input and a value that trusts whatever it is
-handed. `parse()` returns a value or raises; returning `null` for unreadable input is not a thing
-it does.
+handed. `parse()` returns or raises; returning `null` for unreadable input is not a thing it does.
+
+**A record with nothing in it never arrives.** `{}`, or every part `null`, is what a form sends when
+nobody touched it, so the lifecycle reads it as nothing submitted — as it reads `null` — before
+`parse()` is asked: the field is missing or skipped, and a prefill or the default stands in. The
+rule is the core's, read off the field's declared parts by `treatsAsAbsent()`, so a field has
+nothing to write for it. A key the value does not declare is never nothing, so a record holding
+one still reaches the input, which refuses it.
+
+---
+
+## A value made of parts
+
+A record can arrive half-filled, and half a value is not a value. So a field whose value has parts
+reads them into a **`Field\Input`** first, and the lifecycle assembles the value from it:
+
+```
+record ──► input ──────────► assembly ────────► value ─────────► constraints
+           each part as       is this a value     complete, with   does this field
+           read, nothing      at all? every       nothing null     accept it?
+           judged yet         problem at once
+```
+
+An input is the parts as read and a verdict on them:
+
+```php
+interface Input
+{
+    public array $violations { get; }      // list<Violation>: what stops the parts making a value
+    public array $missingParts { get; }    // list<Part>: the essential parts not supplied
+    public ?ParsedValue $value { get; }    // the value, exactly when $violations is empty
+
+    public function parts(): array;        // each part as read, keyed 'postal_code'; null when not read
+    public function canonicalPartValue(Part $part, mixed $expected): mixed;
+}
+```
+
+**What goes in it is decided by one rule:** if no configuration can change the verdict, and it
+needs no clock, it is assembly; otherwise it is a constraint. An amount with no currency is not
+money on any field there will ever be, so `currencyRequired` is assembly. Whether *this* field
+takes AUD is configuration, so `allowedCurrencies` is a constraint. The reasoning, and the
+classification of every shipped field, is in [DESIGN.md](DESIGN.md#a-value-is-assembled-before-it-is-judged).
+
+So an input never reads the field's configuration and never asks the time. That is what lets the
+same input be judged the same way for a default where the schema is written, for a trusted
+prefill, and on every request.
+
+**Work everything out where the input is built**, the value included, and narrow `$value` to your
+own value class — `public ?Widget\Value $value`. Building the value there, from locals PHP has
+already narrowed, means its essential parts never need to be nullable, and it is how
+`Field\ValueClass` learns what the field holds without a request.
+
+[`tests/Field/Fixture/Span`](../tests/Field/Fixture/Span) is a complete example: two essential
+parts, an optional one, a check the parts must agree on, and one constraint.
+
+**What the core does with it:**
+
+| The input says | The result |
+| --- | --- |
+| *(never asked: the record has nothing in it)* | nothing was submitted — missing, or skipped when optional — and a prefill or the default stands in |
+| nothing is wrong | its value goes to the constraints |
+| something is | shape *incomplete*: `wasIncomplete()`, `$missingParts`, each part's own violations, and each constraint that cannot be judged yet skipped — in `2.0`, every one |
+| nothing is wrong, and it made no value | `Exception\InconsistentInput` is raised: the input has a bug |
+
+**There is no message about the whole value when its parts have their own.** An incomplete result
+carries the parts' violations and nothing else, so a form marks the boxes that need fixing rather
+than showing "that is not a valid widget" above them.
+
+**A rule about one part reads the input.** "When the billing country is AU" holds on an address
+whose street is still empty. A rule about the whole value reads the assembled value, which is
+nothing until the parts make one — so `isEmpty()` is true of a half-filled record, as it is of an
+unreadable one, and a rule comparing the whole value against half of one is refused where it is
+written. `$field->resolvedInputFor($given)` is the same reading, for a port that wants it.
+
+`canonicalPartValue()` belongs to the input for the same reason. A rule compares against a part
+in the spelling the input stored it in, so it has to ask the thing that did the storing.
 
 ---
 
@@ -272,14 +381,16 @@ A constraint carries everything a message needs:
 
 ```php
 new Constraint(
-    name: 'minLength',          // reported under this, and matches the $minLength property
-    check: $this->longEnough(...),
-    bound: $this->minLength,    // what a message interpolates
-    part: null,                 // which part of a structured value, or null for the whole
-    boundFor: null,             // a per-request bound, when the limit depends on the value
-    timeRelative: false,        // whether the answer depends on when it is asked
+    code: Text\Check::MinLength,  // reported under 'minLength', matching the $minLength property
+    check: $this->meetsMinimumLength(...),
+    bound: $this->minLength,      // what a message interpolates
+    boundFor: null,               // a per-request bound, when the limit depends on the value
+    timeRelative: false,          // whether the answer depends on when it is asked
 );
 ```
+
+The part a constraint concerns is not an argument: it is the code's own `part()`, so a check
+cannot be declared about one part here and reported against another there.
 
 **A constraint's name says where to read its bound**, and there are three cases:
 
@@ -299,9 +410,10 @@ new Constraint(
 was nothing to ask. A constraint nobody configured skips rather than passing, so "not asked" and
 "asked and fine" stay distinct in the result.
 
-**`part`** names which piece of a structured value a constraint is about — `street`, `amount` —
-rather than encoding it in the name. Names carry no field name and no path: it is `postalCodeFormat`
-with part `postal_code`, never `venue.postal_code.format`.
+**The part** names which piece of a structured value a constraint is about — `Address\Part::Street`,
+`Money\Part::Amount` — rather than encoding it in the name. Names carry no field name and no path:
+it is `postalCodeFormat` about `postal_code`, never `venue.postal_code.format`. It is read from the
+code, so `$constraint->part` and every verdict's `->part` agree by construction.
 
 **`boundFor`** is for a limit that depends on the submitted value. `Money`'s minimum is per
 currency, so the bound that *applied* is only known once the currency is. It is kept separate from
@@ -326,11 +438,13 @@ $resolved->shape->passed();
 $resolved->shape->failed();
 $resolved->shape->wasMissing();      // nothing arrived and the field required something
 $resolved->shape->wasUnreadable();   // something arrived that could not be read
+$resolved->shape->wasIncomplete();   // a record's parts arrived and make no value
+$resolved->shape->missingParts;      // the essential parts that were not supplied
 ```
 
-Those last two are the two halves of a failure, and they need different sentences: *"this is
-required"* against *"this is not a valid duration"*. Telling them apart used to mean inspecting the
-submitted value at the call site.
+Those are the three ways a shape fails, and they need different sentences: *"this is required"*,
+*"this is not a valid duration"*, and one sentence for each part that is wrong. Telling them apart
+used to mean inspecting the submitted value at the call site.
 
 This used to be reported as a constraint named `type`, which it never was. That conflation meant
 `getFailed()` returned a mix of "that is not a date" and "that date is too early", and it reserved
@@ -357,11 +471,18 @@ owns them:
    every constraint skipped.
 2. **Read it once.** `parse()` runs exactly once per resolution. If it raises `MalformedValue`: shape
    *unreadable*, every constraint skipped.
-3. **Check the constraints** against the parsed value.
+3. **Assemble**, when `parse()` returned an input. If its parts make no value: shape *incomplete*,
+   and a constraint that cannot be judged yet is skipped — in `2.0`, every one; from `2.1`, only
+   those whose own parts are not sound (see
+   [ROADMAP.md](ROADMAP.md#constraints-that-run-when-their-parts-are-ready)). Not even trust skips
+   this step.
+4. **Waive the constraints for a trusted prefill**, which passes as it is.
+5. **Check the constraints** against the value.
 
 **These are not `final`**, because a field may need to return a richer result —
 `Field\Password` overrides both so it can hand back a `Password\Result` carrying the measured
-entropy. So the order is a contract rather than a lock, and what holds an override to it is
+entropy. It reads through `AtomicField::read()`, which is `final`, so the reading and the order
+are still the lifecycle's. So the order is a contract rather than a lock, and what holds an override to it is
 `Api\SealedFieldTest`, which checks the observable consequences for *every* field: that unreadable
 input fails the field and not merely its shape, and that the constraints are skipped rather than
 failed when there was nothing for them to judge.
@@ -413,6 +534,8 @@ object.
 
 **An authored default is checked where it is written.** A default that cannot satisfy its own field
 is a bug in the schema, and blaming somebody's request for it would be the wrong place to find out.
+That includes a record whose parts make no value: `InvalidDefault` names each problem and the part
+it is about, in the codes a request would have been told.
 
 **Time-relative constraints are exempt**, and this is the carve-out that rule forces. "Has this card
 expired" is true or false depending on the calendar: a default valid the day the schema was built

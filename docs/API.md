@@ -88,28 +88,42 @@ and the euro spans twenty.
 
 | Field | Configuration | Constraint names | Value |
 | --- | --- | --- | --- |
-| `Address` | `allowCountries()`, `clearAllowedCountries()`, `minPrecisionOf()`, `mustBeVisitable()` | `countryRequired`, `allowedCountries`, `streetRequired`, `streetLineLimit`, `streetVisitable`, `localityRequired`, `localityUsed`, `dependentLocalityUsed`, `subdivisionRequired`, `subdivisionUsed`, `knownSubdivision`, `postalCodeRequired`, `postalCodeUsed`, `postalCodeFormat` | `Address\Value` |
+| `Address` | `allowCountries()`, `clearAllowedCountries()`, `minPrecisionOf()`, `mustBeVisitable()` | `allowedCountries`, `streetVisitable`, `streetRequired`, `localityRequired`, `subdivisionRequired`, `postalCodeRequired` | `Address\Value` |
 | `Boolean` | `mustBeAccepted()` | `accepted` | `Boolean\Value` |
 | `Collection` | `allowDuplicates()`, `maxCountOf()`, `minCountOf()` | `minCount`, `maxCount`, `unique` | `Collection\Value` |
-| `CreditCard` | `mustExpireInFuture()` | `numberRequired`, `expiryRequired`, `nameRequired`, `numberFormat`, `numberChecksum`, `expiryInFuture`, `expiryWithinReach`, `securityCodeFormat` | `CreditCard\Value` |
+| `CreditCard` | `makeNameOptional()`, `makeNameRequired()`, `makeSecurityCodeOptional()`, `makeSecurityCodeRequired()`, `mustExpireInFuture()` | `expiryInFuture`, `expiryWithinReach`, `nameRequired`, `securityCodeRequired` | `CreditCard\Value` |
 | `Date` | `after()`, `atIntervalsOf()`, `from()`, `through()`, `until()` | `from`, `after`, `until`, `through`, `interval` | `Date\Value` |
 | `DateTime` | `after()`, `atIntervalsOf()`, `from()`, `through()`, `until()` | `from`, `after`, `until`, `through`, `interval`, `precision` | `DateTime\Value` |
 | `Duration` | `inIncrementsOf()`, `maxValueOf()`, `minValueOf()` | `minValue`, `maxValue`, `step` | `Duration\Value` |
 | `EmailAddress` | `allowDomains()`, `clearAllowedDomains()`, `clearDisallowedDomains()`, `disallowDomains()`, `maxLengthOf()`, `minLengthOf()` | `minLength`, `maxLength`, `allowedDomains`, `disallowedDomains` | `EmailAddress\Value` |
 | `Enum` | — | — | `Enum\Value` |
 | `File` | `allowDocuments()`, `allowImages()`, `allowTypes()`, `allowVideos()`, `clearAllowedTypes()`, `clearDisallowedTypes()`, `disallowScripts()`, `disallowTypes()`, `maxSizeOf()`, `minSizeOf()` | `minSize`, `maxSize`, `allowedTypes`, `disallowedTypes` | `File\Value` |
-| `Money` | `allowCurrencies()`, `clearAllowedCurrencies()`, `maxAmountOf()`, `minAmountOf()` | `currencyRequired`, `amountRequired`, `allowedCurrencies`, `minAmount`, `maxAmount`, `scale` | `Money\Value` |
+| `Money` | `allowCurrencies()`, `clearAllowedCurrencies()`, `maxAmountOf()`, `minAmountOf()` | `knownCurrency`, `allowedCurrencies`, `minAmount`, `maxAmount`, `scale` | `Money\Value` |
 | `Name` | `maxLengthOf()`, `minLengthOf()` | `minLength`, `maxLength` | `Name\Value` |
 | `Number` | `clearStep()`, `inIncrementsOf()`, `maxPrecisionOf()`, `maxValueOf()`, `minValueOf()`, `scaleTo()` | `minValue`, `maxValue`, `step`, `scale`, `maxPrecision` | `Number\Value` |
 | `Password` | `maxLengthOf()`, `minLengthOf()`, `minNumberOfDigits()`, `minNumberOfLowercaseChars()`, `minNumberOfSymbols()`, `minNumberOfUppercaseChars()`, `minStrengthOf()` | `minLength`, `maxLength`, `minStrength`, `minUppercaseChars`, `minLowercaseChars`, `minDigits`, `minSymbols` | `Password\Value` |
-| `PhoneNumber` | `allowCountries()`, `clearAllowedCountries()`, `ofType()` | `numberRequired`, `countryRequired`, `allowedCountries`, `numberType` | `PhoneNumber\Value` |
+| `PhoneNumber` | `allowCountries()`, `clearAllowedCountries()`, `ofType()` | `allowedCountries`, `numberType` | `PhoneNumber\Value` |
 | `Text` | `maxLengthOf()`, `minLengthOf()`, `mustMatch()` | `minLength`, `maxLength`, `pattern` | `Text\Value` |
 | `Time` | `after()`, `atIntervalsOf()`, `from()`, `through()`, `until()` | `from`, `after`, `until`, `through`, `interval`, `precision` | `Time\Value` |
 | `Uri` | `allowSchemes()`, `clearAllowedSchemes()`, `maxLengthOf()`, `minLengthOf()` | `minLength`, `maxLength`, `allowedSchemes` | `Uri\Value` |
 | `Uuid` | `allowVersions()`, `clearAllowedVersions()` | `allowedVersions` | `Uuid\Value` |
 
+**Checked before any constraint.** A field whose value has parts first decides whether they make
+a value at all, and reports these codes part by part when they do not. No configuration changes
+them, and a constraint that cannot be judged until they are clear is skipped — in `2.0`, every
+one. See [DESIGN.md](DESIGN.md#a-value-is-assembled-before-it-is-judged).
+
+| Field | Codes |
+| --- | --- |
+| `Money` | `currencyRequired`, `amountRequired`, `currencyFormat`, `amountFormat` |
+| `PhoneNumber` | `numberRequired`, `countryRequired`, `numberFormat`, `knownCountry`, `numberInCountry` |
+| `CreditCard` | `numberRequired`, `expiryRequired`, `numberFormat`, `numberChecksum`, `expiryFormat`, `nameFormat`, `securityCodeFormat` |
+| `Address` | `countryRequired`, `knownCountry`, `streetFormat`, `streetLineLimit`, `dependentLocalityFormat`, `dependentLocalityUsed`, `localityFormat`, `localityUsed`, `knownSubdivision`, `subdivisionUsed`, `postalCodeFormat`, `postalCodeUsed` |
+| `File` | `nameRequired`, `typeRequired`, `sizeRequired`, `nameFormat`, `typeFormat`, `sizeFormat` |
+
 **Shared by every field**, so not repeated above: `defaultsTo()`, `makeOptional()`,
-`makeRequired()`, `equals()`, `resolve()`, `validate()`, `resolvedValueFor()`.
+`makeRequired()`, `equals()`, `resolve()`, `validate()`, `resolvedValueFor()`, `resolvedInputFor()`,
+`treatsAsAbsent()`.
 
 One row worth reading twice. **`Enum` reports no constraints** — the list of cases *is* the type, so a
 value outside it is a shape failure, the same way an unparseable string is for `Date`.
@@ -408,10 +422,11 @@ $field = $schema->validate($data)->forField('email');
 | `$field->given` | exactly what was submitted, unchanged |
 | `$field->value` | what the field made of it — a `ParsedValue`, or `null` |
 | `$field->source` | `Submitted` \| `Prefilled` \| `Default` \| `None` |
-| `$field->shape` | could this be read at all? |
+| `$field->shape` | could this be read at all, and do its parts make a value? |
 | `$field->constraints` | the constraint verdicts, on their own |
 | `$field->status` | `Passed` \| `Failed` \| `Skipped` \| `Pending` |
-| `$field->messages` | what to tell somebody, in the language the request asked for — empty unless the request passed a provider |
+| `$field->violations` | everything wrong, each with its code, part, bound and — when the request passed a provider — its sentence |
+| `$field->forPart($part)` | what is wrong with one part of a structured value |
 
 ### `given` and `value` mean one thing each
 
@@ -435,6 +450,8 @@ common readings have shorthand on the field, so you only reach for the objects w
 // the common case
 $field->wasMissing();
 $field->wasUnreadable();
+$field->wasIncomplete();      // a record's parts arrived and make no value
+$field->missingParts;         // which essential parts were not supplied
 $field->getFailedConstraints()->getFirst();
 
 // when you need more
@@ -455,15 +472,15 @@ was a schema that could not be serialised whole, could not be shared between a s
 and a CLI command that wanted different packs, and could not change its wording for one caller.
 
 It also means a missing language cannot change an outcome: no provider, an unsupported tag, or no
-tag at all leaves every verdict as it was and every message set empty. A field validated on its
-own therefore has no messages, because nothing handed it a provider.
+tag at all leaves every verdict as it was and every violation unworded. A field validated on its
+own therefore has codes and no sentences, because nothing handed it a provider.
 
 `resolve()` takes neither, because it reaches no verdict and only a failure has anything to say.
 
-`$messages` is a [`FlatSet`](../src/Message/FlatSet.php) for a field holding one value and a
-[`PartedSet`](../src/Message/PartedSet.php) for one whose value has named parts — decided by the
-*field*, not by what happened to fail, so a consumer that checks the type once does not break on a
-request that failed differently. See [MESSAGES.md](MESSAGES.md).
+`$violations` reads the value as a whole first, then each part in the order the value declares
+them, whatever order the checks ran in. Each violation carries its code, its part, its bound and its
+sentence together, so a renderer can mark a box and say something without going back to the
+constraints. See [MESSAGES.md](MESSAGES.md#reading-the-messages).
 
 ### Default versus prefill
 
@@ -490,7 +507,8 @@ The example that makes the distinction concrete: a **nickname** can be changed, 
 default and the user may overwrite it. A **username** cannot, so it is prefilled from the database
 for this request and never written into the schema. Precedence is submitted, then prefilled, then
 the default — and `$field->source` says which won, so a form can mark a prefilled field differently
-from one the user typed into.
+from one the user typed into. A record with nothing in it — `{}`, or every part `null` — counts as
+nothing submitted, so a prefill or the default stands in for it as it does for `null`.
 
 `1.x` had `prefill()`, which wrote the values onto the fields. A schema shared across requests
 handed one user's details to the next.
@@ -515,8 +533,9 @@ $schema->validate($data, prefilledWith: $known, policy: PrefillPolicy::Trusted);
 
 `Checked` is the default and is usually right: a constraint tightens, and stored values that no
 longer satisfy it should surface so the user can fix them. `Trusted` is for a value the application
-vouches for and the user was never asked about — but note the shape still has to pass. Trust says a
-value meets the *rules*, not that the field can read it.
+vouches for and the user was never asked about — but note the shape still has to pass, and a
+record's parts still have to make a value. Trust says a value meets the *rules*, not that the field
+can read it or that it is whole.
 
 ## Constraints
 
@@ -524,15 +543,15 @@ A failed constraint carries everything a message needs, so a message provider is
 than a parser:
 
 ```php
-$failed->name;    // 'minLength'     — what was checked
-$failed->part;    // 'postal_code'   — which piece of a structured value, or null
-$failed->bound;   // 3               — the limit, ready to interpolate
+$failed->code;    // Text\Check::MinLength — what was checked; ->name is the wire name, 'minLength'
+$failed->part;    // which piece of a structured value, as a Field\Part case — or null for the whole
+$failed->bound;   // 3 — the limit, ready to interpolate
 ```
 
 No name carries the field it came from. `postalCodeFormat`, not
 `billing_address.postal_code.format` — so renaming a field changes nothing downstream.
 
-See [DESIGN.md](DESIGN.md#a-failed-constraint-says-everything-a-message-needs) for why each of the
+See [DESIGN.md](DESIGN.md#a-failure-says-everything-a-message-needs) for why each of the
 three exists.
 
 ### A bound is a literal
@@ -571,9 +590,9 @@ A **part** belongs to a value, so it goes under `value`. The short form
 `#/fields/billing/country` reads better and is ambiguous: the third segment already means a
 definition property, and `#/fields/card/name` could be the field's name or the cardholder's.
 
-Only a value that says it has parts can be read into — [`Field\HasParts`](../src/Field/HasParts.php).
-Part names are the keys submitted input uses, which are also what a constraint reports as
-`$constraint->part`, so there is one vocabulary rather than three.
+Only a field that declares parts can be read into — its [`Field\Part`](../src/Field/Part.php) enum,
+listed as `$field->parts`. A part's name is the case's value, which is also the key submitted input
+uses, and `$constraint->part` is the case itself, so there is one vocabulary rather than three.
 
 ### Writing a rule
 
@@ -668,9 +687,26 @@ reaches the field — rather than about the definition, so no wither expresses i
 ```php
 $schema->when(ValueScope::of('shipping'))->equals(ValueScope::of('billing'));
 
-$schema->when(ValueScope::of('shipping', 'country'))
-    ->equals(ValueScope::of('billing', 'country'));
+$schema->when(ValueScope::of('shipping', Address\Part::Country))
+    ->equals(ValueScope::of('billing', Address\Part::Country));
 ```
+
+A part is named by its case — `Address\Part::Country` — so a misspelled one does not compile. The
+wire name, `'country'`, works too, and is what a stored scope holds.
+
+**A part is compared in its own terms.** The expectation is read the way the part was:
+`equals('qld')` against an Australian address's subdivision is about `AU-QLD`. A part that holds a
+number or a date holds a type of its field's own — `Money\Amount`, `CreditCard\Expiry`,
+`File\Size` — so the ordered verbs answer for it:
+
+```php
+$schema->when(PartScope::of('price', Money\Part::Amount))->isAtLeast(10);          // any currency
+$schema->when(PartScope::of('card', CreditCard\Part::Expiry))->isAtLeast('2027-01'); // to the end of January
+$schema->when(PartScope::of('upload', File\Part::Size))->isAtMost(1048576);
+```
+
+An expectation the part cannot read — `isAtLeast('ten')` — is compared as written and does not
+hold.
 
 **A collection's rows are addressable by name** — see [reaching into a collection](#reaching-into-a-collection)
 below. They were not, while a row could be positional: which row `0` is depended on what was

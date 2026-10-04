@@ -198,7 +198,7 @@ final class SealedFieldTest extends TestCase
 
 		foreach ($set as $constraint) {
 			$bound = $constraint->bound;
-			$shape[] = [$constraint->name, $constraint->part, is_array($bound) ? implode('|', $bound) : var_export($bound, true)];
+			$shape[] = [$constraint->name, $constraint->part?->value, is_array($bound) ? implode('|', $bound) : var_export($bound, true)];
 		}
 
 		return $shape;

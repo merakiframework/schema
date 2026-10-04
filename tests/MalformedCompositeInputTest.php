@@ -166,28 +166,100 @@ final class MalformedCompositeInputTest extends TestCase
 	/**
 	 * Every record-shaped field answers the same three questions the same way.
 	 *
-	 * The invariant: a **required** part that is absent, or present and `null`, fails that
-	 * part's `*Required` constraint and names the part, so a form can mark the box. A part that
-	 * was *sent* and holds nothing is `unreadable` instead — `''` was a decision somebody made,
-	 * and reading it as absence would let whitespace satisfy a requiredness check.
+	 * The invariant, for a part no value of the kind can be without:
 	 *
-	 * Only `Address` honoured this. `Money`, `CreditCard` and `PhoneNumber` collapsed all three
-	 * cases into `unreadable`, so "you left the amount out" and "the amount is gibberish" were
-	 * one verdict with no part on it — which is why `schema-html` ended up collapsing blank
-	 * records to null before handing them over.
+	 * - **absent, or present and `null`** — it is missing. The record is incomplete, the part's
+	 *   own `*Required` violation names it, and it is listed in `missingParts`, so a form can mark
+	 *   the box.
+	 * - **sent and holding nothing** — it is wrong rather than missing, and its `*Format`
+	 *   violation names it. `''` was a decision somebody made, and reading it as absence would let
+	 *   whitespace stand in for a value.
 	 *
-	 * One provider across all four, because the point is that they agree: a fifth record field
-	 * that disagrees fails here rather than being discovered by a port.
+	 * Either way the record is incomplete rather than unreadable, and no constraint runs.
+	 *
+	 * The history is why this is one test across the record fields. Only `Address` named its
+	 * parts at first; `Money`, `CreditCard` and `PhoneNumber` collapsed every case into
+	 * `unreadable`, so "you left the amount out" and "the amount is gibberish" were one verdict with
+	 * no part on it — which is why `schema-html` ended up collapsing blank records to null before
+	 * handing them over. A record field that disagrees fails here rather than being discovered by a
+	 * port.
 	 *
 	 * @param array<string, mixed> $complete
 	 */
 	#[Test]
-	#[DataProvider('recordFields')]
-	public function a_required_part_that_is_absent_names_itself(
+	#[DataProvider('partsCheckedWhileAssembling')]
+	public function a_missing_essential_part_names_itself(
+		callable $make,
+		array $complete,
+		Field\Part $part,
+		Field\Check $required,
+		Field\Check $format,
+	): void {
+		$schema = new Definition('s');
+		$schema->add($make($schema));
+
+		$without = $complete;
+		unset($without[$part->value]);
+
+		foreach (['absent' => $without, 'null' => [$part->value => null] + $complete] as $how => $given) {
+			$result = $schema->validate((object) ['f' => (object) $given])->forField('f');
+
+			$this->assertTrue($result?->wasIncomplete(), "{$part->value}: {$how} should leave the record incomplete");
+			$this->assertSame([$part], $result->missingParts, "{$part->value}: {$how} should be missing");
+			$this->assertSame($required, $result->forPart($part)->first()?->code, "{$part->value}: {$how} should name the part");
+		}
+
+		$blank = $schema->validate((object) ['f' => (object) ([$part->value => ''] + $complete)])->forField('f');
+
+		$this->assertTrue($blank?->wasIncomplete(), "{$part->value}: blank should leave the record incomplete");
+		$this->assertSame([], $blank->missingParts, "{$part->value}: blank was sent, so it is not missing");
+		$this->assertSame($format, $blank->forPart($part)->first()?->code, "{$part->value}: blank should be wrong");
+	}
+
+	/** @return iterable<string, array{callable, array<string, mixed>, Field\Part, Field\Check, Field\Check}> */
+	public static function partsCheckedWhileAssembling(): iterable
+	{
+		yield 'Money' => [
+			static fn(Definition $s): Field => $s->createMoneyField('f', ['AUD' => 2]),
+			['currency' => 'AUD', 'amount' => '10.00'],
+			Field\Money\Part::Amount,
+			Field\Money\Check::AmountRequired,
+			Field\Money\Check::AmountFormat,
+		];
+
+		yield 'PhoneNumber' => [
+			static fn(Definition $s): Field => $s->createPhoneNumberField('f', ['AU']),
+			['number' => '0411222333', 'country' => 'AU'],
+			Field\PhoneNumber\Part::Number,
+			Field\PhoneNumber\Check::NumberRequired,
+			Field\PhoneNumber\Check::NumberFormat,
+		];
+
+		yield 'CreditCard' => [
+			static fn(Definition $s): Field => $s->createCreditCardField('f'),
+			['number' => '4111111111111111', 'expiry' => '2030-01', 'name' => 'A B'],
+			Field\CreditCard\Part::Expiry,
+			Field\CreditCard\Check::ExpiryRequired,
+			Field\CreditCard\Check::ExpiryFormat,
+		];
+	}
+
+	/**
+	 * The same questions, for a part a field *demands* rather than one no value of its kind can be
+	 * without: an address's locality, which the precision floor asks for. The address is whole
+	 * without it, so it is judged — the part's `*Required` constraint fails and names the part. Sent
+	 * blank, it is wrong rather than absent, and reported while the address is assembled.
+	 *
+	 * @param array<string, mixed> $complete
+	 */
+	#[Test]
+	#[DataProvider('demandedParts')]
+	public function a_demanded_part_that_is_absent_names_itself(
 		callable $make,
 		array $complete,
 		string $part,
 		string $constraint,
+		string $format,
 	): void {
 		$schema = new Definition('s');
 		$schema->add($make($schema));
@@ -199,15 +271,28 @@ final class MalformedCompositeInputTest extends TestCase
 			$result = $schema->validate((object) ['f' => (object) $given])->forField('f');
 			$failed = $result->forConstraint($constraint);
 
-			$this->assertTrue($result->shape->passed(), "{$constraint}: {$how} should still be readable");
+			$this->assertTrue($result->shape->passed(), "{$constraint}: {$how} should still make a value");
 			$this->assertTrue($failed->failed(), "{$constraint}: {$how} should fail");
-			$this->assertSame($part, $failed->part, "{$constraint}: {$how} should name the part");
+			$this->assertSame($part, $failed->part?->value, "{$constraint}: {$how} should name the part");
 		}
 
-		// Sent and holding nothing is the other case, and it is a shape failure.
 		$blank = $schema->validate((object) ['f' => (object) ([$part => ''] + $complete)])->forField('f');
 
-		$this->assertTrue($blank->wasUnreadable(), "{$constraint}: blank should be unreadable");
+		$this->assertTrue($blank?->wasIncomplete(), "{$constraint}: blank should leave the record incomplete");
+		$this->assertSame($format, $blank->violations->first()?->name, "{$constraint}: blank should be wrong");
+		$this->assertSame($part, $blank->violations->first()?->part?->value, "{$constraint}: blank should name the part");
+	}
+
+	/** @return iterable<string, array{callable, array<string, mixed>, string, string, string}> */
+	public static function demandedParts(): iterable
+	{
+		yield 'Address' => [
+			static fn(Definition $s): Field => $s->createAddressField('f', ['AU']),
+			['street' => ['1 Main St'], 'locality' => 'Bne', 'subdivision' => 'QLD', 'postal_code' => '4000', 'country' => 'AU'],
+			'locality',
+			'localityRequired',
+			'localityFormat',
+		];
 	}
 
 	/** @return iterable<string, array{callable, array<string, mixed>, string, string}> */

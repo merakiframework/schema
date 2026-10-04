@@ -6,20 +6,25 @@ namespace Meraki\Schema\Field;
 use Meraki\Schema\Field;
 use ReflectionMethod;
 use ReflectionNamedType;
+use ReflectionProperty;
+use ReflectionType;
 
 /**
  * What a field parses to, read off its own `parse()` signature.
  *
  * Every field declares a return type on `parse()` — that is the contract
  * {@see Definition::parse()} exists to enforce — so the class of a field's value is a fact about
- * the field, knowable without a request. Two things need it before any value exists:
- * {@see \Meraki\Schema\ScopeResolver} checks a {@see \Meraki\Schema\PartScope} when the rule is
- * *written*, and {@see \Meraki\Schema\Message\Set} decides whether a field's messages are grouped
- * by part before it knows whether anything failed.
+ * the field, knowable without a request. A rule needs it where it is *written*: whether a value
+ * has an order is a fact about its class, and an ordered question asked of one that does not is
+ * refused there rather than quietly never holding.
  *
- * Both used to reach for reflection themselves. Having one of them own it meant the other either
- * duplicated the cache or asked the wrong question, and "does this field have parts" is not a
- * question about scopes.
+ * A field whose value has parts returns an {@see Input} from `parse()` instead, and the input says
+ * what it assembles to by narrowing {@see Input::$value} — so the class is read from there, and
+ * money is still known to have an order.
+ *
+ * It used to answer "which parts does this value have" as well, by calling static methods on the
+ * class it found. That is {@see \Meraki\Schema\Field::$parts} now, declared by the field's own
+ * {@see Part} enum, so nothing has to reflect to learn it.
  */
 final class ValueClass
 {
@@ -42,46 +47,6 @@ final class ValueClass
 		return self::$cache[$key];
 	}
 
-	/**
-	 * Whether the field's value is made of named parts — an address, a card, a money amount —
-	 * rather than being one thing.
-	 */
-	public static function hasParts(Field $field): bool
-	{
-		$class = self::of($field);
-
-		return $class !== null && is_a($class, HasParts::class, true);
-	}
-
-	/**
-	 * Every part the field's value has, in the order the value declares them; empty when it has
-	 * none.
-	 *
-	 * @return list<string>
-	 */
-	public static function partNamesOf(Field $field): array
-	{
-		$class = self::of($field);
-
-		return ($class !== null && is_a($class, HasParts::class, true)) ? $class::partNames() : [];
-	}
-
-	/**
-	 * The parts the field's value holds as a *list* rather than as one string.
-	 *
-	 * Asked where a rule is written, so it has to be answerable without a value — which is why
-	 * {@see HasParts::listParts()} is static. A list has no order, so an ordered comparison
-	 * against one is refused there rather than quietly never firing.
-	 *
-	 * @return list<string>
-	 */
-	public static function listPartsOf(Field $field): array
-	{
-		$class = self::of($field);
-
-		return ($class !== null && is_a($class, HasParts::class, true)) ? $class::listParts() : [];
-	}
-
 	/** @return class-string|null */
 	private static function read(Field $field): ?string
 	{
@@ -92,10 +57,20 @@ final class ValueClass
 			return null;
 		}
 
-		$returns = (new ReflectionMethod($field, 'parse'))->getReturnType();
+		$class = self::classNamedBy((new ReflectionMethod($field, 'parse'))->getReturnType());
 
-		return ($returns instanceof ReflectionNamedType && !$returns->isBuiltin())
-			? $returns->getName()
+		// An input is not the value; it holds one, and its own declaration says which.
+		return ($class !== null && is_a($class, Input::class, true))
+			? self::classNamedBy((new ReflectionProperty($class, 'value'))->getType())
+			: $class;
+	}
+
+	/** @return class-string|null */
+	private static function classNamedBy(?ReflectionType $type): ?string
+	{
+		/** @var class-string|null */
+		return ($type instanceof ReflectionNamedType && !$type->isBuiltin())
+			? $type->getName()
 			: null;
 	}
 }
