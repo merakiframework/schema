@@ -10,6 +10,58 @@ is a commit subject, with the body kept because the body is where the reasoning 
 
 ## Unreleased
 
+### A booking slot is asked about rather than listed
+
+`1d703ec8` · 2026-10-09
+
+A form choosing one of the times on offer had one tool, an Enum of every
+start, and it stops working at the size a booking platform is. Eighteen
+months of fifteen-minute slots for one practitioner is about twelve
+thousand values; they change with every booking, so the definition could
+no longer be built once and shared; and an enum's value is text, so no rule
+could ask whether a slot falls in the holidays. Nothing needs the list:
+validating needs one answer about one value, and a picker needs a week.
+
+Slot holds a Slot\Source -- the application's, over whatever holds its
+slots -- and asks it about the one slot submitted. The definition carries
+the source's SourceId, which is what a port writes down and finds the
+source by, so its size does not depend on how far ahead bookings open. The
+offered slots need not fall on any interval.
+
+"Available" is a constraint and not the shape, unlike Enum: "not a date and
+time" and "not available" are different sentences. Its bound is the source
+id, so a message can say whose slots it was missing from.
+
+A source answers with an enum rather than ?bool, because null reads as "no"
+as easily as "don't know". CannotCheck skips the constraint, which lets the
+form through on an outage. That is the intended trade: the check is advice,
+and the booking is what refuses a slot that has gone -- during an outage or
+in the second between drawing the form and submitting it. A source that
+would rather fail the request throws, and nothing catches it.
+
+One type of slot per field: a day, a date and time, or a time of day. The
+source declares it, because it is what knows what it offers, and the field
+copies it rather than being told twice. A value of another type is
+unreadable, and offeredBy() refuses a source of another type.
+
+Wall-clock time with no zone. 09:40 is 09:40 where the slot happens, which
+is what datetime-local submits; nothing is converted, so rule bounds mean
+what they say, and no booking eighteen months out carries today's offset.
+
+offeredBy() is the one configuration method, and it exists for rules:
+->then($appointment->offeredBy($extended)) switches source on the service
+chosen. A source per practitioner waits on cross-field constraints, since
+one rule per practitioner puts the list back into the definition.
+
+The constraint is timeRelative, which exempts it from the check an authored
+default gets where it is written. The flag's own definition -- the answer
+changes without the field or the value changing -- fits exactly, and asking
+there would put a query in the middle of building a schema.
+
+### Update history
+
+`3b00acd0` · 2026-10-03
+
 ### A missing country names the country box
 
 `d2553989` · 2026-10-03
