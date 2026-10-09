@@ -409,7 +409,7 @@ final class MatcherVocabularyTest extends TestCase
 	#[Test]
 	public function each_field_offers_exactly_the_questions_its_value_can_answer(): void
 	{
-		// The guard that keeps nineteen one-line declarations honest. A field whose value gains
+		// The guard that keeps twenty one-line declarations honest. A field whose value gains
 		// Comparable but whose when() still says Basic would silently offer less than it could,
 		// and nothing else in the suite would notice.
 		foreach (Vocabulary::fields() as $kind => $field) {

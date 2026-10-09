@@ -396,6 +396,7 @@ final class StructuredTypeTest extends TestCase
 			Field\Address::class => new Field\Address($name, ['AU']),
 			Field\PhoneNumber::class => new Field\PhoneNumber($name, ['AU']),
 			Field\Collection::class => new Field\Collection($name, new Field\Text(new FieldName('item'))),
+			Field\Slot::class => new Field\Slot($name, Field\Slot\FixedSource::offeringNothing()),
 			default => new $class($name),
 		};
 	}

@@ -24,10 +24,10 @@ use ReflectionClass;
  * ### Why it builds one of every field
  *
  * A field's constraints are assembled in its constructor, so there is no way to ask a *class* what
- * it reports under. Three fields need more than a name to build — a currency, a country, a set of
- * cases — and those are listed below with the smallest thing that satisfies them. A new field that
- * needs an argument and is not listed raises, which is the point: the vocabulary should refuse to
- * be quietly incomplete.
+ * it reports under. Some fields need more than a name to build — a currency, a country, a set of
+ * cases, a source of slots — and those are listed below with the smallest thing that satisfies
+ * them. A new field that needs an argument and is not listed raises, which is the point: the
+ * vocabulary should refuse to be quietly incomplete.
  */
 final class Vocabulary
 {
@@ -263,7 +263,32 @@ final class Vocabulary
 			Field\Address::class => new Field\Address($name, ['AU']),
 			Field\PhoneNumber::class => new Field\PhoneNumber($name, ['AU']),
 			Field\Collection::class => new Field\Collection($name, new Field\Text(new FieldName('item'))),
+			Field\Slot::class => new Field\Slot($name, self::sourceNobodyAsks()),
 			default => self::buildPlain($class, $kind),
+		};
+	}
+
+	/**
+	 * A slot needs a source to be built, and the vocabulary only reads the names its constraints
+	 * report under — so this one is never asked anything, and would not know if it were.
+	 */
+	private static function sourceNobodyAsks(): Field\Slot\Source
+	{
+		return new readonly class() implements Field\Slot\Source {
+			public Field\Slot\SourceId $id;
+
+			public Field\Slot\Type $slotType;
+
+			public function __construct()
+			{
+				$this->id = new Field\Slot\SourceId('vocabulary');
+				$this->slotType = Field\Slot\Type::DateTime;
+			}
+
+			public function availabilityOf(Field\Slot\Value $slot): Field\Slot\Availability
+			{
+				return Field\Slot\Availability::CannotCheck;
+			}
 		};
 	}
 

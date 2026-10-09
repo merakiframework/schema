@@ -65,6 +65,7 @@ final class ValueObjectTest extends TestCase
 		yield 'Number' => [Field\Number::class, '18'];
 		yield 'Password' => [Field\Password::class, 'correct horse battery staple'];
 		yield 'PhoneNumber' => [Field\PhoneNumber::class, (object) ['number' => '0411 222 333', 'country' => 'AU']];
+		yield 'Slot' => [Field\Slot::class, '2030-01-01T09:30'];
 		yield 'Text' => [Field\Text::class, 'hello'];
 		yield 'Time' => [Field\Time::class, '09:30'];
 		yield 'Uri' => [Field\Uri::class, 'https://example.test'];
@@ -351,6 +352,7 @@ final class ValueObjectTest extends TestCase
 			$arguments[] = match (true) {
 				$name === FieldName::class => new FieldName('test'),
 				$name === Field::class => new Field\Text(new FieldName('item')),
+				$name === Field\Slot\Source::class => Field\Slot\FixedSource::offeringNothing(),
 				$name === 'array' => ['a', 'b'],
 				$name === 'string' => 'test',
 				$name === 'int' => 1,

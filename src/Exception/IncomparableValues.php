@@ -65,6 +65,22 @@ final class IncomparableValues extends InvalidArgumentException implements Excep
 		return new self('A calendar date can only be ordered against another calendar date.');
 	}
 
+	public static function slots(): self
+	{
+		return new self('A slot can only be ordered against another slot.');
+	}
+
+	/**
+	 * A day, a date and time, and a time of day are different kinds of slot. Midnight on the 13th
+	 * is not the 13th, and neither comes before the other.
+	 */
+	public static function slotsOfDifferentTypes(string $left, string $right): self
+	{
+		return new self(
+			"A {$left} slot can only be ordered against another {$left} slot, not a {$right} one.",
+		);
+	}
+
 	/**
 	 * For a value class this library has never heard of, which is the same reason every other
 	 * extension point here is open: `$subject` names what refused — "A parcel weight" — and

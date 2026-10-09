@@ -112,7 +112,7 @@ src/
 ├── Scope.php               a path to something, like #/fields/x/value
 ├── Rule.php                if this, then that
 │
-├── Field/                  the nineteen field types, plus the machinery they share
+├── Field/                  the twenty field types, plus the machinery they share
 ├── Rule/                   conditions, outcomes, and the fluent builder
 ├── Scope/                  where a scope is rooted — schema field, collection row
 ├── Comparison/             how two values are compared
@@ -452,7 +452,7 @@ each. That is where the invariants live.
 | `ExceptionTest` | nothing throws a generic exception |
 
 **If you add a field type, you add a row to several of these.** That is the point: a new field
-cannot quietly disagree with the other nineteen.
+cannot quietly disagree with the other twenty.
 
 ### Writing a test
 

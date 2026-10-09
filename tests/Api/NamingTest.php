@@ -74,6 +74,9 @@ final class NamingTest extends TestCase
 			'Address' => ['allowCountries', 'clearAllowedCountries', 'minPrecisionOf', 'mustBeVisitable'],
 			'Money' => ['allowCurrencies', 'minAmountOf', 'maxAmountOf'],
 			'CreditCard' => ['mustExpireInFuture'],
+
+			// The source is asked, so the only thing to configure is which one.
+			'Slot' => ['offeredBy'],
 		];
 
 		foreach ($methods as $class => $names) {
@@ -119,6 +122,7 @@ final class NamingTest extends TestCase
 			'Address' => ['allowedCountries', 'precision', 'streetVisitable'],
 			'Money' => ['allowedCurrencies'],
 			'CreditCard' => ['mustExpireInFuture'],
+			'Slot' => ['source', 'slotType'],
 		];
 
 		foreach ($properties as $class => $names) {

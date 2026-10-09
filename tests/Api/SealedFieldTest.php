@@ -54,6 +54,7 @@ final class SealedFieldTest extends TestCase
 			'Number',
 			'Password',
 			'PhoneNumber',
+			'Slot',
 			'Text',
 			'Time',
 			'Uri',
@@ -284,6 +285,8 @@ final class SealedFieldTest extends TestCase
 				$name === FieldName::class => new FieldName('test'),
 				// A Collection's variadic template. One field is enough to build a valid one.
 				$name === Field::class => new Field\Text(new FieldName('item')),
+				// A Slot asks a source rather than holding a list. One offering nothing is enough.
+				$name === Field\Slot\Source::class => Field\Slot\FixedSource::offeringNothing(),
 				$name === 'array' => ['a', 'b'],
 				$name === 'string' => 'test',
 				$name === 'int' => 1,

@@ -361,4 +361,30 @@ final class InvalidConfiguration extends InvalidArgumentException implements Exc
 			. 'Name the countries you want the rules for.'
 		);
 	}
+
+	// ── slots ───────────────────────────────────────────────────────────────
+
+	public static function sourceIdIsNotUsable(string $id): self
+	{
+		return new self(
+			"'{$id}' cannot name a slot source: use letters, digits, '_' and '-', not starting with a "
+			. 'digit. A port writes it into a document and a URL, so it has the shape of a field name.',
+		);
+	}
+
+	/**
+	 * Every value one field holds is the same type of slot, and a source of another type would
+	 * change that underneath the values already submitted against the field.
+	 */
+	public static function sourceOffersAnotherTypeOfSlot(
+		string $field,
+		string $holds,
+		string $source,
+		string $offers,
+	): self {
+		return new self(
+			"'{$field}' holds {$holds} slots, and source '{$source}' offers {$offers} ones. A field "
+			. 'holds one type of slot; use a source that offers the same type, or another field.',
+		);
+	}
 }

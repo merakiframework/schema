@@ -89,7 +89,7 @@ parameters:
         # declaring class's own constructor, and a trait cannot satisfy that however the using
         # class calls it.
         #
-        # The alternative is duplicating two assignments into all nineteen field constructors to
+        # The alternative is duplicating two assignments into all twenty field constructors to
         # satisfy the analyser, which trades a real design — one shared half, one varying half —
         # for an inference detail.
         #
@@ -106,7 +106,7 @@ parameters:
         #
         # Every field narrows what it parses: Field::parse() takes mixed, and Address::parse()
         # takes array|Address\Value. That is contravariance in the strict sense, and PHP allows
-        # it while LSP does not. Satisfying the rule means widening all nineteen parse() and
+        # it while LSP does not. Satisfying the rule means widening all twenty parse() and
         # check() signatures back to mixed and re-asserting inside each one, which throws away
         # the types that make the field classes readable to buy nothing the tests do not already
         # cover.

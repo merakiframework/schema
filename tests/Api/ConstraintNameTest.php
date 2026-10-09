@@ -113,6 +113,11 @@ final class ConstraintNameTest extends TestCase
 			// The list is the type, so membership is shape rather than a constraint. A renderer
 			// reads $cases to draw the options anyway, so a bound carrying them adds nothing.
 			'Enum' => [],
+
+			// The opposite trade to Enum: the offered slots are too many to be the type and change
+			// with every booking, so membership is asked of a source and reported as a constraint.
+			// "Not a date and time" and "not available" are different sentences.
+			'Slot' => ['available'],
 		];
 
 		foreach ($names as $class => $expected) {
@@ -202,6 +207,7 @@ final class ConstraintNameTest extends TestCase
 			// A collection's template is variadic and must not be empty: one field is enough
 			// to build a valid one, and the names asserted here are the collection's own.
 			Field\Collection::class => new Field\Collection($name, new Field\Text(new FieldName('item'))),
+			Field\Slot::class => new Field\Slot($name, Field\Slot\FixedSource::offeringNothing()),
 			default => new $fqcn($name),
 		};
 	}

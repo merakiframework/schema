@@ -103,6 +103,7 @@ and the euro spans twenty.
 | `Number` | `clearStep()`, `inIncrementsOf()`, `maxPrecisionOf()`, `maxValueOf()`, `minValueOf()`, `scaleTo()` | `minValue`, `maxValue`, `step`, `scale`, `maxPrecision` | `Number\Value` |
 | `Password` | `maxLengthOf()`, `minLengthOf()`, `minNumberOfDigits()`, `minNumberOfLowercaseChars()`, `minNumberOfSymbols()`, `minNumberOfUppercaseChars()`, `minStrengthOf()` | `minLength`, `maxLength`, `minStrength`, `minUppercaseChars`, `minLowercaseChars`, `minDigits`, `minSymbols` | `Password\Value` |
 | `PhoneNumber` | `allowCountries()`, `clearAllowedCountries()`, `ofType()` | `numberRequired`, `countryRequired`, `allowedCountries`, `numberType` | `PhoneNumber\Value` |
+| `Slot` | `offeredBy()` | `available` | `Slot\Value` |
 | `Text` | `maxLengthOf()`, `minLengthOf()`, `mustMatch()` | `minLength`, `maxLength`, `pattern` | `Text\Value` |
 | `Time` | `after()`, `atIntervalsOf()`, `from()`, `through()`, `until()` | `from`, `after`, `until`, `through`, `interval`, `precision` | `Time\Value` |
 | `Uri` | `allowSchemes()`, `clearAllowedSchemes()`, `maxLengthOf()`, `minLengthOf()` | `minLength`, `maxLength`, `allowedSchemes` | `Uri\Value` |
@@ -397,6 +398,45 @@ Reading the date once into a property would start rejecting valid cards the day 
 was built. The instant actually used is on the result as `$evaluatedAt`, read **once per request**
 rather than once per field, so two time-relative fields cannot disagree by microseconds.
 
+### `Slot` asks a source, and never holds the slots
+
+```php
+$schema->createSlotField('appointment', $consultations);   // your Slot\Source
+```
+
+The obvious shape for "one of the times on offer" is an `Enum` of every start, and it stops working
+at the size a booking platform is. Eighteen months of fifteen-minute slots for one practitioner is
+around twelve thousand values, they change with every booking, and an enum's value is text, so no
+rule could ask whether a slot falls in the holidays. Nothing needs the whole list: validating needs
+one answer about one value, and a picker needs the week on screen.
+
+So the field holds a `Slot\Source` — the application's, over whatever holds its slots — and asks it
+about the one slot submitted. What the definition carries is the source's `SourceId`, which is what
+a port writes down and finds the source by when it draws a picker. Its size does not depend on how
+far ahead bookings open, and the offered slots need not fall on any interval.
+
+**`available` is a constraint, not the shape.** "Not a date and time" and "not available" are
+different sentences, so a value of the right type always reads, and the constraint reports whether
+the source offers it. Its bound is the source's id.
+
+**An outage is a skip.** A source answers `Availability::Available`, `Unavailable` or
+`CannotCheck`, and the last skips the constraint — nothing was learned about the slot. A field with
+only skipped and passed constraints has passed, so an outage lets the form through. That is the
+trade: the check is advice, and the booking is what refuses a slot that has gone. A source that would
+rather fail the request throws, and the field does not catch it.
+
+**One type of slot per field.** A slot is a day, a date and time, or a time of day (`Slot\Type`).
+The source declares which and the field takes it from there; a value of another type is unreadable,
+and `offeredBy()` refuses a source of another type.
+
+**Wall-clock time.** `09:40` is 09:40 where the slot happens, which is what `datetime-local`
+submits. Nothing is converted, so rule bounds mean what they say; converting to UTC up front would
+fix today's offset onto a booking eighteen months out.
+
+`offeredBy()` exists for rules — `->then($appointment->offeredBy($extended))` switches source on the
+service chosen. A source *per practitioner* waits on constraints that can read another field: one
+rule per practitioner puts the practitioner list back into the definition.
+
 ## Reading a result
 
 ```php
@@ -615,7 +655,7 @@ four matchers, one per capability set, and a field's declaration picks one:
 | [`Matcher\Basic`](../src/Rule/Matcher/Basic.php) | Address, Boolean, Collection, CreditCard, File, Password |
 | [`Matcher\Ordered`](../src/Rule/Matcher/Ordered.php) | Money |
 | [`Matcher\Text`](../src/Rule/Matcher/Text.php) | EmailAddress, Enum, Name, PhoneNumber, Text, Uri, Uuid |
-| [`Matcher\OrderedText`](../src/Rule/Matcher/OrderedText.php) | Number, Date, DateTime, Time, Duration |
+| [`Matcher\OrderedText`](../src/Rule/Matcher/OrderedText.php) | Number, Date, DateTime, Time, Duration, Slot |
 
 So `$notes->when()->isAtLeast(3)` is a **call to a method that is not there** — absent from
 completion, refused by PHPStan, fatal at runtime. That is the difference between this and one
@@ -623,7 +663,7 @@ matcher with a `mixed` bound, which can only refuse the same mistake once the ru
 
 Which set a field gets follows from its value: *ordered* means the value implements
 [`Comparison\Comparable`](../src/Comparison/Comparable.php), *text* means it is `Stringable`. A
-test asserts every field's declaration against its value's actual capabilities, so the nineteen
+test asserts every field's declaration against its value's actual capabilities, so the twenty
 one-line declarations cannot drift.
 
 `Password` and `CreditCard` have no string form **on purpose**, so neither can be pattern-matched

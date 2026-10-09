@@ -18,8 +18,8 @@ use Stringable;
  *
  * ### Not every value has text, and two of them refuse to
  *
- * Twelve of the nineteen value types are {@see \Stringable} — number, date, date-time, time,
- * duration, email address, enum, name, phone number, text, URI and UUID — and a
+ * Thirteen of the twenty value types are {@see \Stringable} — number, date, date-time, time,
+ * duration, email address, enum, name, phone number, slot, text, URI and UUID — and a
  * {@see \Meraki\Schema\PartScope} resolves to a plain string, so `PartScope::of('billing', 'locality')`
  * reaches one part of an address where a {@see \Meraki\Schema\ValueScope} reaches the whole of it.
  *

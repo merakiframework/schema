@@ -38,7 +38,7 @@ use Brick\DateTime\Clock;
  * same reason {@see Definition} is one — note that those two names are different things, the
  * schema and the trait holding a field's configuration half, and inside this namespace the bare
  * name means the trait. A schema already
- * holds fields, builds rules and validates requests, and nineteen field builders interleaved with
+ * holds fields, builds rules and validates requests, and twenty field builders interleaved with
  * that would bury all three.
  */
 trait BuildsFields
@@ -211,6 +211,17 @@ trait BuildsFields
 	public function createPhoneNumberField(string $name, ?array $allowedCountries = null): PhoneNumber
 	{
 		return new PhoneNumber(new FieldName($name), $allowedCountries ?? $this->defaultCountries);
+	}
+
+	/**
+	 * One of the slots a source is offering. The source is the application's — see
+	 * {@see Slot\Source} — and the field takes its type of slot from it:
+	 *
+	 *     $schema->createSlotField('appointment', $consultations);
+	 */
+	public function createSlotField(string $name, Slot\Source $source): Slot
+	{
+		return new Slot(new FieldName($name), $source);
 	}
 
 	public function createTextField(string $name): Text

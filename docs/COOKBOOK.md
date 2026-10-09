@@ -24,6 +24,7 @@ the whole surface of a field, [API.md](API.md). For longer, runnable versions of
 - [Was this required by a rule, or by me?](#was-this-required-by-a-rule-or-by-me)
 - [Error messages in the reader's language](#error-messages-in-the-readers-language)
 - [One region for the whole form](#one-region-for-the-whole-form)
+- [A slot from your own calendar](#a-slot-from-your-own-calendar)
 - [One field, no schema](#one-field-no-schema)
 
 ---
@@ -425,6 +426,50 @@ $schema->createAddressField('other', []);          // and [] means free-form
 
 Deliberately **not** `Money`: a currency does not follow from a region. A country may use several,
 and the euro spans twenty.
+
+## A slot from your own calendar
+
+```php
+use Meraki\Schema\Field\Slot;
+
+final readonly class Consultations implements Slot\Source
+{
+    public Slot\SourceId $id;
+
+    public Slot\Type $slotType;
+
+    public function __construct(private PDO $db)
+    {
+        $this->id = new Slot\SourceId('consultations');
+        $this->slotType = Slot\Type::DateTime;
+    }
+
+    public function availabilityOf(Slot\Value $slot): Slot\Availability
+    {
+        try {
+            $free = $this->db->prepare('SELECT 1 FROM slots WHERE starts_at = ? AND booked = 0');
+            $free->execute([(string) $slot]);
+        } catch (PDOException) {
+            return Slot\Availability::CannotCheck;      // or let it through, and fail the request
+        }
+
+        return $free->fetchColumn() === false
+            ? Slot\Availability::Unavailable
+            : Slot\Availability::Available;
+    }
+}
+
+$schema->add($schema->createSlotField('appointment', new Consultations($db)));
+
+$schema->validate((object) ['appointment' => '2026-10-13T09:40'])
+    ->forField('appointment')->forConstraint('available')->status;
+// Passed, Failed when it is booked, or Skipped when the database could not be asked
+```
+
+The definition holds the source and never the slots, so it is the same size whether bookings open a
+week or eighteen months ahead. `(string) $slot` is the wall-clock start — `2026-10-13T09:40` — with
+nothing converted on the way in. A slot that went between drawing the form and submitting it is your
+booking's to refuse; this check is advice.
 
 ## One field, no schema
 
